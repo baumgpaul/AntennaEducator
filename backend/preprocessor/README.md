@@ -90,11 +90,67 @@ Run the tests for this service:
 
 ```bash
 pytest tests/unit/test_preprocessor_service.py -v
+pytest tests/unit/test_dipole_builder.py -v
+```
+
+## Visualization & Debugging
+
+### Console Visualization
+
+View mesh structure in the console for debugging:
+
+```python
+from backend.preprocessor.builders import create_dipole, dipole_to_mesh
+from backend.preprocessor.visualization import visualize_mesh
+
+element = create_dipole(length=1.0, gap=0.01, segments=10)
+mesh = dipole_to_mesh(element)
+
+# Show detailed console output
+visualize_mesh(mesh, element, console=True, plot=False)
+```
+
+### Example Script
+
+Run the visualization example:
+
+```bash
+python -m backend.preprocessor.visualize_example
+```
+
+### 3D Visualization (Optional)
+
+Install matplotlib for 3D plotting:
+
+```bash
+pip install matplotlib
+```
+
+Then use:
+
+```python
+visualize_mesh(mesh, element, console=True, plot=True)
+# Or save to file
+visualize_mesh(mesh, element, plot=True, save_path="antenna.png")
+```
+
+### API Debug Mode
+
+Enable debug mode to see mesh visualization in console for all API requests:
+
+```bash
+# Windows PowerShell
+$env:PREPROCESSOR_DEBUG='true'
+python -m backend.preprocessor.main
+
+# Linux/Mac
+export PREPROCESSOR_DEBUG=true
+python -m backend.preprocessor.main
 ```
 
 ## Next Steps
 
-- Add geometry definition endpoints
-- Implement antenna builders (dipole, loop, etc.)
-- Add mesh generation logic
+- Add remaining antenna builders (loop, helix, rod, grid)
+- Add geometry composition (multiple elements)
+- Add transformation functions (translate, rotate)
 - Integrate with storage backend

@@ -42,6 +42,11 @@ htmlcov/
 coverage.xml
 *.cover
 
+# Development tools output
+dev_tools/**/*.png
+dev_tools/**/*.pdf
+dev_tools/**/*.svg
+
 # MyPy
 .mypy_cache/
 .dmypy.json
