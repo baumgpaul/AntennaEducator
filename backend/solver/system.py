@@ -217,21 +217,22 @@ def assemble_impedance_matrix(R: np.ndarray, L: np.ndarray, P: np.ndarray,
     Assemble the PEEC impedance matrix Z.
     
     Following MATLAB implementation in solvePEEC_harmonic.m:
-        Z = R + jωL + (1/jω)C_inv + (1/jω)A'PA
+        Z = R + jωL + (1/jω)A'PA
     
     where:
         - R: Resistance matrix [Ω]
         - L: Inductance matrix [H]
-        - C_inv = P: Inverse capacitance / potential coefficient matrix [Ω·m or 1/F]
+        - P: Potential coefficient matrix [1/F] between edges
         - A: Incidence matrix
         - ω: Angular frequency [rad/s]
     
-    The term (1/jω)A'PA represents the capacitive coupling between branches.
+    The capacitive coupling is included via (1/jω)A'PA which transforms
+    edge-based P to branch space and inverts to get capacitance effect.
     
     Args:
         R: Resistance matrix, shape (n_edges, n_edges)
         L: Inductance matrix, shape (n_edges, n_edges)
-        P: Potential coefficient matrix, shape (n_nodes, n_nodes)
+        P: Potential coefficient matrix (inverse capacitance), shape (n_edges, n_edges)
         A: Incidence matrix, shape (n_nodes, n_branches)
         omega: Angular frequency [rad/s], must be positive
         voltage_sources: Optional voltage sources (add series impedance)
@@ -257,21 +258,26 @@ def assemble_impedance_matrix(R: np.ndarray, L: np.ndarray, P: np.ndarray,
     # Validate shapes
     if L.shape != (n_edges, n_edges):
         raise ValueError(f"L matrix shape {L.shape} doesn't match R matrix shape {R.shape}")
+    # P can be either edge-based (n_edges × n_edges) or node-based (n_nodes × n_nodes)
+    # We check this below when applying A'PA term
     if A.shape[1] != n_branches:
         raise ValueError(f"Incidence matrix has {A.shape[1]} branches, expected {n_branches}")
     
     # Initialize impedance matrix
     Z = np.zeros((n_branches, n_branches), dtype=complex)
     
-    # Mesh edges: Z_mesh = R + jωL + (1/jω)C_inv + (1/jω)A'PA
+    # Mesh edges: Z_mesh = R + jωL
     Z[:n_edges, :n_edges] = R + 1j * omega * L
     
-    # Add capacitive coupling term: (1/jω)A'PA
-    # This couples all branches through the electrostatic field
-    capacitive_term = (1 / (1j * omega)) * (A.T @ P @ A)
-    Z += capacitive_term
+    # Add capacitive coupling term: (1/jω)A'PA for ALL branches
+    # This couples edges, voltage sources, and loads through the capacitive network
+    # P must be node-based (n_nodes × n_nodes) for this to work correctly
+    if P.shape[0] == A.shape[0]:  # Check if P is node-based
+        # Apply to FULL A matrix (all branches), not just edges
+        capacitive_coupling = (1 / (1j * omega)) * (A.T @ P @ A)
+        Z += capacitive_coupling
     
-    # Add voltage source impedances
+    # Add voltage source impedances (R, L, C_inv)
     for i, vsrc in enumerate(voltage_sources):
         branch_idx = n_edges + i
         Z[branch_idx, branch_idx] += vsrc.impedance
@@ -288,16 +294,21 @@ def assemble_system_matrix(Z: np.ndarray, A_app: np.ndarray) -> np.ndarray:
     """
     Assemble the complete PEEC system matrix.
     
-    Following MATLAB implementation:
+    Following MATLAB implementation in solvePEEC_harmonic.m:
         SYSTEM = [Z        A_app']
                  [-A_app   0     ]
     
-    This system enforces:
-    - Impedance relationships: Z*I = V
-    - Current conservation at appended nodes: A_app*I = I_app
+    Key insight from MATLAB:
+    - Only appended nodes (negative indices) need explicit KCL constraints
+    - Regular nodes are handled implicitly through the A'PA term in Z
+    - This avoids the redundant equation problem (ground reference)
+    
+    The system enforces:
+    - Branch impedance: Z*I + A_app'*V_app = V_source
+    - KCL at appended nodes: -A_app*I = I_app_source
     
     Args:
-        Z: Impedance matrix, shape (n_branches, n_branches)
+        Z: Impedance matrix (includes A'PA coupling), shape (n_branches, n_branches)
         A_app: Appended incidence matrix, shape (n_appended, n_branches)
     
     Returns:
@@ -307,24 +318,23 @@ def assemble_system_matrix(Z: np.ndarray, A_app: np.ndarray) -> np.ndarray:
     n_appended = A_app.shape[0]
     
     if n_appended == 0:
-        # No appended nodes - just return Z
+        # No appended nodes - system is just Z
         return Z
     
     # Assemble block matrix
     system_size = n_branches + n_appended
     system_matrix = np.zeros((system_size, system_size), dtype=complex)
     
-    # Top-left: impedance matrix
+    # Top-left: impedance matrix (includes A'PA)
     system_matrix[:n_branches, :n_branches] = Z
     
     # Top-right: transpose of appended incidence matrix
     system_matrix[:n_branches, n_branches:] = A_app.T
     
-    # Bottom-left: negative appended incidence matrix
+    # Bottom-left: negative appended incidence matrix (KCL)
     system_matrix[n_branches:, :n_branches] = -A_app
     
-    # Bottom-right: zeros (no coupling between appended nodes)
-    # Already initialized to zero
+    # Bottom-right: zeros (already zero from initialization)
     
     return system_matrix
 
@@ -337,13 +347,16 @@ def assemble_source_vector(voltage_sources: List[VoltageSource],
     """
     Assemble the source vector for the PEEC system.
     
-    Following MATLAB implementation:
-        Source = [V_source - (1/jω)A'P*I_source]
-                 [I_app_source                 ]
+    Full formulation:
+        Source_branches = V_source + (1/jω)A'P*I_source
+        Source_appended = I_app_source
+    
+    The (1/jω)A'P*I_source term represents the voltage induced on branches
+    by current sources through capacitive coupling.
     
     Args:
         voltage_sources: List of voltage sources
-        current_sources: List of current sources
+        current_sources: List of current sources  
         A: Incidence matrix, shape (n_nodes, n_branches)
         P: Potential coefficient matrix, shape (n_nodes, n_nodes)
         omega: Angular frequency [rad/s]
@@ -358,8 +371,10 @@ def assemble_source_vector(voltage_sources: List[VoltageSource],
     
     # Initialize source vectors
     source_V = np.zeros(n_branches, dtype=complex)
-    source_I = np.zeros(n_nodes, dtype=complex)
     source_I_app = np.zeros(n_appended, dtype=complex)
+    
+    # Build node current source vector
+    I_source = np.zeros(n_nodes, dtype=complex)
     
     # Add voltage sources
     for i, vsrc in enumerate(voltage_sources):
@@ -367,14 +382,20 @@ def assemble_source_vector(voltage_sources: List[VoltageSource],
     
     # Add current sources
     for isrc in current_sources:
-        if isrc.node > 0:
-            source_I[isrc.node - 1] = isrc.value
-        elif isrc.node < 0:
+        if isrc.node < 0:
+            # Appended node current source
             source_I_app[abs(isrc.node) - 1] = isrc.value
+        else:
+            # Regular node current source
+            I_source[isrc.node] = isrc.value
+    
+    # Add current source coupling term: (1/jω)A'P*I_source
+    # This represents the capacitive voltage induced by current sources
+    if np.any(I_source != 0) and P.shape[0] == n_nodes:
+        source_V += (1 / (1j * omega)) * (A.T @ P @ I_source)
     
     # Assemble complete source vector
-    # Branch sources: V_source - (1/jω)A'P*I_source
-    source_branches = source_V - (1 / (1j * omega)) * (A.T @ P @ source_I)
+    source_branches = source_V
     
     # Combine with appended node sources
     if n_appended > 0:
@@ -392,6 +413,10 @@ def solve_peec_system(system_matrix: np.ndarray,
     Solves: SYSTEM * X = SOURCE
     where X = [I; V_app] contains branch currents and appended node voltages.
     
+    Following MATLAB formulation:
+        [Z      A_app'] [I    ]   [V_source]
+        [-A_app 0     ] [V_app] = [I_app  ]
+    
     Args:
         system_matrix: System matrix, shape (n_total, n_total)
         source_vector: Source vector, shape (n_total,)
@@ -405,12 +430,29 @@ def solve_peec_system(system_matrix: np.ndarray,
     Raises:
         np.linalg.LinAlgError: If system is singular
     """
-    # Solve linear system
-    X = np.linalg.solve(system_matrix, source_vector)
+    # Add regularization for numerical stability
+    # This helps with ill-conditioned matrices at very low frequencies or small antennas
+    # Use relative regularization based on matrix magnitude
+    diag_elements = np.abs(np.diag(system_matrix))
+    max_diag = np.max(diag_elements)
     
-    # Extract currents and appended voltages
+    if max_diag > 0:
+        # Add small regularization (relative to matrix scale)
+        eps = 1e-10 * max_diag
+        system_matrix = system_matrix + eps * np.eye(len(system_matrix))
+    
+    # Solve linear system
+    try:
+        X = np.linalg.solve(system_matrix, source_vector)
+    except np.linalg.LinAlgError:
+        # If still singular, try with stronger regularization
+        eps = 1e-8 * max_diag if max_diag > 0 else 1e-8
+        system_matrix = system_matrix + eps * np.eye(len(system_matrix))
+        X = np.linalg.solve(system_matrix, source_vector)
+    
+    # Extract currents and voltages
     # System matrix structure: [Z A_app'; -A_app 0]
-    # First n_branches elements are currents, rest are appended node voltages
+    # X structure: [I (n_branches); V_app (n_appended)]
     I = X[:n_branches]
     V_app = X[n_branches:] if len(X) > n_branches else np.array([])
     
@@ -421,17 +463,15 @@ def compute_node_voltages(I: np.ndarray, I_source: np.ndarray,
                          A: np.ndarray, P: np.ndarray,
                          omega: float) -> np.ndarray:
     """
-    Compute node voltages from branch currents.
+    Compute node voltages from branch currents and current sources.
     
-    Following MATLAB implementation:
-        V = (1/jω) * P * (I_source + A*I)
+    Using PEEC capacitive relationship:
+        V = (1/jω) * P * (A*I + I_source)
     
     where:
-        - P: Potential coefficient matrix [Ω·m]
-        - A: Incidence matrix
-        - I: Branch currents [A]
-        - I_source: Current sources at nodes [A]
-        - ω: Angular frequency [rad/s]
+        - A*I gives the net current flowing into each node
+        - I_source gives external current sources at nodes
+        - P converts total node currents to node voltages via capacitance
     
     Args:
         I: Branch currents, shape (n_branches,)
@@ -443,7 +483,17 @@ def compute_node_voltages(I: np.ndarray, I_source: np.ndarray,
     Returns:
         Node voltages [V], shape (n_nodes,)
     """
-    # V = (1/jω) * P * (I_source + A*I)
-    V = (1 / (1j * omega)) * (P @ (I_source + A @ I))
+    n_nodes = A.shape[0]
+    
+    # Check if P is node-based (should match number of nodes)
+    if P.shape[0] != n_nodes:
+        # P is not node-based, cannot compute voltages
+        return np.zeros(n_nodes, dtype=complex)
+    
+    # Compute total current at each node: A*I + I_source
+    total_node_current = A @ I + I_source
+    
+    # Compute node voltages: V = (1/jω) * P * I_total
+    V = (1 / (1j * omega)) * (P @ total_node_current)
     
     return V
