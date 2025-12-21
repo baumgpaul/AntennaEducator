@@ -1,0 +1,269 @@
+"""Pydantic models for Solver service API."""
+
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional
+import numpy as np
+
+
+class SolverConfiguration(BaseModel):
+    """Solver configuration parameters."""
+    
+    gauss_order: int = Field(6, description="Gauss quadrature order (2, 4, 6, 8, 10)")
+    include_skin_effect: bool = Field(True, description="Include frequency-dependent skin effect")
+    resistivity: float = Field(1.68e-8, description="Material resistivity [Ω·m] (copper default)")
+    permeability: float = Field(1.0, description="Relative permeability μ_r")
+    
+    @field_validator('gauss_order')
+    @classmethod
+    def validate_gauss_order(cls, v):
+        if v not in [2, 4, 6, 8, 10]:
+            raise ValueError("gauss_order must be one of: 2, 4, 6, 8, 10")
+        return v
+    
+    @field_validator('resistivity')
+    @classmethod
+    def validate_resistivity(cls, v):
+        if v <= 0:
+            raise ValueError("resistivity must be positive")
+        return v
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "gauss_order": 6,
+                "include_skin_effect": True,
+                "resistivity": 1.68e-8,
+                "permeability": 1.0
+            }
+        }
+
+
+class VoltageSourceInput(BaseModel):
+    """Voltage source specification."""
+    
+    node_start: int = Field(..., description="Starting node index (1-based)")
+    node_end: int = Field(..., description="Ending node index (0=ground)")
+    value: complex = Field(..., description="Voltage [V]")
+    impedance: float = Field(50.0, description="Source impedance [Ω]")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "node_start": 1,
+                "node_end": 0,
+                "value": 1.0,
+                "impedance": 50.0
+            }
+        }
+
+
+class CurrentSourceInput(BaseModel):
+    """Current source specification."""
+    
+    node: int = Field(..., description="Node index (1-based, negative for appended)")
+    value: complex = Field(..., description="Current [A]")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "node": 1,
+                "value": 0.001
+            }
+        }
+
+
+class LoadInput(BaseModel):
+    """Load impedance specification."""
+    
+    node_start: int = Field(..., description="Starting node index (1-based)")
+    node_end: int = Field(..., description="Ending node index")
+    impedance: complex = Field(..., description="Load impedance [Ω]")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "node_start": 5,
+                "node_end": 0,
+                "impedance": 50.0
+            }
+        }
+
+
+class SingleFrequencyRequest(BaseModel):
+    """Request for single frequency solution."""
+    
+    # Geometry
+    nodes: List[List[float]] = Field(..., description="Node coordinates [[x,y,z], ...] [m]")
+    edges: List[List[int]] = Field(..., description="Edge connectivity [[n1,n2], ...]")
+    radii: List[float] = Field(..., description="Wire radii [m]")
+    
+    # Excitation
+    frequency: float = Field(..., description="Frequency [Hz]", gt=0)
+    voltage_sources: List[VoltageSourceInput] = Field(default_factory=list)
+    current_sources: List[CurrentSourceInput] = Field(default_factory=list)
+    loads: List[LoadInput] = Field(default_factory=list)
+    
+    # Configuration
+    config: Optional[SolverConfiguration] = None
+    
+    @field_validator('frequency')
+    @classmethod
+    def validate_frequency(cls, v):
+        if v <= 0:
+            raise ValueError("frequency must be positive")
+        if v > 100e9:
+            raise ValueError("frequency too high (max 100 GHz)")
+        return v
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "nodes": [[0, 0, 0], [0, 0, 0.5]],
+                "edges": [[0, 1]],
+                "radii": [0.001],
+                "frequency": 100e6,
+                "voltage_sources": [{
+                    "node_start": 1,
+                    "node_end": 0,
+                    "value": 1.0,
+                    "impedance": 50.0
+                }]
+            }
+        }
+
+
+class FrequencySweepRequest(BaseModel):
+    """Request for frequency sweep solution."""
+    
+    # Geometry
+    nodes: List[List[float]] = Field(..., description="Node coordinates [[x,y,z], ...] [m]")
+    edges: List[List[int]] = Field(..., description="Edge connectivity [[n1,n2], ...]")
+    radii: List[float] = Field(..., description="Wire radii [m]")
+    
+    # Excitation
+    frequencies: List[float] = Field(..., description="Frequencies [Hz]")
+    voltage_sources: List[VoltageSourceInput] = Field(default_factory=list)
+    current_sources: List[CurrentSourceInput] = Field(default_factory=list)
+    loads: List[LoadInput] = Field(default_factory=list)
+    
+    # Configuration
+    config: Optional[SolverConfiguration] = None
+    reference_impedance: float = Field(50.0, description="Reference Z0 for VSWR [Ω]")
+    
+    @field_validator('frequencies')
+    @classmethod
+    def validate_frequencies(cls, v):
+        if len(v) == 0:
+            raise ValueError("frequencies list cannot be empty")
+        if len(v) > 1000:
+            raise ValueError("too many frequency points (max 1000)")
+        if any(f <= 0 for f in v):
+            raise ValueError("all frequencies must be positive")
+        return v
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "nodes": [[0, 0, 0], [0, 0, 0.5]],
+                "edges": [[0, 1]],
+                "radii": [0.001],
+                "frequencies": [90e6, 100e6, 110e6],
+                "voltage_sources": [{
+                    "node_start": 1,
+                    "node_end": 0,
+                    "value": 1.0,
+                    "impedance": 50.0
+                }],
+                "reference_impedance": 50.0
+            }
+        }
+
+
+class FrequencyPointResponse(BaseModel):
+    """Solution at a single frequency point."""
+    
+    frequency: float = Field(..., description="Frequency [Hz]")
+    omega: float = Field(..., description="Angular frequency [rad/s]")
+    
+    # Currents and voltages
+    branch_currents: List[complex] = Field(..., description="Branch currents [A]")
+    node_voltages: List[complex] = Field(..., description="Node voltages [V]")
+    appended_voltages: List[complex] = Field(..., description="Appended node voltages [V]")
+    
+    # Input characteristics
+    input_impedance: complex = Field(..., description="Input impedance [Ω]")
+    input_current: complex = Field(..., description="Input current [A]")
+    power_dissipated: float = Field(..., description="Dissipated power [W]")
+    
+    # Timing
+    solve_time: float = Field(..., description="Solution time [s]")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "frequency": 100e6,
+                "omega": 6.283e8,
+                "branch_currents": [0.001+0j, 0.002+0j],
+                "node_voltages": [0j, 0.05+0j],
+                "appended_voltages": [],
+                "input_impedance": 75-10j,
+                "input_current": 0.013+0j,
+                "power_dissipated": 0.007,
+                "solve_time": 0.015
+            }
+        }
+
+
+class SweepResultResponse(BaseModel):
+    """Response for frequency sweep."""
+    
+    # Input parameters
+    frequencies: List[float] = Field(..., description="Frequencies [Hz]")
+    reference_impedance: float = Field(..., description="Reference Z0 [Ω]")
+    
+    # Per-frequency solutions
+    frequency_solutions: List[FrequencyPointResponse]
+    
+    # Derived parameters
+    impedance_magnitude: List[float] = Field(..., description="|Z| [Ω]")
+    impedance_phase: List[float] = Field(..., description="∠Z [deg]")
+    vswr: List[float] = Field(..., description="Voltage Standing Wave Ratio")
+    
+    # Metadata
+    n_nodes: int = Field(..., description="Number of nodes")
+    n_edges: int = Field(..., description="Number of edges")
+    n_branches: int = Field(..., description="Total branches")
+    total_solve_time: float = Field(..., description="Total computation time [s]")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "frequencies": [90e6, 100e6, 110e6],
+                "reference_impedance": 50.0,
+                "frequency_solutions": [],
+                "impedance_magnitude": [75.0, 76.0, 77.0],
+                "impedance_phase": [-30, -5, 20],
+                "vswr": [2.5, 1.5, 2.0],
+                "n_nodes": 2,
+                "n_edges": 1,
+                "n_branches": 2,
+                "total_solve_time": 0.045
+            }
+        }
+
+
+class ErrorResponse(BaseModel):
+    """Error response."""
+    
+    error: str = Field(..., description="Error type")
+    message: str = Field(..., description="Error message")
+    details: Optional[dict] = Field(None, description="Additional error details")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "error": "ValidationError",
+                "message": "Invalid frequency range",
+                "details": {"frequency": -100}
+            }
+        }
