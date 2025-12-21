@@ -7,6 +7,7 @@ from .validation import (
     validate_vector_3d,
     validate_frequency,
     validate_segments,
+    validate_lumped_element_nodes,
 )
 from .serialization import (
     serialize_complex,
@@ -18,6 +19,10 @@ from .serialization import (
 __all__ = [
     # Validation
     "validate_positive",
+    "validate_vector_3d",
+    "validate_frequency",
+    "validate_segments",
+    "validate_lumped_element_nodes",
     "validate_vector_3d",
     "validate_frequency",
     "validate_segments",

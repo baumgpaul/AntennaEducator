@@ -129,3 +129,55 @@ def validate_positive_array(
     """
     if not np.all(arr > 0):
         raise ValueError(f"All elements in {name} must be positive")
+
+
+def validate_lumped_element_nodes(
+    lumped_elements: List,
+    num_mesh_nodes: int,
+    element_name: str = "antenna"
+) -> None:
+    """
+    Validate that lumped element node references are valid for the mesh.
+    
+    Uses MATLAB-compatible 1-based indexing:
+    - Positive indices: mesh nodes 1 to num_mesh_nodes
+    - 0: ground/reference node (always valid)
+    - Negative indices: appended/auxiliary nodes (always valid)
+    
+    Args:
+        lumped_elements: List of LumpedElement objects to validate
+        num_mesh_nodes: Number of nodes in the mesh
+        element_name: Name of the antenna element (for error messages)
+        
+    Raises:
+        ValueError: If any node reference is out of range
+    """
+    if not lumped_elements:
+        return  # No lumped elements to validate
+    
+    for i, lumped in enumerate(lumped_elements):
+        # Get node indices
+        node_start = lumped.node_start
+        node_end = lumped.node_end
+        
+        # Check node_start (1-based indexing: valid range is 1 to num_mesh_nodes)
+        if node_start > 0:  # Positive index must be within mesh bounds
+            if node_start > num_mesh_nodes:
+                raise ValueError(
+                    f"Lumped element {i} (tag='{lumped.tag}') in {element_name}: "
+                    f"node_start={node_start} is out of range. "
+                    f"Mesh has {num_mesh_nodes} nodes (valid range: 1 to {num_mesh_nodes})"
+                )
+        # node_start <= 0 is always valid (0=ground, negative=appended)
+        
+        # Check node_end (1-based indexing: valid range is 1 to num_mesh_nodes)
+        if node_end > 0:  # Positive index must be within mesh bounds
+            if node_end > num_mesh_nodes:
+                raise ValueError(
+                    f"Lumped element {i} (tag='{lumped.tag}') in {element_name}: "
+                    f"node_end={node_end} is out of range. "
+                    f"Mesh has {num_mesh_nodes} nodes (valid range: 1 to {num_mesh_nodes})"
+                )
+        # node_end <= 0 is always valid (0=ground, negative=appended)
+        # node_end == 0 (ground) is always valid
+        # node_end < 0 (appended node) is always valid

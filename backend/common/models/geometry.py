@@ -31,11 +31,11 @@ class Source(BaseModel):
     )
     node_start: Optional[int] = Field(
         default=None,
-        description="Starting node index (0 for reference/ground node)"
+        description="Starting node index: 1-based for mesh nodes (1 to N), 0 for ground/reference"
     )
     node_end: Optional[int] = Field(
         default=None,
-        description="Ending node index where source is connected"
+        description="Ending node index: 1-based for mesh nodes (1 to N), 0 for ground"
     )
     
     # Series impedance for voltage sources (matches MATLAB's Voltage_Source structure)
@@ -79,10 +79,13 @@ class LumpedElement(BaseModel):
     The element impedance is: Z = R + jωL + 1/(jωC) where C = 1/C_inv
     Using C_inv (inverse capacitance) avoids division by zero and matches MATLAB convention.
     
-    Node numbering follows MATLAB convention:
-    - Positive indices: regular mesh nodes (1, 2, 3, ...)
+    Node numbering follows MATLAB convention (1-based indexing):
+    - Positive indices: regular mesh nodes (1, 2, 3, ..., N)
     - 0: ground/reference node
     - Negative indices: appended/auxiliary nodes (-1, -2, -3, ...)
+    
+    Note: Internally, Python stores mesh nodes in 0-based arrays, but circuit
+    elements use 1-based node references for MATLAB compatibility.
     """
     type: Literal["resistor", "inductor", "capacitor", "rlc"] = Field(
         description="Type of lumped element (for documentation/visualization)"
@@ -103,10 +106,10 @@ class LumpedElement(BaseModel):
         ge=0
     )
     node_start: int = Field(
-        description="Starting node index (0 for ground, negative for appended nodes)"
+        description="Starting node index: 1-based for mesh nodes (1 to N), 0 for ground, negative for appended nodes"
     )
     node_end: int = Field(
-        description="Ending node index"
+        description="Ending node index: 1-based for mesh nodes (1 to N), 0 for ground, negative for appended nodes"
     )
     tag: str = Field(
         default="",

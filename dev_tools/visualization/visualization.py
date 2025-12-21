@@ -28,20 +28,20 @@ def print_mesh_info(mesh: Mesh, element: Optional[AntennaElement] = None) -> Non
     print(f"Edges: {len(mesh.edges)}")
     print(f"Total wire segments: {len(mesh.radii)}")
     
-    # Print node coordinates
+    # Print node coordinates (displaying 1-based indices for user reference)
     print("\n--- Node Coordinates ---")
     nodes_array = np.array(mesh.nodes)
     for i, node in enumerate(nodes_array):
-        print(f"  Node {i:3d}: ({node[0]:8.4f}, {node[1]:8.4f}, {node[2]:8.4f})")
+        print(f"  Node {i+1:3d}: ({node[0]:8.4f}, {node[1]:8.4f}, {node[2]:8.4f})")
     
-    # Print edge connectivity
+    # Print edge connectivity (displaying 1-based indices for user reference)
     print("\n--- Edge Connectivity ---")
     for i, edge in enumerate(mesh.edges):
         n1, n2 = edge
         p1 = nodes_array[n1]
         p2 = nodes_array[n2]
         length = np.linalg.norm(p2 - p1)
-        print(f"  Edge {i:3d}: {n1:3d} -> {n2:3d}  (length: {length:.4f}m, radius: {mesh.radii[i]:.5f}m)")
+        print(f"  Edge {i:3d}: {n1+1:3d} -> {n2+1:3d}  (length: {length:.4f}m, radius: {mesh.radii[i]:.5f}m)")
     
     # Print bounding box
     print("\n--- Bounding Box ---")
@@ -90,13 +90,15 @@ def plot_mesh_3d(mesh: Mesh, element: Optional[AntennaElement] = None,
                c='red', s=30, alpha=0.8, label='Nodes')
     
     # Highlight source location if present
-    # Source is between two physical nodes
+    # Source uses 1-based node indices, convert to 0-based for array access
     if element and element.source:
-        if (element.source.node_start is not None and element.source.node_end is not None and
-            element.source.node_start < len(nodes_array) and element.source.node_end < len(nodes_array)):
+        # Convert 1-based to 0-based indices for array access
+        idx_start = element.source.node_start - 1 if element.source.node_start > 0 else 0
+        idx_end = element.source.node_end - 1 if element.source.node_end > 0 else 0
+        if (0 <= idx_start < len(nodes_array) and 0 <= idx_end < len(nodes_array)):
             # Mark both nodes and draw a line between them
-            node1_pos = nodes_array[element.source.node_start]
-            node2_pos = nodes_array[element.source.node_end]
+            node1_pos = nodes_array[idx_start]
+            node2_pos = nodes_array[idx_end]
             
             # Draw line between source nodes
             ax.plot([node1_pos[0], node2_pos[0]], 

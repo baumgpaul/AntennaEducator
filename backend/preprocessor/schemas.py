@@ -1,6 +1,6 @@
 """Request and response models for the Preprocessor API."""
 
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, List
 from pydantic import BaseModel, Field
 
 
@@ -8,6 +8,39 @@ class ComplexNumber(BaseModel):
     """Complex number representation."""
     real: float = Field(description="Real part")
     imag: float = Field(default=0.0, description="Imaginary part")
+
+
+class LumpedElementRequest(BaseModel):
+    """Request to add a lumped circuit element (R, L, C) to an antenna."""
+    type: str = Field(
+        default="rlc",
+        description="Element type: 'resistor', 'inductor', 'capacitor', or 'rlc'"
+    )
+    R: float = Field(
+        default=0.0,
+        ge=0,
+        description="Resistance in Ohms"
+    )
+    L: float = Field(
+        default=0.0,
+        ge=0,
+        description="Inductance in Henries"
+    )
+    C_inv: float = Field(
+        default=0.0,
+        ge=0,
+        description="Inverse capacitance (1/C) in F^-1"
+    )
+    node_start: int = Field(
+        description="Starting node index: 1-based for mesh nodes (1 to N), 0 for ground, negative for appended nodes"
+    )
+    node_end: int = Field(
+        description="Ending node index: 1-based for mesh nodes (1 to N), 0 for ground, negative for appended nodes"
+    )
+    tag: str = Field(
+        default="",
+        description="Human-readable label (e.g., 'Load resistor', 'Matching capacitor')"
+    )
 
 
 class SourceRequest(BaseModel):
@@ -20,6 +53,26 @@ class SourceRequest(BaseModel):
     position: Union[str, int] = Field(
         default="center",
         description="Source position: 'center' for dipole, 'base' for rod, or segment index (int) for loop/rod"
+    )
+    # Series impedance for voltage sources (matches enhanced Source model)
+    series_R: float = Field(
+        default=0.0,
+        ge=0,
+        description="Series resistance in Ohms"
+    )
+    series_L: float = Field(
+        default=0.0,
+        ge=0,
+        description="Series inductance in Henries"
+    )
+    series_C_inv: float = Field(
+        default=0.0,
+        ge=0,
+        description="Series inverse capacitance (1/C) in F^-1"
+    )
+    tag: str = Field(
+        default="",
+        description="Human-readable label for the source"
     )
 
 
@@ -52,6 +105,10 @@ class DipoleRequest(BaseModel):
     source: Optional[SourceRequest] = Field(
         default=None,
         description="Optional source excitation"
+    )
+    lumped_elements: List[LumpedElementRequest] = Field(
+        default_factory=list,
+        description="Optional list of lumped circuit elements (R, L, C) to attach"
     )
     name: Optional[str] = Field(
         default=None,
@@ -89,6 +146,10 @@ class LoopRequest(BaseModel):
         default=None,
         description="Optional source excitation"
     )
+    lumped_elements: List[LumpedElementRequest] = Field(
+        default_factory=list,
+        description="Optional list of lumped circuit elements (R, L, C) to attach"
+    )
     name: Optional[str] = Field(
         default=None,
         description="Optional name for the element"
@@ -119,6 +180,10 @@ class RodRequest(BaseModel):
     source: Optional[SourceRequest] = Field(
         default=None,
         description="Optional source excitation"
+    )
+    lumped_elements: List[LumpedElementRequest] = Field(
+        default_factory=list,
+        description="Optional list of lumped circuit elements (R, L, C) to attach"
     )
     name: Optional[str] = Field(
         default=None,
@@ -152,6 +217,10 @@ class HelixRequest(BaseModel):
     source: Optional[SourceRequest] = Field(
         default=None,
         description="Optional source excitation"
+    )
+    lumped_elements: List[LumpedElementRequest] = Field(
+        default_factory=list,
+        description="Optional list of lumped circuit elements (R, L, C) to attach"
     )
     name: Optional[str] = Field(
         default=None,

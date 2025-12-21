@@ -151,8 +151,8 @@ def visualize_helix():
     bifilar_source = Source(
         type="voltage",
         amplitude=complex(1.0, 0.0),
-        node_start=0,  # First node of helix 1
-        node_end=offset  # First node of helix 2 (after combining)
+        node_start=1,  # First node of helix 1 (1-based indexing)
+        node_end=offset + 1  # First node of helix 2 (1-based indexing)
     )
     
     combined_mesh = Mesh(
@@ -176,7 +176,7 @@ def visualize_helix():
     print(f"\nHelix 1: {len(mesh1.nodes)} nodes, {len(mesh1.edges)} edges")
     print(f"Helix 2: {len(mesh2.nodes)} nodes, {len(mesh2.edges)} edges (rotated 180° around Z)")
     print(f"Combined: {len(combined_mesh.nodes)} nodes, {len(combined_mesh.edges)} edges")
-    print(f"\nSingle source between node 0 (Helix 1) and node {offset} (Helix 2)")
+    print(f"\nSingle source between node 1 (Helix 1 first node) and node {offset + 1} (Helix 2 first node)")
     
     # Visualize combined structure with source
     visualize_mesh(combined_mesh, combined_element, console=False, plot=True)

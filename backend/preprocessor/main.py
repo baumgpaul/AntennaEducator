@@ -92,7 +92,27 @@ async def create_dipole_antenna(request: DipoleRequest):
                     "imag": request.source.amplitude.imag,
                 },
                 "position": request.source.position,
+                "series_R": request.source.series_R,
+                "series_L": request.source.series_L,
+                "series_C_inv": request.source.series_C_inv,
+                "tag": request.source.tag,
             }
+        
+        # Convert lumped elements request to list of dicts
+        lumped_elements_list = None
+        if request.lumped_elements:
+            lumped_elements_list = [
+                {
+                    "type": le.type,
+                    "R": le.R,
+                    "L": le.L,
+                    "C_inv": le.C_inv,
+                    "node_start": le.node_start,
+                    "node_end": le.node_end,
+                    "tag": le.tag,
+                }
+                for le in request.lumped_elements
+            ]
         
         # Create dipole element
         element = create_dipole(
@@ -103,6 +123,7 @@ async def create_dipole_antenna(request: DipoleRequest):
             gap=request.gap,
             segments=request.segments,
             source=source_dict,
+            lumped_elements=lumped_elements_list,
             name=request.name,
         )
         
@@ -150,7 +171,27 @@ async def create_loop_antenna(request: LoopRequest):
                     "imag": request.source.amplitude.imag,
                 },
                 "position": request.source.position,
+                "series_R": request.source.series_R,
+                "series_L": request.source.series_L,
+                "series_C_inv": request.source.series_C_inv,
+                "tag": request.source.tag,
             }
+        
+        # Convert lumped elements request to list of dicts
+        lumped_elements_list = None
+        if request.lumped_elements:
+            lumped_elements_list = [
+                {
+                    "type": le.type,
+                    "R": le.R,
+                    "L": le.L,
+                    "C_inv": le.C_inv,
+                    "node_start": le.node_start,
+                    "node_end": le.node_end,
+                    "tag": le.tag,
+                }
+                for le in request.lumped_elements
+            ]
         
         # Create loop element
         element = create_loop(
@@ -161,6 +202,7 @@ async def create_loop_antenna(request: LoopRequest):
             gap=request.gap,
             segments=request.segments,
             source=source_dict,
+            lumped_elements=lumped_elements_list,
             name=request.name,
         )
         
@@ -208,7 +250,27 @@ async def create_rod_antenna(request: RodRequest):
                     "imag": request.source.amplitude.imag,
                 },
                 "position": request.source.position,
+                "series_R": request.source.series_R,
+                "series_L": request.source.series_L,
+                "series_C_inv": request.source.series_C_inv,
+                "tag": request.source.tag,
             }
+        
+        # Convert lumped elements request to list of dicts
+        lumped_elements_list = None
+        if request.lumped_elements:
+            lumped_elements_list = [
+                {
+                    "type": le.type,
+                    "R": le.R,
+                    "L": le.L,
+                    "C_inv": le.C_inv,
+                    "node_start": le.node_start,
+                    "node_end": le.node_end,
+                    "tag": le.tag,
+                }
+                for le in request.lumped_elements
+            ]
         
         # Create rod element
         element = create_rod(
@@ -218,6 +280,7 @@ async def create_rod_antenna(request: RodRequest):
             wire_radius=request.wire_radius,
             segments=request.segments,
             source=source_dict,
+            lumped_elements=lumped_elements_list,
             name=request.name,
         )
         
@@ -265,7 +328,27 @@ async def create_helix_antenna(request: HelixRequest):
                     "imag": request.source.amplitude.imag,
                 },
                 "position": request.source.position,
+                "series_R": request.source.series_R,
+                "series_L": request.source.series_L,
+                "series_C_inv": request.source.series_C_inv,
+                "tag": request.source.tag,
             }
+        
+        # Convert lumped elements request to list of dicts
+        lumped_elements_list = None
+        if request.lumped_elements:
+            lumped_elements_list = [
+                {
+                    "type": le.type,
+                    "R": le.R,
+                    "L": le.L,
+                    "C_inv": le.C_inv,
+                    "node_start": le.node_start,
+                    "node_end": le.node_end,
+                    "tag": le.tag,
+                }
+                for le in request.lumped_elements
+            ]
         
         # Create helix element
         element = create_helix(
@@ -277,6 +360,7 @@ async def create_helix_antenna(request: HelixRequest):
             wire_radius=request.wire_radius,
             segments_per_turn=request.segments_per_turn,
             source=source_dict,
+            lumped_elements=lumped_elements_list,
             name=request.name,
         )
         

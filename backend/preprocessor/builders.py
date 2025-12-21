@@ -4,7 +4,8 @@ from typing import Optional, Tuple, List
 import numpy as np
 from uuid import uuid4
 
-from backend.common.models.geometry import AntennaElement, Mesh, Source
+from backend.common.models.geometry import AntennaElement, Mesh, Source, LumpedElement
+from backend.common.utils import validate_lumped_element_nodes
 
 
 def create_dipole(
@@ -15,6 +16,7 @@ def create_dipole(
     gap: float = 0.01,
     segments: int = 21,
     source: Optional[dict] = None,
+    lumped_elements: Optional[List[dict]] = None,
     name: Optional[str] = None,
 ) -> AntennaElement:
     """
@@ -31,6 +33,10 @@ def create_dipole(
                 - type: "voltage" or "current"
                 - amplitude: complex number (real or dict with real/imag)
                 - position: "center" (default)
+                - series_R, series_L, series_C_inv: Series impedance (optional)
+                - tag: Human-readable label (optional)
+        lumped_elements: Optional list of lumped element dicts with keys:
+                         - type, R, L, C_inv, node_start, node_end, tag
         name: Optional name for the element
     
     Returns:
@@ -68,7 +74,25 @@ def create_dipole(
             amplitude=amplitude,
             node_start=0,  # Reference/ground node (to be set properly in mesh generation)
             node_end=1,  # Will be set during mesh generation
+            series_R=source.get("series_R", 0.0),
+            series_L=source.get("series_L", 0.0),
+            series_C_inv=source.get("series_C_inv", 0.0),
+            tag=source.get("tag", ""),
         )
+    
+    # Create lumped element objects if provided
+    lumped_objs = []
+    if lumped_elements:
+        for le_dict in lumped_elements:
+            lumped_objs.append(LumpedElement(
+                type=le_dict.get("type", "rlc"),
+                R=le_dict.get("R", 0.0),
+                L=le_dict.get("L", 0.0),
+                C_inv=le_dict.get("C_inv", 0.0),
+                node_start=le_dict["node_start"],
+                node_end=le_dict["node_end"],
+                tag=le_dict.get("tag", ""),
+            ))
     
     # Create element with parameters
     element = AntennaElement(
@@ -84,6 +108,7 @@ def create_dipole(
             "segments": segments,
         },
         source=source_obj,
+        lumped_elements=lumped_objs,
     )
     
     return element
@@ -152,12 +177,12 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         total_segments = 2 * n_segments_per_half
         
         # Source is at the gap (between the two halves)
-        # Between first node of upper half (node 0) and first node of lower half
+        # Between first node of upper half (node 1) and first node of lower half
         if element.source:
-            # First node of upper half
-            element.source.node_start = 0
-            # First node of lower half
-            element.source.node_end = n_segments_per_half + 1
+            # First node of upper half (1-based indexing)
+            element.source.node_start = 1
+            # First node of lower half (1-based indexing)
+            element.source.node_end = n_segments_per_half + 2
     else:
         # Original continuous dipole (no gap)
         start_point = center - (length / 2.0) * orientation
@@ -175,11 +200,11 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         total_segments = n_segments_per_half
         
         # Source at center (for continuous dipole without gap)
-        # Between the two center nodes
+        # Between the two center nodes (1-based indexing)
         if element.source:
             center_node = n_segments_per_half // 2
-            element.source.node_start = center_node
-            element.source.node_end = center_node + 1
+            element.source.node_start = center_node + 1
+            element.source.node_end = center_node + 2
     
     # All edges have the same radius
     radii = [radius] * total_segments
@@ -194,6 +219,12 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         edge_to_element=edge_to_element,
     )
     
+    # Validate lumped element node references
+    if element.lumped_elements:
+        validate_lumped_element_nodes(
+            element.lumped_elements, len(nodes), element.name
+        )
+    
     return mesh
 
 
@@ -205,6 +236,7 @@ def create_loop(
     gap: float = 0.0,
     segments: int = 36,
     source: dict | None = None,
+    lumped_elements: Optional[List[dict]] = None,
     name: str | None = None,
 ) -> AntennaElement:
     """
@@ -217,7 +249,9 @@ def create_loop(
         wire_radius: Wire radius in meters
         gap: Gap at feed point in meters (along circumference)
         segments: Number of segments around the loop (>=3)
-        source: Optional source dict with keys: type, amplitude, position
+        source: Optional source dict with keys: type, amplitude, position,
+                series_R, series_L, series_C_inv, tag
+        lumped_elements: Optional list of lumped element dicts
         name: Optional name for the element
     
     Returns:
@@ -248,16 +282,17 @@ def create_loop(
     if source:
         # For loop, source is typically between first and last node (across gap)
         # This creates the feed point at the gap
-        node_start = 0  # First node
-        node_end = segments  # Last node (with gap, there are segments+1 nodes)
+        # Use 1-based indexing (MATLAB convention)
+        node_start = 1  # First node (1-based)
+        node_end = segments + 1  # Last node (with gap, there are segments+1 nodes)
         
         # Allow custom positioning if specified
         if "position" in source:
             pos = source["position"]
             if isinstance(pos, int):
                 # Custom position: between node pos and pos+1
-                node_start = pos
-                node_end = pos + 1
+                node_start = pos + 1  # Convert to 1-based
+                node_end = pos + 2
         
         # Convert amplitude dict to complex number
         amp = source["amplitude"]
@@ -268,7 +303,25 @@ def create_loop(
             amplitude=amplitude_complex,
             node_start=node_start,
             node_end=node_end,
+            series_R=source.get("series_R", 0.0),
+            series_L=source.get("series_L", 0.0),
+            series_C_inv=source.get("series_C_inv", 0.0),
+            tag=source.get("tag", ""),
         )
+    
+    # Create lumped element objects if provided
+    lumped_objs = []
+    if lumped_elements:
+        for le_dict in lumped_elements:
+            lumped_objs.append(LumpedElement(
+                type=le_dict.get("type", "rlc"),
+                R=le_dict.get("R", 0.0),
+                L=le_dict.get("L", 0.0),
+                C_inv=le_dict.get("C_inv", 0.0),
+                node_start=le_dict["node_start"],
+                node_end=le_dict["node_end"],
+                tag=le_dict.get("tag", ""),
+            ))
     
     # Generate unique name
     if name is None:
@@ -287,6 +340,7 @@ def create_loop(
             "segments": segments,
         },
         source=source_obj,
+        lumped_elements=lumped_objs,
     )
     
     return element
@@ -377,6 +431,12 @@ def loop_to_mesh(element: AntennaElement) -> Mesh:
         radii=radii,
     )
     
+    # Validate lumped element node references
+    if element.lumped_elements:
+        validate_lumped_element_nodes(
+            element.lumped_elements, len(nodes), element.name
+        )
+    
     return mesh
 
 
@@ -387,6 +447,7 @@ def create_rod(
     wire_radius: float = 0.001,
     segments: int = 21,
     source: dict | None = None,
+    lumped_elements: Optional[List[dict]] = None,
     name: str | None = None,
 ) -> AntennaElement:
     """
@@ -400,7 +461,9 @@ def create_rod(
         orientation: Direction vector [dx, dy, dz] (points from base)
         wire_radius: Wire radius in meters
         segments: Number of segments along the rod
-        source: Optional source dict with keys: type, amplitude, position
+        source: Optional source dict with keys: type, amplitude, position,
+                series_R, series_L, series_C_inv, tag
+        lumped_elements: Optional list of lumped element dicts
         name: Optional name for the element
     
     Returns:
@@ -427,16 +490,17 @@ def create_rod(
     # Create source object if provided
     source_obj = None
     if source:
-        # For rod, source is typically at base (between first two nodes)
-        node_start = 0  # Base node
-        node_end = 1  # Next node up
+        # For rod, source is typically at base (between ground and first mesh node)
+        # Use 1-based indexing (MATLAB convention)
+        node_start = 0  # Ground node
+        node_end = 1  # First mesh node (1-based)
         
         if "position" in source:
             pos = source["position"]
             if isinstance(pos, int):
                 # Custom position: between node pos and pos+1
-                node_start = pos
-                node_end = pos + 1
+                node_start = pos + 1  # Convert to 1-based
+                node_end = pos + 2
         
         # Convert amplitude dict to complex number
         amp = source["amplitude"]
@@ -447,7 +511,25 @@ def create_rod(
             amplitude=amplitude_complex,
             node_start=node_start,
             node_end=node_end,
+            series_R=source.get("series_R", 0.0),
+            series_L=source.get("series_L", 0.0),
+            series_C_inv=source.get("series_C_inv", 0.0),
+            tag=source.get("tag", ""),
         )
+    
+    # Create lumped element objects if provided
+    lumped_objs = []
+    if lumped_elements:
+        for le_dict in lumped_elements:
+            lumped_objs.append(LumpedElement(
+                type=le_dict.get("type", "rlc"),
+                R=le_dict.get("R", 0.0),
+                L=le_dict.get("L", 0.0),
+                C_inv=le_dict.get("C_inv", 0.0),
+                node_start=le_dict["node_start"],
+                node_end=le_dict["node_end"],
+                tag=le_dict.get("tag", ""),
+            ))
     
     # Generate unique name
     if name is None:
@@ -465,6 +547,7 @@ def create_rod(
             "segments": segments,
         },
         source=source_obj,
+        lumped_elements=lumped_objs,
     )
     
     return element
@@ -523,6 +606,12 @@ def rod_to_mesh(element: AntennaElement) -> Mesh:
         radii=radii,
     )
     
+    # Validate lumped element node references
+    if element.lumped_elements:
+        validate_lumped_element_nodes(
+            element.lumped_elements, len(nodes), element.name
+        )
+    
     return mesh
 
 
@@ -535,6 +624,7 @@ def create_helix(
     wire_radius: float = 0.001,
     segments_per_turn: int = 24,
     source: dict | None = None,
+    lumped_elements: Optional[List[dict]] = None,
     name: str | None = None,
 ) -> AntennaElement:
     """
@@ -551,7 +641,9 @@ def create_helix(
         axis: Helix axis direction [dx, dy, dz]
         wire_radius: Wire radius in meters
         segments_per_turn: Number of segments per complete turn (>=3)
-        source: Optional source dict with keys: type, amplitude, position
+        source: Optional source dict with keys: type, amplitude, position,
+                series_R, series_L, series_C_inv, tag
+        lumped_elements: Optional list of lumped element dicts
         name: Optional name for the element
     
     Returns:
@@ -582,16 +674,17 @@ def create_helix(
     # Create source object if provided
     source_obj = None
     if source:
-        # For helix, source is typically at start (between first two nodes)
-        node_start = 0  # First node
-        node_end = 1  # Second node
+        # For helix, source is typically at start (between ground and first mesh node)
+        # Use 1-based indexing (MATLAB convention)
+        node_start = 0  # Ground node
+        node_end = 1  # First mesh node (1-based)
         
         if "position" in source:
             pos = source["position"]
             if isinstance(pos, int):
                 # Custom position: between node pos and pos+1
-                node_start = pos
-                node_end = pos + 1
+                node_start = pos + 1  # Convert to 1-based
+                node_end = pos + 2
         
         # Convert amplitude dict to complex number
         amp = source["amplitude"]
@@ -602,7 +695,25 @@ def create_helix(
             amplitude=amplitude_complex,
             node_start=node_start,
             node_end=node_end,
+            series_R=source.get("series_R", 0.0),
+            series_L=source.get("series_L", 0.0),
+            series_C_inv=source.get("series_C_inv", 0.0),
+            tag=source.get("tag", ""),
         )
+    
+    # Create lumped element objects if provided
+    lumped_objs = []
+    if lumped_elements:
+        for le_dict in lumped_elements:
+            lumped_objs.append(LumpedElement(
+                type=le_dict.get("type", "rlc"),
+                R=le_dict.get("R", 0.0),
+                L=le_dict.get("L", 0.0),
+                C_inv=le_dict.get("C_inv", 0.0),
+                node_start=le_dict["node_start"],
+                node_end=le_dict["node_end"],
+                tag=le_dict.get("tag", ""),
+            ))
     
     # Generate unique name
     if name is None:
@@ -622,6 +733,7 @@ def create_helix(
             "segments_per_turn": segments_per_turn,
         },
         source=source_obj,
+        lumped_elements=lumped_objs,
     )
     
     return element
@@ -699,5 +811,11 @@ def helix_to_mesh(element: AntennaElement) -> Mesh:
         edges=edges,
         radii=radii,
     )
+    
+    # Validate lumped element node references
+    if element.lumped_elements:
+        validate_lumped_element_nodes(
+            element.lumped_elements, len(nodes), element.name
+        )
     
     return mesh
