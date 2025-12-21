@@ -5,7 +5,7 @@ This module contains Pydantic models for all data structures
 used throughout the application.
 """
 
-from .geometry import Geometry, AntennaElement, Mesh, Source
+from .geometry import Geometry, AntennaElement, Mesh, Source, LumpedElement
 from .project import Project, ProjectStatus
 from .solver import SolverJob, SolverConfig, SolverResult
 from .postprocessor import PostprocessorResult, ImpedanceResult, FieldResult, DirectivityResult
@@ -16,6 +16,7 @@ __all__ = [
     "AntennaElement",
     "Mesh",
     "Source",
+    "LumpedElement",
     # Project models
     "Project",
     "ProjectStatus",

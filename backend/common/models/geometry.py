@@ -20,6 +20,8 @@ class Source(BaseModel):
     - Voltage source: defined between node_start and node_end
     - Current source: flows from one node to another
     - Node 0 is typically the reference/ground node
+    
+    Voltage sources can optionally have series impedance (R, L, C).
     """
     type: Literal["voltage", "current"] = Field(
         description="Type of source excitation"
@@ -36,15 +38,112 @@ class Source(BaseModel):
         description="Ending node index where source is connected"
     )
     
+    # Series impedance for voltage sources (matches MATLAB's Voltage_Source structure)
+    series_R: float = Field(
+        default=0.0,
+        description="Series resistance in Ohms",
+        ge=0
+    )
+    series_L: float = Field(
+        default=0.0,
+        description="Series inductance in Henries",
+        ge=0
+    )
+    series_C_inv: float = Field(
+        default=0.0,
+        description="Series inverse capacitance (1/C) in F^-1 for convenient frequency-domain calculation",
+        ge=0
+    )
+    
+    tag: str = Field(
+        default="",
+        description="Human-readable label for the source"
+    )
+    
     class Config:
         json_encoders = {
             complex: lambda v: {"real": v.real, "imag": v.imag}
         }
 
 
+class LumpedElement(BaseModel):
+    """
+    Lumped circuit element (resistor, inductor, capacitor, or RLC combination).
+    
+    Corresponds to MATLAB's Antenna.Circuit.Load structure.
+    Can be attached between any two nodes in the antenna to model:
+    - Load impedances
+    - Matching networks
+    - Passive circuit elements
+    
+    The element impedance is: Z = R + jωL + 1/(jωC) where C = 1/C_inv
+    Using C_inv (inverse capacitance) avoids division by zero and matches MATLAB convention.
+    
+    Node numbering follows MATLAB convention:
+    - Positive indices: regular mesh nodes (1, 2, 3, ...)
+    - 0: ground/reference node
+    - Negative indices: appended/auxiliary nodes (-1, -2, -3, ...)
+    """
+    type: Literal["resistor", "inductor", "capacitor", "rlc"] = Field(
+        description="Type of lumped element (for documentation/visualization)"
+    )
+    R: float = Field(
+        default=0.0,
+        description="Resistance in Ohms",
+        ge=0
+    )
+    L: float = Field(
+        default=0.0,
+        description="Inductance in Henries",
+        ge=0
+    )
+    C_inv: float = Field(
+        default=0.0,
+        description="Inverse capacitance (1/C) in F^-1 for convenient frequency-domain calculation",
+        ge=0
+    )
+    node_start: int = Field(
+        description="Starting node index (0 for ground, negative for appended nodes)"
+    )
+    node_end: int = Field(
+        description="Ending node index"
+    )
+    tag: str = Field(
+        default="",
+        description="Human-readable label (e.g., 'Load resistor', 'Matching capacitor')"
+    )
+    
+    @field_validator("type")
+    def validate_type_matches_values(cls, v, info):
+        """Validate that type descriptor roughly matches the RLC values."""
+        # This is a soft validation - just for documentation purposes
+        # In MATLAB, all loads have R, L, C_inv fields regardless of type
+        return v
+    
+    @property
+    def impedance(self) -> str:
+        """Return a string representation of the impedance."""
+        parts = []
+        if self.R > 0:
+            parts.append(f"R={self.R:.3g}Ω")
+        if self.L > 0:
+            parts.append(f"L={self.L:.3g}H")
+        if self.C_inv > 0:
+            parts.append(f"C={1/self.C_inv:.3g}F")
+        return ", ".join(parts) if parts else "short"
+
+
 class AntennaElement(BaseModel):
     """
     High-level antenna element definition.
+    
+    Each element can have:
+    - Geometry (defined by type and parameters)
+    - Optional source excitation
+    - Optional lumped circuit elements (resistors, inductors, capacitors)
+    
+    Multiple elements can be combined in a Geometry, and the solver will
+    merge them following MATLAB's solvePEECLinear.m pattern.
     """
     id: UUID = Field(default_factory=uuid4)
     name: str = Field(description="Human-readable name for the element")
@@ -57,6 +156,10 @@ class AntennaElement(BaseModel):
     source: Optional[Source] = Field(
         default=None,
         description="Source excitation for this element"
+    )
+    lumped_elements: List[LumpedElement] = Field(
+        default_factory=list,
+        description="Lumped circuit elements (R, L, C) attached between nodes"
     )
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
