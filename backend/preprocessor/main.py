@@ -6,8 +6,13 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 
 from .config import settings
-from .schemas import DipoleRequest, GeometryResponse
-from .builders import create_dipole, dipole_to_mesh
+from .schemas import DipoleRequest, LoopRequest, RodRequest, HelixRequest, GeometryResponse
+from .builders import (
+    create_dipole, dipole_to_mesh,
+    create_loop, loop_to_mesh,
+    create_rod, rod_to_mesh,
+    create_helix, helix_to_mesh,
+)
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -108,6 +113,180 @@ async def create_dipole_antenna(request: DipoleRequest):
             element=element.model_dump(),
             mesh=mesh.model_dump(),
             message=f"Dipole antenna created: {element.name}",
+        )
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+
+@app.post(
+    f"{settings.api_prefix}/antenna/loop",
+    response_model=GeometryResponse,
+    tags=["Antenna Builders"],
+)
+async def create_loop_antenna(request: LoopRequest):
+    """
+    Create a circular loop antenna element and generate its mesh.
+    
+    The loop is a circular wire antenna lying in a plane perpendicular
+    to the normal vector. Current flows around the circumference.
+    
+    Args:
+        request: Loop configuration parameters
+    
+    Returns:
+        GeometryResponse with created element and mesh
+    """
+    try:
+        # Convert source request to dict if present
+        source_dict = None
+        if request.source:
+            source_dict = {
+                "type": request.source.type,
+                "amplitude": {
+                    "real": request.source.amplitude.real,
+                    "imag": request.source.amplitude.imag,
+                },
+                "position": request.source.position,
+            }
+        
+        # Create loop element
+        element = create_loop(
+            radius=request.radius,
+            center_position=request.center_position,
+            normal_vector=request.normal_vector,
+            wire_radius=request.wire_radius,
+            gap=request.gap,
+            segments=request.segments,
+            source=source_dict,
+            name=request.name,
+        )
+        
+        # Generate mesh
+        mesh = loop_to_mesh(element)
+        
+        return GeometryResponse(
+            element=element.model_dump(),
+            mesh=mesh.model_dump(),
+            message=f"Loop antenna created: {element.name}",
+        )
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+
+@app.post(
+    f"{settings.api_prefix}/antenna/rod",
+    response_model=GeometryResponse,
+    tags=["Antenna Builders"],
+)
+async def create_rod_antenna(request: RodRequest):
+    """
+    Create a rod (monopole) antenna element and generate its mesh.
+    
+    The rod is a straight wire extending from a base position
+    (typically a ground plane). Current flows along its length.
+    
+    Args:
+        request: Rod configuration parameters
+    
+    Returns:
+        GeometryResponse with created element and mesh
+    """
+    try:
+        # Convert source request to dict if present
+        source_dict = None
+        if request.source:
+            source_dict = {
+                "type": request.source.type,
+                "amplitude": {
+                    "real": request.source.amplitude.real,
+                    "imag": request.source.amplitude.imag,
+                },
+                "position": request.source.position,
+            }
+        
+        # Create rod element
+        element = create_rod(
+            length=request.length,
+            base_position=request.base_position,
+            orientation=request.orientation,
+            wire_radius=request.wire_radius,
+            segments=request.segments,
+            source=source_dict,
+            name=request.name,
+        )
+        
+        # Generate mesh
+        mesh = rod_to_mesh(element)
+        
+        return GeometryResponse(
+            element=element.model_dump(),
+            mesh=mesh.model_dump(),
+            message=f"Rod antenna created: {element.name}",
+        )
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+
+@app.post(
+    f"{settings.api_prefix}/antenna/helix",
+    response_model=GeometryResponse,
+    tags=["Antenna Builders"],
+)
+async def create_helix_antenna(request: HelixRequest):
+    """
+    Create a helix antenna element and generate its mesh.
+    
+    The helix is a spiral antenna that wraps around a cylindrical surface.
+    Commonly used for circular polarization and wide bandwidth.
+    
+    Args:
+        request: Helix configuration parameters
+    
+    Returns:
+        GeometryResponse with created element and mesh
+    """
+    try:
+        # Convert source request to dict if present
+        source_dict = None
+        if request.source:
+            source_dict = {
+                "type": request.source.type,
+                "amplitude": {
+                    "real": request.source.amplitude.real,
+                    "imag": request.source.amplitude.imag,
+                },
+                "position": request.source.position,
+            }
+        
+        # Create helix element
+        element = create_helix(
+            radius=request.radius,
+            pitch=request.pitch,
+            turns=request.turns,
+            start_position=request.start_position,
+            axis=request.axis,
+            wire_radius=request.wire_radius,
+            segments_per_turn=request.segments_per_turn,
+            source=source_dict,
+            name=request.name,
+        )
+        
+        # Generate mesh
+        mesh = helix_to_mesh(element)
+        
+        return GeometryResponse(
+            element=element.model_dump(),
+            mesh=mesh.model_dump(),
+            message=f"Helix antenna created: {element.name}",
         )
     
     except ValueError as e:

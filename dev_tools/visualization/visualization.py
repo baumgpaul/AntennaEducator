@@ -22,7 +22,7 @@ def print_mesh_info(mesh: Mesh, element: Optional[AntennaElement] = None) -> Non
         print(f"\nElement: {element.name} (type: {element.type})")
         print(f"ID: {element.id}")
         if element.source:
-            print(f"Source: {element.source.type} at segment {element.source.segment_id}")
+            print(f"Source: {element.source.type} between nodes {element.source.node_start} and {element.source.node_end}")
     
     print(f"\nNodes: {len(mesh.nodes)}")
     print(f"Edges: {len(mesh.edges)}")
@@ -90,16 +90,25 @@ def plot_mesh_3d(mesh: Mesh, element: Optional[AntennaElement] = None,
                c='red', s=30, alpha=0.8, label='Nodes')
     
     # Highlight source location if present
-    if element and element.source and element.source.segment_id is not None:
-        seg_id = element.source.segment_id
-        if seg_id < len(mesh.edges):
-            n1, n2 = mesh.edges[seg_id]
-            p1 = nodes_array[n1]
-            p2 = nodes_array[n2]
-            mid = (p1 + p2) / 2
-            ax.scatter([mid[0]], [mid[1]], [mid[2]], 
-                      c='green', s=100, marker='*', 
-                      label=f'Source ({element.source.type})')
+    # Source is between two physical nodes
+    if element and element.source:
+        if (element.source.node_start is not None and element.source.node_end is not None and
+            element.source.node_start < len(nodes_array) and element.source.node_end < len(nodes_array)):
+            # Mark both nodes and draw a line between them
+            node1_pos = nodes_array[element.source.node_start]
+            node2_pos = nodes_array[element.source.node_end]
+            
+            # Draw line between source nodes
+            ax.plot([node1_pos[0], node2_pos[0]], 
+                   [node1_pos[1], node2_pos[1]], 
+                   [node1_pos[2], node2_pos[2]], 
+                   'g-', linewidth=4, alpha=0.8,
+                   label=f'Source ({element.source.type})')
+            
+            # Mark the midpoint
+            mid_pos = (node1_pos + node2_pos) / 2
+            ax.scatter([mid_pos[0]], [mid_pos[1]], [mid_pos[2]], 
+                      c='green', s=200, marker='*')
     
     # Set labels and title
     ax.set_xlabel('X (m)')

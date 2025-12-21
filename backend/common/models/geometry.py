@@ -15,6 +15,11 @@ class Source(BaseModel):
     
     Note: Frequency is defined at the solver level, not per source.
     All sources in a project operate at the same frequency(ies).
+    
+    In MATLAB/PEEC formulation, sources are always between two nodes:
+    - Voltage source: defined between node_start and node_end
+    - Current source: flows from one node to another
+    - Node 0 is typically the reference/ground node
     """
     type: Literal["voltage", "current"] = Field(
         description="Type of source excitation"
@@ -22,9 +27,13 @@ class Source(BaseModel):
     amplitude: complex = Field(
         description="Source amplitude (can be complex for phase)"
     )
-    segment_id: Optional[int] = Field(
+    node_start: Optional[int] = Field(
         default=None,
-        description="Segment index where source is applied (set during mesh generation)"
+        description="Starting node index (0 for reference/ground node)"
+    )
+    node_end: Optional[int] = Field(
+        default=None,
+        description="Ending node index where source is connected"
     )
     
     class Config:

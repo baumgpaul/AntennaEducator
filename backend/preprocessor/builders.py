@@ -66,7 +66,8 @@ def create_dipole(
         source_obj = Source(
             type=source.get("type", "voltage"),
             amplitude=amplitude,
-            segment_id=None,  # Will be set during mesh generation
+            node_start=0,  # Reference/ground node (to be set properly in mesh generation)
+            node_end=1,  # Will be set during mesh generation
         )
     
     # Create element with parameters
@@ -151,12 +152,12 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         total_segments = 2 * n_segments_per_half
         
         # Source is at the gap (between the two halves)
-        # No specific segment ID since it's voltage source across the gap
-        if element.source and element.source.type == "voltage":
-            element.source.segment_id = None  # Voltage source across gap
-        elif element.source and element.source.type == "current":
-            # Current source at the first node of each half
-            element.source.segment_id = 0  # First segment of upper half
+        # Between first node of upper half (node 0) and first node of lower half
+        if element.source:
+            # First node of upper half
+            element.source.node_start = 0
+            # First node of lower half
+            element.source.node_end = n_segments_per_half + 1
     else:
         # Original continuous dipole (no gap)
         start_point = center - (length / 2.0) * orientation
@@ -173,10 +174,12 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         
         total_segments = n_segments_per_half
         
-        # Source at center segment
+        # Source at center (for continuous dipole without gap)
+        # Between the two center nodes
         if element.source:
-            center_segment = n_segments_per_half // 2
-            element.source.segment_id = center_segment
+            center_node = n_segments_per_half // 2
+            element.source.node_start = center_node
+            element.source.node_end = center_node + 1
     
     # All edges have the same radius
     radii = [radius] * total_segments
@@ -189,6 +192,512 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         edges=edges,
         radii=radii,
         edge_to_element=edge_to_element,
+    )
+    
+    return mesh
+
+
+def create_loop(
+    radius: float,
+    center_position: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    normal_vector: tuple[float, float, float] = (0.0, 0.0, 1.0),
+    wire_radius: float = 0.001,
+    gap: float = 0.0,
+    segments: int = 36,
+    source: dict | None = None,
+    name: str | None = None,
+) -> AntennaElement:
+    """
+    Create a circular loop antenna element.
+    
+    Args:
+        radius: Loop radius in meters
+        center_position: Center point [x, y, z] in meters
+        normal_vector: Normal vector to loop plane [dx, dy, dz]
+        wire_radius: Wire radius in meters
+        gap: Gap at feed point in meters (along circumference)
+        segments: Number of segments around the loop (>=3)
+        source: Optional source dict with keys: type, amplitude, position
+        name: Optional name for the element
+    
+    Returns:
+        AntennaElement instance for the loop
+        
+    Raises:
+        ValueError: If parameters are invalid
+    """
+    # Validate inputs
+    if radius <= 0:
+        raise ValueError("Loop radius must be positive")
+    if wire_radius <= 0:
+        raise ValueError("Wire radius must be positive")
+    if gap < 0:
+        raise ValueError("Gap cannot be negative")
+    if segments < 3:
+        raise ValueError("Loop must have at least 3 segments")
+    
+    # Normalize normal vector
+    normal = np.array(normal_vector)
+    normal_mag = np.linalg.norm(normal)
+    if normal_mag == 0:
+        raise ValueError("Normal vector cannot be zero")
+    normal = normal / normal_mag
+    
+    # Create source object if provided
+    source_obj = None
+    if source:
+        # For loop, source is typically between first and last node (across gap)
+        # This creates the feed point at the gap
+        node_start = 0  # First node
+        node_end = segments  # Last node (with gap, there are segments+1 nodes)
+        
+        # Allow custom positioning if specified
+        if "position" in source:
+            pos = source["position"]
+            if isinstance(pos, int):
+                # Custom position: between node pos and pos+1
+                node_start = pos
+                node_end = pos + 1
+        
+        # Convert amplitude dict to complex number
+        amp = source["amplitude"]
+        amplitude_complex = complex(amp["real"], amp["imag"])
+        
+        source_obj = Source(
+            type=source["type"],
+            amplitude=amplitude_complex,
+            node_start=node_start,
+            node_end=node_end,
+        )
+    
+    # Generate unique name
+    if name is None:
+        name = f"Loop_{radius*1000:.1f}mm_{segments}seg"
+    
+    # Create element
+    element = AntennaElement(
+        name=name,
+        type="loop",
+        parameters={
+            "radius": radius,
+            "center_position": list(center_position),
+            "normal_vector": list(normal_vector),
+            "wire_radius": wire_radius,
+            "gap": gap,
+            "segments": segments,
+        },
+        source=source_obj,
+    )
+    
+    return element
+
+
+def loop_to_mesh(element: AntennaElement) -> Mesh:
+    """
+    Convert a loop antenna element to a computational mesh.
+    
+    Creates a circular loop with nodes placed around the circumference.
+    The loop lies in a plane perpendicular to the normal vector.
+    
+    Args:
+        element: AntennaElement of type "loop"
+    
+    Returns:
+        Mesh instance with nodes, edges, and radii
+        
+    Raises:
+        ValueError: If element is not a loop or parameters are invalid
+    """
+    if element.type != "loop":
+        raise ValueError(f"Element must be type 'loop', got '{element.type}'")
+    
+    # Extract parameters
+    radius = element.parameters["radius"]
+    center = np.array(element.parameters["center_position"])
+    normal = np.array(element.parameters["normal_vector"])
+    wire_radius = element.parameters["wire_radius"]
+    gap = element.parameters["gap"]
+    segments = element.parameters["segments"]
+    
+    # Normalize normal vector
+    normal = normal / np.linalg.norm(normal)
+    
+    # Create two orthogonal vectors in the plane perpendicular to normal
+    # Find a vector not parallel to normal
+    if abs(normal[2]) < 0.9:
+        ref_vec = np.array([0.0, 0.0, 1.0])
+    else:
+        ref_vec = np.array([1.0, 0.0, 0.0])
+    
+    # First tangent vector (in the plane)
+    u = np.cross(normal, ref_vec)
+    u = u / np.linalg.norm(u)
+    
+    # Second tangent vector (in the plane, orthogonal to first)
+    v = np.cross(normal, u)
+    
+    # Calculate gap angle
+    circumference = 2 * np.pi * radius
+    gap_angle = gap / radius if gap > 0 else 0
+    
+    # Generate nodes around the circle (with gap at start if needed)
+    if gap > 0:
+        # Start after half the gap, end before the other half
+        start_angle = gap_angle / 2
+        end_angle = 2 * np.pi - gap_angle / 2
+        angles = np.linspace(start_angle, end_angle, segments + 1)
+    else:
+        # Full circle
+        angles = np.linspace(0, 2*np.pi, segments + 1)[:-1]  # Don't duplicate last point
+    
+    nodes = []
+    for angle in angles:
+        # Position on circle
+        point = center + radius * (np.cos(angle) * u + np.sin(angle) * v)
+        nodes.append(point.tolist())
+    
+    # Create edges (connect consecutive nodes)
+    edges = []
+    if gap > 0:
+        # With gap: don't connect last to first
+        for i in range(segments):
+            edges.append([i, i + 1])
+    else:
+        # No gap: include wraparound
+        for i in range(segments):
+            edges.append([i, (i + 1) % segments])
+    
+    # All edges have same wire radius
+    radii = [wire_radius] * segments
+    
+    # Create mesh
+    mesh = Mesh(
+        nodes=nodes,
+        edges=edges,
+        radii=radii,
+    )
+    
+    return mesh
+
+
+def create_rod(
+    length: float,
+    base_position: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    orientation: tuple[float, float, float] = (0.0, 0.0, 1.0),
+    wire_radius: float = 0.001,
+    segments: int = 21,
+    source: dict | None = None,
+    name: str | None = None,
+) -> AntennaElement:
+    """
+    Create a rod (monopole) antenna element.
+    
+    A rod is a straight wire extending from a base position (ground plane).
+    
+    Args:
+        length: Total length in meters
+        base_position: Base point [x, y, z] in meters (typically ground)
+        orientation: Direction vector [dx, dy, dz] (points from base)
+        wire_radius: Wire radius in meters
+        segments: Number of segments along the rod
+        source: Optional source dict with keys: type, amplitude, position
+        name: Optional name for the element
+    
+    Returns:
+        AntennaElement instance for the rod
+        
+    Raises:
+        ValueError: If parameters are invalid
+    """
+    # Validate inputs
+    if length <= 0:
+        raise ValueError("Rod length must be positive")
+    if wire_radius <= 0:
+        raise ValueError("Wire radius must be positive")
+    if segments < 1:
+        raise ValueError("Rod must have at least 1 segment")
+    
+    # Normalize orientation vector
+    orient = np.array(orientation)
+    orient_mag = np.linalg.norm(orient)
+    if orient_mag == 0:
+        raise ValueError("Orientation vector cannot be zero")
+    orient = orient / orient_mag
+    
+    # Create source object if provided
+    source_obj = None
+    if source:
+        # For rod, source is typically at base (between first two nodes)
+        node_start = 0  # Base node
+        node_end = 1  # Next node up
+        
+        if "position" in source:
+            pos = source["position"]
+            if isinstance(pos, int):
+                # Custom position: between node pos and pos+1
+                node_start = pos
+                node_end = pos + 1
+        
+        # Convert amplitude dict to complex number
+        amp = source["amplitude"]
+        amplitude_complex = complex(amp["real"], amp["imag"])
+        
+        source_obj = Source(
+            type=source["type"],
+            amplitude=amplitude_complex,
+            node_start=node_start,
+            node_end=node_end,
+        )
+    
+    # Generate unique name
+    if name is None:
+        name = f"Rod_{length*1000:.1f}mm_{segments}seg"
+    
+    # Create element
+    element = AntennaElement(
+        name=name,
+        type="rod",
+        parameters={
+            "length": length,
+            "base_position": list(base_position),
+            "orientation": list(orientation),
+            "wire_radius": wire_radius,
+            "segments": segments,
+        },
+        source=source_obj,
+    )
+    
+    return element
+
+
+def rod_to_mesh(element: AntennaElement) -> Mesh:
+    """
+    Convert a rod antenna element to a computational mesh.
+    
+    Creates a straight wire from the base position extending in the
+    orientation direction.
+    
+    Args:
+        element: AntennaElement of type "rod"
+    
+    Returns:
+        Mesh instance with nodes, edges, and radii
+        
+    Raises:
+        ValueError: If element is not a rod or parameters are invalid
+    """
+    if element.type != "rod":
+        raise ValueError(f"Element must be type 'rod', got '{element.type}'")
+    
+    # Extract parameters
+    length = element.parameters["length"]
+    base = np.array(element.parameters["base_position"])
+    orient = np.array(element.parameters["orientation"])
+    wire_radius = element.parameters["wire_radius"]
+    segments = element.parameters["segments"]
+    
+    # Normalize orientation
+    orient = orient / np.linalg.norm(orient)
+    
+    # Generate nodes along the rod
+    # Create (segments+1) nodes from base to tip
+    positions = np.linspace(0, length, segments + 1)
+    
+    nodes = []
+    for pos in positions:
+        point = base + pos * orient
+        nodes.append(point.tolist())
+    
+    # Create edges connecting consecutive nodes
+    edges = []
+    for i in range(segments):
+        edges.append([i, i + 1])
+    
+    # All edges have same wire radius
+    radii = [wire_radius] * segments
+    
+    # Create mesh
+    mesh = Mesh(
+        nodes=nodes,
+        edges=edges,
+        radii=radii,
+    )
+    
+    return mesh
+
+
+def create_helix(
+    radius: float,
+    pitch: float,
+    turns: float,
+    start_position: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    axis: tuple[float, float, float] = (0.0, 0.0, 1.0),
+    wire_radius: float = 0.001,
+    segments_per_turn: int = 24,
+    source: dict | None = None,
+    name: str | None = None,
+) -> AntennaElement:
+    """
+    Create a helix antenna element.
+    
+    The helix is a spiral antenna that wraps around a cylindrical surface.
+    Commonly used for circular polarization.
+    
+    Args:
+        radius: Helix radius in meters
+        pitch: Vertical distance per turn in meters
+        turns: Number of complete turns
+        start_position: Starting point [x, y, z] in meters
+        axis: Helix axis direction [dx, dy, dz]
+        wire_radius: Wire radius in meters
+        segments_per_turn: Number of segments per complete turn (>=3)
+        source: Optional source dict with keys: type, amplitude, position
+        name: Optional name for the element
+    
+    Returns:
+        AntennaElement instance for the helix
+        
+    Raises:
+        ValueError: If parameters are invalid
+    """
+    # Validate inputs
+    if radius <= 0:
+        raise ValueError("Helix radius must be positive")
+    if pitch <= 0:
+        raise ValueError("Helix pitch must be positive")
+    if turns <= 0:
+        raise ValueError("Number of turns must be positive")
+    if wire_radius <= 0:
+        raise ValueError("Wire radius must be positive")
+    if segments_per_turn < 3:
+        raise ValueError("Helix must have at least 3 segments per turn")
+    
+    # Normalize axis vector
+    axis_vec = np.array(axis)
+    axis_mag = np.linalg.norm(axis_vec)
+    if axis_mag == 0:
+        raise ValueError("Axis vector cannot be zero")
+    axis_vec = axis_vec / axis_mag
+    
+    # Create source object if provided
+    source_obj = None
+    if source:
+        # For helix, source is typically at start (between first two nodes)
+        node_start = 0  # First node
+        node_end = 1  # Second node
+        
+        if "position" in source:
+            pos = source["position"]
+            if isinstance(pos, int):
+                # Custom position: between node pos and pos+1
+                node_start = pos
+                node_end = pos + 1
+        
+        # Convert amplitude dict to complex number
+        amp = source["amplitude"]
+        amplitude_complex = complex(amp["real"], amp["imag"])
+        
+        source_obj = Source(
+            type=source["type"],
+            amplitude=amplitude_complex,
+            node_start=node_start,
+            node_end=node_end,
+        )
+    
+    # Generate unique name
+    if name is None:
+        name = f"Helix_{radius*1000:.1f}mm_{turns:.1f}turns"
+    
+    # Create element
+    element = AntennaElement(
+        name=name,
+        type="helix",
+        parameters={
+            "radius": radius,
+            "pitch": pitch,
+            "turns": turns,
+            "start_position": list(start_position),
+            "axis": list(axis),
+            "wire_radius": wire_radius,
+            "segments_per_turn": segments_per_turn,
+        },
+        source=source_obj,
+    )
+    
+    return element
+
+
+def helix_to_mesh(element: AntennaElement) -> Mesh:
+    """
+    Convert a helix antenna element to a computational mesh.
+    
+    Creates a spiral wire that wraps around a cylindrical surface,
+    following the helix axis direction.
+    
+    Args:
+        element: AntennaElement of type "helix"
+    
+    Returns:
+        Mesh instance with nodes, edges, and radii
+        
+    Raises:
+        ValueError: If element is not a helix or parameters are invalid
+    """
+    if element.type != "helix":
+        raise ValueError(f"Element must be type 'helix', got '{element.type}'")
+    
+    # Extract parameters
+    radius = element.parameters["radius"]
+    pitch = element.parameters["pitch"]
+    turns = element.parameters["turns"]
+    start = np.array(element.parameters["start_position"])
+    axis = np.array(element.parameters["axis"])
+    wire_radius = element.parameters["wire_radius"]
+    segments_per_turn = element.parameters["segments_per_turn"]
+    
+    # Normalize axis vector
+    axis = axis / np.linalg.norm(axis)
+    
+    # Create two orthogonal vectors perpendicular to axis
+    # Find a vector not parallel to axis
+    if abs(axis[2]) < 0.9:
+        ref_vec = np.array([0.0, 0.0, 1.0])
+    else:
+        ref_vec = np.array([1.0, 0.0, 0.0])
+    
+    # First radial vector (perpendicular to axis)
+    u = np.cross(axis, ref_vec)
+    u = u / np.linalg.norm(u)
+    
+    # Second radial vector (perpendicular to both axis and u)
+    v = np.cross(axis, u)
+    
+    # Generate nodes along the helix
+    total_segments = int(segments_per_turn * turns)
+    angles = np.linspace(0, 2 * np.pi * turns, total_segments + 1)
+    heights = np.linspace(0, pitch * turns, total_segments + 1)
+    
+    nodes = []
+    for angle, height in zip(angles, heights):
+        # Position on helix: circular motion + linear advancement
+        radial_offset = radius * (np.cos(angle) * u + np.sin(angle) * v)
+        axial_offset = height * axis
+        point = start + radial_offset + axial_offset
+        nodes.append(point.tolist())
+    
+    # Create edges connecting consecutive nodes
+    edges = []
+    for i in range(total_segments):
+        edges.append([i, i + 1])
+    
+    # All edges have same wire radius
+    radii = [wire_radius] * total_segments
+    
+    # Create mesh
+    mesh = Mesh(
+        nodes=nodes,
+        edges=edges,
+        radii=radii,
     )
     
     return mesh

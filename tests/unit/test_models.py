@@ -17,7 +17,8 @@ def test_source_model():
     )
     assert source.type == "voltage"
     assert source.amplitude == complex(1.0, 0.5)
-    assert source.segment_id is None
+    assert source.node_start is None
+    assert source.node_end is None
 
 
 def test_antenna_element_model(sample_dipole_element):

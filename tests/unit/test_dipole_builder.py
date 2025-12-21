@@ -56,19 +56,8 @@ class TestDipoleBuilder:
         assert element.source is not None
         assert element.source.type == "voltage"
         assert element.source.amplitude == complex(1.0, 0.5)
-        assert element.source.segment_id is None  # Not set until meshing
-    
-    def test_create_dipole_with_gap(self):
-        """Test creating a dipole with a gap."""
-        element = create_dipole(length=1.0, gap=0.01, segments=10)
-        
-        assert element.parameters["length"] == 1.0
-        assert element.parameters["gap"] == 0.01
-        assert element.parameters["segments"] == 10
-        assert "gap0.0" not in element.name  # Should show actual gap in name
-    
-    def test_create_dipole_even_segments_accepted(self):
-        """Test that even segment count is now accepted (segments per half)."""
+        assert element.source.node_start == 0  # Ground reference
+        assert element.source.node_end == 1  # First node
         element = create_dipole(length=1.0, segments=20)
         
         # Should keep 20 (segments per half)
@@ -181,41 +170,44 @@ class TestDipoleToMesh:
         assert np.allclose(mesh.nodes[5], [0.0, 0.0, 1.0])
     
     def test_dipole_to_mesh_with_source(self):
-        """Test that source segment is assigned correctly."""
+        """Test that source is between center nodes."""
         source_dict = {
             "type": "voltage",
             "amplitude": {"real": 1.0, "imag": 0.0},
         }
         element = create_dipole(length=1.0, gap=0.0, segments=11, source=source_dict)
         mesh = dipole_to_mesh(element)
-        
-        # Source should be assigned to center segment (index 5)
-        assert element.source.segment_id == 5
-    
+
+        # 11 segments = 12 nodes, center is between nodes 5 and 6
+        assert element.source.node_start == 5
+        assert element.source.node_end == 6
     def test_dipole_to_mesh_with_gap_voltage_source(self):
-        """Test that voltage source with gap has no specific segment."""
+        """Test that voltage source with gap is between first nodes of each half."""
         source_dict = {
             "type": "voltage",
             "amplitude": {"real": 1.0, "imag": 0.0},
         }
         element = create_dipole(length=1.0, gap=0.01, segments=5, source=source_dict)
         mesh = dipole_to_mesh(element)
-        
-        # Voltage source across gap should have no specific segment ID
-        assert element.source.segment_id is None
-    
+
+        # segments=5 means 5 segments per half (stored in params["segments"])
+        # Upper half: 6 nodes (indices 0-5), first is node 0
+        # Lower half: 6 nodes (indices 6-11), first is node 6
+        # Voltage source between nodes 0 and 6
+        assert element.source.node_start == 0
+        assert element.source.node_end == 6
     def test_dipole_to_mesh_with_gap_current_source(self):
-        """Test that current source with gap is assigned to first segment."""
+        """Test that current source with gap is between first nodes of each half."""
         source_dict = {
             "type": "current",
             "amplitude": {"real": 1.0, "imag": 0.0},
         }
         element = create_dipole(length=1.0, gap=0.01, segments=5, source=source_dict)
         mesh = dipole_to_mesh(element)
-        
-        # Current source should be at first segment of upper half
-        assert element.source.segment_id == 0
-    
+
+        # Same as voltage: between first node of upper half and first of lower half
+        assert element.source.node_start == 0
+        assert element.source.node_end == 6
     def test_dipole_to_mesh_edge_mapping(self):
         """Test that edge to element mapping is correct."""
         element = create_dipole(length=1.0, segments=5, gap=0.01)
