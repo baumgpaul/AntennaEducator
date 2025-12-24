@@ -154,9 +154,9 @@ class TestFrequencySweep:
     
     def test_impedance_varies_with_frequency(self):
         """Test that impedance changes with frequency."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.1]])
-        edges = [[1, 2]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.1], [0, 0, 0.2]])
+        edges = [[1, 2], [2, 3]]
+        radii = np.array([0.001, 0.001])
         
         vsrc = VoltageSource(node_start=1, node_end=0, value=1.0)
         
@@ -210,14 +210,13 @@ class TestFrequencySweep:
         for sol in result.frequency_solutions:
             assert sol.power_dissipated >= 0
     
-    @pytest.mark.skip(reason="2-node structure incompatible with nodal capacitance matrix")
     def test_custom_reference_impedance(self):
         """Test VSWR with custom reference impedance."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.1]])
-        edges = [[1, 2]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.1], [0, 0, 0.2]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         
-        vsrc = VoltageSource(node_start=1, node_end=0, value=1.0)
+        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0)
         
         freqs = np.array([10e6])
         
@@ -248,10 +247,10 @@ class TestResonance:
             [0, 0, 0.375],
             [0, 0, 0.5]
         ])
-        edges = [[1, 2], [2, 3], [3, 4], [4, 5]]
+        edges = [[0, 1], [1, 2], [2, 3], [3, 4]]
         radii = np.array([0.001] * 4)
         
-        vsrc = VoltageSource(node_start=3, node_end=0, value=1.0)
+        vsrc = VoltageSource(node_start=4, node_end=0, value=1.0)
         
         # Sweep around expected resonance
         freqs = np.linspace(200e6, 400e6, 50)
@@ -270,11 +269,11 @@ class TestResonance:
     
     def test_no_resonance_in_range(self):
         """Test when no resonance exists in sweep range."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.01]])  # Very short
-        edges = [[1, 0]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.005], [0, 0, 0.01]])  # Very short
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         
-        vsrc = VoltageSource(node_start=1, node_end=0, value=1.0)
+        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0)
         
         # Sweep at low frequencies (always capacitive) - avoid kHz range for numerical stability
         freqs = np.linspace(100e3, 1e6, 10)
@@ -300,10 +299,10 @@ class TestBandwidth:
             [0, 0, 0.2],
             [0, 0, 0.3]
         ])
-        edges = [[1, 2], [2, 3], [3, 0]]
+        edges = [[0, 1], [1, 2], [2, 3]]
         radii = np.array([0.001, 0.001, 0.001])
         
-        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0, R=50.0)
+        vsrc = VoltageSource(node_start=3, node_end=0, value=1.0, R=50.0)
         
         freqs = np.linspace(300e6, 500e6, 50)
         result = solve_peec_frequency_sweep(
@@ -323,11 +322,11 @@ class TestBandwidth:
     def test_no_bandwidth_high_vswr(self):
         """Test when no bandwidth exists (VSWR always high)."""
         # Badly mismatched antenna
-        nodes = np.array([[0, 0, 0], [0, 0, 0.01]])
-        edges = [[1, 0]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.005], [0, 0, 0.01]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         
-        vsrc = VoltageSource(node_start=1, node_end=0, value=1.0, R=50.0)
+        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0, R=50.0)
         
         # Use higher frequencies for numerical stability
         freqs = np.linspace(10e6, 50e6, 20)
@@ -361,9 +360,9 @@ class TestErrorHandling:
     
     def test_no_voltage_source(self):
         """Test error when no voltage source provided."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.1]])
-        edges = [[1, 0]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.1], [0, 0, 0.2]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         
         with pytest.raises(ValueError, match="voltage source"):
             solve_single_frequency(nodes, edges, radii, 1e6, [])

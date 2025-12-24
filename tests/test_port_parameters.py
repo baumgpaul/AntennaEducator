@@ -14,20 +14,21 @@ from backend.solver.system import VoltageSource
 def test_port_parameters_simple_dipole():
     """Test that port parameters are computed correctly for a simple dipole."""
     
-    # Simple dipole: 2 nodes, 1 edge
+    # Simple dipole: 3 nodes, 2 edges
     nodes = np.array([
         [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.25],
         [0.0, 0.0, 0.5]
     ])
     
-    edges = [[0, 1]]
-    radii = np.array([0.001])
+    edges = [[0, 1], [1, 2]]
+    radii = np.array([0.001, 0.001])
     
     # Single frequency
     frequencies = np.array([100e6])
     
-    # Voltage source with 50Ω impedance
-    voltage_sources = [VoltageSource(node_start=1, node_end=0, value=1.0, R=50.0, L=0.0, C_inv=0.0)]
+    # Voltage source with 50Ω impedance (connected to middle node and ground)
+    voltage_sources = [VoltageSource(node_start=2, node_end=0, value=1.0, R=50.0, L=0.0, C_inv=0.0)]
     
     # Solve
     result = solve_peec_frequency_sweep(
@@ -100,13 +101,13 @@ def test_reflection_coefficient_limits():
     """Test reflection coefficient at perfect match and open circuit."""
     
     # Create simple structure
-    nodes = np.array([[0, 0, 0], [0, 0, 0.1]])
-    edges = [[0, 1]]
-    radii = np.array([0.001])
+    nodes = np.array([[0, 0, 0], [0, 0, 0.1], [0, 0, 0.2]])
+    edges = [[0, 1], [1, 2]]
+    radii = np.array([0.001, 0.001])
     frequencies = np.array([100e6])
     
-    # Test with 50Ω reference
-    voltage_sources = [VoltageSource(node_start=1, node_end=0, value=1.0, R=50.0, L=0.0, C_inv=0.0)]
+    # Test with 50Ω reference (connected to tip node and ground)
+    voltage_sources = [VoltageSource(node_start=2, node_end=0, value=1.0, R=50.0, L=0.0, C_inv=0.0)]
     
     result = solve_peec_frequency_sweep(
         nodes=nodes, edges=edges, radii=radii,

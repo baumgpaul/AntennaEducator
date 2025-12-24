@@ -146,9 +146,43 @@ docker-compose up
 Detailed implementation guides and technical documentation are available in the `/docs` folder:
 
 - [Backend Implementation Plan](docs/BACKEND_IMPLEMENTATION.md) - Comprehensive technical planning and implementation steps
+- [Testing Guide](tests/README_CRITICAL_TESTS.md) - Test organization and critical test requirements
+- [Gold Standard Test](tests/GOLD_STANDARD_TEST.md) - Lambda/2 dipole validation (MUST pass before merging solver changes)
 - API Documentation (Coming soon)
 - Deployment Guide (Coming soon)
 - Algorithm Reference (Coming soon)
+
+## Testing
+
+The project includes comprehensive test coverage with special emphasis on **critical gold standard tests** that validate solver correctness:
+
+### Quick Test Commands
+
+```powershell
+# Run critical/gold standard tests (MUST pass before committing solver changes)
+pytest -m critical -v
+
+# Or use the helper script
+python tests/run_critical_tests.py
+
+# Run all tests
+pytest
+
+# Run solver-related tests only
+pytest -m solver -v
+```
+
+### Gold Standard: Lambda/2 Dipole Test
+
+The half-wave dipole test is the **gold standard** that validates solver correctness against fundamental antenna theory. This test checks:
+- ✓ Input impedance (~73 Ω)
+- ✓ Current distribution (sinusoidal)
+- ✓ Maximum directivity (~2.15 dBi)
+- ✓ Radiation patterns
+
+**Before committing ANY solver changes, this test MUST pass.**
+
+See [`tests/GOLD_STANDARD_TEST.md`](tests/GOLD_STANDARD_TEST.md) for details.
 
 ## Contributing
 

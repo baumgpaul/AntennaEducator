@@ -89,3 +89,4 @@ Thumbs.db
 # MATLAB (keeping reference code)
 Matlab/
 *.png
+/TESTING_QUICK_REF.md

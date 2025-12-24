@@ -24,7 +24,7 @@ class TestSolverFieldIntegration:
         edges = [[0, 1]]
         radii = np.array([0.001])
         frequencies = np.array([300e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         # Step 1: Solve for currents and port parameters
         result = solve_peec_frequency_sweep(
@@ -87,11 +87,11 @@ class TestSolverFieldIntegration:
     def test_monopole_ground_plane(self):
         """Test quarter-wave monopole analysis."""
         # Quarter-wave monopole at 300 MHz (λ/4 = 0.25m)
-        nodes = np.array([[0, 0, 0], [0, 0, 0.25]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.125], [0, 0, 0.25]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.array([300e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         # Solve
         result = solve_peec_frequency_sweep(
@@ -119,11 +119,11 @@ class TestSolverFieldIntegration:
     
     def test_power_conservation(self):
         """Test power conservation: P_acc = P_rad + P_diss + P_stored."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.array([100e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         # Solve
         result = solve_peec_frequency_sweep(
@@ -167,7 +167,7 @@ class TestFieldPatternCharacteristics:
         edges = [[0, 1]]
         radii = np.array([0.001])
         frequencies = np.array([300e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources
@@ -202,7 +202,7 @@ class TestFieldPatternCharacteristics:
         edges = [[0, 1]]
         radii = np.array([0.001])
         frequencies = np.array([300e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources
@@ -235,11 +235,11 @@ class TestFieldPatternCharacteristics:
     def test_field_polarization(self):
         """Test field polarization characteristics."""
         # Vertical dipole
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.array([300e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources
@@ -267,11 +267,11 @@ class TestFrequencySweepAnalysis:
     
     def test_impedance_vs_frequency(self):
         """Test impedance variation with frequency."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.linspace(50e6, 200e6, 31)
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
@@ -290,11 +290,11 @@ class TestFrequencySweepAnalysis:
     
     def test_directivity_vs_frequency(self):
         """Test directivity variation with frequency."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.array([100e6, 200e6, 300e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources
@@ -325,11 +325,11 @@ class TestFrequencySweepAnalysis:
     
     def test_vswr_bandwidth(self):
         """Test VSWR bandwidth calculation with field analysis."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.linspace(80e6, 120e6, 41)
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
@@ -352,11 +352,11 @@ class TestEdgeCases:
     
     def test_very_thin_wire(self):
         """Test field computation for very thin wire."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.00001])  # Very thin: 10 μm
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.00001, 0.00001])  # Very thin: 10 μm
         frequencies = np.array([100e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources
@@ -391,7 +391,7 @@ class TestEdgeCases:
         edges = [[0, 1], [1, 2], [2, 3]]
         radii = np.array([0.001, 0.001, 0.001])
         frequencies = np.array([300e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources

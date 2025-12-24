@@ -17,11 +17,11 @@ class TestSolverPortParameters:
     def test_simple_dipole_sweep(self):
         """Test complete solver workflow for simple dipole."""
         # Simple dipole
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.linspace(90e6, 110e6, 11)
-        vsources = [VoltageSource(node_start=1, node_end=0, value=1.0, R=50.0)]
+        vsources = [VoltageSource(node_start=2, node_end=0, value=1.0, R=50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
@@ -57,11 +57,11 @@ class TestSolverPortParameters:
     
     def test_port_parameters_consistency(self):
         """Test consistency between different port parameters."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.25]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.125], [0, 0, 0.25]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.array([100e6, 200e6, 300e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
@@ -96,11 +96,11 @@ class TestSolverPortParameters:
     def test_perfect_match_parameters(self):
         """Test port parameters when impedance is matched."""
         # This test uses a structure that should be close to 50Ω at some frequency
-        nodes = np.array([[0, 0, 0], [0, 0, 0.1]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.05], [0, 0, 0.1]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.array([100e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
@@ -120,11 +120,11 @@ class TestSolverPortParameters:
     
     def test_power_conservation(self):
         """Test power conservation: P_accepted = P_in - P_refl."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.linspace(50e6, 150e6, 21)
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
@@ -157,7 +157,7 @@ class TestResonanceAnalysis:
         edges = [[0, 1]]
         radii = np.array([0.001])
         frequencies = np.linspace(80e6, 120e6, 41)
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources
@@ -176,11 +176,11 @@ class TestResonanceAnalysis:
     
     def test_bandwidth_calculation(self):
         """Test bandwidth calculation."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.linspace(70e6, 130e6, 61)
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
@@ -225,7 +225,7 @@ class TestMultiPort:
         frequencies = np.array([100e6])
         
         # Voltage source at base
-        vsources = [VoltageSource(1, 0, 1.0, R=50.0, L=0.0, C_inv=0.0)]
+        vsources = [VoltageSource(2, 0, 1.0, R=50.0, L=0.0, C_inv=0.0)]
         
         # Load at top
         loads = [Load(2, 1, R=100.0, L=0.0, C_inv=0.0)]
@@ -249,9 +249,9 @@ class TestMultiPort:
     
     def test_dipole_with_varying_source_impedance(self):
         """Test effect of source impedance on port parameters."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.array([100e6])
         
         # Test with different source impedances
@@ -259,7 +259,7 @@ class TestMultiPort:
         results = []
         
         for Z_src in Z_sources:
-            vsources = [VoltageSource(1, 0, 1.0, Z_src)]
+            vsources = [VoltageSource(2, 0, 1.0, Z_src)]
             result = solve_peec_frequency_sweep(
                 nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
             )
@@ -286,7 +286,7 @@ class TestExtremeCases:
         edges = [[0, 1]]
         radii = np.array([0.0001])
         frequencies = np.array([100e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources
@@ -302,11 +302,11 @@ class TestExtremeCases:
     def test_high_vswr(self):
         """Test handling of high VSWR (poor match)."""
         # Very short wire will have high VSWR
-        nodes = np.array([[0, 0, 0], [0, 0, 0.01]])
-        edges = [[0, 1]]
-        radii = np.array([0.0001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.005], [0, 0, 0.01]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.0001, 0.0001])
         frequencies = np.array([100e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
@@ -325,11 +325,11 @@ class TestExtremeCases:
     
     def test_multiple_frequencies(self):
         """Test sweep over many frequencies."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.linspace(10e6, 500e6, 50)
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
@@ -351,11 +351,11 @@ class TestParameterRelationships:
     
     def test_return_loss_vswr_consistency(self):
         """Test consistency between return loss and VSWR."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.3]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.15], [0, 0, 0.3]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.linspace(80e6, 120e6, 21)
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
@@ -377,11 +377,11 @@ class TestParameterRelationships:
     
     def test_impedance_mismatch_power_loss(self):
         """Test relationship between mismatch and power loss."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.5]])
-        edges = [[0, 1]]
-        radii = np.array([0.001])
+        nodes = np.array([[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]])
+        edges = [[0, 1], [1, 2]]
+        radii = np.array([0.001, 0.001])
         frequencies = np.array([100e6])
-        vsources = [VoltageSource(1, 0, 1.0, 50.0)]
+        vsources = [VoltageSource(2, 0, 1.0, 50.0)]
         
         result = solve_peec_frequency_sweep(
             nodes, edges, radii, frequencies, vsources, reference_impedance=50.0
