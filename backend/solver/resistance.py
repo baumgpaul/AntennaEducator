@@ -266,6 +266,10 @@ def assemble_resistance_matrix(edges: List[EdgeGeometry], radii: np.ndarray,
     """
     n_edges = len(edges)
     
+    # Validate frequency
+    if frequency < 0:
+        raise ValueError(f"Frequency must be non-negative, got {frequency}")
+    
     # Validate radii array
     if len(radii) != n_edges:
         raise ValueError(f"Radii array has length {len(radii)}, expected {n_edges}")

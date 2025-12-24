@@ -302,8 +302,8 @@ class TestResistanceMatrixAssembly:
         ]
         radii = np.array([0.001, 0.001])
         
-        R_dc = assemble_resistance_matrix(edges, radii, frequency=0.0)
-        R_ac = assemble_resistance_matrix(edges, radii, frequency=1e6)
+        R_dc = assemble_resistance_matrix(edges, radii, frequency=0.0, include_skin_effect=True)
+        R_ac = assemble_resistance_matrix(edges, radii, frequency=1e6, include_skin_effect=True)
         
         # AC resistance should be higher due to skin effect
         assert R_ac[0, 0] > R_dc[0, 0]
@@ -382,8 +382,8 @@ class TestIntegration:
         edges = build_edge_geometries(nodes, edges_list)
         radii = np.full(10, 0.001)
         
-        R_dc = assemble_resistance_matrix(edges, radii, frequency=0.0)
-        R_ac = assemble_resistance_matrix(edges, radii, frequency=100e6)
+        R_dc = assemble_resistance_matrix(edges, radii, frequency=0.0, include_skin_effect=True)
+        R_ac = assemble_resistance_matrix(edges, radii, frequency=100e6, include_skin_effect=True)
         
         # AC resistance should be significantly higher
         assert np.all(np.diag(R_ac) > np.diag(R_dc))
@@ -400,7 +400,7 @@ class TestIntegration:
         resistances = []
         
         for freq in frequencies:
-            R = assemble_resistance_matrix(edges, radii, frequency=freq)
+            R = assemble_resistance_matrix(edges, radii, frequency=freq, include_skin_effect=True)
             resistances.append(R[0, 0])
         
         # Resistance should generally increase with frequency

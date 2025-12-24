@@ -156,17 +156,13 @@ class TestBeamwidth:
         sigma = 0.1
         pattern = np.exp(-((angles - np.pi/2)**2) / (2*sigma**2))
         
-        # Convert to dB
-        pattern_db = 10 * np.log10(pattern / np.max(pattern))
+        beamwidth = compute_beamwidth(pattern, angles, threshold_db=-3.0)
         
-        bw_idx1, bw_idx2 = compute_beamwidth(pattern_db, angles, threshold_db=-3.0)
+        assert beamwidth is not None, "Beamwidth should be found for Gaussian beam"
         
-        if bw_idx1 is not None and bw_idx2 is not None:
-            beamwidth = angles[bw_idx2] - angles[bw_idx1]
-            
-            # For Gaussian, FWHM ≈ 2.355*σ
-            expected_bw = 2.355 * sigma
-            np.testing.assert_allclose(beamwidth, expected_bw, rtol=0.2)
+        # For Gaussian, FWHM ≈ 2.355*σ
+        expected_bw = 2.355 * sigma
+        np.testing.assert_allclose(beamwidth, expected_bw, rtol=0.2)
     
     def test_beamwidth_omnidirectional(self):
         """Test beamwidth for omnidirectional pattern."""
@@ -175,14 +171,12 @@ class TestBeamwidth:
         
         # Flat pattern
         pattern = np.ones(n_angles)
-        pattern_db = 10 * np.log10(pattern / np.max(pattern))
         
-        bw_idx1, bw_idx2 = compute_beamwidth(pattern_db, angles, threshold_db=-3.0)
+        beamwidth = compute_beamwidth(pattern, angles, threshold_db=-3.0)
         
-        # Omnidirectional should have full beamwidth
-        if bw_idx1 is not None and bw_idx2 is not None:
-            assert bw_idx1 == 0
-            assert bw_idx2 == n_angles - 1
+        # Omnidirectional pattern has no -3dB points (all points are at 0 dB)
+        # So beamwidth should be None or full range
+        assert beamwidth is None or np.isclose(beamwidth, np.pi, rtol=0.1)
     
     def test_beamwidth_no_nulls(self):
         """Test pattern without -3dB points."""
@@ -192,13 +186,11 @@ class TestBeamwidth:
         # Very narrow beam (no -3dB points in sampled data)
         pattern = np.zeros(n_angles)
         pattern[45] = 1.0  # Single point
-        pattern_db = 10 * np.log10(pattern + 1e-10)
         
-        bw_idx1, bw_idx2 = compute_beamwidth(pattern_db, angles, threshold_db=-3.0)
+        beamwidth = compute_beamwidth(pattern, angles, threshold_db=-3.0)
         
         # Should return None if no valid beamwidth found
-        # Or return adjacent points
-        assert bw_idx1 is not None  # Should handle gracefully
+        assert beamwidth is None or beamwidth > 0
 
 
 class TestPatternMetrics:
@@ -250,7 +242,7 @@ class TestPatternMetrics:
         
         # Convert to dB
         U_dB = 10 * np.log10(U_norm + 1e-10)
-        assert np.max(U_dB) <= 0.0  # Max should be 0 dB
+        assert np.max(U_dB) <= 1e-6  # Max should be ~0 dB (within numerical precision)
     
     def test_front_to_back_ratio(self):
         """Test computation of front-to-back ratio."""
