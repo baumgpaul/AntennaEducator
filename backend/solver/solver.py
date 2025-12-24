@@ -30,8 +30,7 @@ import time
 from backend.solver.geometry import build_edge_geometries, EdgeGeometry
 from backend.solver.resistance import assemble_resistance_matrix
 from backend.solver.inductance import assemble_inductance_matrix
-from backend.solver.potential import assemble_potential_matrix
-from backend.solver.potential_nodal import assemble_nodal_potential_matrix
+from backend.solver.potential_nodal import assemble_nodal_potential_matrix_with_cap_elem
 from backend.solver.system import (
     VoltageSource, CurrentSource, Load,
     build_incidence_matrix,
@@ -73,6 +72,11 @@ class FrequencyPoint:
         input_impedance: Input impedance [Ω] (V_source / I_source)
         input_current: Current at voltage source terminal [A]
         power_dissipated: Total power dissipated in resistance [W]
+        reflection_coefficient: Complex reflection coefficient Γ
+        return_loss: Return loss in dB (|S11|)
+        input_power: Total input power [W]
+        reflected_power: Reflected power [W]
+        accepted_power: Accepted power (input - reflected) [W]
         solve_time: Time to solve system [s]
     """
     frequency: float
@@ -83,6 +87,11 @@ class FrequencyPoint:
     input_impedance: complex
     input_current: complex
     power_dissipated: float
+    reflection_coefficient: complex
+    return_loss: float
+    input_power: float
+    reflected_power: float
+    accepted_power: float
     solve_time: float
 
 
@@ -97,7 +106,10 @@ class SolverResult:
         impedance_imag: Input reactance vs frequency [Ω]
         impedance_magnitude: |Z| vs frequency [Ω]
         impedance_phase: Phase(Z) vs frequency [deg]
+        reflection_coefficient: Γ vs frequency (complex)
+        return_loss: Return loss vs frequency [dB]
         vswr: Voltage standing wave ratio vs frequency (relative to Z0)
+        mismatch_loss: Mismatch loss vs frequency [dB]
         reference_impedance: Reference impedance for VSWR [Ω]
         n_nodes: Number of nodes in mesh
         n_edges: Number of edges in mesh
@@ -111,7 +123,10 @@ class SolverResult:
     impedance_imag: np.ndarray
     impedance_magnitude: np.ndarray
     impedance_phase: np.ndarray
+    reflection_coefficient: np.ndarray
+    return_loss: np.ndarray
     vswr: np.ndarray
+    mismatch_loss: np.ndarray
     reference_impedance: float
     n_nodes: int
     n_edges: int
@@ -125,7 +140,7 @@ def solve_peec_frequency_sweep(
     edges: List[List[int]],
     radii: np.ndarray,
     frequencies: np.ndarray,
-    voltage_sources: List[VoltageSource],
+    voltage_sources: Optional[List[VoltageSource]] = None,
     current_sources: Optional[List[CurrentSource]] = None,
     loads: Optional[List[Load]] = None,
     config: Optional[SolverConfiguration] = None,
@@ -169,6 +184,7 @@ def solve_peec_frequency_sweep(
     # Set defaults
     config = config or SolverConfiguration()
     current_sources = current_sources or []
+    voltage_sources = voltage_sources or []
     loads = loads or []
     
     # Validate inputs
@@ -178,32 +194,20 @@ def solve_peec_frequency_sweep(
     if len(radii) != n_edges:
         raise ValueError(f"radii length {len(radii)} doesn't match edges length {n_edges}")
     
-    if len(voltage_sources) == 0:
-        raise ValueError("At least one voltage source is required")
+    if len(voltage_sources) == 0 and len(current_sources) == 0: 
+        raise ValueError("At least one voltage source or current source is required")
     
     # Step 1: Build edge geometries and handle edges to/from ground
     # Ground is node 0. For edges to/from ground, we can't build full EdgeGeometry
     # but we can estimate their length and use simplified formulas.
     physical_edge_indices = []  # Edges between two non-ground nodes
-    ground_edge_indices = []    # Edges with one end at ground
     physical_edges_0based = []
-    ground_edge_lengths = []
-    ground_edge_radii = []
     
     for i, edge in enumerate(edges):
         if edge[0] > 0 and edge[1] > 0:
             # Physical edge between two non-ground nodes
             physical_edge_indices.append(i)
             physical_edges_0based.append([edge[0]-1, edge[1]-1])
-        elif edge[0] == 0 or edge[1] == 0:
-            # Edge to/from ground - use node position as length estimate
-            ground_edge_indices.append(i)
-            non_ground_node = edge[0] if edge[0] > 0 else edge[1]
-            node_pos = nodes[non_ground_node - 1]
-            # Length is distance from origin (assuming ground at origin)
-            length = np.linalg.norm(node_pos)
-            ground_edge_lengths.append(length)
-            ground_edge_radii.append(radii[i])
     
     # Build geometries for physical edges
     if len(physical_edges_0based) > 0:
@@ -214,47 +218,40 @@ def solve_peec_frequency_sweep(
         physical_radii = np.array([])
     
     n_physical_edges = len(edge_geom_list)
-    n_ground_edges = len(ground_edge_indices)
     
     # Step 2: Assemble frequency-independent matrices
-    # Inductance and potential for physical edges
+    # Inductance for physical edges (potential is node-based only)
     if n_physical_edges > 0:
-        L_physical = assemble_inductance_matrix(edge_geom_list, physical_radii)
-        P_physical = assemble_potential_matrix(edge_geom_list, physical_radii)
+        L_physical, dist_L_physical = assemble_inductance_matrix(edge_geom_list, physical_radii)
     else:
         L_physical = np.zeros((0, 0))
-        P_physical = np.zeros((0, 0))
+        dist_L_physical = np.zeros((0, 0))
     
     # For ground edges, use simplified formulas
     # L ≈ (μ₀/2π) * length * [ln(2*length/radius) - 1] for a thin wire to ground
     # P ≈ (1/2πε₀) * length * ln(2*length/radius) for potential coefficient
     mu0 = 4 * np.pi * 1e-7  # H/m
     eps0 = 8.854e-12  # F/m
-    
-    L_ground = np.zeros((n_ground_edges, n_ground_edges))
-    P_ground = np.zeros((n_ground_edges, n_ground_edges))
-    for i, (length, radius) in enumerate(zip(ground_edge_lengths, ground_edge_radii)):
-        if length > 0 and radius > 0:
-            # Self-inductance of wire to ground (approximate)
-            L_ground[i, i] = (mu0 / (2 * np.pi)) * length * (np.log(2 * length / radius) - 1)
-            # Self-potential coefficient (approximate)
-            P_ground[i, i] = (1 / (2 * np.pi * eps0)) * length * np.log(2 * length / radius)
-    
+        
     # Step 3: Build topology (frequency-independent)
     # Account for node indexing: mesh nodes are 1-based, with 0 as ground
     max_node = max(max(e) for e in edges)
     
     # Compute node-based potential matrix P (required for A'PA coupling)
     # This is (n_nodes × n_nodes) following MATLAB implementation
-    n_nodes = max_node
+    # Uses Cap_Elem representation for each node
+    n_nodes = len(nodes)
     if n_physical_edges > 0:
         # Filter edge list to only include physical edges (exclude ground edges)
         physical_edge_list = [edges[i] for i in physical_edge_indices]
-        P_nodal = assemble_nodal_potential_matrix(
+        P_nodal, dist_P_nodal, cap_elem, radii_cap = assemble_nodal_potential_matrix_with_cap_elem(
             edge_geom_list, physical_edge_list, physical_radii, n_nodes
         )
     else:
         P_nodal = np.zeros((n_nodes, n_nodes))
+        dist_P_nodal = np.zeros((n_nodes, n_nodes))
+        cap_elem = np.zeros((3, 3, n_nodes))
+        radii_cap = np.zeros((n_nodes, 2))
     
     A = build_incidence_matrix(
         edges, max_node,
@@ -268,26 +265,6 @@ def solve_peec_frequency_sweep(
     
     n_branches = A.shape[1]
     
-    # Combine physical and ground edge matrices into full edge-space matrices
-    L_full = np.zeros((n_edges, n_edges))
-    P_full = np.zeros((n_edges, n_edges))
-    
-    # Place physical edge contributions
-    if n_physical_edges > 0:
-        for i, idx_i in enumerate(physical_edge_indices):
-            for j, idx_j in enumerate(physical_edge_indices):
-                L_full[idx_i, idx_j] = L_physical[i, j]
-                P_full[idx_i, idx_j] = P_physical[i, j]
-    
-    # Place ground edge contributions (diagonal only - no coupling between edges)
-    if n_ground_edges > 0:
-        for i, idx in enumerate(ground_edge_indices):
-            L_full[idx, idx] = L_ground[i, i]
-            P_full[idx, idx] = P_ground[i, i]
-    
-    # P_full is now the complete edge-space potential coefficient matrix
-    # assemble_impedance_matrix will transform it to branch space using A'PA
-    
     # Prepare current source vector (frequency-independent positions)
     I_source = np.zeros(max_node, dtype=complex)
     for isrc in current_sources:
@@ -297,9 +274,53 @@ def solve_peec_frequency_sweep(
     # Step 4: Solve at each frequency
     frequency_solutions = []
     
+    # Speed of light for retarded potential calculation
+    c0 = 299792458.0  # m/s
+    
     for freq in frequencies:
         freq_start = time.time()
         omega = 2 * np.pi * freq
+        
+        # Apply retarded potential phase correction to inductance
+        # Following MATLAB: retardation applied only to off-diagonal terms
+        # Ret_L =  exp(-1i*beta*dist_L);
+        # L = diag(diag(L))+triu(L,1)+triu(L,1).';
+        # Ret_L = triu(Ret_L,1)+triu(Ret_L,1).';
+        # Matrix_L = diag(diag(L)) + L.*Ret_L;
+        if n_physical_edges > 0:
+            beta = omega / c0
+            Ret_L = np.exp(-1j * beta * dist_L_physical)
+            L_diag = np.diag(np.diag(L_physical))
+            L_off_upper = np.triu(L_physical, 1)
+            Ret_L_off_upper = np.triu(Ret_L, 1)
+            L_physical_retarded = L_diag + L_off_upper * Ret_L_off_upper + (L_off_upper * Ret_L_off_upper).T
+        else:
+            L_physical_retarded = L_physical
+        
+        # Apply retarded potential phase correction to nodal potential matrix
+        # Following MATLAB: retardation applied only to off-diagonal terms
+        # Ret_P = exp(-1i*beta*dist_P);
+        # P = diag(diag(P))+triu(P,1)+triu(P,1).';
+        # Ret_P = triu(Ret_P,1)+triu(Ret_P,1).';
+        # Matrix_P = diag(diag(P)) + P.*Ret_P;
+        if n_physical_edges > 0:
+            Ret_P = np.exp(-1j * beta * dist_P_nodal)
+            P_diag = np.diag(np.diag(P_nodal))
+            P_off_upper = np.triu(P_nodal, 1)
+            Ret_P_off_upper = np.triu(Ret_P, 1)
+            P_nodal_retarded = P_diag + P_off_upper * Ret_P_off_upper + (P_off_upper * Ret_P_off_upper).T
+        else:
+            P_nodal_retarded = P_nodal
+        
+        # Assemble frequency-dependent inductance matrix with retardation
+        L_full = np.zeros((n_edges, n_edges), dtype=complex)
+        
+        # Place physical edge contributions (with retardation)
+        if n_physical_edges > 0:
+            for i, idx_i in enumerate(physical_edge_indices):
+                for j, idx_j in enumerate(physical_edge_indices):
+                    L_full[idx_i, idx_j] = L_physical_retarded[i, j]
+        
         
         # Assemble frequency-dependent resistance matrix
         R = np.zeros((n_edges, n_edges))
@@ -308,43 +329,19 @@ def solve_peec_frequency_sweep(
         if n_physical_edges > 0:
             R_physical = assemble_resistance_matrix(
                 edge_geom_list, physical_radii,
-                frequency=freq if config.include_skin_effect else 0.0,
+                frequency=freq,
                 resistivity=config.resistivity,
-                permeability=config.permeability
+                permeability=config.permeability,
+                include_skin_effect=config.include_skin_effect
             )
             for i, idx_i in enumerate(physical_edge_indices):
                 for j, idx_j in enumerate(physical_edge_indices):
                     R[idx_i, idx_j] = R_physical[i, j]
         
-        # Ground edges: use simplified resistance formula
-        # R = ρ * length / A, where A = π * radius²
-        # With skin effect: R_ac ≈ R_dc * sqrt(ω / ω_skin) for ω >> ω_skin
-        if n_ground_edges > 0:
-            for i, idx in enumerate(ground_edge_indices):
-                length = ground_edge_lengths[i]
-                radius = ground_edge_radii[i]
-                if length > 0 and radius > 0:
-                    area = np.pi * radius**2
-                    R_dc = config.resistivity * length / area
-                    
-                    if config.include_skin_effect and freq > 0:
-                        # Skin depth: δ = sqrt(2ρ / (ωμ))
-                        skin_depth = np.sqrt(2 * config.resistivity / (2 * np.pi * freq * mu0 * config.permeability))
-                        # AC resistance factor (simplified)
-                        if skin_depth < radius:
-                            # High frequency: current mostly in skin
-                            R_ac = config.resistivity * length / (2 * np.pi * radius * skin_depth)
-                        else:
-                            # Low frequency: uniform current
-                            R_ac = R_dc
-                        R[idx, idx] = R_ac
-                    else:
-                        R[idx, idx] = R_dc
-        
         # Assemble impedance matrix Z(ω) 
-        # Pass node-based P matrix for A'PA coupling term
+        # Pass node-based P matrix with retardation for A'PA coupling term
         Z = assemble_impedance_matrix(
-            R, L_full, P_nodal, A, omega,
+            R, L_full, P_nodal_retarded, A, omega,
             voltage_sources=voltage_sources,
             loads=loads
         )
@@ -352,16 +349,16 @@ def solve_peec_frequency_sweep(
         # Assemble system matrix (only use A_app, following MATLAB)
         system_matrix = assemble_system_matrix(Z, A_app)
         
-        # Assemble source vector with capacitive coupling
+        # Assemble source vector with capacitive coupling (use retarded P)
         source_vector = assemble_source_vector(
-            voltage_sources, current_sources, A, P_nodal, omega, n_edges, n_appended
+            voltage_sources, current_sources, A, P_nodal_retarded, omega, n_edges, n_appended
         )
         
         # Solve system
         I, V_app = solve_peec_system(system_matrix, source_vector, n_branches)
         
         # Compute node voltages (following MATLAB: V = (1/jω)*(P*I_source + P*A*I))
-        V = compute_node_voltages(I, I_source, A, P_nodal, omega)
+        V = compute_node_voltages(I, I_source, A, P_nodal_retarded, omega)
         
         # Compute input impedance
         # Find voltage source branch (first one by convention)
@@ -380,6 +377,26 @@ def solve_peec_frequency_sweep(
         R_full[:n_edges, :n_edges] = R
         power_dissipated = np.real(np.conj(I) @ R_full @ I)
         
+        # Compute port parameters relative to reference impedance
+        Z0 = reference_impedance
+        reflection_coefficient = (input_impedance - Z0) / (input_impedance + Z0)
+        gamma_mag = np.abs(reflection_coefficient)
+        
+        # Return loss in dB: RL = -20*log10(|Γ|)
+        return_loss = -20.0 * np.log10(gamma_mag + 1e-12)  # Add epsilon to avoid log(0)
+        return_loss = np.clip(return_loss, 0.0, 100.0)  # Clip to reasonable range
+        
+        # Power quantities
+        # Input power: P_in = 0.5 * |V|² / Z0 (assuming voltage source with Z0)
+        # Or more accurately: P_in = 0.5 * Re(V * I*)
+        input_power = 0.5 * np.real(input_voltage * np.conj(input_current))
+        
+        # Reflected power: P_refl = |Γ|² * P_in
+        reflected_power = gamma_mag**2 * input_power
+        
+        # Accepted power: P_acc = P_in - P_refl = (1 - |Γ|²) * P_in
+        accepted_power = input_power - reflected_power
+        
         freq_time = time.time() - freq_start
         
         # Store solution
@@ -392,6 +409,11 @@ def solve_peec_frequency_sweep(
             input_impedance=input_impedance,
             input_current=input_current,
             power_dissipated=power_dissipated,
+            reflection_coefficient=reflection_coefficient,
+            return_loss=return_loss,
+            input_power=input_power,
+            reflected_power=reflected_power,
+            accepted_power=accepted_power,
             solve_time=freq_time
         )
         
@@ -404,12 +426,20 @@ def solve_peec_frequency_sweep(
     impedance_magnitude = np.abs(impedances)
     impedance_phase = np.angle(impedances, deg=True)
     
+    # Extract reflection coefficients and return loss
+    reflection_coefficients = np.array([sol.reflection_coefficient for sol in frequency_solutions])
+    return_losses = np.array([sol.return_loss for sol in frequency_solutions])
+    
     # Compute VSWR relative to reference impedance
     # VSWR = (1 + |Γ|) / (1 - |Γ|) where Γ = (Z - Z0) / (Z + Z0)
     gamma = (impedances - reference_impedance) / (impedances + reference_impedance)
     gamma_mag = np.abs(gamma)
     vswr = (1 + gamma_mag) / (1 - gamma_mag + 1e-10)  # Add epsilon to avoid division by zero
     vswr = np.clip(vswr, 1.0, 100.0)  # Clip extreme values
+    
+    # Compute mismatch loss: ML = -10*log10(1 - |Γ|²) [dB]
+    mismatch_loss = -10.0 * np.log10(1.0 - gamma_mag**2 + 1e-12)
+    mismatch_loss = np.clip(mismatch_loss, 0.0, 50.0)  # Clip to reasonable range
     
     total_time = time.time() - start_time
     
@@ -420,7 +450,10 @@ def solve_peec_frequency_sweep(
         impedance_imag=impedance_imag,
         impedance_magnitude=impedance_magnitude,
         impedance_phase=impedance_phase,
+        reflection_coefficient=reflection_coefficients,
+        return_loss=return_losses,
         vswr=vswr,
+        mismatch_loss=mismatch_loss,
         reference_impedance=reference_impedance,
         n_nodes=max_node,
         n_edges=n_edges,
@@ -546,3 +579,66 @@ def compute_bandwidth(result: SolverResult, vswr_limit: float = 2.0) -> Tuple[Op
     bandwidth_pct = 100 * (f_high - f_low) / f_center
     
     return f_low, f_high, bandwidth_pct
+
+
+def compute_radiation_efficiency(accepted_power: float, power_dissipated: float, 
+                                  radiated_power: Optional[float] = None) -> Optional[float]:
+    """
+    Compute radiation efficiency.
+    
+    Args:
+        accepted_power: Power accepted by antenna (input - reflected) [W]
+        power_dissipated: Power dissipated in resistance [W]
+        radiated_power: Power radiated (from far-field integration) [W]
+                       If None, efficiency cannot be computed
+    
+    Returns:
+        Radiation efficiency [0-1], or None if radiated_power not available
+        
+    Note:
+        η_rad = P_rad / P_accepted = P_rad / (P_rad + P_loss)
+        Requires far-field computation to determine P_rad
+    """
+    if radiated_power is None:
+        return None
+    
+    if accepted_power < 1e-12:
+        return None
+    
+    efficiency = radiated_power / accepted_power
+    return np.clip(efficiency, 0.0, 1.0)
+
+
+def compute_antenna_gain(directivity: float, efficiency: float) -> float:
+    """
+    Compute antenna gain from directivity and efficiency.
+    
+    Args:
+        directivity: Directivity (dimensionless)
+        efficiency: Radiation efficiency [0-1]
+    
+    Returns:
+        Gain (dimensionless): G = η * D
+        
+    Note:
+        - Gain in dBi: G_dBi = 10*log10(G)
+        - Requires far-field computation for directivity
+    """
+    return efficiency * directivity
+
+
+def compute_q_factor(f_resonant: float, bandwidth: float) -> float:
+    """
+    Compute quality factor (Q) of resonance.
+    
+    Args:
+        f_resonant: Resonant frequency [Hz]
+        bandwidth: -3dB bandwidth [Hz]
+    
+    Returns:
+        Quality factor Q = f0 / BW
+    """
+    if bandwidth < 1e-6:
+        return np.inf
+    
+    return f_resonant / bandwidth

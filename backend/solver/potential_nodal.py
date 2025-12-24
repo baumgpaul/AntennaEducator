@@ -12,7 +12,7 @@ References:
 """
 
 import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from .geometry import EdgeGeometry, compute_distance
 from .gauss_quadrature import get_gauss_points
 
@@ -24,7 +24,7 @@ def build_capacitive_elements(edges: List[EdgeGeometry],
     """
     Build capacitive element representation for each node.
     
-    Following MATLAB approach: each node is represented by either:
+    Each node is represented by either:
     - 1 adjacent edge: 3 points from that edge (end, mid, center)
     - 2 adjacent edges: 3 points spanning both edges (mid1, node, mid2)
     
@@ -155,43 +155,105 @@ def build_capacitive_elements(edges: List[EdgeGeometry],
     return cap_elem, radii_cap
 
 
+def build_capacitive_element_vectors(edges: List[EdgeGeometry],
+                                     edge_list: List[List[int]],
+                                     radii: np.ndarray,
+                                     n_nodes: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Create elements for constructing nodal capacity elements
+
+    Returns both the 3×3×N tensor (Cap_Elem) and the reshaped 3×(3*N)
+    matrix (Cap_Elem2) alongside the radii pair per node.
+
+    This mirrors the MATLAB snippet:
+        Cap_Elem = zeros(3,3,N_node_o);
+        Radii_cap_el = zeros(N_node_o,2);
+        ...
+        Cap_Elem2 = reshape(Cap_Elem,3,3*N_node_o);
+    """
+    cap_elem, radii_cap = build_capacitive_elements(edges, edge_list, radii, n_nodes)
+    cap_elem2 = cap_elem.reshape(3, 3 * n_nodes)
+    return cap_elem, cap_elem2, radii_cap
+
+
 def compute_nodal_potential_coefficient(X: np.ndarray, Y: np.ndarray,
                                         gauss_points: np.ndarray,
                                         gauss_weights: np.ndarray) -> float:
     """
-    Compute potential coefficient between two segments.
+    Compute potential coefficient between two 3-point segments using Gauss quadrature.
     
-    Simple implementation: computes mutual potential using log approximation.
+    Matches MATLAB calcCoefficient function exactly.
     
     Args:
-        X: First segment, shape (N, 3) [point, xyz]
-        Y: Second segment, shape (M, 3) [point, xyz]
+        X: First segment (observer), shape (3, 3) - three xyz points
+        Y: Second segment (source), shape (3, 3) - three xyz points
         gauss_points: Gauss quadrature points in [-1, 1]
         gauss_weights: Gauss quadrature weights
     
     Returns:
-        Potential coefficient P_ij [1/F]
+        Potential coefficient (dimensionless)
     """
-    eps = 1e-10
+    eps = 1e-12
     
-    # Get segment centers and lengths
-    X_center = np.mean(X, axis=0)
-    Y_center = np.mean(Y, axis=0)
+    # Extract points
+    x1, x2, x3 = X[0, :], X[1, :], X[2, :]
+    y1, y2, y3 = Y[0, :], Y[1, :], Y[2, :]
     
-    X_length = np.sum([np.linalg.norm(X[i+1,:] - X[i,:]) for i in range(len(X)-1)])
-    Y_length = np.sum([np.linalg.norm(Y[i+1,:] - Y[i,:]) for i in range(len(Y)-1)])
+    # Segment lengths for observer (el1 = X)
+    l_el1_1 = np.linalg.norm(x2 - x1)  # x1 to x2
+    l_el1_2 = np.linalg.norm(x3 - x2)  # x2 to x3
     
-    # Distance between centers
-    dist = np.linalg.norm(X_center - Y_center) + eps
+    # Segment lengths for source (el2 = Y)
+    l_el2_1 = np.linalg.norm(y2 - y1)  # y1 to y2
+    l_el2_2 = np.linalg.norm(y3 - y2)  # y2 to y3
     
-    # Simplified potential coefficient (log approximation)
-    # P ~ (1/L) * log(L/d) where L is average length, d is distance
-    avg_length = (X_length + Y_length) / 2
+    # Compute Gauss integration points on observer segment
+    el1_mid1 = (x1 + x2) * 0.5
+    vec1 = x2 - el1_mid1
+    int_points1 = el1_mid1[np.newaxis, :] + gauss_points[:, np.newaxis] * vec1[np.newaxis, :]
     
-    if dist < avg_length * 0.1:  # Close segments
-        P_coeff = (2 / avg_length) * (np.log(2 * avg_length / dist) - 1)
-    else:  # Distant segments
-        P_coeff = (1 / avg_length) * np.log(avg_length / dist + np.sqrt(1 + (avg_length / dist)**2))
+    el1_mid2 = (x2 + x3) * 0.5
+    vec2 = x3 - el1_mid2
+    int_points2 = el1_mid2[np.newaxis, :] + gauss_points[:, np.newaxis] * vec2[np.newaxis, :]
+    
+    # Compute distances from Gauss points to source segment points
+    # Section 1 of observer to source segments
+    dist_1b1 = np.sqrt(np.sum((int_points1 - y1[np.newaxis, :])**2, axis=1) + eps)
+    dist_1b2 = np.sqrt(np.sum((int_points1 - y2[np.newaxis, :])**2, axis=1) + eps)
+    dist_1b3 = np.sqrt(np.sum((int_points1 - y3[np.newaxis, :])**2, axis=1) + eps)
+    
+    # Section 2 of observer to source segments
+    dist_2b1 = np.sqrt(np.sum((int_points2 - y1[np.newaxis, :])**2, axis=1) + eps)
+    dist_2b2 = np.sqrt(np.sum((int_points2 - y2[np.newaxis, :])**2, axis=1) + eps)
+    dist_2b3 = np.sqrt(np.sum((int_points2 - y3[np.newaxis, :])**2, axis=1) + eps)
+    
+    # Compute logarithmic potential contributions
+    # f1: section 1 of observer to (y1-y2) segment
+    f1 = l_el2_1 / (dist_1b1 + dist_1b2)
+    f1 = np.log((1 + f1) / (1 - f1))
+    f1 = np.dot(gauss_weights, f1)
+    
+    # f2: section 2 of observer to (y1-y2) segment
+    f2 = l_el2_1 / (dist_2b1 + dist_2b2)
+    f2 = np.log((1 + f2) / (1 - f2))
+    f2 = np.dot(gauss_weights, f2)
+    
+    # f3: section 1 of observer to (y2-y3) segment
+    f3 = l_el2_2 / (dist_1b2 + dist_1b3)
+    f3 = np.log((1 + f3) / (1 - f3))
+    f3 = np.dot(gauss_weights, f3)
+    
+    # f4: section 2 of observer to (y2-y3) segment
+    f4 = l_el2_2 / (dist_2b2 + dist_2b3)
+    f4 = np.log((1 + f4) / (1 - f4))
+    f4 = np.dot(gauss_weights, f4)
+    
+    # Combine contributions
+    f13 = f1 + f3
+    f24 = f2 + f4
+    
+    # Final coefficient
+    P_coeff = (1.0 / ((l_el2_1 + l_el2_2) * (l_el1_1 + l_el1_2))) * \
+              (0.5 * l_el1_1 * f13 + 0.5 * l_el1_2 * f24)
     
     return P_coeff
 
@@ -202,12 +264,12 @@ def assemble_nodal_potential_matrix(edges: List[EdgeGeometry],
                                     n_nodes: int,
                                     gauss_points: np.ndarray = None,
                                     gauss_weights: np.ndarray = None,
-                                    n_gauss: int = 10) -> np.ndarray:
+                                    n_gauss: int = 10) -> tuple[np.ndarray, np.ndarray]:
     """
     Assemble node-based potential coefficient matrix P.
     
-    Following MATLAB implementation: P is (n_nodes × n_nodes) where each
-    element represents capacitive coupling between node charge distributions.
+    P is (n_nodes × n_nodes) where each element represents capacitive coupling between
+    node charge distributions.
     
     Args:
         edges: List of EdgeGeometry objects
@@ -219,7 +281,9 @@ def assemble_nodal_potential_matrix(edges: List[EdgeGeometry],
         n_gauss: Gauss quadrature order if points/weights not provided
     
     Returns:
-        Potential coefficient matrix P [1/F], shape (n_nodes, n_nodes)
+        Tuple of (P, dist_P):
+            - P: Potential coefficient matrix [1/F], shape (n_nodes, n_nodes)
+            - dist_P: Distance matrix between nodes [m], shape (n_nodes, n_nodes)
     """
     if gauss_points is None or gauss_weights is None:
         gauss_points, gauss_weights = get_gauss_points(n_gauss)
@@ -227,12 +291,13 @@ def assemble_nodal_potential_matrix(edges: List[EdgeGeometry],
     # Build capacitive element representation
     cap_elem, radii_cap = build_capacitive_elements(edges, edge_list, radii, n_nodes)
     
-    # Initialize P matrix
+    # Initialize P and distance matrices
     P = np.zeros((n_nodes, n_nodes))
+    dist_P = np.zeros((n_nodes, n_nodes))
     
     # Physical constants
     pi = np.pi
-    eps_0 = 8.854187817e-12  # Permittivity of free space [F/m]
+    eps_0 = 8.8541878176e-12  # Permittivity of free space [F/m] - matches MATLAB
     
     # Compute diagonal elements (self potential coefficients)
     for i in range(n_nodes):
@@ -271,13 +336,135 @@ def assemble_nodal_potential_matrix(edges: List[EdgeGeometry],
         P[i, i] = (1 / (4 * pi * eps_0)) / np.sum(M_inv)
     
     # Compute off-diagonal elements (mutual potential coefficients)
+    # MATLAB approach: el2 stays as second sub-segment from diagonal calculation
     for i in range(n_nodes):
+        x1 = cap_elem[0, :, i]
+        x2 = cap_elem[1, :, i]
+        x3 = cap_elem[2, :, i]
+        
+        # el2 is second sub-segment (matches MATLAB el2 from diagonal calc)
+        el2 = np.array([x2, (x2 + x3) * 0.5, x3])
+        
         for j in range(i + 1, n_nodes):
-            X = cap_elem[:, :, i]
+            # el1 = full node j (matches MATLAB: el1(1,:)=y1; el1(2,:)=y2; el1(3,:)=y3;)
             Y = cap_elem[:, :, j]
             
-            P_mutual = compute_nodal_potential_coefficient(X, Y, gauss_points, gauss_weights)
+            # calcCoefficient(el1, el2) where el1=node_j, el2=subsegment_i
+            P_mutual = compute_nodal_potential_coefficient(Y, el2, gauss_points, gauss_weights)
             P[i, j] = (1 / (4 * pi * eps_0)) * P_mutual
             P[j, i] = P[i, j]  # Symmetry
+            
+            # Distance: sqrt(sum((x2-y2).^2))
+            dist_ij = np.linalg.norm(x2 - Y[1, :])
+            dist_P[i, j] = dist_ij
+            dist_P[j, i] = dist_ij  # Symmetry
     
-    return P
+    return P, dist_P
+
+
+def assemble_nodal_potential_matrix_with_cap_elem(
+    edges: List[EdgeGeometry],
+    edge_list: List[List[int]],
+    radii: np.ndarray,
+    n_nodes: int,
+    gauss_points: Optional[np.ndarray] = None,
+    gauss_weights: Optional[np.ndarray] = None,
+    n_gauss: int = 10
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Assemble node-based potential matrix using explicit Cap_Elem vectors.
+    
+    This version explicitly constructs and returns the Cap_Elem vectors
+    for debugging and verification 
+    
+    Args:
+        edges: List of EdgeGeometry objects
+        edge_list: Edge connectivity [[node1, node2], ...] (1-based)
+        radii: Wire radii for each edge
+        n_nodes: Number of nodes (excluding ground)
+        gauss_points: Optional Gauss quadrature points
+        gauss_weights: Optional Gauss quadrature weights
+        n_gauss: Gauss quadrature order if points/weights not provided
+    
+    Returns:
+        Tuple of (P, dist_P, cap_elem, radii_cap):
+            - P: Potential coefficient matrix [1/F], shape (n_nodes, n_nodes)
+            - dist_P: Distance matrix [m], shape (n_nodes, n_nodes)
+            - cap_elem: Capacitive elements tensor, shape (3, 3, n_nodes)
+            - radii_cap: Radii pairs for each node, shape (n_nodes, 2)
+    """
+    if gauss_points is None or gauss_weights is None:
+        gauss_points, gauss_weights = get_gauss_points(n_gauss)
+    
+    # Build capacitive element representation (MATLAB: Cap_Elem, Radii_cap_el)
+    cap_elem, radii_cap = build_capacitive_elements(edges, edge_list, radii, n_nodes)
+    
+    # Initialize P and distance matrices
+    P = np.zeros((n_nodes, n_nodes))
+    dist_P = np.zeros((n_nodes, n_nodes))
+    
+    # Physical constants
+    pi = np.pi
+    eps_0 = 8.8541878176e-12  # F/m
+    
+    # Compute diagonal elements (self potential coefficients)
+    for i in range(n_nodes):
+        X = cap_elem[:, :, i]  # 3 points for node i
+        
+        # Sub-segment lengths
+        l_a = np.linalg.norm(X[1, :] - X[0, :])
+        l_b = np.linalg.norm(X[2, :] - X[1, :])
+        
+        # Self potential for each sub-segment
+        r_a = radii_cap[i, 0]
+        r_b = radii_cap[i, 1]
+        
+        aa = np.log(l_a / r_a + np.sqrt(1 + (l_a / r_a)**2))
+        bb = np.sqrt(1 + (r_a / l_a)**2)
+        cc = r_a / l_a
+        P_aa = (2 / l_a) * (aa - bb + cc)
+        
+        aa = np.log(l_b / r_b + np.sqrt(1 + (l_b / r_b)**2))
+        bb = np.sqrt(1 + (r_b / l_b)**2)
+        cc = r_b / l_b
+        P_bb = (2 / l_b) * (aa - bb + cc)
+        
+        # Mutual potential between sub-segments
+        # Build full 3-point segment representation for the two sub-segments
+        x1 = cap_elem[0, :, i]
+        x2 = cap_elem[1, :, i]
+        x3 = cap_elem[2, :, i]
+        
+        # Sub-segment 1: x1-x2 expanded to 3 points
+        el1 = np.array([x1, (x1 + x2) * 0.5, x2])
+        # Sub-segment 2: x2-x3 expanded to 3 points
+        el2 = np.array([x2, (x2 + x3) * 0.5, x3])
+        
+        P_ab = compute_nodal_potential_coefficient(el1, el2, gauss_points, gauss_weights)
+        
+        # Invert 2×2 local matrix to get node potential coefficient
+        M_local = np.array([[P_aa, P_ab], [P_ab, P_bb]])
+        M_inv = np.linalg.inv(M_local)
+        
+        # Sum of all elements gives node potential coefficient
+        P[i, i] = (1 / (4 * pi * eps_0)) / np.sum(M_inv)
+    
+    # Compute off-diagonal elements (mutual potential coefficients)
+    # MATLAB uses the raw cap_elem 3-point structure directly
+    for i in range(n_nodes):
+        X_i = cap_elem[:, :, i]  # 3-point structure for node i
+        
+        for j in range(i + 1, n_nodes):
+            X_j = cap_elem[:, :, j]  # 3-point structure for node j
+            
+            # calcCoefficient uses the 3-point structures directly
+            P_mutual = compute_nodal_potential_coefficient(X_j, X_i, gauss_points, gauss_weights)
+            P[i, j] = (1 / (4 * pi * eps_0)) * P_mutual
+            P[j, i] = P[i, j]
+            
+            # Distance: sqrt(sum((x2_i - x2_j).^2))
+            dist_ij = np.linalg.norm(X_i[1, :] - X_j[1, :])
+            dist_P[i, j] = dist_ij
+            dist_P[j, i] = dist_ij
+    
+    return P, dist_P, cap_elem, radii_cap

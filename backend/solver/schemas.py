@@ -44,7 +44,11 @@ class VoltageSourceInput(BaseModel):
     node_start: int = Field(..., description="Starting node index (1-based)")
     node_end: int = Field(..., description="Ending node index (0=ground)")
     value: complex = Field(..., description="Voltage [V]")
-    impedance: float = Field(50.0, description="Source impedance [Ω]")
+    # Support both old impedance field and new R/L/C_inv fields for backward compatibility
+    impedance: Optional[float] = Field(None, description="Source impedance [Ω] (deprecated, use R/L/C_inv)")
+    R: float = Field(0.0, description="Resistance [Ω]")
+    L: float = Field(0.0, description="Inductance [H]")
+    C_inv: float = Field(0.0, description="Inverse capacitance [1/F]")
     
     class Config:
         json_schema_extra = {
@@ -52,7 +56,9 @@ class VoltageSourceInput(BaseModel):
                 "node_start": 1,
                 "node_end": 0,
                 "value": 1.0,
-                "impedance": 50.0
+                "R": 50.0,
+                "L": 0.0,
+                "C_inv": 0.0
             }
         }
 
@@ -77,14 +83,20 @@ class LoadInput(BaseModel):
     
     node_start: int = Field(..., description="Starting node index (1-based)")
     node_end: int = Field(..., description="Ending node index")
-    impedance: complex = Field(..., description="Load impedance [Ω]")
+    # Support both old impedance field and new R/L/C_inv fields for backward compatibility
+    impedance: Optional[complex] = Field(None, description="Load impedance [Ω] (deprecated, use R/L/C_inv)")
+    R: float = Field(0.0, description="Resistance [Ω]")
+    L: float = Field(0.0, description="Inductance [H]")
+    C_inv: float = Field(0.0, description="Inverse capacitance [1/F]")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "node_start": 5,
                 "node_end": 0,
-                "impedance": 50.0
+                "R": 50.0,
+                "L": 0.0,
+                "C_inv": 0.0
             }
         }
 
@@ -190,9 +202,16 @@ class FrequencyPointResponse(BaseModel):
     node_voltages: List[complex] = Field(..., description="Node voltages [V]")
     appended_voltages: List[complex] = Field(..., description="Appended node voltages [V]")
     
-    # Input characteristics
+    # Port characteristics
     input_impedance: complex = Field(..., description="Input impedance [Ω]")
     input_current: complex = Field(..., description="Input current [A]")
+    reflection_coefficient: complex = Field(..., description="Reflection coefficient Γ")
+    return_loss: float = Field(..., description="Return loss |S11| [dB]")
+    
+    # Power quantities
+    input_power: float = Field(..., description="Total input power [W]")
+    reflected_power: float = Field(..., description="Reflected power [W]")
+    accepted_power: float = Field(..., description="Accepted power [W]")
     power_dissipated: float = Field(..., description="Dissipated power [W]")
     
     # Timing
@@ -208,6 +227,11 @@ class FrequencyPointResponse(BaseModel):
                 "appended_voltages": [],
                 "input_impedance": 75-10j,
                 "input_current": 0.013+0j,
+                "reflection_coefficient": 0.2-0.05j,
+                "return_loss": 13.5,
+                "input_power": 0.010,
+                "reflected_power": 0.0004,
+                "accepted_power": 0.0096,
                 "power_dissipated": 0.007,
                 "solve_time": 0.015
             }
@@ -227,7 +251,9 @@ class SweepResultResponse(BaseModel):
     # Derived parameters
     impedance_magnitude: List[float] = Field(..., description="|Z| [Ω]")
     impedance_phase: List[float] = Field(..., description="∠Z [deg]")
+    return_loss: List[float] = Field(..., description="Return loss [dB]")
     vswr: List[float] = Field(..., description="Voltage Standing Wave Ratio")
+    mismatch_loss: List[float] = Field(..., description="Mismatch loss [dB]")
     
     # Metadata
     n_nodes: int = Field(..., description="Number of nodes")
@@ -243,7 +269,9 @@ class SweepResultResponse(BaseModel):
                 "frequency_solutions": [],
                 "impedance_magnitude": [75.0, 76.0, 77.0],
                 "impedance_phase": [-30, -5, 20],
+                "return_loss": [10.5, 15.2, 12.8],
                 "vswr": [2.5, 1.5, 2.0],
+                "mismatch_loss": [1.2, 0.4, 0.8],
                 "n_nodes": 2,
                 "n_edges": 1,
                 "n_branches": 2,

@@ -81,7 +81,10 @@ def _convert_sources(request):
             node_start=vs.node_start,
             node_end=vs.node_end,
             value=vs.value,
-            impedance=vs.impedance
+            # Backward compatibility: if impedance provided, use as R
+            R=vs.R if vs.impedance is None else vs.impedance,
+            L=vs.L,
+            C_inv=vs.C_inv
         )
         for vs in request.voltage_sources
     ]
@@ -95,7 +98,10 @@ def _convert_sources(request):
         Load(
             node_start=ld.node_start,
             node_end=ld.node_end,
-            impedance=ld.impedance
+            # Backward compatibility: if impedance provided, use as R
+            R=ld.R if ld.impedance is None else ld.impedance.real,
+            L=ld.L,
+            C_inv=ld.C_inv
         )
         for ld in request.loads
     ]
@@ -310,6 +316,11 @@ async def solve_frequency_sweep_endpoint(request: FrequencySweepRequest):
                     appended_voltages=[complex(v) for v in sol.appended_voltages],
                     input_impedance=complex(sol.input_impedance),
                     input_current=complex(sol.input_current),
+                    reflection_coefficient=complex(sol.reflection_coefficient),
+                    return_loss=float(sol.return_loss),
+                    input_power=float(sol.input_power),
+                    reflected_power=float(sol.reflected_power),
+                    accepted_power=float(sol.accepted_power),
                     power_dissipated=float(sol.power_dissipated),
                     solve_time=sol.solve_time
                 )
@@ -322,7 +333,9 @@ async def solve_frequency_sweep_endpoint(request: FrequencySweepRequest):
             frequency_solutions=freq_solutions,
             impedance_magnitude=[float(z) for z in result.impedance_magnitude],
             impedance_phase=[float(p) for p in result.impedance_phase],
+            return_loss=[float(rl) for rl in result.return_loss],
             vswr=[float(v) for v in result.vswr],
+            mismatch_loss=[float(ml) for ml in result.mismatch_loss],
             n_nodes=result.n_nodes,
             n_edges=result.n_edges,
             n_branches=result.n_branches,

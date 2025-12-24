@@ -221,24 +221,30 @@ def assemble_resistance_matrix(edges: List[EdgeGeometry], radii: np.ndarray,
                                frequency: float = 0.0,
                                resistivity: float = DEFAULT_RESISTIVITY,
                                permeability: float = MU_0,
-                               include_skin_effect: bool = True) -> np.ndarray:
+                               include_skin_effect: bool = False) -> np.ndarray:
     """
     Assemble the resistance matrix for a wire mesh.
     
     The resistance matrix R is diagonal, with each diagonal element representing
-    the resistance of one wire segment:
-        R[i,i] = resistance of segment i
+    the resistance of one wire segment.
+    
+    By default (include_skin_effect=False), uses simple DC formula to match MATLAB:
+        R[i,i] = ρ × L / (π × r²)
+    
+    With include_skin_effect=True and frequency > 0, uses AC resistance:
+        R[i,i] = ρ × L / (2π × r × δ)  for high frequency
+        where δ = skin depth = √(ρ / (π × μ × f))
     
     Off-diagonal elements are zero (no resistive coupling between segments).
     
     Args:
         edges: List of EdgeGeometry objects representing wire segments
         radii: Array of wire radii [m], length must match edges
-        frequency: Frequency [Hz], 0 for DC analysis
+        frequency: Frequency [Hz], must be non-negative (0 = DC)
         resistivity: Material resistivity [Ω·m]
         permeability: Magnetic permeability [H/m]
         include_skin_effect: If True and frequency > 0, compute AC resistance
-                           If False, always use DC resistance
+                           with skin effect. If False, use DC resistance.
     
     Returns:
         Resistance matrix R [Ω], shape (n_edges, n_edges)
@@ -268,24 +274,23 @@ def assemble_resistance_matrix(edges: List[EdgeGeometry], radii: np.ndarray,
     if np.any(radii <= 0):
         raise ValueError("All radii must be positive")
     
-    # Validate frequency
-    if frequency < 0:
-        raise ValueError(f"Frequency must be non-negative, got {frequency}")
-    
     # Initialize resistance matrix (diagonal)
     R = np.zeros((n_edges, n_edges))
+    
+    # Decide whether to include skin effect
+    use_ac = include_skin_effect and frequency > 0
     
     # Compute resistance for each edge
     for i, edge in enumerate(edges):
         length = edge.length
         radius = radii[i]
         
-        if include_skin_effect and frequency > 0:
+        if use_ac:
             # AC resistance with skin effect
-            R[i, i] = compute_ac_resistance(length, radius, frequency,
+            R[i, i] = compute_ac_resistance(length, radius, frequency, 
                                            resistivity, permeability)
         else:
-            # DC resistance
-            R[i, i] = compute_dc_resistance(length, radius, resistivity)
+            # DC resistance (matches MATLAB)
+            R[i, i] = resistivity * length / (PI * radius**2)
     
     return R

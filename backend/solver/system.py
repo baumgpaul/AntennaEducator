@@ -11,9 +11,9 @@ where:
 Components:
     - R: Resistance matrix (resistive losses)
     - L: Inductance matrix (magnetic energy storage)
-    - C_inv = P: Inverse capacitance (electrostatic energy storage)
+    - C_inv: Diagonal inverse capacitance for voltage sources/loads
     - A: Incidence matrix (topology - branch-to-node mapping)
-    - P: Potential coefficient matrix
+    - P: Potential coefficient matrix (node-based capacitive coupling)
 
 The system is solved for:
     - I: Branch currents
@@ -41,12 +41,16 @@ class VoltageSource:
         node_start: Starting node index (1-based, 0 for ground, negative for appended)
         node_end: Ending node index (1-based, 0 for ground, negative for appended)
         value: Complex voltage value [V]
-        impedance: Optional source impedance (R + jωL + 1/(jωC)) [Ω]
+        R: Resistance [Ω]
+        L: Inductance [H]
+        C_inv: Inverse capacitance [1/F]
     """
     node_start: int
     node_end: int
     value: complex
-    impedance: complex = 0.0  # Series impedance (R, L, C)
+    R: float = 0.0  # Resistance [Ω]
+    L: float = 0.0  # Inductance [H]
+    C_inv: float = 0.0  # Inverse capacitance [1/F]
 
 
 @dataclass
@@ -68,11 +72,15 @@ class Load:
     Attributes:
         node_start: Starting node index (1-based, 0 for ground, negative for appended)
         node_end: Ending node index (1-based, 0 for ground, negative for appended)
-        impedance: Load impedance (R + jωL + 1/(jωC)) [Ω]
+        R: Resistance [Ω]
+        L: Inductance [H]
+        C_inv: Inverse capacitance [1/F]
     """
     node_start: int
     node_end: int
-    impedance: complex
+    R: float = 0.0  # Resistance [Ω]
+    L: float = 0.0  # Inductance [H]
+    C_inv: float = 0.0  # Inverse capacitance [1/F]
 
 
 def build_incidence_matrix(edges_list: List[List[int]], n_nodes: int,
@@ -216,23 +224,24 @@ def assemble_impedance_matrix(R: np.ndarray, L: np.ndarray, P: np.ndarray,
     """
     Assemble the PEEC impedance matrix Z.
     
-    Following MATLAB implementation in solvePEEC_harmonic.m:
-        Z = R + jωL + (1/jω)A'PA
+    Following MATLAB implementation:
+        Z = R + jωL + (1/jω)C_inv + (1/jω)A'PA
     
     where:
         - R: Resistance matrix [Ω]
         - L: Inductance matrix [H]
-        - P: Potential coefficient matrix [1/F] between edges
-        - A: Incidence matrix
+        - C_inv: Diagonal inverse capacitance matrix [1/F]
+        - P: Potential coefficient matrix (node-based) [1/F]
+        - A: Incidence matrix (branch-to-node mapping)
         - ω: Angular frequency [rad/s]
     
-    The capacitive coupling is included via (1/jω)A'PA which transforms
-    edge-based P to branch space and inverts to get capacitance effect.
+    The formula matches:
+        Matrix_R + 1j*w*Matrix_L + (1/(1j*w))*Matrix_C_inv + (1/(1j*w))*Matrix_A.'*Matrix_P*Matrix_A
     
     Args:
         R: Resistance matrix, shape (n_edges, n_edges)
         L: Inductance matrix, shape (n_edges, n_edges)
-        P: Potential coefficient matrix (inverse capacitance), shape (n_edges, n_edges)
+        P: Potential coefficient matrix (node-based), shape (n_nodes, n_nodes)
         A: Incidence matrix, shape (n_nodes, n_branches)
         omega: Angular frequency [rad/s], must be positive
         voltage_sources: Optional voltage sources (add series impedance)
@@ -258,34 +267,39 @@ def assemble_impedance_matrix(R: np.ndarray, L: np.ndarray, P: np.ndarray,
     # Validate shapes
     if L.shape != (n_edges, n_edges):
         raise ValueError(f"L matrix shape {L.shape} doesn't match R matrix shape {R.shape}")
-    # P can be either edge-based (n_edges × n_edges) or node-based (n_nodes × n_nodes)
-    # We check this below when applying A'PA term
     if A.shape[1] != n_branches:
         raise ValueError(f"Incidence matrix has {A.shape[1]} branches, expected {n_branches}")
     
-    # Initialize impedance matrix
+    # Initialize with zeros - build up Z term by term following MATLAB
     Z = np.zeros((n_branches, n_branches), dtype=complex)
     
-    # Mesh edges: Z_mesh = R + jωL
-    Z[:n_edges, :n_edges] = R + 1j * omega * L
+    # Build full R, L, C_inv matrices for all branches
+    # Note: Matrix_L must be complex to handle retarded inductance
+    Matrix_R = np.zeros((n_branches, n_branches))
+    Matrix_L = np.zeros((n_branches, n_branches), dtype=complex)
+    Matrix_C_inv = np.zeros((n_branches, n_branches))
     
-    # Add capacitive coupling term: (1/jω)A'PA for ALL branches
-    # This couples edges, voltage sources, and loads through the capacitive network
-    # P must be node-based (n_nodes × n_nodes) for this to work correctly
-    if P.shape[0] == A.shape[0]:  # Check if P is node-based
-        # Apply to FULL A matrix (all branches), not just edges
-        capacitive_coupling = (1 / (1j * omega)) * (A.T @ P @ A)
-        Z += capacitive_coupling
+    # Physical mesh edges
+    Matrix_R[:n_edges, :n_edges] = R
+    Matrix_L[:n_edges, :n_edges] = L
     
-    # Add voltage source impedances (R, L, C_inv)
+    # Voltage sources: add R, L, C_inv
     for i, vsrc in enumerate(voltage_sources):
         branch_idx = n_edges + i
-        Z[branch_idx, branch_idx] += vsrc.impedance
+        Matrix_R[branch_idx, branch_idx] = vsrc.R
+        Matrix_L[branch_idx, branch_idx] = vsrc.L
+        Matrix_C_inv[branch_idx, branch_idx] = vsrc.C_inv
     
-    # Add load impedances
+    # Loads: add R, L, C_inv
     for i, load in enumerate(loads):
         branch_idx = n_edges + n_vsources + i
-        Z[branch_idx, branch_idx] += load.impedance
+        Matrix_R[branch_idx, branch_idx] = load.R
+        Matrix_L[branch_idx, branch_idx] = load.L
+        Matrix_C_inv[branch_idx, branch_idx] = load.C_inv
+    
+    # Assemble impedance following MATLAB formula exactly:
+    # Z = Matrix_R + 1j*w*Matrix_L + (1/(1j*w))*Matrix_C_inv + (1/(1j*w))*Matrix_A.'*Matrix_P*Matrix_A
+    Z = Matrix_R + 1j * omega * Matrix_L + (1 / (1j * omega)) * Matrix_C_inv + (1 / (1j * omega)) * (A.T @ P @ A)
     
     return Z
 
@@ -392,11 +406,10 @@ def assemble_source_vector(voltage_sources: List[VoltageSource],
     # Add current source coupling term: (1/jω)A'P*I_source
     # This represents the capacitive voltage induced by current sources
     if np.any(I_source != 0) and P.shape[0] == n_nodes:
-        source_V += (1 / (1j * omega)) * (A.T @ P @ I_source)
+        source_V -= (1 / (1j * omega)) * (A.T @ P @ I_source)
     
     # Assemble complete source vector
     source_branches = source_V
-    
     # Combine with appended node sources
     if n_appended > 0:
         return np.concatenate([source_branches, source_I_app])
