@@ -221,10 +221,11 @@ class TestInductanceMatrixAssembly:
         ]
         radii = np.array([0.001, 0.001])  # 1mm radius
         
-        L = assemble_inductance_matrix(edges, radii, n_gauss=10)
+        L, dist_L = assemble_inductance_matrix(edges, radii, n_gauss=10)
         
         # Check shape
         assert L.shape == (2, 2)
+        assert dist_L.shape == (2, 2)
         
         # Check symmetry
         assert np.allclose(L, L.T)
@@ -251,7 +252,7 @@ class TestInductanceMatrixAssembly:
         ]
         radii = np.full(3, 0.001)
         
-        L = assemble_inductance_matrix(edges, radii, n_gauss=8)
+        L, dist_L = assemble_inductance_matrix(edges, radii, n_gauss=8)
         
         # Check all eigenvalues are positive (positive definite)
         eigenvalues = np.linalg.eigvalsh(L)
@@ -266,7 +267,7 @@ class TestInductanceMatrixAssembly:
         radii = np.array([0.001])  # Wrong length
         
         with pytest.raises(ValueError, match="Radii array has length"):
-            assemble_inductance_matrix(edges, radii)
+            L, dist_L = assemble_inductance_matrix(edges, radii)
     
     def test_custom_gauss_points(self):
         """Test using custom Gaussian quadrature points."""
@@ -279,7 +280,7 @@ class TestInductanceMatrixAssembly:
         # Provide custom quadrature
         points, weights = np.polynomial.legendre.leggauss(15)
         
-        L = assemble_inductance_matrix(
+        L, dist_L = assemble_inductance_matrix(
             edges, radii,
             gauss_points=points,
             gauss_weights=weights
@@ -299,7 +300,7 @@ class TestInductanceMatrixAssembly:
         edges = build_edge_geometries(nodes, edges_list)
         radii = np.full(10, 0.001)  # 1mm radius
         
-        L = assemble_inductance_matrix(edges, radii, n_gauss=10)
+        L, dist_L = assemble_inductance_matrix(edges, radii, n_gauss=10)
         
         # Check shape
         assert L.shape == (10, 10)

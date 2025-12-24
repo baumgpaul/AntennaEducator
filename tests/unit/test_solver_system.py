@@ -111,7 +111,7 @@ class TestAppendedIncidenceMatrix:
     
     def test_load_with_appended_node(self):
         """Test load connected to appended node."""
-        load = [Load(node_start=1, node_end=-1, impedance=50.0)]
+        load = [Load(node_start=1, node_end=-1, R=50.0, L=0.0, C_inv=0.0)]
         A_app, n_app = build_appended_incidence_matrix([], load, n_edges=1)
         
         assert n_app == 1
@@ -157,7 +157,7 @@ class TestImpedanceMatrix:
         A = np.array([[-1, 0], [1, -1]])  # 2 nodes, 2 branches
         omega = 2 * np.pi * 1e6
         
-        vsrc = [VoltageSource(node_start=2, node_end=0, value=1.0, impedance=50.0)]
+        vsrc = [VoltageSource(node_start=2, node_end=0, value=1.0, R=50.0)]
         Z = assemble_impedance_matrix(R, L, P, A, omega, voltage_sources=vsrc)
         
         # Should have 2 branches: 1 edge + 1 vsrc
@@ -175,7 +175,7 @@ class TestImpedanceMatrix:
         A = np.array([[-1, -1]])  # 1 node, 2 branches (both to ground)
         omega = 2 * np.pi * 1e6
         
-        load = [Load(node_start=1, node_end=0, impedance=75.0)]
+        load = [Load(node_start=1, node_end=0, R=75.0, L=0.0, C_inv=0.0)]
         Z = assemble_impedance_matrix(R, L, P, A, omega, loads=load)
         
         assert Z.shape == (2, 2)

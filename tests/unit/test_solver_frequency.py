@@ -56,7 +56,7 @@ class TestSingleFrequency:
         radii = np.array([0.001, 0.001])
         
         # Voltage source at center
-        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0, impedance=50.0)
+        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0, R=50.0)
         
         # Solve at 1 MHz
         solution = solve_single_frequency(nodes, edges, radii, 1e6, [vsrc])
@@ -82,8 +82,8 @@ class TestSingleFrequency:
         edges = [[1, 2], [2, 3]]
         radii = np.array([0.001, 0.001])
         
-        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0)
-        load = Load(node_start=3, node_end=0, impedance=75.0)  # 75Ω load at end
+        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0, R=0.0, L=0.0, C_inv=0.0)
+        load = Load(node_start=3, node_end=0, R=75.0, L=0.0, C_inv=0.0)  # 75Ω load at end
         
         solution = solve_single_frequency(nodes, edges, radii, 1e6, [vsrc], loads=[load])
         
@@ -126,7 +126,7 @@ class TestFrequencySweep:
         edges = [[1, 2], [2, 3]]
         radii = np.array([0.001, 0.001])
         
-        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0, impedance=50.0)
+        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0, R=50.0)
         
         # Sweep from 1 MHz to 10 MHz (10 points)
         freqs = np.linspace(1e6, 10e6, 10)
@@ -180,7 +180,7 @@ class TestFrequencySweep:
         edges = [[1, 2]]
         radii = np.array([0.001])
         
-        vsrc = VoltageSource(node_start=1, node_end=0, value=1.0, impedance=50.0)
+        vsrc = VoltageSource(node_start=1, node_end=0, value=1.0, R=50.0)
         
         freqs = np.logspace(6, 9, 20)  # 1 MHz to 1 GHz
         result = solve_peec_frequency_sweep(
@@ -302,7 +302,7 @@ class TestBandwidth:
         edges = [[1, 2], [2, 3], [3, 0]]
         radii = np.array([0.001, 0.001, 0.001])
         
-        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0, impedance=50.0)
+        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0, R=50.0)
         
         freqs = np.linspace(300e6, 500e6, 50)
         result = solve_peec_frequency_sweep(
@@ -326,7 +326,7 @@ class TestBandwidth:
         edges = [[1, 0]]
         radii = np.array([0.001])
         
-        vsrc = VoltageSource(node_start=1, node_end=0, value=1.0, impedance=50.0)
+        vsrc = VoltageSource(node_start=1, node_end=0, value=1.0, R=50.0)
         
         # Use higher frequencies for numerical stability
         freqs = np.linspace(10e6, 50e6, 20)
@@ -383,7 +383,7 @@ class TestIntegration:
         radii = np.array([0.001] * 5)  # 1mm radius
         
         # Feed at center
-        vsrc = VoltageSource(node_start=3, node_end=0, value=1.0, impedance=50.0)
+        vsrc = VoltageSource(node_start=3, node_end=0, value=1.0, R=50.0)
         
         # Sweep 100 MHz to 3 GHz
         freqs = np.logspace(8, 9.5, 30)
