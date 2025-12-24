@@ -125,9 +125,9 @@ class TestDipoleToMesh:
         # All radii should be the same
         assert all(r == 0.001 for r in mesh.radii)
         
-        # Edges should connect consecutive nodes
+        # Edges should connect consecutive nodes (1-based indexing)
         for i, edge in enumerate(mesh.edges):
-            assert edge == [i, i + 1]
+            assert edge == [i + 1, i + 2]
     
     def test_dipole_to_mesh_with_gap(self):
         """Test dipole to mesh conversion with gap between halves."""
@@ -182,7 +182,7 @@ class TestDipoleToMesh:
         assert element.source.node_start == 6
         assert element.source.node_end == 7
     def test_dipole_to_mesh_with_gap_voltage_source(self):
-        """Test that voltage source with gap is between first nodes of each half."""
+        """Test that voltage source with gap is at gap (ground to first node)."""
         source_dict = {
             "type": "voltage",
             "amplitude": {"real": 1.0, "imag": 0.0},
@@ -191,13 +191,12 @@ class TestDipoleToMesh:
         mesh = dipole_to_mesh(element)
 
         # segments=5 means 5 segments per half (stored in params["segments"])
-        # Upper half: 6 nodes (1-6), first is node 1
-        # Lower half: 6 nodes (7-12), first is node 7
-        # Voltage source between nodes 1 and 7 (1-based indexing)
-        assert element.source.node_start == 1
-        assert element.source.node_end == 7
+        # Upper half: 6 nodes (1-6), lower half: 6 nodes (7-12)
+        # Voltage source between ground (0) and first node of upper half (1)
+        assert element.source.node_start == 0
+        assert element.source.node_end == 1
     def test_dipole_to_mesh_with_gap_current_source(self):
-        """Test that current source with gap is between first nodes of each half."""
+        """Test that current source with gap is at gap (ground to first node)."""
         source_dict = {
             "type": "current",
             "amplitude": {"real": 1.0, "imag": 0.0},
@@ -205,9 +204,9 @@ class TestDipoleToMesh:
         element = create_dipole(length=1.0, gap=0.01, segments=5, source=source_dict)
         mesh = dipole_to_mesh(element)
 
-        # Same as voltage: between first node of upper half and first of lower half (1-based indexing)
-        assert element.source.node_start == 1
-        assert element.source.node_end == 7
+        # Same as voltage: between ground (0) and first node of upper half (1)
+        assert element.source.node_start == 0
+        assert element.source.node_end == 1
     def test_dipole_to_mesh_edge_mapping(self):
         """Test that edge to element mapping is correct."""
         element = create_dipole(length=1.0, segments=5, gap=0.01)

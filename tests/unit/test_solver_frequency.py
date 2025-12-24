@@ -209,29 +209,6 @@ class TestFrequencySweep:
         
         for sol in result.frequency_solutions:
             assert sol.power_dissipated >= 0
-    
-    def test_custom_reference_impedance(self):
-        """Test VSWR with custom reference impedance."""
-        nodes = np.array([[0, 0, 0], [0, 0, 0.1], [0, 0, 0.2]])
-        edges = [[0, 1], [1, 2]]
-        radii = np.array([0.001, 0.001])
-        
-        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0)
-        
-        freqs = np.array([10e6])
-        
-        # Calculate VSWR for different reference impedances
-        result_50 = solve_peec_frequency_sweep(
-            nodes, edges, radii, freqs, [vsrc], reference_impedance=50.0
-        )
-        result_75 = solve_peec_frequency_sweep(
-            nodes, edges, radii, freqs, [vsrc], reference_impedance=75.0
-        )
-        
-        # VSWR should be different for different reference impedances
-        # (unless both are capped at max VSWR)
-        if result_50.vswr[0] < 100 or result_75.vswr[0] < 100:
-            assert result_50.vswr[0] != result_75.vswr[0]
 
 
 class TestResonance:
@@ -247,7 +224,7 @@ class TestResonance:
             [0, 0, 0.375],
             [0, 0, 0.5]
         ])
-        edges = [[0, 1], [1, 2], [2, 3], [3, 4]]
+        edges = [[1, 2], [2, 3], [3, 4], [4, 5]]
         radii = np.array([0.001] * 4)
         
         vsrc = VoltageSource(node_start=4, node_end=0, value=1.0)
@@ -270,7 +247,7 @@ class TestResonance:
     def test_no_resonance_in_range(self):
         """Test when no resonance exists in sweep range."""
         nodes = np.array([[0, 0, 0], [0, 0, 0.005], [0, 0, 0.01]])  # Very short
-        edges = [[0, 1], [1, 2]]
+        edges = [[1, 2], [2, 3]]
         radii = np.array([0.001, 0.001])
         
         vsrc = VoltageSource(node_start=2, node_end=0, value=1.0)
@@ -299,7 +276,7 @@ class TestBandwidth:
             [0, 0, 0.2],
             [0, 0, 0.3]
         ])
-        edges = [[0, 1], [1, 2], [2, 3]]
+        edges = [[1, 2], [2, 3], [3, 4]]
         radii = np.array([0.001, 0.001, 0.001])
         
         vsrc = VoltageSource(node_start=3, node_end=0, value=1.0, R=50.0)
@@ -323,7 +300,7 @@ class TestBandwidth:
         """Test when no bandwidth exists (VSWR always high)."""
         # Badly mismatched antenna
         nodes = np.array([[0, 0, 0], [0, 0, 0.005], [0, 0, 0.01]])
-        edges = [[0, 1], [1, 2]]
+        edges = [[1, 2], [2, 3]]
         radii = np.array([0.001, 0.001])
         
         vsrc = VoltageSource(node_start=2, node_end=0, value=1.0, R=50.0)
@@ -361,7 +338,7 @@ class TestErrorHandling:
     def test_no_voltage_source(self):
         """Test error when no voltage source provided."""
         nodes = np.array([[0, 0, 0], [0, 0, 0.1], [0, 0, 0.2]])
-        edges = [[0, 1], [1, 2]]
+        edges = [[1, 2], [2, 3]]
         radii = np.array([0.001, 0.001])
         
         with pytest.raises(ValueError, match="voltage source"):

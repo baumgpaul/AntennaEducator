@@ -21,7 +21,7 @@ def test_port_parameters_simple_dipole():
         [0.0, 0.0, 0.5]
     ])
     
-    edges = [[0, 1], [1, 2]]
+    edges = [[1, 2], [2, 3]]
     radii = np.array([0.001, 0.001])
     
     # Single frequency
@@ -102,7 +102,7 @@ def test_reflection_coefficient_limits():
     
     # Create simple structure
     nodes = np.array([[0, 0, 0], [0, 0, 0.1], [0, 0, 0.2]])
-    edges = [[0, 1], [1, 2]]
+    edges = [[1, 2], [2, 3]]
     radii = np.array([0.001, 0.001])
     frequencies = np.array([100e6])
     

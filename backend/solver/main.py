@@ -206,6 +206,11 @@ async def solve_single_frequency_endpoint(request: SingleFrequencyRequest):
             appended_voltages=[complex(v) for v in result.appended_voltages],
             input_impedance=complex(result.input_impedance),
             input_current=complex(result.input_current),
+            reflection_coefficient=complex(result.reflection_coefficient),
+            return_loss=float(result.return_loss),
+            input_power=float(result.input_power),
+            reflected_power=float(result.reflected_power),
+            accepted_power=float(result.accepted_power),
             power_dissipated=float(result.power_dissipated),
             solve_time=solve_time
         )

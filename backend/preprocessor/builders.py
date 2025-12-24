@@ -155,9 +155,9 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
             node = center + z * orientation
             nodes.append(node.tolist())
         
-        # Create edges for upper half
+        # Create edges for upper half (1-based node indexing)
         for i in range(n_segments_per_half):
-            edges.append([i, i + 1])
+            edges.append([i + 1, i + 2])
         
         # Lower half: nodes from -gap/2 to -(length-gap)/2
         # Matching MATLAB: z = -linspace(gap/2, (length-gap)/2, N_half+1)
@@ -169,9 +169,9 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
             node = center + z * orientation
             nodes.append(node.tolist())
         
-        # Create edges for lower half
+        # Create edges for lower half (1-based node indexing)
         for i in range(n_segments_per_half):
-            edges.append([node_offset + i, node_offset + i + 1])
+            edges.append([node_offset + i + 1, node_offset + i + 2])
         
         # Total segments
         total_segments = 2 * n_segments_per_half
@@ -180,9 +180,9 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         # Between first node of upper half (node 1) and first node of lower half
         if element.source:
             # First node of upper half (1-based indexing)
-            element.source.node_start = 1
-            # First node of lower half (1-based indexing)
-            element.source.node_end = n_segments_per_half + 2
+            element.source.node_start = 0  # Ground
+            # First node of upper half (1-based indexing)
+            element.source.node_end = 1
     else:
         # Original continuous dipole (no gap)
         start_point = center - (length / 2.0) * orientation
@@ -193,9 +193,9 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
             node = start_point + t * length * orientation
             nodes.append(node.tolist())
         
-        # Create edges connecting consecutive nodes
+        # Create edges connecting consecutive nodes (1-based indexing)
         for i in range(n_segments_per_half):
-            edges.append([i, i + 1])
+            edges.append([i + 1, i + 2])
         
         total_segments = n_segments_per_half
         
@@ -410,16 +410,16 @@ def loop_to_mesh(element: AntennaElement) -> Mesh:
         point = center + radius * (np.cos(angle) * u + np.sin(angle) * v)
         nodes.append(point.tolist())
     
-    # Create edges (connect consecutive nodes)
+    # Create edges (connect consecutive nodes with 1-based indexing)
     edges = []
     if gap > 0:
         # With gap: don't connect last to first
         for i in range(segments):
-            edges.append([i, i + 1])
+            edges.append([i + 1, i + 2])
     else:
         # No gap: include wraparound
         for i in range(segments):
-            edges.append([i, (i + 1) % segments])
+            edges.append([i + 1, ((i + 1) % segments) + 1])
     
     # All edges have same wire radius
     radii = [wire_radius] * segments
@@ -591,10 +591,10 @@ def rod_to_mesh(element: AntennaElement) -> Mesh:
         point = base + pos * orient
         nodes.append(point.tolist())
     
-    # Create edges connecting consecutive nodes
+    # Create edges connecting consecutive nodes (1-based indexing)
     edges = []
     for i in range(segments):
-        edges.append([i, i + 1])
+        edges.append([i + 1, i + 2])
     
     # All edges have same wire radius
     radii = [wire_radius] * segments
@@ -797,10 +797,10 @@ def helix_to_mesh(element: AntennaElement) -> Mesh:
         point = start + radial_offset + axial_offset
         nodes.append(point.tolist())
     
-    # Create edges connecting consecutive nodes
+    # Create edges connecting consecutive nodes (1-based indexing)
     edges = []
     for i in range(total_segments):
-        edges.append([i, i + 1])
+        edges.append([i + 1, i + 2])
     
     # All edges have same wire radius
     radii = [wire_radius] * total_segments

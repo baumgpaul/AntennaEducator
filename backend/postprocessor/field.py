@@ -231,8 +231,9 @@ def compute_near_field(
         # Build source list
         sources = []
         for i_edge, edge in enumerate(edges):
-            edge_start = nodes[edge[0]]
-            edge_end = nodes[edge[1]]
+            # Convert 1-based edge node IDs to 0-based array indices
+            edge_start = nodes[edge[0] - 1]
+            edge_end = nodes[edge[1] - 1]
             current = currents[i_edge]
             sources.append((edge_start, edge_end, current))
         
@@ -309,8 +310,9 @@ def compute_far_field(
                 # Compute vector potential
                 A = np.zeros(3, dtype=complex)
                 for i_edge, edge in enumerate(edges):
-                    edge_start = nodes[edge[0]]
-                    edge_end = nodes[edge[1]]
+                    # Convert 1-based edge node IDs to 0-based array indices
+                    edge_start = nodes[edge[0] - 1]
+                    edge_end = nodes[edge[1] - 1]
                     current = currents[i_edge]
                     A += compute_vector_potential(current, edge_start, edge_end, obs_point, k)
                 
