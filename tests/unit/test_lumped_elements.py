@@ -171,16 +171,16 @@ class TestAntennaElementWithLumpedElements:
             name="Simple dipole",
             type="dipole",
             parameters={"length": 1.0, "gap": 0.01},
-            source=Source(
+            sources=[Source(
                 type="voltage",
                 amplitude=complex(1.0, 0.0),
                 node_start=0,
                 node_end=1
-            )
+            )]
         )
         
         assert len(element.lumped_elements) == 0
-        assert element.source is not None
+        assert element.sources[0] is not None
     
     def test_antenna_element_with_single_lumped(self):
         """Test antenna element with a single lumped element."""
@@ -188,12 +188,12 @@ class TestAntennaElementWithLumpedElements:
             name="Loaded dipole",
             type="dipole",
             parameters={"length": 1.0, "gap": 0.01},
-            source=Source(
+            sources=[Source(
                 type="voltage",
                 amplitude=complex(1.0, 0.0),
                 node_start=0,
                 node_end=1
-            ),
+            )],
             lumped_elements=[
                 LumpedElement(
                     type="resistor",
@@ -217,12 +217,12 @@ class TestAntennaElementWithLumpedElements:
             name="Cal coil with matching",
             type="custom",
             parameters={"custom_geometry": "coil"},
-            source=Source(
+            sources=[Source(
                 type="voltage",
                 amplitude=complex(1.0, 0.0),
                 node_start=0,
                 node_end=1
-            ),
+            )],
             lumped_elements=[
                 LumpedElement(
                     type="resistor",
@@ -271,12 +271,12 @@ class TestAntennaElementWithLumpedElements:
             name="Dipole 1",
             type="dipole",
             parameters={"length": 1.0},
-            source=Source(
+            sources=[Source(
                 type="voltage",
                 amplitude=complex(1.0, 0.0),
                 node_start=0,
                 node_end=1
-            ),
+            )],
             lumped_elements=[
                 LumpedElement(
                     type="resistor",
@@ -295,12 +295,12 @@ class TestAntennaElementWithLumpedElements:
             name="Dipole 2",
             type="dipole",
             parameters={"length": 1.5},
-            source=Source(
+            sources=[Source(
                 type="voltage",
                 amplitude=complex(1.0, 0.0),
                 node_start=0,
                 node_end=1
-            ),
+            )],
             lumped_elements=[
                 LumpedElement(
                     type="capacitor",
@@ -338,7 +338,7 @@ class TestMATLABCompatibility:
             name="MATLAB-style dipole",
             type="dipole",
             parameters={"length": 1.0, "gap": 0.01},
-            source=Source(
+            sources=[Source(
                 type="voltage",
                 amplitude=complex(1.0, 0.0),
                 node_start=0,
@@ -347,12 +347,12 @@ class TestMATLABCompatibility:
                 series_L=0.0,
                 series_C_inv=0.0,
                 tag="excitation"
-            )
+            )]
         )
         
-        assert dipole.source.node_start == 0
-        assert dipole.source.node_end == 1
-        assert dipole.source.series_R == 0.0
+        assert dipole.sources[0].node_start == 0
+        assert dipole.sources[0].node_end == 1
+        assert dipole.sources[0].series_R == 0.0
     
     def test_matlab_calcoil_load_example(self):
         """Test equivalent to MATLAB createCalCoil.m Load structure."""

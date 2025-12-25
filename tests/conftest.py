@@ -23,10 +23,10 @@ def sample_dipole_element():
             "radius": 0.001,
             "segments": 10
         },
-        source=Source(
+        sources=[Source(
             type="voltage",
             amplitude=complex(1.0, 0.0)
-        )
+        )]
     )
 
 
@@ -43,10 +43,10 @@ def sample_loop_element():
             "wire_radius": 0.001,
             "segments": 20
         },
-        source=Source(
+        sources=[Source(
             type="current",
             amplitude=complex(1.0, 0.0)
-        )
+        )]
     )
 
 

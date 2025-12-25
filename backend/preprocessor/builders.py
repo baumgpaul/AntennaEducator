@@ -61,15 +61,17 @@ def create_dipole(
         raise ValueError("Orientation vector cannot be zero")
     orientation_unit = (orientation_array / orientation_norm).tolist()
     
-    # Create source object if provided
-    source_obj = None
+    # Create source object(s) if provided
+    source_objs = []
     if source:
         # Handle complex amplitude from dict or direct value
         amplitude = source.get("amplitude", 1.0)
         if isinstance(amplitude, dict):
             amplitude = complex(amplitude.get("real", 0), amplitude.get("imag", 0))
         
-        source_obj = Source(
+        # For gap dipoles, we'll create two sources (balanced feed)
+        # This will be finalized in dipole_to_mesh based on gap parameter
+        source_objs.append(Source(
             type=source.get("type", "voltage"),
             amplitude=amplitude,
             node_start=0,  # Reference/ground node (to be set properly in mesh generation)
@@ -78,7 +80,7 @@ def create_dipole(
             series_L=source.get("series_L", 0.0),
             series_C_inv=source.get("series_C_inv", 0.0),
             tag=source.get("tag", ""),
-        )
+        ))
     
     # Create lumped element objects if provided
     lumped_objs = []
@@ -107,7 +109,7 @@ def create_dipole(
             "gap": gap,
             "segments": segments,
         },
-        source=source_obj,
+        sources=source_objs,
         lumped_elements=lumped_objs,
     )
     
@@ -176,13 +178,28 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         # Total segments
         total_segments = 2 * n_segments_per_half
         
-        # Source is at the gap (between the two halves)
-        # Between first node of upper half (node 1) and first node of lower half
-        if element.source:
-            # First node of upper half (1-based indexing)
-            element.source.node_start = 0  # Ground
-            # First node of upper half (1-based indexing)
-            element.source.node_end = 1
+        # Source is at the gap (balanced/differential feed for gap dipoles)
+        # Two voltage sources: ground→upper (+V) and ground→lower (-V)
+        if len(element.sources) > 0:
+            # First source: ground to first node of upper half
+            element.sources[0].node_start = 0  # Ground
+            element.sources[0].node_end = 1     # First upper node
+            
+            # For gap dipoles, create second source with opposite polarity
+            # This creates a balanced feed matching the golden standard
+            if len(element.sources) == 1:
+                # Clone first source but with opposite polarity
+                second_source = Source(
+                    type=element.sources[0].type,
+                    amplitude=-element.sources[0].amplitude,  # Opposite polarity
+                    node_start=0,  # Ground
+                    node_end=node_offset + 1,  # First lower node (node 7 for 5 segments)
+                    series_R=element.sources[0].series_R,
+                    series_L=element.sources[0].series_L,
+                    series_C_inv=element.sources[0].series_C_inv,
+                    tag=element.sources[0].tag + "_lower" if element.sources[0].tag else "",
+                )
+                element.sources.append(second_source)
     else:
         # Original continuous dipole (no gap)
         start_point = center - (length / 2.0) * orientation
@@ -201,10 +218,10 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         
         # Source at center (for continuous dipole without gap)
         # Between the two center nodes (1-based indexing)
-        if element.source:
+        if len(element.sources) > 0:
             center_node = n_segments_per_half // 2
-            element.source.node_start = center_node + 1
-            element.source.node_end = center_node + 2
+            element.sources[0].node_start = center_node + 1
+            element.sources[0].node_end = center_node + 2
     
     # All edges have the same radius
     radii = [radius] * total_segments
@@ -277,14 +294,19 @@ def create_loop(
         raise ValueError("Normal vector cannot be zero")
     normal = normal / normal_mag
     
-    # Create source object if provided
-    source_obj = None
+    # Create source object(s) if provided
+    source_objs = []
     if source:
-        # For loop, source is typically between first and last node (across gap)
-        # This creates the feed point at the gap
+        # For loop, source placement depends on whether there's a gap
         # Use 1-based indexing (MATLAB convention)
-        node_start = 1  # First node (1-based)
-        node_end = segments + 1  # Last node (with gap, there are segments+1 nodes)
+        if gap > 0:
+            # With gap: source across the gap (ground to first node)
+            node_start = 0
+            node_end = 1
+        else:
+            # Closed loop: source connects first and last nodes (wraparound)
+            node_start = 1  
+            node_end = segments + 1  # Last node index (1-based)
         
         # Allow custom positioning if specified
         if "position" in source:
@@ -298,7 +320,7 @@ def create_loop(
         amp = source["amplitude"]
         amplitude_complex = complex(amp["real"], amp["imag"])
         
-        source_obj = Source(
+        source_objs.append(Source(
             type=source["type"],
             amplitude=amplitude_complex,
             node_start=node_start,
@@ -307,7 +329,7 @@ def create_loop(
             series_L=source.get("series_L", 0.0),
             series_C_inv=source.get("series_C_inv", 0.0),
             tag=source.get("tag", ""),
-        )
+        ))
     
     # Create lumped element objects if provided
     lumped_objs = []
@@ -339,7 +361,7 @@ def create_loop(
             "gap": gap,
             "segments": segments,
         },
-        source=source_obj,
+        sources=source_objs,
         lumped_elements=lumped_objs,
     )
     
@@ -487,8 +509,8 @@ def create_rod(
         raise ValueError("Orientation vector cannot be zero")
     orient = orient / orient_mag
     
-    # Create source object if provided
-    source_obj = None
+    # Create source object(s) if provided
+    source_objs = []
     if source:
         # For rod, source is typically at base (between ground and first mesh node)
         # Use 1-based indexing (MATLAB convention)
@@ -506,7 +528,7 @@ def create_rod(
         amp = source["amplitude"]
         amplitude_complex = complex(amp["real"], amp["imag"])
         
-        source_obj = Source(
+        source_objs.append(Source(
             type=source["type"],
             amplitude=amplitude_complex,
             node_start=node_start,
@@ -515,7 +537,7 @@ def create_rod(
             series_L=source.get("series_L", 0.0),
             series_C_inv=source.get("series_C_inv", 0.0),
             tag=source.get("tag", ""),
-        )
+        ))
     
     # Create lumped element objects if provided
     lumped_objs = []
@@ -546,7 +568,7 @@ def create_rod(
             "wire_radius": wire_radius,
             "segments": segments,
         },
-        source=source_obj,
+        sources=source_objs,
         lumped_elements=lumped_objs,
     )
     
@@ -671,8 +693,8 @@ def create_helix(
         raise ValueError("Axis vector cannot be zero")
     axis_vec = axis_vec / axis_mag
     
-    # Create source object if provided
-    source_obj = None
+    # Create source object(s) if provided
+    source_objs = []
     if source:
         # For helix, source is typically at start (between ground and first mesh node)
         # Use 1-based indexing (MATLAB convention)
@@ -690,7 +712,7 @@ def create_helix(
         amp = source["amplitude"]
         amplitude_complex = complex(amp["real"], amp["imag"])
         
-        source_obj = Source(
+        source_objs.append(Source(
             type=source["type"],
             amplitude=amplitude_complex,
             node_start=node_start,
@@ -699,7 +721,7 @@ def create_helix(
             series_L=source.get("series_L", 0.0),
             series_C_inv=source.get("series_C_inv", 0.0),
             tag=source.get("tag", ""),
-        )
+        ))
     
     # Create lumped element objects if provided
     lumped_objs = []
@@ -732,7 +754,7 @@ def create_helix(
             "wire_radius": wire_radius,
             "segments_per_turn": segments_per_turn,
         },
-        source=source_obj,
+        sources=source_objs,
         lumped_elements=lumped_objs,
     )
     

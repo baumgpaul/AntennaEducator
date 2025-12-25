@@ -142,7 +142,7 @@ class AntennaElement(BaseModel):
     
     Each element can have:
     - Geometry (defined by type and parameters)
-    - Optional source excitation
+    - Optional source excitation(s) - can have multiple for balanced feeds
     - Optional lumped circuit elements (resistors, inductors, capacitors)
     
     Multiple elements can be combined in a Geometry, and the solver will
@@ -156,9 +156,9 @@ class AntennaElement(BaseModel):
     parameters: Dict[str, Any] = Field(
         description="Type-specific parameters (length, radius, center, etc.)"
     )
-    source: Optional[Source] = Field(
-        default=None,
-        description="Source excitation for this element"
+    sources: List[Source] = Field(
+        default_factory=list,
+        description="Source excitations for this element (can have multiple for balanced feeds)"
     )
     lumped_elements: List[LumpedElement] = Field(
         default_factory=list,

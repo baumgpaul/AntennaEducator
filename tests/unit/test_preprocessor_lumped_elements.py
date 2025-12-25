@@ -99,9 +99,9 @@ class TestDipoleWithLumpedElements:
             lumped_elements=lumped_elements
         )
         
-        assert element.source is not None
-        assert element.source.series_R == 50.0
-        assert element.source.tag == "50Ω source"
+        assert element.sources[0] is not None
+        assert element.sources[0].series_R == 50.0
+        assert element.sources[0].tag == "50Ω source"
         assert len(element.lumped_elements) == 1
         assert element.lumped_elements[0].C_inv == 1e12
     
@@ -168,7 +168,7 @@ class TestLoopWithLumpedElements:
             lumped_elements=lumped_elements
         )
         
-        assert element.source.series_L == 1e-9
+        assert element.sources[0].series_L == 1e-9
         assert len(element.lumped_elements) == 1
 
 
@@ -247,11 +247,11 @@ class TestEnhancedSourceInBuilders:
         
         element = create_dipole(length=1.0, segments=21, source=source)
         
-        assert element.source is not None
-        assert element.source.series_R == 50.0
-        assert element.source.series_L == 1e-9
-        assert element.source.series_C_inv == 1e12
-        assert element.source.tag == "Complex source"
+        assert element.sources[0] is not None
+        assert element.sources[0].series_R == 50.0
+        assert element.sources[0].series_L == 1e-9
+        assert element.sources[0].series_C_inv == 1e12
+        assert element.sources[0].tag == "Complex source"
     
     def test_loop_with_basic_source(self):
         """Test that basic source (without series impedance) still works."""
@@ -262,11 +262,11 @@ class TestEnhancedSourceInBuilders:
         
         element = create_loop(radius=0.1, segments=36, source=source)
         
-        assert element.source is not None
-        assert element.source.series_R == 0.0
-        assert element.source.series_L == 0.0
-        assert element.source.series_C_inv == 0.0
-        assert element.source.tag == ""
+        assert element.sources[0] is not None
+        assert element.sources[0].series_R == 0.0
+        assert element.sources[0].series_L == 0.0
+        assert element.sources[0].series_C_inv == 0.0
+        assert element.sources[0].tag == ""
 
 
 class TestLumpedElementValidation:
@@ -333,6 +333,6 @@ class TestBackwardCompatibility:
         element = create_dipole(length=1.0, segments=21, source=source)
         
         # Should default to 0.0 for series impedance
-        assert element.source.series_R == 0.0
-        assert element.source.series_L == 0.0
-        assert element.source.series_C_inv == 0.0
+        assert element.sources[0].series_R == 0.0
+        assert element.sources[0].series_L == 0.0
+        assert element.sources[0].series_C_inv == 0.0

@@ -83,11 +83,11 @@ def test_create_dipole_with_source(client):
     element = data["element"]
     
     assert element["name"] == "Test Dipole"
-    assert element["source"] is not None
-    assert element["source"]["type"] == "voltage"
+    assert len(element["sources"]) > 0
+    assert element["sources"][0]["type"] == "voltage"
     # Source between center nodes (11 segments = 12 nodes, center between 6 and 7) - 1-based indexing
-    assert element["source"]["node_start"] == 6
-    assert element["source"]["node_end"] == 7
+    assert element["sources"][0]["node_start"] == 6
+    assert element["sources"][0]["node_end"] == 7
     assert element["parameters"]["segments"] == 11
 
 
@@ -157,11 +157,11 @@ def test_create_loop_with_source(client):
     element = data["element"]
 
     assert element["name"] == "Test Loop"
-    assert element["source"] is not None
-    assert element["source"]["type"] == "voltage"
+    assert len(element["sources"]) > 0
+    assert element["sources"][0]["type"] == "voltage"
     # Source between first and last node (across gap) - 1-based indexing
-    assert element["source"]["node_start"] == 1
-    assert element["source"]["node_end"] == 25  # 24 segments = 25 nodes
+    assert element["sources"][0]["node_start"] == 1
+    assert element["sources"][0]["node_end"] == 25  # 24 segments = 25 nodes
     assert element["parameters"]["segments"] == 24
 
 
@@ -222,11 +222,11 @@ def test_create_rod_with_source(client):
     element = data["element"]
     
     assert element["name"] == "Test Rod"
-    assert element["source"] is not None
-    assert element["source"]["type"] == "current"
+    assert len(element["sources"]) > 0
+    assert element["sources"][0]["type"] == "current"
     # Source between first two nodes (at base)
-    assert element["source"]["node_start"] == 0
-    assert element["source"]["node_end"] == 1
+    assert element["sources"][0]["node_start"] == 0
+    assert element["sources"][0]["node_end"] == 1
     assert element["parameters"]["segments"] == 11
 
 
@@ -293,11 +293,11 @@ def test_create_helix_with_source(client):
     element = data["element"]
     
     assert element["name"] == "Test Helix"
-    assert element["source"] is not None
-    assert element["source"]["type"] == "voltage"
-    # Source between first two nodes
-    assert element["source"]["node_start"] == 0
-    assert element["source"]["node_end"] == 1
+    assert len(element["sources"]) > 0
+    assert element["sources"][0]["type"] == "voltage"
+    # Source between first and second node
+    assert element["sources"][0]["node_start"] == 0
+    assert element["sources"][0]["node_end"] == 1
     assert element["parameters"]["axis"] == [0.0, 0.0, 1.0]
     assert element["parameters"]["wire_radius"] == 0.001
     assert element["parameters"]["segments_per_turn"] == 16

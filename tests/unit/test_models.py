@@ -28,8 +28,8 @@ def test_antenna_element_model(sample_dipole_element):
     assert element.name == "Test Dipole"
     assert element.type == "dipole"
     assert "length" in element.parameters
-    assert element.source is not None
-    assert element.source.type == "voltage"
+    assert element.sources[0] is not None
+    assert element.sources[0].type == "voltage"
     assert isinstance(element.id, UUID)
 
 

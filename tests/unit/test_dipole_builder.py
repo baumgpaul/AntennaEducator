@@ -21,7 +21,7 @@ class TestDipoleBuilder:
         assert element.parameters["wire_radius"] == 0.001
         assert element.parameters["gap"] == 0.01
         assert element.parameters["segments"] == 21
-        assert element.source is None
+        assert len(element.sources) == 0
     
     def test_create_dipole_with_custom_parameters(self):
         """Test creating a dipole with custom parameters."""
@@ -53,11 +53,11 @@ class TestDipoleBuilder:
         
         element = create_dipole(length=1.0, source=source_dict)
         
-        assert element.source is not None
-        assert element.source.type == "voltage"
-        assert element.source.amplitude == complex(1.0, 0.5)
-        assert element.source.node_start == 0  # Ground reference
-        assert element.source.node_end == 1  # First node
+        assert len(element.sources) > 0
+        assert element.sources[0].type == "voltage"
+        assert element.sources[0].amplitude == complex(1.0, 0.5)
+        assert element.sources[0].node_start == 0  # Ground reference
+        assert element.sources[0].node_end == 1  # First node
         element = create_dipole(length=1.0, segments=20)
         
         # Should keep 20 (segments per half)
@@ -179,8 +179,8 @@ class TestDipoleToMesh:
         mesh = dipole_to_mesh(element)
 
         # 11 segments = 12 nodes, center is between nodes 6 and 7 (1-based indexing)
-        assert element.source.node_start == 6
-        assert element.source.node_end == 7
+        assert element.sources[0].node_start == 6
+        assert element.sources[0].node_end == 7
     def test_dipole_to_mesh_with_gap_voltage_source(self):
         """Test that voltage source with gap is at gap (ground to first node)."""
         source_dict = {
@@ -192,9 +192,13 @@ class TestDipoleToMesh:
 
         # segments=5 means 5 segments per half (stored in params["segments"])
         # Upper half: 6 nodes (1-6), lower half: 6 nodes (7-12)
-        # Voltage source between ground (0) and first node of upper half (1)
-        assert element.source.node_start == 0
-        assert element.source.node_end == 1
+        # Dual voltage sources for balanced feed (matching golden standard)
+        assert len(element.sources) == 2
+        assert element.sources[0].node_start == 0  # Ground to upper
+        assert element.sources[0].node_end == 1
+        assert element.sources[1].node_start == 0  # Ground to lower
+        assert element.sources[1].node_end == 7
+        assert element.sources[1].amplitude == -element.sources[0].amplitude  # Opposite polarity
     def test_dipole_to_mesh_with_gap_current_source(self):
         """Test that current source with gap is at gap (ground to first node)."""
         source_dict = {
@@ -204,9 +208,12 @@ class TestDipoleToMesh:
         element = create_dipole(length=1.0, gap=0.01, segments=5, source=source_dict)
         mesh = dipole_to_mesh(element)
 
-        # Same as voltage: between ground (0) and first node of upper half (1)
-        assert element.source.node_start == 0
-        assert element.source.node_end == 1
+        # Same as voltage: dual sources for balanced feed
+        assert len(element.sources) == 2
+        assert element.sources[0].node_start == 0
+        assert element.sources[0].node_end == 1
+        assert element.sources[1].node_start == 0
+        assert element.sources[1].node_end == 7
     def test_dipole_to_mesh_edge_mapping(self):
         """Test that edge to element mapping is correct."""
         element = create_dipole(length=1.0, segments=5, gap=0.01)
