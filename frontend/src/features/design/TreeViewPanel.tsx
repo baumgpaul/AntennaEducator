@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -20,7 +20,10 @@ import {
   VisibilityOff,
   CableOutlined,
   RadioButtonChecked,
+  BoltOutlined,
+  MemoryOutlined,
 } from '@mui/icons-material';
+import type { Mesh, Source, LumpedElement } from '@/types/models';
 
 interface TreeNode {
   id: string;
@@ -31,78 +34,118 @@ interface TreeNode {
 }
 
 interface TreeViewPanelProps {
+  mesh?: Mesh;
+  sources?: Source[];
+  lumpedElements?: LumpedElement[];
+  antennaType?: string;
   onSelectNode?: (nodeId: string) => void;
   selectedNodeId?: string;
 }
 
 /**
  * TreeViewPanel - Hierarchical view of mesh elements
- * Shows nodes, edges, sources, and lumped elements
+ * Shows nodes, edges, sources, and lumped elements from real mesh data
  */
-function TreeViewPanel({ onSelectNode, selectedNodeId }: TreeViewPanelProps) {
-  // Mock data - will be replaced with actual mesh data from Redux
-  const [treeData, setTreeData] = useState<TreeNode[]>([
-    {
-      id: 'mesh-1',
-      label: 'Dipole Antenna',
-      type: 'mesh',
-      visible: true,
-      children: [
-        {
-          id: 'edges',
-          label: 'Edges (10)',
-          type: 'edge',
+function TreeViewPanel({
+  mesh,
+  sources = [],
+  lumpedElements = [],
+  antennaType = 'Antenna',
+  onSelectNode,
+  selectedNodeId,
+}: TreeViewPanelProps) {
+  // Build tree data from actual mesh
+  const treeData = useMemo<TreeNode[]>(() => {
+    if (!mesh) return [];
+
+    const children: TreeNode[] = [];
+
+    // Add edges section
+    if (mesh.edges.length > 0) {
+      children.push({
+        id: 'edges',
+        label: `Edges (${mesh.edges.length})`,
+        type: 'edge',
+        visible: true,
+        children: mesh.edges.map((edge, i) => ({
+          id: `edge-${i}`,
+          label: `Edge ${i + 1} [${edge[0]} → ${edge[1]}]`,
+          type: 'edge' as const,
           visible: true,
-          children: Array.from({ length: 10 }, (_, i) => ({
-            id: `edge-${i}`,
-            label: `Edge ${i + 1}`,
-            type: 'edge' as const,
-            visible: true,
-          })),
-        },
-        {
-          id: 'nodes',
-          label: 'Nodes (11)',
-          type: 'node',
+        })),
+      });
+    }
+
+    // Add nodes section
+    if (mesh.nodes.length > 0) {
+      children.push({
+        id: 'nodes',
+        label: `Nodes (${mesh.nodes.length})`,
+        type: 'node',
+        visible: true,
+        children: mesh.nodes.map((node, i) => ({
+          id: `node-${i}`,
+          label: `Node ${i} (${node[0].toFixed(3)}, ${node[1].toFixed(3)}, ${node[2].toFixed(3)})`,
+          type: 'node' as const,
           visible: true,
-          children: Array.from({ length: 11 }, (_, i) => ({
-            id: `node-${i}`,
-            label: `Node ${i + 1}`,
-            type: 'node' as const,
-            visible: true,
-          })),
-        },
-        {
-          id: 'sources',
-          label: 'Sources (1)',
-          type: 'source',
+        })),
+      });
+    }
+
+    // Add sources section
+    if (sources.length > 0) {
+      children.push({
+        id: 'sources',
+        label: `Sources (${sources.length})`,
+        type: 'source',
+        visible: true,
+        children: sources.map((source, i) => ({
+          id: `source-${i}`,
+          label: source.tag || `${source.type} Source ${i + 1}`,
+          type: 'source' as const,
           visible: true,
-          children: [
-            {
-              id: 'source-1',
-              label: 'Voltage Source',
-              type: 'source' as const,
-              visible: true,
-            },
-          ],
-        },
-      ],
-    },
-  ]);
+        })),
+      });
+    }
+
+    // Add lumped elements section
+    if (lumpedElements.length > 0) {
+      children.push({
+        id: 'lumped',
+        label: `Lumped Elements (${lumpedElements.length})`,
+        type: 'load',
+        visible: true,
+        children: lumpedElements.map((element, i) => ({
+          id: `lumped-${i}`,
+          label: element.tag || `${element.type} ${i + 1}`,
+          type: 'load' as const,
+          visible: true,
+        })),
+      });
+    }
+
+    return [
+      {
+        id: 'mesh-1',
+        label: antennaType,
+        type: 'mesh',
+        visible: true,
+        children,
+      },
+    ];
+  }, [mesh, sources, lumpedElements, antennaType]);
+
+  const [visibilityState, setVisibilityState] = useState<Record<string, boolean>>({});
 
   const toggleVisibility = (nodeId: string) => {
-    const updateVisibility = (nodes: TreeNode[]): TreeNode[] => {
-      return nodes.map((node) => {
-        if (node.id === nodeId) {
-          return { ...node, visible: !node.visible };
-        }
-        if (node.children) {
-          return { ...node, children: updateVisibility(node.children) };
-        }
-        return node;
-      });
-    };
-    setTreeData(updateVisibility(treeData));
+    setVisibilityState((prev) => ({
+      ...prev,
+      [nodeId]: !prev[nodeId],
+    }));
+  };
+
+  const isVisible = (nodeId: string): boolean => {
+    return visibilityState[nodeId] ?? true;
   };
 
   const getIcon = (type: string) => {
@@ -114,9 +157,9 @@ function TreeViewPanel({ onSelectNode, selectedNodeId }: TreeViewPanelProps) {
       case 'node':
         return <RadioButtonChecked fontSize="small" />;
       case 'source':
-        return <RadioButtonChecked color="error" fontSize="small" />;
+        return <BoltOutlined color="error" fontSize="small" />;
       case 'load':
-        return <RadioButtonChecked color="warning" fontSize="small" />;
+        return <MemoryOutlined color="warning" fontSize="small" />;
       default:
         return null;
     }
@@ -125,6 +168,7 @@ function TreeViewPanel({ onSelectNode, selectedNodeId }: TreeViewPanelProps) {
   const renderTreeNode = (node: TreeNode, level: number = 0) => {
     const hasChildren = node.children && node.children.length > 0;
     const isSelected = selectedNodeId === node.id;
+    const visible = isVisible(node.id);
 
     if (hasChildren) {
       return (
@@ -152,7 +196,7 @@ function TreeViewPanel({ onSelectNode, selectedNodeId }: TreeViewPanelProps) {
               <Typography variant="body2" sx={{ flex: 1 }}>
                 {node.label}
               </Typography>
-              <Tooltip title={node.visible ? 'Hide' : 'Show'}>
+              <Tooltip title={visible ? 'Hide' : 'Show'}>
                 <IconButton
                   size="small"
                   onClick={(e) => {
@@ -161,7 +205,7 @@ function TreeViewPanel({ onSelectNode, selectedNodeId }: TreeViewPanelProps) {
                   }}
                   sx={{ p: 0.5 }}
                 >
-                  {node.visible ? (
+                  {visible ? (
                     <Visibility fontSize="small" />
                   ) : (
                     <VisibilityOff fontSize="small" />
@@ -182,7 +226,7 @@ function TreeViewPanel({ onSelectNode, selectedNodeId }: TreeViewPanelProps) {
         key={node.id}
         disablePadding
         secondaryAction={
-          <Tooltip title={node.visible ? 'Hide' : 'Show'}>
+          <Tooltip title={visible ? 'Hide' : 'Show'}>
             <IconButton
               size="small"
               edge="end"
@@ -192,7 +236,7 @@ function TreeViewPanel({ onSelectNode, selectedNodeId }: TreeViewPanelProps) {
               }}
               sx={{ p: 0.5 }}
             >
-              {node.visible ? (
+              {visible ? (
                 <Visibility fontSize="small" />
               ) : (
                 <VisibilityOff fontSize="small" />
@@ -258,9 +302,28 @@ function TreeViewPanel({ onSelectNode, selectedNodeId }: TreeViewPanelProps) {
           flexWrap: 'wrap',
         }}
       >
-        <Chip label="10 Edges" size="small" variant="outlined" />
-        <Chip label="11 Nodes" size="small" variant="outlined" />
-        <Chip label="1 Source" size="small" variant="outlined" color="error" />
+        {mesh && (
+          <>
+            <Chip label={`${mesh.edges.length} Edges`} size="small" variant="outlined" />
+            <Chip label={`${mesh.nodes.length} Nodes`} size="small" variant="outlined" />
+            {sources.length > 0 && (
+              <Chip
+                label={`${sources.length} Source${sources.length > 1 ? 's' : ''}`}
+                size="small"
+                variant="outlined"
+                color="error"
+              />
+            )}
+            {lumpedElements.length > 0 && (
+              <Chip
+                label={`${lumpedElements.length} Element${lumpedElements.length > 1 ? 's' : ''}`}
+                size="small"
+                variant="outlined"
+                color="warning"
+              />
+            )}
+          </>
+        )}
       </Box>
     </Box>
   );

@@ -19,7 +19,9 @@ import type { Mesh } from '@/types/models';
 function DesignPage() {
   const { projectId } = useParams();
   const dispatch = useAppDispatch();
-  const { mesh, meshGenerating } = useAppSelector((state) => state.design);
+  const { mesh, sources, lumpedElements, antennaType, meshGenerating } = useAppSelector(
+    (state) => state.design
+  );
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
@@ -110,6 +112,10 @@ function DesignPage() {
         mesh={mesh || undefined}
         leftPanel={
           <TreeViewPanel
+            mesh={mesh || undefined}
+            sources={sources}
+            lumpedElements={lumpedElements}
+            antennaType={antennaType ? `${antennaType.charAt(0).toUpperCase()}${antennaType.slice(1)} Antenna` : 'Antenna'}
             selectedNodeId={selectedNodeId || undefined}
             onSelectNode={setSelectedNodeId}
           />
