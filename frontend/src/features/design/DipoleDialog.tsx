@@ -87,8 +87,8 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        <Typography variant="h6">Dipole Antenna Configuration</Typography>
-        <Typography variant="body2" color="text.secondary">
+        Dipole Antenna Configuration
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           Design a center-fed dipole antenna
         </Typography>
       </DialogTitle>

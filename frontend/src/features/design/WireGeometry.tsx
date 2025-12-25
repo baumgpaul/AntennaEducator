@@ -20,11 +20,40 @@ function WireGeometry({ mesh, currentDistribution, selected, onSelect }: WireGeo
 
   // Convert mesh edges to line segments
   const segments = useMemo(() => {
+    // Safety check: ensure mesh data is valid
+    if (!mesh || !mesh.edges || !mesh.nodes || !mesh.radii) {
+      console.log('WireGeometry: Invalid mesh data', { mesh });
+      return [];
+    }
+    
+    // Validate arrays have proper length
+    if (mesh.edges.length === 0 || mesh.nodes.length === 0 || mesh.radii.length === 0) {
+      console.log('WireGeometry: Empty mesh arrays', { 
+        edgesLength: mesh.edges.length, 
+        nodesLength: mesh.nodes.length, 
+        radiiLength: mesh.radii.length 
+      });
+      return [];
+    }
+    
     return mesh.edges.map((edge, idx) => {
       const [startIdx, endIdx] = edge;
+      
+      // Validate indices
+      if (!mesh.nodes[startIdx] || !mesh.nodes[endIdx]) {
+        console.error(`WireGeometry: Invalid node indices - edge ${idx}: [${startIdx}, ${endIdx}], nodes length: ${mesh.nodes.length}`);
+        return null;
+      }
+      
       const start = mesh.nodes[startIdx];
       const end = mesh.nodes[endIdx];
       const radius = mesh.radii[idx];
+
+      // Validate node data
+      if (!start || !end || start.length < 3 || end.length < 3) {
+        console.error(`WireGeometry: Invalid node data at indices ${startIdx}, ${endIdx}`);
+        return null;
+      }
 
       // Get current magnitude for color mapping (normalized 0-1)
       const current = currentDistribution?.[idx] ?? 0;
@@ -35,7 +64,7 @@ function WireGeometry({ mesh, currentDistribution, selected, onSelect }: WireGeo
         radius,
         current,
       };
-    });
+    }).filter(seg => seg !== null);
   }, [mesh, currentDistribution]);
 
   // Color mapping for current distribution (blue -> cyan -> green -> yellow -> red)

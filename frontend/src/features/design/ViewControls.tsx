@@ -1,4 +1,4 @@
-import { Box, IconButton, Tooltip, Divider, ToggleButtonGroup, ToggleButton } from '@mui/material';
+import { Box, Paper, IconButton, Tooltip, Divider, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import {
   ZoomIn,
   ZoomOut,
@@ -42,22 +42,18 @@ function ViewControls({
     }
   };
 
-  const containerStyles = {
-    position: 'absolute' as const,
-    bottom: 16,
-    right: 16,
-    zIndex: 10,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 1,
-    backgroundColor: 'white',
-    borderRadius: 1,
-    boxShadow: 3,
-    p: 0.5,
-  };
-
   return (
-    <Box sx={containerStyles}>
+    <Paper
+      elevation={3}
+      sx={{
+        position: 'absolute',
+        bottom: 16,
+        right: 16,
+        zIndex: 10,
+        p: 0.5,
+      }}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {/* Zoom Controls */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         <Tooltip title="Zoom In" placement="left">
@@ -124,7 +120,8 @@ function ViewControls({
           </ToggleButton>
         </ToggleButtonGroup>
       </Box>
-    </Box>
+      </Box>
+    </Paper>
   );
 }
 

@@ -261,7 +261,15 @@ function TreeViewPanel({
   };
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ 
+      height: '100%', 
+      width: '100%',
+      display: 'flex', 
+      flexDirection: 'column',
+      margin: 0,
+      padding: 0,
+      bgcolor: 'background.paper',
+    }}>
       {/* Header */}
       <Box
         sx={{
