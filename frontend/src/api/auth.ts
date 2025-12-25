@@ -5,6 +5,10 @@
 
 import { apiClient } from './client'
 import type { User, AuthTokens } from '@/types/models'
+import * as mockAuth from './mockAuth'
+
+// Toggle between real API and mock API for testing
+const USE_MOCK_API = true; // Set to false when backend is ready
 
 // ============================================================================
 // Request/Response Types
@@ -18,6 +22,9 @@ export interface LoginRequest {
 export interface LoginResponse {
   user: User
   tokens: AuthTokens
+  access_token?: string
+  refresh_token?: string
+  token_type?: string
 }
 
 export interface RegisterRequest {
@@ -49,7 +56,37 @@ export interface RefreshTokenResponse {
  * Login user with email and password
  */
 export const login = async (credentials: LoginRequest): Promise<LoginResponse> => {
+  if (USE_MOCK_API) {
+    const mockResponse = await mockAuth.login(credentials);
+    // Store tokens in localStorage
+    localStorage.setItem('auth_token', mockResponse.access_token);
+    localStorage.setItem('refresh_token', mockResponse.refresh_token);
+    return {
+      user: mockResponse.user,
+      tokens: {
+        access_token: mockResponse.access_token,
+        refresh_token: mockResponse.refresh_token,
+        token_type: mockResponse.token_type,
+      }
+    };
+  }
+  
   const response = await apiClient.post<LoginResponse>('/api/auth/login', credentials)
+  
+  if (USE_MOCK_API) {
+    const mockResponse = await mockAuth.register(data);
+    // Store tokens in localStorage
+    localStorage.setItem('auth_token', mockResponse.access_token);
+    localStorage.setItem('refresh_token', mockResponse.refresh_token);
+    return {
+      user: mockResponse.user,
+      tokens: {
+        access_token: mockResponse.access_token,
+        refresh_token: mockResponse.refresh_token,
+        token_type: mockResponse.token_type,
+      }
+    };
+  }
   
   // Store tokens in localStorage
   if (response.data.tokens.access_token) {

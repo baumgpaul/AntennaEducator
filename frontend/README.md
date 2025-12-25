@@ -4,7 +4,7 @@ React-based web interface for the PEEC Antenna Simulator.
 
 ## Current Status
 
-**Phase 2 Progress: 63% Complete (Tasks 1-8, 9a-d of 15)**
+**Phase 2 Progress: 67% Complete (Tasks 1-9 of 15)**
 
 ### ✅ Completed Features
 
@@ -23,6 +23,7 @@ React-based web interface for the PEEC Antenna Simulator.
 - **Auth API**: Real backend integration with JWT token management
 - **Protected Routes**: Automatic token refresh and route protection
 - **Error Handling**: Comprehensive error parsing, inline displays, retry logic
+- **Session Management**: 30-min timeout, activity tracking, auto-logout
 
 ### 🎯 Working Demo
 
@@ -38,11 +39,13 @@ The application is viewable and interactive at **http://localhost:3000**
 - ✅ See working notifications
 - ✅ Logout and return to login
 
-### 🚧 Next Up (Task 9e & Task 10)
+### 🚧 Next Up (Task 10)
 
-- Session management and timeout handling
-- Projects page with CRUD operations
-- Project cards and filtering
+**Projects Management Page**
+- Project CRUD operations
+- Project listing and cards
+- Filter, search, and sorting
+- Project metadata display
 
 ## Tech Stack
 
