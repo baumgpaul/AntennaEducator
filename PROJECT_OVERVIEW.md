@@ -229,15 +229,21 @@ The frontend React application is actively under development with core infrastru
   - Axes helper (5 unit length) for orientation
   - GizmoHelper with viewport navigation widget
   - Damped controls for smooth interaction
+  - Dark background (#1a1a1a) for high-contrast visualization
+  - Z-axis up coordinate system (RF engineering standard)
 - ✅ **WireGeometry Component** (`frontend/src/features/design/WireGeometry.tsx`)
   - Render antenna mesh as 3D cylinders with spherical caps
-  - Color mapping for current distribution visualization
-  - Blue → Green → Red gradient based on current magnitude
+  - Current distribution color mapping: Blue → Green → Red gradient
+  - Gray color for zero-current segments
   - Interactive selection with click handlers
-  - Hover effects with pointer cursor
-  - Animated pulse effect for selected elements (scale oscillation)
-  - Node markers as small spheres for debugging
+  - Hover effects with pointer cursor and emissive glow
+  - Multi-element support with per-element rendering
+  - Node markers as small spheres for debugging (optional)
   - Proper orientation using quaternions for wire direction
+  - Metalness/roughness material properties for realistic appearance
+  - **⏳ TODO: Add default high-contrast color for elements without current data**
+  - **⏳ TODO: Add distinct colors for multiple antenna elements**
+  - **⏳ TODO: Add color management in element properties panel**
 - ✅ **DesignCanvas Layout** (`frontend/src/features/design/DesignCanvas.tsx`)
   - Split panel layout with resizable sections
   - Left panel (280px) for tree view, collapsible with smooth transition
@@ -439,6 +445,38 @@ The frontend React application is actively under development with core infrastru
 - [ ] Preserve sources and lumped elements
 - [ ] Validate connectivity (no floating elements)
 - [ ] Pass composed mesh to solver
+
+**Task 12f: Antenna Element Coloring System** ⏳ (2-3 hours)
+- [ ] Default high-contrast color for new antenna elements
+  - Orange (#FF8C00) or Cyan (#00CED1) recommended for dark background (#1a1a1a)
+  - Must provide excellent contrast for easy visibility
+  - Used when no current distribution is displayed
+- [ ] Distinct element colors for multi-element designs
+  - Color palette: 8-10 visually distinct colors
+  - Automatic assignment when elements added
+  - Manual color picker per element in properties panel
+  - Color-blind friendly palette (deuteranopia, protanopia safe)
+- [ ] Current distribution visualization mode (existing)
+  - Blue → Green → Red gradient based on current magnitude
+  - Gray for zero current segments
+  - Toggle between "element colors" and "current distribution" modes
+- [ ] Selection/hover visual feedback
+  - Emissive glow for selected elements (existing)
+  - Brighter/distinct color for hovered elements
+  - No pulsation (removed per previous requirements)
+- [ ] Color management in Redux designSlice
+  - Add `color: string` property to AntennaElement interface
+  - Auto-assign from palette on element creation
+  - Persist colors in project state
+  - Color conflict detection (warn if too similar)
+- [ ] UI Controls
+  - Properties panel: Color picker for selected element
+  - View menu: Toggle "Show Current Distribution" mode
+  - Legend component showing element names and colors
+- [ ] Background contrast validation
+  - Ensure WCAG AA contrast ratio (4.5:1) for default colors
+  - Test with both light and dark themes (future-proofing)
+  - Visual indicators if custom colors have poor contrast
 
 **Simulation Workflow (Task 13)**
 - ⏳ Mesh generation integration
