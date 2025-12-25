@@ -1,0 +1,164 @@
+version: '3.8'
+
+services:
+  # Frontend - React Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+    depends_on:
+      - api-gateway
+    networks:
+      - antenna-network
+    restart: unless-stopped
+
+  # API Gateway - Nginx reverse proxy
+  api-gateway:
+    image: nginx:alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./deployment/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - preprocessor
+      - solver
+      - postprocessor
+    networks:
+      - antenna-network
+    restart: unless-stopped
+
+  # Preprocessor Service
+  preprocessor:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    command: uvicorn backend.preprocessor.main:app --host 0.0.0.0 --port 8001
+    expose:
+      - "8001"
+    environment:
+      - DATABASE_URL=postgresql://antenna:antenna123@postgres:5432/antenna_db
+      - STORAGE_URL=http://minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - SERVICE_NAME=preprocessor
+    depends_on:
+      - postgres
+      - minio
+    networks:
+      - antenna-network
+    restart: unless-stopped
+
+  # Solver Service
+  solver:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    command: uvicorn backend.solver.main:app --host 0.0.0.0 --port 8002
+    expose:
+      - "8002"
+    environment:
+      - DATABASE_URL=postgresql://antenna:antenna123@postgres:5432/antenna_db
+      - SERVICE_NAME=solver
+    depends_on:
+      - postgres
+    networks:
+      - antenna-network
+    restart: unless-stopped
+    # Increase memory for solver
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  # Postprocessor Service
+  postprocessor:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    command: uvicorn backend.postprocessor.main:app --host 0.0.0.0 --port 8003
+    expose:
+      - "8003"
+    environment:
+      - DATABASE_URL=postgresql://antenna:antenna123@postgres:5432/antenna_db
+      - STORAGE_URL=http://minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - SERVICE_NAME=postprocessor
+    depends_on:
+      - postgres
+      - minio
+    networks:
+      - antenna-network
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=antenna
+      - POSTGRES_PASSWORD=antenna123
+      - POSTGRES_DB=antenna_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deployment/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - antenna-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U antenna"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO - S3-compatible object storage
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - antenna-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MinIO Client - Initialize buckets
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb myminio/antenna-geometries --ignore-existing;
+      mc mb myminio/antenna-results --ignore-existing;
+      mc anonymous set download myminio/antenna-geometries;
+      mc anonymous set download myminio/antenna-results;
+      exit 0;
+      "
+    networks:
+      - antenna-network
+
+networks:
+  antenna-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  minio-data:
