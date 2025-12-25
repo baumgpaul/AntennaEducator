@@ -7,40 +7,27 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import type { Notification } from '@/types/ui'
 
 interface UIState {
-  // Layout
-  sidebarOpen: boolean
-  propertiesPanelOpen: boolean
-  
-  // Theme
-  theme: 'light' | 'dark'
-  
-  // Notifications
+  theme: {
+    mode: 'light' | 'dark'
+  }
+  layout: {
+    sidebarOpen: boolean
+    propertiesPanelOpen: boolean
+  }
   notifications: Notification[]
-  
-  // Modals
-  activeModal: string | null
-  modalData: any
-  
-  // Global loading
-  globalLoading: boolean
-  globalLoadingMessage: string | null
-  
-  // Navigation
-  currentPage: string
-  breadcrumbs: { label: string; path?: string }[]
+  modals: Record<string, boolean>
 }
 
 const initialState: UIState = {
-  sidebarOpen: true,
-  propertiesPanelOpen: true,
-  theme: (localStorage.getItem('theme') as 'light' | 'dark') || 'light',
+  theme: {
+    mode: (localStorage.getItem('theme') as 'light' | 'dark') || 'light',
+  },
+  layout: {
+    sidebarOpen: true,
+    propertiesPanelOpen: true,
+  },
   notifications: [],
-  activeModal: null,
-  modalData: null,
-  globalLoading: false,
-  globalLoadingMessage: null,
-  currentPage: '/',
-  breadcrumbs: [],
+  modals: {},
 }
 
 let notificationIdCounter = 0
@@ -49,47 +36,31 @@ const uiSlice = createSlice({
   name: 'ui',
   initialState,
   reducers: {
-    // Layout
-    toggleSidebar: (state) => {
-      state.sidebarOpen = !state.sidebarOpen
+    // Theme
+    toggleTheme: (state) => {
+      const newMode = state.theme.mode === 'light' ? 'dark' : 'light'
+      state.theme.mode = newMode
+      localStorage.setItem('theme', newMode)
     },
     
-    setSidebarOpen: (state, action: PayloadAction<boolean>) => {
-      state.sidebarOpen = action.payload
+    // Layout
+    toggleSidebar: (state) => {
+      state.layout.sidebarOpen = !state.layout.sidebarOpen
     },
     
     togglePropertiesPanel: (state) => {
-      state.propertiesPanelOpen = !state.propertiesPanelOpen
-    },
-    
-    setPropertiesPanelOpen: (state, action: PayloadAction<boolean>) => {
-      state.propertiesPanelOpen = action.payload
-    },
-    
-    // Theme
-    setTheme: (state, action: PayloadAction<'light' | 'dark'>) => {
-      state.theme = action.payload
-      localStorage.setItem('theme', action.payload)
-    },
-    
-    toggleTheme: (state) => {
-      state.theme = state.theme === 'light' ? 'dark' : 'light'
-      localStorage.setItem('theme', state.theme)
+      state.layout.propertiesPanelOpen = !state.layout.propertiesPanelOpen
     },
     
     // Notifications
     addNotification: (
       state,
-      action: PayloadAction<Omit<Notification, 'id'>>
+      action: PayloadAction<Notification>
     ) => {
-      const notification: Notification = {
-        ...action.payload,
-        id: `notification-${notificationIdCounter++}`,
-      }
-      state.notifications.push(notification)
+      state.notifications.push(action.payload)
     },
     
-    removeNotification: (state, action: PayloadAction<string>) => {
+    removeNotification: (state, action: PayloadAction<number>) => {
       state.notifications = state.notifications.filter(
         (n) => n.id !== action.payload
       )
@@ -99,99 +70,46 @@ const uiSlice = createSlice({
       state.notifications = []
     },
     
-    // Helper actions for common notification types
-    showSuccess: (state, action: PayloadAction<string>) => {
-      state.notifications.push({
-        id: `notification-${notificationIdCounter++}`,
-        type: 'success',
-        message: action.payload,
-        duration: 3000,
-      })
-    },
-    
-    showError: (state, action: PayloadAction<string>) => {
-      state.notifications.push({
-        id: `notification-${notificationIdCounter++}`,
-        type: 'error',
-        message: action.payload,
-        duration: 5000,
-      })
-    },
-    
-    showWarning: (state, action: PayloadAction<string>) => {
-      state.notifications.push({
-        id: `notification-${notificationIdCounter++}`,
-        type: 'warning',
-        message: action.payload,
-        duration: 4000,
-      })
-    },
-    
-    showInfo: (state, action: PayloadAction<string>) => {
-      state.notifications.push({
-        id: `notification-${notificationIdCounter++}`,
-        type: 'info',
-        message: action.payload,
-        duration: 3000,
-      })
-    },
-    
     // Modals
     openModal: (
       state,
       action: PayloadAction<{ modalId: string; data?: any }>
     ) => {
-      state.activeModal = action.payload.modalId
-      state.modalData = action.payload.data
+      state.modals[action.payload.modalId] = true
     },
     
-    closeModal: (state) => {
-      state.activeModal = null
-      state.modalData = null
-    },
-    
-    // Global loading
-    setGlobalLoading: (
-      state,
-      action: PayloadAction<{ loading: boolean; message?: string }>
-    ) => {
-      state.globalLoading = action.payload.loading
-      state.globalLoadingMessage = action.payload.message || null
-    },
-    
-    // Navigation
-    setCurrentPage: (state, action: PayloadAction<string>) => {
-      state.currentPage = action.payload
-    },
-    
-    setBreadcrumbs: (
-      state,
-      action: PayloadAction<{ label: string; path?: string }[]>
-    ) => {
-      state.breadcrumbs = action.payload
+    closeModal: (state, action: PayloadAction<string>) => {
+      state.modals[action.payload] = false
     },
   },
 })
 
 export const {
-  toggleSidebar,
-  setSidebarOpen,
-  togglePropertiesPanel,
-  setPropertiesPanelOpen,
-  setTheme,
   toggleTheme,
+  toggleSidebar,
+  togglePropertiesPanel,
   addNotification,
   removeNotification,
   clearNotifications,
-  showSuccess,
-  showError,
-  showWarning,
-  showInfo,
   openModal,
   closeModal,
-  setGlobalLoading,
-  setCurrentPage,
-  setBreadcrumbs,
 } = uiSlice.actions
+
+// Helper functions for creating notifications
+export const showSuccess = (message: string, duration = 5000): PayloadAction<Notification> => {
+  return addNotification({ id: Date.now(), message, severity: 'success', duration })
+}
+
+export const showError = (message: string, duration = 5000): PayloadAction<Notification> => {
+  return addNotification({ id: Date.now(), message, severity: 'error', duration })
+}
+
+export const showWarning = (message: string, duration = 5000): PayloadAction<Notification> => {
+  return addNotification({ id: Date.now(), message, severity: 'warning', duration })
+}
+
+export const showInfo = (message: string, duration = 5000): PayloadAction<Notification> => {
+  return addNotification({ id: Date.now(), message, severity: 'info', duration })
+}
 
 export default uiSlice.reducer

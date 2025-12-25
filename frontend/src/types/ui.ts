@@ -5,6 +5,17 @@
 import type { Vector3D } from './models'
 
 // ============================================================================
+// Notification Types
+// ============================================================================
+
+export interface Notification {
+  id: number
+  message: string
+  severity: 'success' | 'error' | 'warning' | 'info'
+  duration?: number
+}
+
+// ============================================================================
 // UI State Types
 // ============================================================================
 
@@ -152,17 +163,6 @@ export interface PlotConfig {
 // ============================================================================
 
 export type NotificationType = 'success' | 'error' | 'warning' | 'info'
-
-export interface Notification {
-  id: string
-  type: NotificationType
-  message: string
-  duration?: number
-  action?: {
-    label: string
-    onClick: () => void
-  }
-}
 
 // ============================================================================
 // Theme Types

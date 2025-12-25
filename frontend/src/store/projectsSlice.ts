@@ -7,7 +7,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import type { Project, Simulation } from '@/types/models'
 
 interface ProjectsState {
-  projects: Project[]
+  items: Project[]
   currentProject: Project | null
   simulations: Simulation[]
   loading: boolean
@@ -16,7 +16,7 @@ interface ProjectsState {
 }
 
 const initialState: ProjectsState = {
-  projects: [],
+  items: [],
   currentProject: null,
   simulations: [],
   loading: false,
@@ -34,7 +34,7 @@ const projectsSlice = createSlice({
       state.error = null
     },
     fetchProjectsSuccess: (state, action: PayloadAction<Project[]>) => {
-      state.projects = action.payload
+      state.items = action.payload
       state.loading = false
       state.error = null
     },
@@ -49,7 +49,7 @@ const projectsSlice = createSlice({
       state.error = null
     },
     createProjectSuccess: (state, action: PayloadAction<Project>) => {
-      state.projects.push(action.payload)
+      state.items.push(action.payload)
       state.currentProject = action.payload
       state.selectedProjectId = action.payload.id
       state.loading = false
@@ -66,9 +66,9 @@ const projectsSlice = createSlice({
       state.error = null
     },
     updateProjectSuccess: (state, action: PayloadAction<Project>) => {
-      const index = state.projects.findIndex((p) => p.id === action.payload.id)
+      const index = state.items.findIndex((p) => p.id === action.payload.id)
       if (index !== -1) {
-        state.projects[index] = action.payload
+        state.items[index] = action.payload
       }
       if (state.currentProject?.id === action.payload.id) {
         state.currentProject = action.payload
@@ -87,7 +87,7 @@ const projectsSlice = createSlice({
       state.error = null
     },
     deleteProjectSuccess: (state, action: PayloadAction<string>) => {
-      state.projects = state.projects.filter((p) => p.id !== action.payload)
+      state.items = state.items.filter((p) => p.id !== action.payload)
       if (state.currentProject?.id === action.payload) {
         state.currentProject = null
         state.selectedProjectId = null
@@ -103,7 +103,7 @@ const projectsSlice = createSlice({
     // Select project
     selectProject: (state, action: PayloadAction<string>) => {
       state.selectedProjectId = action.payload
-      state.currentProject = state.projects.find((p) => p.id === action.payload) || null
+      state.currentProject = state.items.find((p) => p.id === action.payload) || null
     },
     
     // Clear current project
