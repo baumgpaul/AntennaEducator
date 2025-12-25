@@ -3,11 +3,19 @@ import { Box, IconButton, Tooltip } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import Scene3D from './Scene3D';
 import WireGeometry from './WireGeometry';
-import type { Mesh } from '@/types/models';
+import type { Mesh, AntennaElement } from '@/types/models';
 
 interface DesignCanvasProps {
+  // Multi-element support
+  elements?: AntennaElement[];
+  selectedElementId?: string | null;
+  onElementSelect?: (elementId: string) => void;
+  
+  // Single mesh support (backward compatibility)
   mesh?: Mesh;
   currentDistribution?: number[];
+  
+  // Panel content
   leftPanel?: React.ReactNode;
   rightPanel?: React.ReactNode;
   topToolbar?: React.ReactNode;
@@ -18,6 +26,9 @@ interface DesignCanvasProps {
  * Layout: [Left Panel] | [3D Canvas] | [Right Panel]
  */
 function DesignCanvas({
+  elements,
+  selectedElementId,
+  onElementSelect,
   mesh,
   currentDistribution,
   leftPanel,
@@ -133,18 +144,22 @@ function DesignCanvas({
           padding: 0,
         }}>
           <Scene3D>
-            {mesh && (
+            {(elements && elements.length > 0) || mesh ? (
               <WireGeometry
+                elements={elements}
+                selectedElementId={selectedElementId}
+                onElementSelect={onElementSelect}
                 mesh={mesh}
                 currentDistribution={currentDistribution}
                 selected={selectedElement !== null}
                 onSelect={() => setSelectedElement(selectedElement === null ? 0 : null)}
+                showNodes={false} // Hide debug node markers by default
               />
-            )}
+            ) : null}
           </Scene3D>
 
           {/* Center overlay for empty state */}
-          {!mesh && (
+          {!elements?.length && !mesh && (
             <div style={{
               position: 'absolute',
               top: '50%',

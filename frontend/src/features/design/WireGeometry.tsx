@@ -1,71 +1,149 @@
 import { useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { Mesh } from '@/types/models';
+import type { Mesh, AntennaElement } from '@/types/models';
 
 interface WireGeometryProps {
-  mesh: Mesh;
+  // Multi-element support (preferred)
+  elements?: AntennaElement[];
+  selectedElementId?: string | null;
+  onElementSelect?: (elementId: string) => void;
+  
+  // Single mesh support (backward compatibility)
+  mesh?: Mesh;
   currentDistribution?: number[]; // Current magnitude at each segment
   selected?: boolean;
   onSelect?: () => void;
+  
+  // Visualization options
+  showNodes?: boolean;
 }
 
 /**
  * WireGeometry - Renders antenna wire mesh as 3D cylinders
+ * Supports both multi-element and single mesh rendering
  * Supports color mapping for current distribution visualization
  */
-function WireGeometry({ mesh, currentDistribution, selected, onSelect }: WireGeometryProps) {
+function WireGeometry({ 
+  elements, 
+  selectedElementId, 
+  onElementSelect,
+  mesh, 
+  currentDistribution, 
+  selected, 
+  onSelect,
+  showNodes = false
+}: WireGeometryProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const [hovered, setHovered] = useState(false);
+  const [hoveredElement, setHoveredElement] = useState<string | null>(null);
 
-  // Convert mesh edges to line segments
-  const segments = useMemo(() => {
-    // Safety check: ensure mesh data is valid
-    if (!mesh || !mesh.edges || !mesh.nodes || !mesh.radii) {
-      console.log('WireGeometry: Invalid mesh data', { mesh });
-      return [];
-    }
-    
-    // Validate arrays have proper length
-    if (mesh.edges.length === 0 || mesh.nodes.length === 0 || mesh.radii.length === 0) {
-      console.log('WireGeometry: Empty mesh arrays', { 
-        edgesLength: mesh.edges.length, 
-        nodesLength: mesh.nodes.length, 
-        radiiLength: mesh.radii.length 
+  // Convert elements or single mesh to renderable segments
+  const elementSegments = useMemo(() => {
+    const result: Array<{
+      elementId: string;
+      segments: Array<{
+        start: THREE.Vector3;
+        end: THREE.Vector3;
+        radius: number;
+        current: number;
+      }>;
+    }> = [];
+
+    if (elements && elements.length > 0) {
+      // Multi-element mode
+      elements.forEach(element => {
+        if (!element.visible || !element.mesh) return;
+        
+        const mesh = element.mesh;
+        if (!mesh.edges || !mesh.nodes || !mesh.radii) return;
+        
+        const segments = mesh.edges.map((edge, idx) => {
+          const [startIdx, endIdx] = edge;
+          
+          if (!mesh.nodes[startIdx] || !mesh.nodes[endIdx]) {
+            console.error(`WireGeometry: Invalid node indices - element ${element.id}, edge ${idx}`);
+            return null;
+          }
+          
+          const start = mesh.nodes[startIdx];
+          const end = mesh.nodes[endIdx];
+          const radius = mesh.radii[idx];
+
+          if (!start || !end || start.length < 3 || end.length < 3) {
+            console.error(`WireGeometry: Invalid node data - element ${element.id}, edge ${idx}`);
+            return null;
+          }
+
+          // Apply element position offset
+          const startPos = new THREE.Vector3(
+            start[0] + element.position[0], 
+            start[1] + element.position[1], 
+            start[2] + element.position[2]
+          );
+          const endPos = new THREE.Vector3(
+            end[0] + element.position[0], 
+            end[1] + element.position[1], 
+            end[2] + element.position[2]
+          );
+
+          // TODO: Apply rotation (element.rotation) using THREE.Euler/Quaternion
+
+          return {
+            start: startPos,
+            end: endPos,
+            radius,
+            current: 0, // Current distribution per element will be added later
+          };
+        }).filter(seg => seg !== null);
+
+        if (segments.length > 0) {
+          result.push({
+            elementId: element.id,
+            segments,
+          });
+        }
       });
-      return [];
+    } else if (mesh) {
+      // Single mesh mode (backward compatibility)
+      if (mesh.edges && mesh.nodes && mesh.radii) {
+        const segments = mesh.edges.map((edge, idx) => {
+          const [startIdx, endIdx] = edge;
+          
+          if (!mesh.nodes[startIdx] || !mesh.nodes[endIdx]) {
+            console.error(`WireGeometry: Invalid node indices - edge ${idx}`);
+            return null;
+          }
+          
+          const start = mesh.nodes[startIdx];
+          const end = mesh.nodes[endIdx];
+          const radius = mesh.radii[idx];
+
+          if (!start || !end || start.length < 3 || end.length < 3) {
+            console.error(`WireGeometry: Invalid node data at edge ${idx}`);
+            return null;
+          }
+
+          const current = currentDistribution?.[idx] ?? 0;
+
+          return {
+            start: new THREE.Vector3(start[0], start[1], start[2]),
+            end: new THREE.Vector3(end[0], end[1], end[2]),
+            radius,
+            current,
+          };
+        }).filter(seg => seg !== null);
+
+        if (segments.length > 0) {
+          result.push({
+            elementId: 'single-mesh',
+            segments,
+          });
+        }
+      }
     }
-    
-    return mesh.edges.map((edge, idx) => {
-      const [startIdx, endIdx] = edge;
-      
-      // Validate indices
-      if (!mesh.nodes[startIdx] || !mesh.nodes[endIdx]) {
-        console.error(`WireGeometry: Invalid node indices - edge ${idx}: [${startIdx}, ${endIdx}], nodes length: ${mesh.nodes.length}`);
-        return null;
-      }
-      
-      const start = mesh.nodes[startIdx];
-      const end = mesh.nodes[endIdx];
-      const radius = mesh.radii[idx];
 
-      // Validate node data
-      if (!start || !end || start.length < 3 || end.length < 3) {
-        console.error(`WireGeometry: Invalid node data at indices ${startIdx}, ${endIdx}`);
-        return null;
-      }
-
-      // Get current magnitude for color mapping (normalized 0-1)
-      const current = currentDistribution?.[idx] ?? 0;
-
-      return {
-        start: new THREE.Vector3(start[0], start[1], start[2]),
-        end: new THREE.Vector3(end[0], end[1], end[2]),
-        radius,
-        current,
-      };
-    }).filter(seg => seg !== null);
-  }, [mesh, currentDistribution]);
+    return result;
+  }, [elements, mesh, currentDistribution]);
 
   // Color mapping for current distribution (blue -> cyan -> green -> yellow -> red)
   const getColorFromCurrent = (current: number): THREE.Color => {
@@ -96,7 +174,7 @@ function WireGeometry({ mesh, currentDistribution, selected, onSelect }: WireGeo
 
   // Animation for selected/hovered state
   useFrame((state) => {
-    if (groupRef.current && (selected || hovered)) {
+    if (groupRef.current && (selectedElementId || hoveredElement)) {
       groupRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 3) * 0.05);
     } else if (groupRef.current) {
       groupRef.current.scale.setScalar(1);
@@ -105,76 +183,105 @@ function WireGeometry({ mesh, currentDistribution, selected, onSelect }: WireGeo
 
   return (
     <group ref={groupRef}>
-      {segments.map((segment, idx) => {
-        const direction = new THREE.Vector3().subVectors(segment.end, segment.start);
-        const length = direction.length();
-        const midpoint = new THREE.Vector3().addVectors(segment.start, segment.end).multiplyScalar(0.5);
-
-        // Create rotation quaternion to align cylinder with wire direction
-        const orientation = new THREE.Quaternion();
-        orientation.setFromUnitVectors(
-          new THREE.Vector3(0, 1, 0),
-          direction.clone().normalize()
-        );
-
-        const color = getColorFromCurrent(segment.current);
+      {elementSegments.map(({ elementId, segments }) => {
+        const isSelected = elementId === selectedElementId || (elementId === 'single-mesh' && selected);
+        const isHovered = elementId === hoveredElement;
 
         return (
-          <group key={idx} position={midpoint} quaternion={orientation}>
-            {/* Wire cylinder */}
-            <mesh
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect?.();
-              }}
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                setHovered(true);
-                document.body.style.cursor = 'pointer';
-              }}
-              onPointerOut={() => {
-                setHovered(false);
-                document.body.style.cursor = 'default';
-              }}
-            >
-              <cylinderGeometry args={[segment.radius, segment.radius, length, 8]} />
-              <meshStandardMaterial
-                color={color}
-                emissive={selected || hovered ? color : new THREE.Color(0x000000)}
-                emissiveIntensity={selected || hovered ? 0.3 : 0}
-                metalness={0.6}
-                roughness={0.4}
-              />
-            </mesh>
+          <group key={elementId}>
+            {/* Render segments for this element */}
+            {segments.map((segment, idx) => {
+              const direction = new THREE.Vector3().subVectors(segment.end, segment.start);
+              const length = direction.length();
+              const midpoint = new THREE.Vector3().addVectors(segment.start, segment.end).multiplyScalar(0.5);
 
-            {/* Wire caps */}
-            <mesh position={[0, length / 2, 0]}>
-              <sphereGeometry args={[segment.radius, 8, 8]} />
-              <meshStandardMaterial
-                color={color}
-                metalness={0.6}
-                roughness={0.4}
-              />
-            </mesh>
-            <mesh position={[0, -length / 2, 0]}>
-              <sphereGeometry args={[segment.radius, 8, 8]} />
-              <meshStandardMaterial
-                color={color}
-                metalness={0.6}
-                roughness={0.4}
-              />
-            </mesh>
+              // Create rotation quaternion to align cylinder with wire direction
+              const orientation = new THREE.Quaternion();
+              orientation.setFromUnitVectors(
+                new THREE.Vector3(0, 1, 0),
+                direction.clone().normalize()
+              );
+
+              const color = getColorFromCurrent(segment.current);
+
+              return (
+                <group key={`${elementId}-${idx}`} position={midpoint} quaternion={orientation}>
+                  {/* Wire cylinder */}
+                  <mesh
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (elementId !== 'single-mesh') {
+                        onElementSelect?.(elementId);
+                      } else {
+                        onSelect?.();
+                      }
+                    }}
+                    onPointerOver={(e) => {
+                      e.stopPropagation();
+                      setHoveredElement(elementId);
+                      document.body.style.cursor = 'pointer';
+                    }}
+                    onPointerOut={() => {
+                      setHoveredElement(null);
+                      document.body.style.cursor = 'default';
+                    }}
+                  >
+                    <cylinderGeometry args={[segment.radius, segment.radius, length, 8]} />
+                    <meshStandardMaterial
+                      color={color}
+                      emissive={isSelected || isHovered ? color : new THREE.Color(0x000000)}
+                      emissiveIntensity={isSelected || isHovered ? 0.3 : 0}
+                      metalness={0.6}
+                      roughness={0.4}
+                    />
+                  </mesh>
+
+                  {/* Wire caps */}
+                  <mesh position={[0, length / 2, 0]}>
+                    <sphereGeometry args={[segment.radius, 8, 8]} />
+                    <meshStandardMaterial
+                      color={color}
+                      metalness={0.6}
+                      roughness={0.4}
+                    />
+                  </mesh>
+                  <mesh position={[0, -length / 2, 0]}>
+                    <sphereGeometry args={[segment.radius, 8, 8]} />
+                    <meshStandardMaterial
+                      color={color}
+                      metalness={0.6}
+                      roughness={0.4}
+                    />
+                  </mesh>
+                </group>
+              );
+            })}
+
+            {/* Node markers (optional, for debugging) */}
+            {showNodes && elements && elements.find(el => el.id === elementId)?.mesh?.nodes?.map((node, idx) => {
+              const element = elements.find(el => el.id === elementId)!;
+              return (
+                <mesh key={`node-${elementId}-${idx}`} position={new THREE.Vector3(
+                  node[0] + element.position[0], 
+                  node[1] + element.position[1], 
+                  node[2] + element.position[2]
+                )}>
+                  <sphereGeometry args={[0.02, 8, 8]} />
+                  <meshBasicMaterial color={isSelected ? 0xff0000 : 0xffff00} />
+                </mesh>
+              );
+            })}
+            
+            {/* Legacy single mesh node markers */}
+            {showNodes && elementId === 'single-mesh' && mesh?.nodes?.map((node, idx) => (
+              <mesh key={`node-${idx}`} position={new THREE.Vector3(node[0], node[1], node[2])}>
+                <sphereGeometry args={[0.02, 8, 8]} />
+                <meshBasicMaterial color={selected ? 0xff0000 : 0xffff00} />
+              </mesh>
+            ))}
           </group>
         );
       })}
-
-      {/* Node markers (for debugging/visualization) */}
-      {mesh.nodes.map((node, idx) => (
-        <mesh key={`node-${idx}`} position={new THREE.Vector3(node[0], node[1], node[2])}>
-          <sphereGeometry args={[0.02, 8, 8]} />
-          <meshBasicMaterial color={selected ? 0xff0000 : 0xffff00} />
-        </mesh>
-      ))}
     </group>
   );
 }

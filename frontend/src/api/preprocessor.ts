@@ -116,9 +116,9 @@ export const generateDipoleMesh = async (formData: {
     gap: formData.gap,
     segments: formData.segments,
     balanced_feed: formData.feedType === 'balanced',
-    // Default values
+    // Default values - Z-axis up
     center_position: [0, 0, 0],
-    orientation: [0, 0, 1], // Vertical along Z-axis
+    orientation: [0, 0, 1], // Dipole along Z-axis (vertical/up)
   };
   
   return createDipole(config);
@@ -144,7 +144,7 @@ export const generateLoopMesh = async (formData: {
     wire_radius: formData.wireRadius,
     segments: formData.segments,
     center_position: [0, 0, 0] as [number, number, number],
-    normal_vector: [0, 0, 1] as [number, number, number], // Loop in XY plane
+    normal_vector: [0, 0, 1] as [number, number, number], // Loop in XY plane, normal points up (Z)
   };
 
   let config: LoopConfig;
@@ -195,7 +195,7 @@ export async function generateHelixMesh(formData: any): Promise<PreprocessorResp
     turns: formData.turns,
     wire_radius: formData.wire_radius,
     center_position: [0, 0, 0],
-    axis_direction: [0, 0, 1],
+    axis_direction: [0, 0, 1], // Helix grows along Z-axis (up)
     start_angle: 0,
     segments_per_turn: formData.segments_per_turn,
     helix_mode: formData.helix_mode,

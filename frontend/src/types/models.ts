@@ -132,6 +132,26 @@ export interface RodConfig {
 }
 
 // ============================================================================
+// Multi-Element System Types
+// ============================================================================
+
+export type AntennaType = 'dipole' | 'loop' | 'helix' | 'rod'
+
+export interface AntennaElement {
+  id: string
+  type: AntennaType
+  name: string
+  config: DipoleConfig | LoopConfig | HelixConfig | RodConfig
+  position: Vector3D
+  rotation: Vector3D  // Euler angles (rx, ry, rz) in radians
+  mesh: Mesh
+  visible: boolean
+  locked: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+// ============================================================================
 // Preprocessor API Types
 // ============================================================================
 

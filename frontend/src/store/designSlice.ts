@@ -13,25 +13,31 @@ import type {
   LoopConfig,
   HelixConfig,
   RodConfig,
+  AntennaElement,
 } from '@/types/models'
 import { generateDipoleMesh, generateLoopMesh, generateHelixMesh, generateRodMesh } from '@/api/preprocessor'
 
 interface DesignState {
-  // Antenna configuration
+  // Multi-element system
+  elements: AntennaElement[]
+  selectedElementId: string | null
+  activeElementId: string | null  // Element being configured in dialog
+  
+  // Legacy single antenna fields (for backward compatibility during transition)
   antennaType: 'dipole' | 'loop' | 'helix' | 'rod' | 'custom' | null
   antennaConfig: DipoleConfig | LoopConfig | HelixConfig | RodConfig | null
-  
-  // Generated mesh
-  mesh: Mesh | null
-  sources: Source[]
-  lumpedElements: LumpedElement[]
+  mesh: Mesh | null  // Will be phased out in favor of elements[].mesh
   
   // Solver results
   results: SolverResult | null
   resultsHistory: SolverResult[]
   
+  // Sources and lumped elements (global to all elements)
+  sources: Source[]
+  lumpedElements: LumpedElement[]
+  
   // UI state
-  selectedElementId: string | null
+  viewMode: '3d' | '2d'
   
   // Loading states
   meshGenerating: boolean
@@ -43,17 +49,30 @@ interface DesignState {
 }
 
 const initialState: DesignState = {
+  // Multi-element system
+  elements: [],
+  selectedElementId: null,
+  activeElementId: null,
+  
+  // Legacy fields
   antennaType: null,
   antennaConfig: null,
   mesh: null,
-  sources: [],
-  lumpedElements: [],
+  
+  // Results and global elements
   results: null,
   resultsHistory: [],
-  selectedElementId: null,
+  sources: [],
+  lumpedElements: [],
+  
+  // UI state
   viewMode: '3d',
+  
+  // Loading states
   meshGenerating: false,
   solving: false,
+  
+  // Errors
   meshError: null,
   solverError: null,
 }
@@ -155,7 +174,72 @@ const designSlice = createSlice({
   name: 'design',
   initialState,
   reducers: {
-    // Set antenna configuration
+    // Element management
+    addElement: (state, action: PayloadAction<AntennaElement>) => {
+      state.elements.push(action.payload)
+      // Auto-select the new element
+      state.selectedElementId = action.payload.id
+    },
+
+    updateElement: (state, action: PayloadAction<{ id: string; updates: Partial<AntennaElement> }>) => {
+      const index = state.elements.findIndex(el => el.id === action.payload.id)
+      if (index >= 0) {
+        state.elements[index] = { ...state.elements[index], ...action.payload.updates }
+      }
+    },
+
+    removeElement: (state, action: PayloadAction<string>) => {
+      state.elements = state.elements.filter(el => el.id !== action.payload)
+      // Clear selection if removed element was selected
+      if (state.selectedElementId === action.payload) {
+        state.selectedElementId = null
+      }
+    },
+
+    duplicateElement: (state, action: PayloadAction<string>) => {
+      const element = state.elements.find(el => el.id === action.payload)
+      if (element) {
+        const newId = `${element.type}_${Date.now()}`
+        const duplicate: AntennaElement = {
+          ...element,
+          id: newId,
+          name: `${element.name} Copy`,
+          position: [element.position[0] + 0.1, element.position[1], element.position[2]], // Offset slightly
+        }
+        state.elements.push(duplicate)
+        state.selectedElementId = newId
+      }
+    },
+
+    setElementVisibility: (state, action: PayloadAction<{ id: string; visible: boolean }>) => {
+      const index = state.elements.findIndex(el => el.id === action.payload.id)
+      if (index >= 0) {
+        state.elements[index].visible = action.payload.visible
+      }
+    },
+
+    setElementLocked: (state, action: PayloadAction<{ id: string; locked: boolean }>) => {
+      const index = state.elements.findIndex(el => el.id === action.payload.id)
+      if (index >= 0) {
+        state.elements[index].locked = action.payload.locked
+      }
+    },
+
+    setSelectedElement: (state, action: PayloadAction<string | null>) => {
+      state.selectedElementId = action.payload
+    },
+
+    setActiveElement: (state, action: PayloadAction<string | null>) => {
+      state.activeElementId = action.payload
+    },
+
+    clearElements: (state) => {
+      state.elements = []
+      state.selectedElementId = null
+      state.activeElementId = null
+    },
+
+    // Legacy antenna configuration (backward compatibility)
     setAntennaType: (
       state,
       action: PayloadAction<'dipole' | 'loop' | 'helix' | 'rod' | 'custom'>
@@ -251,11 +335,6 @@ const designSlice = createSlice({
       state.solverError = null
     },
     
-    // UI state
-    setSelectedElement: (state, action: PayloadAction<string | null>) => {
-      state.selectedElementId = action.payload
-    },
-    
     setViewMode: (state, action: PayloadAction<'3d' | 'tree' | 'properties'>) => {
       state.viewMode = action.payload
     },
@@ -271,7 +350,7 @@ const designSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // Generate dipole mesh
+    // Generate dipole mesh - create element
     builder
       .addCase(generateDipole.pending, (state) => {
         state.meshGenerating = true;
@@ -280,14 +359,28 @@ const designSlice = createSlice({
       })
       .addCase(generateDipole.fulfilled, (state, action) => {
         state.meshGenerating = false;
-        // The backend returns {element, mesh, message}
-        console.log('Redux: Dipole generated, payload:', action.payload);
-        console.log('Redux: Mesh data:', action.payload.mesh);
-        console.log('Redux: Element data:', action.payload.element);
         
-        // The mesh object contains nodes, edges, radii
+        console.log('Redux: Dipole generated, payload:', action.payload);
+        
+        // Create AntennaElement from response
+        const element: AntennaElement = {
+          id: `dipole_${Date.now()}`,
+          type: 'dipole',
+          name: `Dipole ${state.elements.length + 1}`,
+          config: action.payload.element?.config || action.payload.element || {},
+          position: [0, 0, 0],  // Default position, will be configurable later
+          rotation: [0, 0, 0],  // Default rotation
+          mesh: action.payload.mesh,
+          visible: true,
+          locked: false,
+        };
+        
+        // Add to elements array
+        state.elements.push(element);
+        state.selectedElementId = element.id;
+        
+        // Legacy mesh support (for backward compatibility)
         state.mesh = action.payload.mesh;
-        // Sources and lumped_elements are in the element object
         state.sources = action.payload.element?.sources || [];
         state.lumpedElements = action.payload.element?.lumped_elements || [];
         state.meshError = null;
@@ -304,6 +397,25 @@ const designSlice = createSlice({
       })
       .addCase(generateLoop.fulfilled, (state, action) => {
         state.meshGenerating = false;
+        
+        // Create AntennaElement from response
+        const element: AntennaElement = {
+          id: `loop_${Date.now()}`,
+          type: 'loop',
+          name: `Loop ${state.elements.length + 1}`,
+          config: action.payload.element?.config || action.payload.element || {},
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          mesh: action.payload.mesh,
+          visible: true,
+          locked: false,
+        };
+        
+        // Add to elements array
+        state.elements.push(element);
+        state.selectedElementId = element.id;
+        
+        // Legacy support
         state.mesh = action.payload.mesh;
         state.sources = action.payload.element?.sources || [];
         state.lumpedElements = action.payload.element?.lumped_elements || [];
@@ -321,6 +433,25 @@ const designSlice = createSlice({
       })
       .addCase(generateHelix.fulfilled, (state, action) => {
         state.meshGenerating = false;
+        
+        // Create AntennaElement from response
+        const element: AntennaElement = {
+          id: `helix_${Date.now()}`,
+          type: 'helix',
+          name: `Helix ${state.elements.length + 1}`,
+          config: action.payload.element?.config || action.payload.element || {},
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          mesh: action.payload.mesh,
+          visible: true,
+          locked: false,
+        };
+        
+        // Add to elements array
+        state.elements.push(element);
+        state.selectedElementId = element.id;
+        
+        // Legacy support
         state.mesh = action.payload.mesh;
         state.sources = action.payload.element?.sources || [];
         state.lumpedElements = action.payload.element?.lumped_elements || [];
@@ -338,6 +469,25 @@ const designSlice = createSlice({
       })
       .addCase(generateRod.fulfilled, (state, action) => {
         state.meshGenerating = false;
+        
+        // Create AntennaElement from response
+        const element: AntennaElement = {
+          id: `rod_${Date.now()}`,
+          type: 'rod',
+          name: `Rod ${state.elements.length + 1}`,
+          config: action.payload.element?.config || action.payload.element || {},
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          mesh: action.payload.mesh,
+          visible: true,
+          locked: false,
+        };
+        
+        // Add to elements array
+        state.elements.push(element);
+        state.selectedElementId = element.id;
+        
+        // Legacy support
         state.mesh = action.payload.mesh;
         state.sources = action.payload.element?.sources || [];
         state.lumpedElements = action.payload.element?.lumped_elements || [];
@@ -351,6 +501,17 @@ const designSlice = createSlice({
 })
 
 export const {
+  // Element management
+  addElement,
+  updateElement,
+  removeElement,
+  duplicateElement,
+  setElementVisibility,
+  setElementLocked,
+  setSelectedElement,
+  setActiveElement,
+  clearElements,
+  // Legacy actions
   setAntennaType,
   setAntennaConfig,
   meshGenerationStart,
@@ -368,7 +529,6 @@ export const {
   solverSuccess,
   solverFailure,
   clearResults,
-  setSelectedElement,
   setViewMode,
   clearDesign,
   loadDesign,

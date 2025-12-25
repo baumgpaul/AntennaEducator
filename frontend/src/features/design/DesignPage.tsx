@@ -2,7 +2,14 @@ import { useState } from 'react';
 import { Box } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { generateDipole, generateLoop, generateHelix, generateRod, addLumpedElement } from '@/store/designSlice';
+import { 
+  generateDipole, 
+  generateLoop, 
+  generateHelix, 
+  generateRod, 
+  addLumpedElement,
+  setSelectedElement 
+} from '@/store/designSlice';
 import { addNotification } from '@/store/uiSlice';
 import DesignCanvas from './DesignCanvas';
 import TreeViewPanel from './TreeViewPanel';
@@ -15,7 +22,7 @@ import { HelixDialog } from './HelixDialog';
 import { RodDialog } from './RodDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { addLumpedElementToMesh } from '@/api/preprocessor';
-import type { Mesh } from '@/types/models';
+import type { Mesh, AntennaElement } from '@/types/models';
 
 /**
  * DesignPage - 3D antenna design interface
@@ -24,7 +31,15 @@ import type { Mesh } from '@/types/models';
 function DesignPage() {
   const { projectId } = useParams();
   const dispatch = useAppDispatch();
-  const { mesh, sources, lumpedElements, antennaType, meshGenerating } = useAppSelector(
+  const { 
+    elements, 
+    selectedElementId, 
+    mesh, 
+    sources, 
+    lumpedElements, 
+    antennaType, 
+    meshGenerating 
+  } = useAppSelector(
     (state) => state.design
   );
   
@@ -163,6 +178,12 @@ function DesignPage() {
     }
   };
 
+  // Element selection handler
+  const handleElementSelect = (elementId: string) => {
+    console.log('Element selected:', elementId);
+    dispatch(setSelectedElement(elementId));
+  };
+
   const handleAnalysisAction = (action: string) => {
     console.log('Analysis action:', action);
     // TODO: Implement mesh generation, solver execution, etc.
@@ -203,9 +224,16 @@ function DesignPage() {
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <DesignCanvas
-        mesh={mesh || undefined}
+        elements={elements}
+        selectedElementId={selectedElementId}
+        onElementSelect={handleElementSelect}
+        mesh={mesh || undefined} // Keep for backward compatibility
         leftPanel={
           <TreeViewPanel
+            elements={elements}
+            selectedElementId={selectedElementId}
+            onElementSelect={handleElementSelect}
+            // Legacy props for backward compatibility
             mesh={mesh || undefined}
             sources={sources}
             lumpedElements={lumpedElements}

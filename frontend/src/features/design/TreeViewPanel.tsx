@@ -22,18 +22,29 @@ import {
   RadioButtonChecked,
   BoltOutlined,
   MemoryOutlined,
+  AccountTree,
+  Radio,
+  AllInclusive,
+  LinearScale,
 } from '@mui/icons-material';
-import type { Mesh, Source, LumpedElement } from '@/types/models';
+import type { Mesh, Source, LumpedElement, AntennaElement } from '@/types/models';
 
 interface TreeNode {
   id: string;
   label: string;
-  type: 'mesh' | 'edge' | 'node' | 'source' | 'load';
+  type: 'element' | 'mesh' | 'edge' | 'node' | 'source' | 'load';
   visible: boolean;
   children?: TreeNode[];
+  elementId?: string;
 }
 
 interface TreeViewPanelProps {
+  // Multi-element support
+  elements?: AntennaElement[];
+  selectedElementId?: string | null;
+  onElementSelect?: (elementId: string) => void;
+  
+  // Single mesh support (backward compatibility)
   mesh?: Mesh;
   sources?: Source[];
   lumpedElements?: LumpedElement[];
@@ -44,9 +55,13 @@ interface TreeViewPanelProps {
 
 /**
  * TreeViewPanel - Hierarchical view of mesh elements
- * Shows nodes, edges, sources, and lumped elements from real mesh data
+ * Shows antenna elements, nodes, edges, sources, and lumped elements
+ * Supports both multi-element and single mesh modes
  */
 function TreeViewPanel({
+  elements,
+  selectedElementId,
+  onElementSelect,
   mesh,
   sources = [],
   lumpedElements = [],
@@ -54,86 +69,135 @@ function TreeViewPanel({
   onSelectNode,
   selectedNodeId,
 }: TreeViewPanelProps) {
-  // Build tree data from actual mesh
+  // Build tree data from elements or single mesh
   const treeData = useMemo<TreeNode[]>(() => {
-    if (!mesh) return [];
+    const result: TreeNode[] = [];
 
-    const children: TreeNode[] = [];
+    if (elements && elements.length > 0) {
+      // Multi-element mode
+      elements.forEach((element) => {
+        const elementNode: TreeNode = {
+          id: element.id,
+          elementId: element.id,
+          label: element.name,
+          type: 'element',
+          visible: element.visible,
+          children: [],
+        };
 
-    // Add edges section
-    if (mesh.edges.length > 0) {
-      children.push({
-        id: 'edges',
-        label: `Edges (${mesh.edges.length})`,
-        type: 'edge',
-        visible: true,
-        children: mesh.edges.map((edge, i) => ({
-          id: `edge-${i}`,
-          label: `Edge ${i + 1} [${edge[0]} → ${edge[1]}]`,
-          type: 'edge' as const,
-          visible: true,
-        })),
+        // Add mesh structure for each element
+        if (element.mesh) {
+          const meshNode: TreeNode = {
+            id: `${element.id}_mesh`,
+            elementId: element.id,
+            label: 'Mesh',
+            type: 'mesh',
+            visible: element.visible,
+            children: [],
+          };
+
+          // Add edges
+          if (element.mesh.edges && element.mesh.edges.length > 0) {
+            element.mesh.edges.forEach((edge, idx) => {
+              meshNode.children!.push({
+                id: `${element.id}_edge_${idx}`,
+                elementId: element.id,
+                label: `Edge ${idx + 1}`,
+                type: 'edge',
+                visible: element.visible,
+              });
+            });
+          }
+
+          elementNode.children!.push(meshNode);
+        }
+
+        result.push(elementNode);
       });
-    }
-
-    // Add nodes section
-    if (mesh.nodes.length > 0) {
-      children.push({
-        id: 'nodes',
-        label: `Nodes (${mesh.nodes.length})`,
-        type: 'node',
-        visible: true,
-        children: mesh.nodes.map((node, i) => ({
-          id: `node-${i}`,
-          label: `Node ${i} (${node[0].toFixed(3)}, ${node[1].toFixed(3)}, ${node[2].toFixed(3)})`,
-          type: 'node' as const,
+      
+      // Add global sources and lumped elements if any
+      if (sources.length > 0 || lumpedElements.length > 0) {
+        const globalNode: TreeNode = {
+          id: 'global',
+          label: 'Global Elements',
+          type: 'mesh',
           visible: true,
-        })),
-      });
-    }
+          children: [],
+        };
 
-    // Add sources section
-    if (sources.length > 0) {
-      children.push({
-        id: 'sources',
-        label: `Sources (${sources.length})`,
-        type: 'source',
-        visible: true,
-        children: sources.map((source, i) => ({
-          id: `source-${i}`,
-          label: source.tag || `${source.type} Source ${i + 1}`,
-          type: 'source' as const,
-          visible: true,
-        })),
-      });
-    }
+        sources.forEach((source, idx) => {
+          globalNode.children!.push({
+            id: `source_${idx}`,
+            label: `${source.type.toUpperCase()} Source`,
+            type: 'source',
+            visible: true,
+          });
+        });
 
-    // Add lumped elements section
-    if (lumpedElements.length > 0) {
-      children.push({
-        id: 'lumped',
-        label: `Lumped Elements (${lumpedElements.length})`,
-        type: 'load',
-        visible: true,
-        children: lumpedElements.map((element, i) => ({
-          id: `lumped-${i}`,
-          label: element.tag || `${element.type} ${i + 1}`,
-          type: 'load' as const,
-          visible: true,
-        })),
-      });
-    }
+        lumpedElements.forEach((element, idx) => {
+          globalNode.children!.push({
+            id: `lumped_${idx}`,
+            label: `${element.type.charAt(0).toUpperCase() + element.type.slice(1)}`,
+            type: 'load',
+            visible: true,
+          });
+        });
 
-    return [
-      {
-        id: 'mesh-1',
+        if (globalNode.children!.length > 0) {
+          result.push(globalNode);
+        }
+      }
+    } else if (mesh) {
+      // Single mesh mode (backward compatibility)
+      const meshNode: TreeNode = {
+        id: 'mesh',
         label: antennaType,
         type: 'mesh',
         visible: true,
-        children,
-      },
-    ];
-  }, [mesh, sources, lumpedElements, antennaType]);
+        children: [],
+      };
+
+      // Add edges
+      if (mesh.edges && mesh.edges.length > 0) {
+        mesh.edges.forEach((edge, idx) => {
+          meshNode.children!.push({
+            id: `edge_${idx}`,
+            label: `Edge ${idx + 1}`,
+            type: 'edge',
+            visible: true,
+          });
+        });
+      }
+
+      result.push(meshNode);
+
+      // Add sources
+      if (sources.length > 0) {
+        sources.forEach((source, idx) => {
+          result.push({
+            id: `source_${idx}`,
+            label: `${source.type.toUpperCase()} Source`,
+            type: 'source',
+            visible: true,
+          });
+        });
+      }
+
+      // Add lumped elements
+      if (lumpedElements.length > 0) {
+        lumpedElements.forEach((element, idx) => {
+          result.push({
+            id: `lumped_${idx}`,
+            label: `${element.type.charAt(0).toUpperCase() + element.type.slice(1)}`,
+            type: 'load',
+            visible: true,
+          });
+        });
+      }
+    }
+
+    return result;
+  }, [elements, mesh, sources, lumpedElements, antennaType]);
 
   const [visibilityState, setVisibilityState] = useState<Record<string, boolean>>({});
 
@@ -148,8 +212,22 @@ function TreeViewPanel({
     return visibilityState[nodeId] ?? true;
   };
 
-  const getIcon = (type: string) => {
+  const getIcon = (type: string, elementType?: string) => {
     switch (type) {
+      case 'element':
+        // Different icons for different antenna types
+        switch (elementType) {
+          case 'dipole':
+            return <LinearScale />;
+          case 'loop':
+            return <Radio />;
+          case 'helix':
+            return <AllInclusive />;
+          case 'rod':
+            return <LinearScale />;
+          default:
+            return <AccountTree />;
+        }
       case 'mesh':
         return <CableOutlined />;
       case 'edge':
@@ -167,7 +245,8 @@ function TreeViewPanel({
 
   const renderTreeNode = (node: TreeNode, level: number = 0) => {
     const hasChildren = node.children && node.children.length > 0;
-    const isSelected = selectedNodeId === node.id;
+    const isSelected = (node.type === 'element' && selectedElementId === node.id) || 
+                      (node.type !== 'element' && selectedNodeId === node.id);
     const visible = isVisible(node.id);
 
     if (hasChildren) {
@@ -192,7 +271,9 @@ function TreeViewPanel({
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-              <ListItemIcon sx={{ minWidth: 32 }}>{getIcon(node.type)}</ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                {getIcon(node.type, node.elementId ? elements?.find(el => el.id === node.elementId)?.type : undefined)}
+              </ListItemIcon>
               <Typography variant="body2" sx={{ flex: 1 }}>
                 {node.label}
               </Typography>
@@ -247,10 +328,18 @@ function TreeViewPanel({
       >
         <ListItemButton
           selected={isSelected}
-          onClick={() => onSelectNode?.(node.id)}
+          onClick={() => {
+            if (node.type === 'element') {
+              onElementSelect?.(node.id);
+            } else {
+              onSelectNode?.(node.id);
+            }
+          }}
           sx={{ pl: level * 2 + 2 }}
         >
-          <ListItemIcon sx={{ minWidth: 32 }}>{getIcon(node.type)}</ListItemIcon>
+          <ListItemIcon sx={{ minWidth: 32 }}>
+            {getIcon(node.type, node.elementId ? elements?.find(el => el.id === node.elementId)?.type : undefined)}
+          </ListItemIcon>
           <ListItemText
             primary={node.label}
             primaryTypographyProps={{ variant: 'body2' }}
