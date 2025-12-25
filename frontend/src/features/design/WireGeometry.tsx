@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import * as THREE from 'three';
 import type { Mesh, AntennaElement } from '@/types/models';
+import { DEFAULT_ELEMENT_COLOR, hexToThreeColor } from '@/utils/colors';
 
 interface WireGeometryProps {
   // Multi-element support (preferred)
@@ -16,12 +17,13 @@ interface WireGeometryProps {
   
   // Visualization options
   showNodes?: boolean;
+  visualizationMode?: 'element-colors' | 'current-distribution';
 }
 
 /**
  * WireGeometry - Renders antenna wire mesh as 3D cylinders
  * Supports both multi-element and single mesh rendering
- * Supports color mapping for current distribution visualization
+ * Supports element colors and current distribution visualization
  */
 function WireGeometry({ 
   elements, 
@@ -31,7 +33,8 @@ function WireGeometry({
   currentDistribution, 
   selected, 
   onSelect,
-  showNodes = false
+  showNodes = false,
+  visualizationMode = 'element-colors'
 }: WireGeometryProps) {
   const [hoveredElement, setHoveredElement] = useState<string | null>(null);
   
@@ -59,6 +62,7 @@ function WireGeometry({
     
     const result: Array<{
       elementId: string;
+      elementColor?: string;
       segments: Array<{
         start: THREE.Vector3;
         end: THREE.Vector3;
@@ -117,6 +121,7 @@ function WireGeometry({
         if (segments.length > 0) {
           result.push({
             elementId: element.id,
+            elementColor: element.color || DEFAULT_ELEMENT_COLOR,
             segments,
           });
         }
@@ -168,7 +173,27 @@ function WireGeometry({
     return result;
   }, [elements, mesh, currentDistribution]);
 
-  // Color mapping for current distribution (blue -> cyan -> green -> yellow -> red)
+  // Color selection based on visualization mode
+  const getSegmentColor = (
+    elementColor: string | undefined,
+    current: number,
+    mode: string
+  ): THREE.Color => {
+    // If in current distribution mode and we have current data
+    if (mode === 'current-distribution' && current !== 0) {
+      return getColorFromCurrent(current);
+    }
+    
+    // Otherwise use element color
+    if (elementColor) {
+      return hexToThreeColor(elementColor);
+    }
+    
+    // Fallback to default
+    return hexToThreeColor(DEFAULT_ELEMENT_COLOR);
+  };
+
+  // Color mapping for current distribution (blue -> green -> red)
   const getColorFromCurrent = (current: number): THREE.Color => {
     if (current === 0) return new THREE.Color(0x888888); // Gray for no current
 
@@ -200,7 +225,7 @@ function WireGeometry({
 
   return (
     <group>
-      {elementSegments.map(({ elementId, segments }) => {
+      {elementSegments.map(({ elementId, elementColor, segments }) => {
         const isSelected = elementId === selectedElementId || (elementId === 'single-mesh' && selected);
         const isHovered = elementId === hoveredElement;
 
@@ -219,7 +244,7 @@ function WireGeometry({
                 direction.clone().normalize()
               );
 
-              const color = getColorFromCurrent(segment.current);
+              const color = getSegmentColor(elementColor, segment.current, visualizationMode);
               
               // Make wires more visible by using a minimum render radius
               const renderRadius = Math.max(segment.radius, 0.003);

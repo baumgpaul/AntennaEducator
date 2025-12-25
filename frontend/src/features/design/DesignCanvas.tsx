@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
+import { useAppSelector } from '@/store/hooks';
 import Scene3D from './Scene3D';
 import WireGeometry from './WireGeometry';
 import type { Mesh, AntennaElement } from '@/types/models';
@@ -38,6 +39,9 @@ function DesignCanvas({
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [selectedElement, setSelectedElement] = useState<number | null>(null);
+  
+  // Get visualization mode from Redux store
+  const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
 
   const leftPanelWidth = 280;
   const rightPanelWidth = 320;
@@ -154,6 +158,7 @@ function DesignCanvas({
                 selected={selectedElement !== null}
                 onSelect={() => setSelectedElement(selectedElement === null ? 0 : null)}
                 showNodes={false} // Hide debug node markers by default
+                visualizationMode={visualizationMode}
               />
             ) : null}
           </Scene3D>

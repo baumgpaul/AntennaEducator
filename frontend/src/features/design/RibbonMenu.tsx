@@ -23,7 +23,11 @@ import {
   Visibility,
   Settings,
   ExpandMore,
+  ColorLens,
+  TrendingUp,
 } from '@mui/icons-material';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { toggleVisualizationMode } from '@/store/uiSlice';
 
 interface RibbonMenuProps {
   onAntennaTypeSelect?: (type: string) => void;
@@ -36,6 +40,8 @@ interface RibbonMenuProps {
  * Similar to Microsoft Office ribbon interface
  */
 function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption }: RibbonMenuProps) {
+  const dispatch = useAppDispatch();
+  const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
   const [currentTab, setCurrentTab] = useState(0);
   const [antennaMenuAnchor, setAntennaMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -54,6 +60,10 @@ function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption }: Rib
   const handleAntennaSelect = (type: string) => {
     onAntennaTypeSelect?.(type);
     handleAntennaMenuClose();
+  };
+
+  const handleToggleVisualizationMode = () => {
+    dispatch(toggleVisualizationMode());
   };
 
   return (
@@ -304,12 +314,17 @@ function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption }: Rib
                 Visualization
               </Box>
               <ButtonGroup variant="outlined" size="small">
-                <Tooltip title="Current distribution">
+                <Tooltip title={
+                  visualizationMode === 'element-colors' 
+                    ? 'Switch to current distribution' 
+                    : 'Switch to element colors'
+                }>
                   <Button
-                    startIcon={<Visibility />}
-                    onClick={() => onViewOption?.('show-current')}
+                    startIcon={visualizationMode === 'element-colors' ? <ColorLens /> : <TrendingUp />}
+                    onClick={handleToggleVisualizationMode}
+                    variant={visualizationMode === 'element-colors' ? 'contained' : 'outlined'}
                   >
-                    Current
+                    {visualizationMode === 'element-colors' ? 'Colors' : 'Current'}
                   </Button>
                 </Tooltip>
                 <Tooltip title="Field visualization">

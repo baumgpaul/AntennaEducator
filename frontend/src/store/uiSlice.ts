@@ -14,6 +14,9 @@ interface UIState {
     sidebarOpen: boolean
     propertiesPanelOpen: boolean
   }
+  visualization: {
+    mode: 'element-colors' | 'current-distribution'
+  }
   notifications: Notification[]
   modals: Record<string, boolean>
 }
@@ -25,6 +28,9 @@ const initialState: UIState = {
   layout: {
     sidebarOpen: true,
     propertiesPanelOpen: true,
+  },
+  visualization: {
+    mode: 'element-colors',
   },
   notifications: [],
   modals: {},
@@ -48,6 +54,18 @@ const uiSlice = createSlice({
     
     togglePropertiesPanel: (state) => {
       state.layout.propertiesPanelOpen = !state.layout.propertiesPanelOpen
+    },
+    
+    // Visualization
+    toggleVisualizationMode: (state) => {
+      state.visualization.mode = 
+        state.visualization.mode === 'element-colors' 
+          ? 'current-distribution' 
+          : 'element-colors'
+    },
+    
+    setVisualizationMode: (state, action: PayloadAction<'element-colors' | 'current-distribution'>) => {
+      state.visualization.mode = action.payload
     },
     
     // Notifications
@@ -86,6 +104,8 @@ export const {
   toggleTheme,
   toggleSidebar,
   togglePropertiesPanel,
+  toggleVisualizationMode,
+  setVisualizationMode,
   addNotification,
   removeNotification,
   clearNotifications,

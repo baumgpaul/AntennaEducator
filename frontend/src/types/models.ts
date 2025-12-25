@@ -147,6 +147,7 @@ export interface AntennaElement {
   mesh: Mesh
   visible: boolean
   locked: boolean
+  color?: string  // Hex color string (e.g., '#FF8C00')
   created_at?: string
   updated_at?: string
 }
