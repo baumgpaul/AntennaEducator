@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Paper, IconButton, Tooltip } from '@mui/material';
+import { Box, IconButton, Tooltip } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import Scene3D from './Scene3D';
 import WireGeometry from './WireGeometry';
@@ -25,86 +25,113 @@ function DesignCanvas({
   topToolbar,
 }: DesignCanvasProps) {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [selectedElement, setSelectedElement] = useState<number | null>(null);
 
   const leftPanelWidth = 280;
   const rightPanelWidth = 320;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
       {/* Top Toolbar */}
       {topToolbar && (
-        <Paper
-          elevation={2}
+        <Box
           sx={{
             p: 1,
             borderRadius: 0,
             borderBottom: '1px solid',
             borderColor: 'divider',
             zIndex: 10,
+            bgcolor: 'background.paper',
+            flexShrink: 0,
           }}
         >
           {topToolbar}
-        </Paper>
+        </Box>
       )}
 
-      {/* Main Content Area */}
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+      {/* Main Content Area - Pure Flexbox with plain divs */}
+      <div style={{ 
+        display: 'flex', 
+        flex: 1, 
+        overflow: 'hidden',
+        position: 'relative',
+        margin: 0,
+        padding: 0,
+      }}>
         {/* Left Panel (Tree View) */}
-        <Paper
-          elevation={3}
-          sx={{
-            width: leftPanelOpen ? leftPanelWidth : 0,
-            transition: 'width 0.3s ease',
-            overflow: 'hidden',
+        {leftPanelOpen && (
+          <div style={{
+            width: `${leftPanelWidth}px`,
+            flexShrink: 0,
             position: 'relative',
-            zIndex: 5,
-            borderRadius: 0,
-          }}
-        >
-          {leftPanelOpen && (
-            <Box sx={{ width: leftPanelWidth, height: '100%', overflow: 'auto' }}>
-              {leftPanel}
-            </Box>
-          )}
-        </Paper>
+            overflow: 'auto',
+            backgroundColor: 'var(--mui-palette-background-paper, #fff)',
+            borderRight: '1px solid rgba(0, 0, 0, 0.12)',
+            margin: 0,
+            padding: 0,
+          }}>
+            {leftPanel}
+            
+            {/* Left Panel Toggle */}
+            <div style={{
+              position: 'absolute',
+              right: '-20px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 20,
+            }}>
+              <Tooltip title="Hide Tree View" placement="right">
+                <IconButton
+                  size="small"
+                  onClick={() => setLeftPanelOpen(false)}
+                  sx={{
+                    bgcolor: 'background.paper',
+                    boxShadow: 2,
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
+                >
+                  <ChevronLeft />
+                </IconButton>
+              </Tooltip>
+            </div>
+          </div>
+        )}
 
-        {/* Left Panel Toggle */}
-        <Box
-          sx={{
+        {/* Left Panel Toggle when closed */}
+        {!leftPanelOpen && (
+          <div style={{
             position: 'absolute',
-            left: leftPanelOpen ? leftPanelWidth - 16 : 0,
+            left: 0,
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 20,
-            transition: 'left 0.3s ease',
-          }}
-        >
-          <Tooltip title={leftPanelOpen ? 'Hide Tree View' : 'Show Tree View'}>
-            <IconButton
-              size="small"
-              onClick={() => setLeftPanelOpen(!leftPanelOpen)}
-              sx={{
-                bgcolor: 'background.paper',
-                boxShadow: 2,
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              {leftPanelOpen ? <ChevronLeft /> : <ChevronRight />}
-            </IconButton>
-          </Tooltip>
-        </Box>
+          }}>
+            <Tooltip title="Show Tree View" placement="right">
+              <IconButton
+                size="small"
+                onClick={() => setLeftPanelOpen(true)}
+                sx={{
+                  bgcolor: 'background.paper',
+                  boxShadow: 2,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <ChevronRight />
+              </IconButton>
+            </Tooltip>
+          </div>
+        )}
 
         {/* 3D Canvas */}
-        <Box
-          sx={{
-            flex: 1,
-            position: 'relative',
-            overflow: 'hidden',
-            bgcolor: '#1a1a1a',
-          }}
-        >
+        <div style={{
+          flex: 1,
+          position: 'relative',
+          overflow: 'hidden',
+          backgroundColor: '#1a1a1a',
+          margin: 0,
+          padding: 0,
+        }}>
           <Scene3D>
             {mesh && (
               <WireGeometry
@@ -118,72 +145,89 @@ function DesignCanvas({
 
           {/* Center overlay for empty state */}
           {!mesh && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                textAlign: 'center',
-                color: 'rgba(255, 255, 255, 0.5)',
-                pointerEvents: 'none',
-                userSelect: 'none',
-              }}
-            >
-              <Box sx={{ fontSize: '3rem', mb: 2 }}>📡</Box>
-              <Box sx={{ fontSize: '1.2rem' }}>No antenna loaded</Box>
-              <Box sx={{ fontSize: '0.9rem', mt: 1 }}>
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              textAlign: 'center',
+              color: 'rgba(255, 255, 255, 0.5)',
+              pointerEvents: 'none',
+              userSelect: 'none',
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📡</div>
+              <div style={{ fontSize: '1.2rem' }}>No antenna loaded</div>
+              <div style={{ fontSize: '0.9rem', marginTop: '8px' }}>
                 Create or load an antenna to start designing
-              </Box>
-            </Box>
+              </div>
+            </div>
           )}
-        </Box>
+        </div>
 
-        {/* Right Panel Toggle */}
-        <Box
-          sx={{
+        {/* Right Panel (Properties) */}
+        {rightPanelOpen && (
+          <div style={{
+            width: `${rightPanelWidth}px`,
+            flexShrink: 0,
+            position: 'relative',
+            overflow: 'auto',
+            backgroundColor: 'var(--mui-palette-background-paper, #fff)',
+            borderLeft: '1px solid rgba(0, 0, 0, 0.12)',
+            margin: 0,
+            padding: 0,
+          }}>
+            {rightPanel}
+            
+            {/* Right Panel Toggle */}
+            <div style={{
+              position: 'absolute',
+              left: '-20px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 20,
+            }}>
+              <Tooltip title="Hide Properties" placement="left">
+                <IconButton
+                  size="small"
+                  onClick={() => setRightPanelOpen(false)}
+                  sx={{
+                    bgcolor: 'background.paper',
+                    boxShadow: 2,
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
+                >
+                  <ChevronRight />
+                </IconButton>
+              </Tooltip>
+            </div>
+          </div>
+        )}
+
+        {/* Right Panel Toggle when closed */}
+        {!rightPanelOpen && (
+          <div style={{
             position: 'absolute',
-            right: rightPanelOpen ? rightPanelWidth - 16 : 0,
+            right: 0,
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 20,
-            transition: 'right 0.3s ease',
-          }}
-        >
-          <Tooltip title={rightPanelOpen ? 'Hide Properties' : 'Show Properties'}>
-            <IconButton
-              size="small"
-              onClick={() => setRightPanelOpen(!rightPanelOpen)}
-              sx={{
-                bgcolor: 'background.paper',
-                boxShadow: 2,
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              {rightPanelOpen ? <ChevronRight /> : <ChevronLeft />}
-            </IconButton>
-          </Tooltip>
-        </Box>
-
-        {/* Right Panel (Properties) */}
-        <Paper
-          elevation={3}
-          sx={{
-            width: rightPanelOpen ? rightPanelWidth : 0,
-            transition: 'width 0.3s ease',
-            overflow: 'hidden',
-            position: 'relative',
-            zIndex: 5,
-            borderRadius: 0,
-          }}
-        >
-          {rightPanelOpen && (
-            <Box sx={{ width: rightPanelWidth, height: '100%', overflow: 'auto' }}>
-              {rightPanel}
-            </Box>
-          )}
-        </Paper>
-      </Box>
+          }}>
+            <Tooltip title="Show Properties" placement="left">
+              <IconButton
+                size="small"
+                onClick={() => setRightPanelOpen(true)}
+                sx={{
+                  bgcolor: 'background.paper',
+                  boxShadow: 2,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <ChevronLeft />
+              </IconButton>
+            </Tooltip>
+          </div>
+        )}
+      </div>
     </Box>
   );
 }

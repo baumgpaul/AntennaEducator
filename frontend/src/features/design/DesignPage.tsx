@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Box } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { generateDipole, generateLoop } from '@/store/designSlice';
-import { showNotification } from '@/store/uiSlice';
+import { generateDipole, generateLoop, generateHelix, generateRod, addLumpedElement } from '@/store/designSlice';
+import { addNotification } from '@/store/uiSlice';
 import DesignCanvas from './DesignCanvas';
 import TreeViewPanel from './TreeViewPanel';
 import PropertiesPanel from './PropertiesPanel';
@@ -11,6 +11,10 @@ import RibbonMenu from './RibbonMenu';
 import ViewControls from './ViewControls';
 import { DipoleDialog } from './DipoleDialog';
 import { LoopDialog } from './LoopDialog';
+import { HelixDialog } from './HelixDialog';
+import { RodDialog } from './RodDialog';
+import { LumpedElementDialog } from './LumpedElementDialog';
+import { addLumpedElementToMesh } from '@/api/preprocessor';
 import type { Mesh } from '@/types/models';
 
 /**
@@ -29,6 +33,9 @@ function DesignPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dipoleDialogOpen, setDipoleDialogOpen] = useState(false);
   const [loopDialogOpen, setLoopDialogOpen] = useState(false);
+  const [helixDialogOpen, setHelixDialogOpen] = useState(false);
+  const [rodDialogOpen, setRodDialogOpen] = useState(false);
+  const [lumpedDialogOpen, setLumpedDialogOpen] = useState(false);
 
   const handleAntennaTypeSelect = (type: string) => {
     console.log('Antenna type selected:', type);
@@ -42,12 +49,13 @@ function DesignPage() {
         setLoopDialogOpen(true);
         break;
       case 'helix':
-        // TODO: Open HelixDialog
-        dispatch(showNotification({ message: 'Helix dialog coming soon!', severity: 'info' }));
+        setHelixDialogOpen(true);
         break;
       case 'rod':
-        // TODO: Open RodDialog
-        dispatch(showNotification({ message: 'Rod dialog coming soon!', severity: 'info' }));
+        setRodDialogOpen(true);
+        break;
+      case 'lumped-element':
+        setLumpedDialogOpen(true);
         break;
       default:
         console.log('Unknown antenna type:', type);
@@ -57,14 +65,18 @@ function DesignPage() {
   const handleDipoleGenerate = async (data: any) => {
     try {
       await dispatch(generateDipole(data)).unwrap();
-      dispatch(showNotification({
+      dispatch(addNotification({
+        id: Date.now(),
         message: `Dipole antenna "${data.name}" generated successfully!`,
         severity: 'success',
+        duration: 5000,
       }));
     } catch (error: any) {
-      dispatch(showNotification({
+      dispatch(addNotification({
+        id: Date.now(),
         message: error || 'Failed to generate dipole antenna',
         severity: 'error',
+        duration: 5000,
       }));
       throw error; // Re-throw so dialog can handle it
     }
@@ -73,16 +85,81 @@ function DesignPage() {
   const handleLoopGenerate = async (data: any) => {
     try {
       await dispatch(generateLoop(data)).unwrap();
-      dispatch(showNotification({
+      dispatch(addNotification({
+        id: Date.now(),
         message: `Loop antenna "${data.name}" generated successfully!`,
         severity: 'success',
+        duration: 5000,
       }));
     } catch (error: any) {
-      dispatch(showNotification({
+      dispatch(addNotification({
+        id: Date.now(),
         message: error || 'Failed to generate loop antenna',
         severity: 'error',
+        duration: 5000,
       }));
       throw error; // Re-throw so dialog can handle it
+    }
+  };
+
+  const handleHelixGenerate = async (data: any) => {
+    try {
+      await dispatch(generateHelix(data)).unwrap();
+      dispatch(addNotification({
+        id: Date.now(),
+        message: `Helix antenna generated successfully!`,
+        severity: 'success',
+        duration: 5000,
+      }));
+    } catch (error: any) {
+      dispatch(addNotification({
+        id: Date.now(),
+        message: error || 'Failed to generate helix antenna',
+        severity: 'error',
+        duration: 5000,
+      }));
+      throw error;
+    }
+  };
+
+  const handleRodGenerate = async (data: any) => {
+    try {
+      await dispatch(generateRod(data)).unwrap();
+      dispatch(addNotification({
+        id: Date.now(),
+        message: `Rod generated successfully!`,
+        severity: 'success',
+        duration: 5000,
+      }));
+    } catch (error: any) {
+      dispatch(addNotification({
+        id: Date.now(),
+        message: error || 'Failed to generate rod',
+        severity: 'error',
+        duration: 5000,
+      }));
+      throw error;
+    }
+  };
+
+  const handleAddLumpedElement = async (data: any) => {
+    try {
+      const element = await addLumpedElementToMesh(data);
+      dispatch(addLumpedElement(element));
+      dispatch(addNotification({
+        id: Date.now(),
+        message: 'Lumped element added to mesh',
+        severity: 'success',
+        duration: 5000,
+      }));
+    } catch (error: any) {
+      dispatch(addNotification({
+        id: Date.now(),
+        message: error || 'Failed to add lumped element',
+        severity: 'error',
+        duration: 5000,
+      }));
+      throw error;
     }
   };
 
@@ -124,7 +201,7 @@ function DesignPage() {
   };
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <DesignCanvas
         mesh={mesh || undefined}
         leftPanel={
@@ -205,6 +282,25 @@ function DesignPage() {
         open={loopDialogOpen}
         onClose={() => setLoopDialogOpen(false)}
         onGenerate={handleLoopGenerate}
+      />
+      <HelixDialog
+        open={helixDialogOpen}
+        onClose={() => setHelixDialogOpen(false)}
+        onGenerate={handleHelixGenerate}
+        loading={meshGenerating}
+      />
+      <RodDialog
+        open={rodDialogOpen}
+        onClose={() => setRodDialogOpen(false)}
+        onGenerate={handleRodGenerate}
+        loading={meshGenerating}
+      />
+      <LumpedElementDialog
+        open={lumpedDialogOpen}
+        onClose={() => setLumpedDialogOpen(false)}
+        onAdd={handleAddLumpedElement}
+        loading={false}
+        maxNodeIndex={mesh?.nodes ? mesh.nodes.length - 1 : 0}
       />
     </Box>
   );
