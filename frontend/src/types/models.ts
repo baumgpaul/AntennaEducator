@@ -1,0 +1,320 @@
+/**
+ * Core type definitions matching backend Pydantic models
+ */
+
+// ============================================================================
+// Common Types
+// ============================================================================
+
+export interface ComplexNumber {
+  real: number
+  imag: number
+}
+
+export interface Point3D {
+  x: number
+  y: number
+  z: number
+}
+
+export type Vector3D = [number, number, number]
+
+// ============================================================================
+// Geometry and Mesh Types
+// ============================================================================
+
+export interface Node {
+  id: number
+  position: Vector3D
+}
+
+export interface Edge {
+  id: number
+  node_start: number // 1-based index
+  node_end: number // 1-based index
+  radius: number
+  tag?: string
+}
+
+export interface Mesh {
+  nodes: Vector3D[] // List of [x, y, z] coordinates
+  edges: [number, number][] // List of [start_idx, end_idx] (0-based)
+  radii: number[] // Wire radius for each edge
+}
+
+// ============================================================================
+// Source and Lumped Element Types
+// ============================================================================
+
+export type SourceType = 'voltage' | 'current'
+
+export interface Source {
+  type: SourceType
+  amplitude: ComplexNumber
+  node_start: number // 1-based index
+  node_end: number // 1-based index
+  position?: string | number // 'center', 'base', or segment index
+  series_R?: number
+  series_L?: number
+  series_C_inv?: number
+  tag?: string
+}
+
+export type LumpedElementType = 'resistor' | 'inductor' | 'capacitor' | 'rlc'
+
+export interface LumpedElement {
+  type: LumpedElementType
+  R: number
+  L: number
+  C_inv: number
+  node_start: number
+  node_end: number
+  tag?: string
+}
+
+// ============================================================================
+// Antenna Builder Types
+// ============================================================================
+
+export interface DipoleConfig {
+  length: number
+  center_position?: Vector3D
+  orientation?: Vector3D
+  wire_radius?: number
+  gap?: number
+  segments?: number
+  source?: Source
+  lumped_elements?: LumpedElement[]
+  balanced_feed?: boolean
+}
+
+export interface LoopConfig {
+  loop_type: 'circular' | 'rectangular' | 'polygon'
+  radius?: number // for circular
+  width?: number // for rectangular
+  height?: number // for rectangular
+  vertices?: Vector3D[] // for polygon
+  center_position?: Vector3D
+  normal_vector?: Vector3D
+  wire_radius?: number
+  segments?: number
+  source?: Source
+  lumped_elements?: LumpedElement[]
+}
+
+export interface HelixConfig {
+  radius: number
+  turns: number
+  pitch: number
+  center_position?: Vector3D
+  axis_direction?: Vector3D
+  wire_radius?: number
+  segments_per_turn?: number
+  source?: Source
+  lumped_elements?: LumpedElement[]
+}
+
+export interface RodConfig {
+  length: number
+  base_position?: Vector3D
+  direction?: Vector3D
+  wire_radius?: number
+  segments?: number
+  source?: Source
+  lumped_elements?: LumpedElement[]
+}
+
+// ============================================================================
+// Preprocessor API Types
+// ============================================================================
+
+export interface PreprocessorResponse {
+  message: string
+  mesh?: Mesh
+  num_nodes?: number
+  num_edges?: number
+}
+
+// ============================================================================
+// Solver Types
+// ============================================================================
+
+export interface SolverRequest {
+  project_id: string
+  frequency: number
+  nodes: Vector3D[]
+  edges: [number, number][]
+  radii: number[]
+  source_node_start: number // 1-based
+  source_node_end: number // 1-based
+  source_type: SourceType
+  source_amplitude: ComplexNumber
+}
+
+export interface SolverResult {
+  project_id: string
+  frequency: number
+  branch_currents: ComplexNumber[]
+  node_voltages?: ComplexNumber[]
+  input_impedance?: ComplexNumber
+  input_power?: number
+  converged: boolean
+  iterations?: number
+  residual?: number
+}
+
+export interface MultiFrequencySolverRequest extends Omit<SolverRequest, 'frequency'> {
+  frequencies: number[]
+}
+
+export interface MultiFrequencySolverResult {
+  project_id: string
+  frequencies: number[]
+  results: SolverResult[]
+  computation_time_seconds: number
+}
+
+// ============================================================================
+// Postprocessor Types
+// ============================================================================
+
+export interface FieldPoint {
+  position: Vector3D
+  E_field?: Vector3D
+  H_field?: Vector3D
+  power_density?: number
+}
+
+export interface FieldComputationRequest {
+  project_id: string
+  frequency: number
+  nodes: Vector3D[]
+  edges: [number, number][]
+  branch_currents: ComplexNumber[]
+  field_points: Vector3D[]
+  field_type: 'near' | 'far'
+}
+
+export interface FieldComputationResult {
+  project_id: string
+  frequency: number
+  field_points: FieldPoint[]
+  max_field_magnitude: number
+}
+
+export interface RadiationPatternRequest {
+  project_id: string
+  frequency: number
+  nodes: Vector3D[]
+  edges: [number, number][]
+  branch_currents: ComplexNumber[]
+  theta_range?: [number, number]
+  phi_range?: [number, number]
+  theta_points?: number
+  phi_points?: number
+}
+
+export interface RadiationPatternPoint {
+  theta: number // radians
+  phi: number // radians
+  gain_dB: number
+  E_theta: ComplexNumber
+  E_phi: ComplexNumber
+}
+
+export interface RadiationPatternResult {
+  project_id: string
+  frequency: number
+  pattern_points: RadiationPatternPoint[]
+  max_gain_dB: number
+  max_gain_direction: [number, number] // [theta, phi]
+  directivity: number
+  radiation_efficiency?: number
+}
+
+// ============================================================================
+// Project and Simulation Types
+// ============================================================================
+
+export interface Project {
+  id: string
+  name: string
+  description?: string
+  user_id?: string
+  created_at: string
+  updated_at: string
+}
+
+export type SimulationStatus = 'pending' | 'running' | 'completed' | 'failed'
+
+export interface Simulation {
+  id: string
+  project_id: string
+  name: string
+  status: SimulationStatus
+  geometry_url?: string
+  mesh_url?: string
+  results_url?: string
+  error_message?: string
+  created_at: string
+  updated_at: string
+  completed_at?: string
+}
+
+export interface SimulationConfig {
+  id: string
+  simulation_id: string
+  frequency_start: number
+  frequency_end: number
+  frequency_points: number
+  config_json?: Record<string, unknown>
+  created_at: string
+}
+
+// ============================================================================
+// API Response Types
+// ============================================================================
+
+export interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+  message?: string
+}
+
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+// ============================================================================
+// Authentication Types
+// ============================================================================
+
+export interface User {
+  id: string
+  email: string
+  username: string
+  created_at: string
+}
+
+export interface AuthTokens {
+  access_token: string
+  refresh_token?: string
+  token_type: string
+  expires_in?: number
+}
+
+export interface LoginCredentials {
+  email: string
+  password: string
+}
+
+export interface RegisterData {
+  email: string
+  username: string
+  password: string
+}
