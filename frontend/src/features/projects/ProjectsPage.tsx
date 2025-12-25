@@ -16,10 +16,15 @@ import {
   Add as AddIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
-import { useState } from 'react';
-import { useAppSelector } from '@/store/hooks';
+import { useState, useEffect } from 'react';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { fetchProjects, deleteProject, duplicateProject } from '@/store/projectsSlice';
+import { showSuccess, showError } from '@/store/uiSlice';
 import { LoadingSpinner, ErrorDisplay } from '@/components/common';
 import ProjectCard from './ProjectCard';
+import NewProjectDialog from './NewProjectDialog';
+import EditProjectDialog from './EditProjectDialog';
+import { formatErrorMessage } from '@/utils/errors';
 import type { Project } from '@/types/models';
 
 /**
@@ -27,10 +32,17 @@ import type { Project } from '@/types/models';
  * Displays user's projects with filtering and search capabilities
  */
 function ProjectsPage() {
+  const dispatch = useAppDispatch();
   const { items: projects, loading, error } = useAppSelector((state) => state.projects);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'updated' | 'created' | 'name'>('updated');
-  // const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
+  const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+
+  // Fetch projects on mount
+  useEffect(() => {
+    dispatch(fetchProjects());
+  }, [dispatch]);
 
   // Filter and sort projects
   const filteredProjects = projects
@@ -51,23 +63,33 @@ function ProjectsPage() {
     });
 
   const handleNewProject = () => {
-    // setShowNewProjectDialog(true);
-    console.log('New project - dialog coming in next step');
+    setShowNewProjectDialog(true);
   };
 
   const handleEditProject = (project: Project) => {
-    // TODO: Open edit dialog
-    console.log('Edit project:', project);
+    setEditingProject(project);
   };
 
-  const handleDeleteProject = (project: Project) => {
-    // TODO: Show confirmation and delete
-    console.log('Delete project:', project);
+  const handleDeleteProject = async (project: Project) => {
+    if (window.confirm(`Are you sure you want to delete "${project.name}"? This action cannot be undone.`)) {
+      try {
+        await dispatch(deleteProject(project.id)).unwrap();
+        dispatch(showSuccess('Project deleted successfully'));
+      } catch (error) {
+        const message = formatErrorMessage(error);
+        dispatch(showError(`Failed to delete project: ${message}`));
+      }
+    }
   };
 
-  const handleDuplicateProject = (project: Project) => {
-    // TODO: Duplicate project
-    console.log('Duplicate project:', project);
+  const handleDuplicateProject = async (project: Project) => {
+    try {
+      await dispatch(duplicateProject(project.id)).unwrap();
+      dispatch(showSuccess(`Project "${project.name}" duplicated successfully`));
+    } catch (error) {
+      const message = formatErrorMessage(error);
+      dispatch(showError(`Failed to duplicate project: ${message}`));
+    }
   };
 
   if (loading && projects.length === 0) {
@@ -193,6 +215,19 @@ function ProjectsPage() {
       >
         <AddIcon />
       </Fab>
+
+      {/* New Project Dialog */}
+      <NewProjectDialog
+        open={showNewProjectDialog}
+        onClose={() => setShowNewProjectDialog(false)}
+      />
+
+      {/* Edit Project Dialog */}
+      <EditProjectDialog
+        open={!!editingProject}
+        project={editingProject}
+        onClose={() => setEditingProject(null)}
+      />
     </Container>
   );
 }

@@ -3,8 +3,10 @@
  * Manages project list, current project, and CRUD operations
  */
 
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import type { Project, Simulation } from '@/types/models'
+import * as projectsApi from '@/api/projects'
+import type { CreateProjectRequest, UpdateProjectRequest } from '@/api/projects'
 
 interface ProjectsState {
   items: Project[]
@@ -24,82 +26,59 @@ const initialState: ProjectsState = {
   selectedProjectId: null,
 }
 
+// Async thunks
+export const fetchProjects = createAsyncThunk(
+  'projects/fetchProjects',
+  async () => {
+    const projects = await projectsApi.getProjects()
+    return projects
+  }
+)
+
+export const fetchProject = createAsyncThunk(
+  'projects/fetchProject',
+  async (id: string) => {
+    const project = await projectsApi.getProject(id)
+    return project
+  }
+)
+
+export const createProject = createAsyncThunk(
+  'projects/createProject',
+  async (data: CreateProjectRequest) => {
+    const project = await projectsApi.createProject(data)
+    return project
+  }
+)
+
+export const updateProject = createAsyncThunk(
+  'projects/updateProject',
+  async ({ id, data }: { id: string; data: UpdateProjectRequest }) => {
+    const project = await projectsApi.updateProject(id, data)
+    return project
+  }
+)
+
+export const deleteProject = createAsyncThunk(
+  'projects/deleteProject',
+  async (id: string) => {
+    await projectsApi.deleteProject(id)
+    return id
+  }
+)
+
+export const duplicateProject = createAsyncThunk(
+  'projects/duplicateProject',
+  async (id: string) => {
+    const project = await projectsApi.duplicateProject(id)
+    return project
+  }
+)
+
 const projectsSlice = createSlice({
   name: 'projects',
   initialState,
   reducers: {
-    // Fetch projects
-    fetchProjectsStart: (state) => {
-      state.loading = true
-      state.error = null
-    },
-    fetchProjectsSuccess: (state, action: PayloadAction<Project[]>) => {
-      state.items = action.payload
-      state.loading = false
-      state.error = null
-    },
-    fetchProjectsFailure: (state, action: PayloadAction<string>) => {
-      state.loading = false
-      state.error = action.payload
-    },
-    
-    // Create project
-    createProjectStart: (state) => {
-      state.loading = true
-      state.error = null
-    },
-    createProjectSuccess: (state, action: PayloadAction<Project>) => {
-      state.items.push(action.payload)
-      state.currentProject = action.payload
-      state.selectedProjectId = action.payload.id
-      state.loading = false
-      state.error = null
-    },
-    createProjectFailure: (state, action: PayloadAction<string>) => {
-      state.loading = false
-      state.error = action.payload
-    },
-    
-    // Update project
-    updateProjectStart: (state) => {
-      state.loading = true
-      state.error = null
-    },
-    updateProjectSuccess: (state, action: PayloadAction<Project>) => {
-      const index = state.items.findIndex((p) => p.id === action.payload.id)
-      if (index !== -1) {
-        state.items[index] = action.payload
-      }
-      if (state.currentProject?.id === action.payload.id) {
-        state.currentProject = action.payload
-      }
-      state.loading = false
-      state.error = null
-    },
-    updateProjectFailure: (state, action: PayloadAction<string>) => {
-      state.loading = false
-      state.error = action.payload
-    },
-    
-    // Delete project
-    deleteProjectStart: (state) => {
-      state.loading = true
-      state.error = null
-    },
-    deleteProjectSuccess: (state, action: PayloadAction<string>) => {
-      state.items = state.items.filter((p) => p.id !== action.payload)
-      if (state.currentProject?.id === action.payload) {
-        state.currentProject = null
-        state.selectedProjectId = null
-      }
-      state.loading = false
-      state.error = null
-    },
-    deleteProjectFailure: (state, action: PayloadAction<string>) => {
-      state.loading = false
-      state.error = action.payload
-    },
-    
     // Select project
     selectProject: (state, action: PayloadAction<string>) => {
       state.selectedProjectId = action.payload
@@ -134,21 +113,113 @@ const projectsSlice = createSlice({
       state.error = null
     },
   },
+  extraReducers: (builder) => {
+    // Fetch all projects
+    builder
+      .addCase(fetchProjects.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(fetchProjects.fulfilled, (state, action) => {
+        state.items = action.payload
+        state.loading = false
+      })
+      .addCase(fetchProjects.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to fetch projects'
+      })
+      
+    // Fetch single project
+    builder
+      .addCase(fetchProject.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(fetchProject.fulfilled, (state, action) => {
+        state.currentProject = action.payload
+        state.selectedProjectId = action.payload.id
+        state.loading = false
+      })
+      .addCase(fetchProject.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to fetch project'
+      })
+      
+    // Create project
+    builder
+      .addCase(createProject.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(createProject.fulfilled, (state, action) => {
+        state.items.push(action.payload)
+        state.currentProject = action.payload
+        state.selectedProjectId = action.payload.id
+        state.loading = false
+      })
+      .addCase(createProject.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to create project'
+      })
+      
+    // Update project
+    builder
+      .addCase(updateProject.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(updateProject.fulfilled, (state, action) => {
+        const index = state.items.findIndex((p) => p.id === action.payload.id)
+        if (index !== -1) {
+          state.items[index] = action.payload
+        }
+        if (state.currentProject?.id === action.payload.id) {
+          state.currentProject = action.payload
+        }
+        state.loading = false
+      })
+      .addCase(updateProject.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to update project'
+      })
+      
+    // Delete project
+    builder
+      .addCase(deleteProject.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(deleteProject.fulfilled, (state, action) => {
+        state.items = state.items.filter((p) => p.id !== action.payload)
+        if (state.currentProject?.id === action.payload) {
+          state.currentProject = null
+          state.selectedProjectId = null
+        }
+        state.loading = false
+      })
+      .addCase(deleteProject.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to delete project'
+      })
+      
+    // Duplicate project
+    builder
+      .addCase(duplicateProject.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(duplicateProject.fulfilled, (state, action) => {
+        state.items.push(action.payload)
+        state.loading = false
+      })
+      .addCase(duplicateProject.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to duplicate project'
+      })
+  },
 })
 
 export const {
-  fetchProjectsStart,
-  fetchProjectsSuccess,
-  fetchProjectsFailure,
-  createProjectStart,
-  createProjectSuccess,
-  createProjectFailure,
-  updateProjectStart,
-  updateProjectSuccess,
-  updateProjectFailure,
-  deleteProjectStart,
-  deleteProjectSuccess,
-  deleteProjectFailure,
   selectProject,
   clearCurrentProject,
   setSimulations,
