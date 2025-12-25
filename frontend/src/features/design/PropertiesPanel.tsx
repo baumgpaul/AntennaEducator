@@ -11,6 +11,8 @@ import {
   Stack,
   Paper,
 } from '@mui/material';
+import { MuiColorInput } from 'mui-color-input';
+import type { AntennaElement } from '@/types/models';
 
 interface PropertyField {
   label: string;
@@ -28,13 +30,21 @@ interface PropertiesPanelProps {
     properties: Record<string, PropertyField>;
   } | null;
   onPropertyChange?: (key: string, value: string | number) => void;
+  // New: Support for AntennaElement editing
+  antennaElement?: AntennaElement | null;
+  onColorChange?: (elementId: string, color: string) => void;
 }
 
 /**
  * PropertiesPanel - Displays and edits properties of selected elements
  * Shows geometry, material, source, and load parameters
  */
-function PropertiesPanel({ selectedElement, onPropertyChange }: PropertiesPanelProps) {
+function PropertiesPanel({ 
+  selectedElement, 
+  onPropertyChange, 
+  antennaElement, 
+  onColorChange 
+}: PropertiesPanelProps) {
   const renderPropertyField = (key: string, field: PropertyField) => {
     const handleChange = (value: string | number) => {
       if (field.editable !== false) {
@@ -158,7 +168,7 @@ function PropertiesPanel({ selectedElement, onPropertyChange }: PropertiesPanelP
 
       {/* Content */}
       <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-        {!selectedElement ? (
+        {!selectedElement && !antennaElement ? (
           <Paper
             variant="outlined"
             sx={{
@@ -174,29 +184,187 @@ function PropertiesPanel({ selectedElement, onPropertyChange }: PropertiesPanelP
           </Paper>
         ) : (
           <Stack spacing={2}>
-            {/* Element Info */}
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                Element Type
-              </Typography>
-              <Chip
-                label={getTypeLabel(selectedElement.type)}
-                color={getTypeColor(selectedElement.type) as any}
-                size="small"
-              />
-            </Box>
+            {/* Antenna Element Properties */}
+            {antennaElement && (
+              <>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Element Type
+                  </Typography>
+                  <Chip
+                    label={antennaElement.type.charAt(0).toUpperCase() + antennaElement.type.slice(1)}
+                    color="primary"
+                    size="small"
+                  />
+                </Box>
 
-            <Divider />
+                <Divider />
 
-            {/* Properties */}
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                Parameters
-              </Typography>
-              <Stack spacing={2}>
-                {Object.entries(mockProperties).map(([key, field]) => renderPropertyField(key, field))}
-              </Stack>
-            </Box>
+                {/* Element Name */}
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Name
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={antennaElement.name}
+                    disabled
+                  />
+                </Box>
+
+                {/* Element Color */}
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Element Color
+                  </Typography>
+                  <MuiColorInput
+                    value={antennaElement.color || '#FF8C00'}
+                    onChange={(newColor) => {
+                      if (onColorChange) {
+                        onColorChange(antennaElement.id, newColor);
+                      }
+                    }}
+                    format="hex"
+                    size="small"
+                    fullWidth
+                  />
+                </Box>
+
+                {/* Position */}
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Position
+                  </Typography>
+                  <Stack spacing={1}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="X"
+                      type="number"
+                      value={antennaElement.position[0]}
+                      disabled
+                      InputProps={{
+                        endAdornment: <Typography variant="caption">m</Typography>,
+                      }}
+                    />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Y"
+                      type="number"
+                      value={antennaElement.position[1]}
+                      disabled
+                      InputProps={{
+                        endAdornment: <Typography variant="caption">m</Typography>,
+                      }}
+                    />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Z"
+                      type="number"
+                      value={antennaElement.position[2]}
+                      disabled
+                      InputProps={{
+                        endAdornment: <Typography variant="caption">m</Typography>,
+                      }}
+                    />
+                  </Stack>
+                </Box>
+
+                {/* Rotation */}
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Rotation
+                  </Typography>
+                  <Stack spacing={1}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="X"
+                      type="number"
+                      value={(antennaElement.rotation[0] * 180 / Math.PI).toFixed(1)}
+                      disabled
+                      InputProps={{
+                        endAdornment: <Typography variant="caption">°</Typography>,
+                      }}
+                    />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Y"
+                      type="number"
+                      value={(antennaElement.rotation[1] * 180 / Math.PI).toFixed(1)}
+                      disabled
+                      InputProps={{
+                        endAdornment: <Typography variant="caption">°</Typography>,
+                      }}
+                    />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Z"
+                      type="number"
+                      value={(antennaElement.rotation[2] * 180 / Math.PI).toFixed(1)}
+                      disabled
+                      InputProps={{
+                        endAdornment: <Typography variant="caption">°</Typography>,
+                      }}
+                    />
+                  </Stack>
+                </Box>
+
+                {/* Mesh Info */}
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Mesh Statistics
+                  </Typography>
+                  <Stack spacing={1}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Nodes:
+                      </Typography>
+                      <Typography variant="body2">{antennaElement.mesh.nodes.length}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Edges:
+                      </Typography>
+                      <Typography variant="body2">{antennaElement.mesh.edges.length}</Typography>
+                    </Box>
+                  </Stack>
+                </Box>
+              </>
+            )}
+
+            {/* Legacy Element Info */}
+            {selectedElement && !antennaElement && (
+              <>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Element Type
+                  </Typography>
+                  <Chip
+                    label={getTypeLabel(selectedElement.type)}
+                    color={getTypeColor(selectedElement.type) as any}
+                    size="small"
+                  />
+                </Box>
+
+                    <Divider />
+
+                {/* Properties */}
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Parameters
+                  </Typography>
+                  <Stack spacing={2}>
+                    {Object.entries(mockProperties).map(([key, field]) => renderPropertyField(key, field))}
+                  </Stack>
+                </Box>
+              </>
+            )}
 
             {/* Additional Info Section */}
             {selectedElement.type === 'edge' && (

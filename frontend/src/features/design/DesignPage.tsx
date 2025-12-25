@@ -8,7 +8,8 @@ import {
   generateHelix, 
   generateRod, 
   addLumpedElement,
-  setSelectedElement 
+  setSelectedElement,
+  setElementColor
 } from '@/store/designSlice';
 import { addNotification } from '@/store/uiSlice';
 import DesignCanvas from './DesignCanvas';
@@ -184,6 +185,12 @@ function DesignPage() {
     dispatch(setSelectedElement(elementId));
   };
 
+  // Color change handler
+  const handleColorChange = (elementId: string, color: string) => {
+    console.log('Color changed:', elementId, color);
+    dispatch(setElementColor({ id: elementId, color }));
+  };
+
   const handleAnalysisAction = (action: string) => {
     console.log('Analysis action:', action);
     // TODO: Implement mesh generation, solver execution, etc.
@@ -244,8 +251,14 @@ function DesignPage() {
         }
         rightPanel={
           <PropertiesPanel
+            antennaElement={
+              selectedElementId
+                ? elements?.find(el => el.id === selectedElementId)
+                : undefined
+            }
+            onColorChange={handleColorChange}
             selectedElement={
-              selectedNodeId
+              selectedNodeId && !selectedElementId
                 ? {
                     id: selectedNodeId,
                     type: 'edge',
