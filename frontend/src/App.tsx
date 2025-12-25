@@ -28,11 +28,11 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         
         {/* Protected routes with main layout */}
-        <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-          <Route index element={<HomePage />} />
-          <Route path="projects" element={<ProjectsPage />} />
-          <Route path="design/:projectId?" element={<DesignPage />} />
-          <Route path="results/:simulationId?" element={<ResultsPage />} />
+        <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/project/:projectId/design" element={<DesignPage />} />
+          <Route path="/project/:projectId/results" element={<ResultsPage />} />
         </Route>
         
         {/* 404 catch-all */}

@@ -112,6 +112,10 @@ export interface HelixConfig {
   segments_per_turn?: number
   source?: Source
   lumped_elements?: LumpedElement[]
+  // Optional UI fields for helix variants
+  helix_mode?: 'axial' | 'normal'
+  polarization?: 'RHCP' | 'LHCP'
+  start_angle?: number
 }
 
 export interface RodConfig {
@@ -122,6 +126,9 @@ export interface RodConfig {
   segments?: number
   source?: Source
   lumped_elements?: LumpedElement[]
+  // Optional explicit endpoints used by UI
+  start_point?: Vector3D
+  end_point?: Vector3D
 }
 
 // ============================================================================
@@ -129,10 +136,9 @@ export interface RodConfig {
 // ============================================================================
 
 export interface PreprocessorResponse {
+  element: any // AntennaElement data
+  mesh: Mesh
   message: string
-  mesh?: Mesh
-  num_nodes?: number
-  num_edges?: number
 }
 
 // ============================================================================

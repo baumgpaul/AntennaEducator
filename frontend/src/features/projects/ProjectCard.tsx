@@ -44,7 +44,7 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProp
   };
 
   const handleOpen = () => {
-    navigate(`/design/${project.id}`);
+    navigate(`/project/${project.id}/design`);
   };
 
   const handleEdit = (e: React.MouseEvent) => {
