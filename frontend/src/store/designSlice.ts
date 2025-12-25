@@ -14,7 +14,7 @@ import type {
   HelixConfig,
   RodConfig,
 } from '@/types/models'
-import { generateDipoleMesh, generateLoopMesh } from '@/api/preprocessor'
+import { generateDipoleMesh, generateLoopMesh, generateHelixMesh, generateRodMesh } from '@/api/preprocessor'
 
 interface DesignState {
   // Antenna configuration
@@ -32,7 +32,6 @@ interface DesignState {
   
   // UI state
   selectedElementId: string | null
-  viewMode: '3d' | 'tree' | 'properties'
   
   // Loading states
   meshGenerating: boolean
@@ -70,24 +69,24 @@ export const generateDipole = createAsyncThunk(
   'design/generateDipole',
   async (
     formData: {
-      name: string;
-      length: number;
-      radius: number;
-      gap: number;
-      frequency: number;
-      segments: number;
-      feedType: 'gap' | 'balanced';
+      name: string
+      length: number
+      radius: number
+      gap: number
+      frequency: number
+      segments: number
+      feedType: 'gap' | 'balanced'
     },
     { rejectWithValue }
   ) => {
     try {
-      const response = await generateDipoleMesh(formData);
-      return response;
+      const response = await generateDipoleMesh(formData)
+      return response
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to generate dipole mesh');
+      return rejectWithValue(error.message || 'Failed to generate dipole mesh')
     }
   }
-);
+)
 
 /**
  * Generate loop antenna mesh
@@ -96,27 +95,57 @@ export const generateLoop = createAsyncThunk(
   'design/generateLoop',
   async (
     formData: {
-      name: string;
-      loopType: 'circular' | 'rectangular' | 'polygon';
-      radius?: number;
-      width?: number;
-      height?: number;
-      sides?: number;
-      circumradius?: number;
-      wireRadius: number;
-      frequency: number;
-      segments: number;
+      name: string
+      loopType: 'circular' | 'rectangular' | 'polygon'
+      radius?: number
+      width?: number
+      height?: number
+      sides?: number
+      circumradius?: number
+      wireRadius: number
+      frequency: number
+      segments: number
     },
     { rejectWithValue }
   ) => {
     try {
-      const response = await generateLoopMesh(formData);
-      return response;
+      const response = await generateLoopMesh(formData)
+      return response
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to generate loop mesh');
+      return rejectWithValue(error.message || 'Failed to generate loop mesh')
     }
   }
-);
+)
+
+/**
+ * Generate helix antenna mesh
+ */
+export const generateHelix = createAsyncThunk(
+  'design/generateHelix',
+  async (formData: any, { rejectWithValue }) => {
+    try {
+      const response = await generateHelixMesh(formData)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to generate helix mesh')
+    }
+  }
+)
+
+/**
+ * Generate rod antenna mesh
+ */
+export const generateRod = createAsyncThunk(
+  'design/generateRod',
+  async (formData: any, { rejectWithValue }) => {
+    try {
+      const response = await generateRodMesh(formData)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to generate rod mesh')
+    }
+  }
+)
 
 // ============================================================================
 // Slice
@@ -251,9 +280,16 @@ const designSlice = createSlice({
       })
       .addCase(generateDipole.fulfilled, (state, action) => {
         state.meshGenerating = false;
+        // The backend returns {element, mesh, message}
+        console.log('Redux: Dipole generated, payload:', action.payload);
+        console.log('Redux: Mesh data:', action.payload.mesh);
+        console.log('Redux: Element data:', action.payload.element);
+        
+        // The mesh object contains nodes, edges, radii
         state.mesh = action.payload.mesh;
-        state.sources = action.payload.sources || [];
-        state.lumpedElements = action.payload.lumped_elements || [];
+        // Sources and lumped_elements are in the element object
+        state.sources = action.payload.element?.sources || [];
+        state.lumpedElements = action.payload.element?.lumped_elements || [];
         state.meshError = null;
       })
       .addCase(generateDipole.rejected, (state, action) => {
@@ -269,11 +305,45 @@ const designSlice = createSlice({
       .addCase(generateLoop.fulfilled, (state, action) => {
         state.meshGenerating = false;
         state.mesh = action.payload.mesh;
-        state.sources = action.payload.sources || [];
-        state.lumpedElements = action.payload.lumped_elements || [];
+        state.sources = action.payload.element?.sources || [];
+        state.lumpedElements = action.payload.element?.lumped_elements || [];
         state.meshError = null;
       })
       .addCase(generateLoop.rejected, (state, action) => {
+        state.meshGenerating = false;
+        state.meshError = action.payload as string || 'Mesh generation failed';
+      })
+      // Generate helix mesh
+      .addCase(generateHelix.pending, (state) => {
+        state.meshGenerating = true;
+        state.meshError = null;
+        state.antennaType = 'helix';
+      })
+      .addCase(generateHelix.fulfilled, (state, action) => {
+        state.meshGenerating = false;
+        state.mesh = action.payload.mesh;
+        state.sources = action.payload.element?.sources || [];
+        state.lumpedElements = action.payload.element?.lumped_elements || [];
+        state.meshError = null;
+      })
+      .addCase(generateHelix.rejected, (state, action) => {
+        state.meshGenerating = false;
+        state.meshError = action.payload as string || 'Mesh generation failed';
+      })
+      // Generate rod mesh
+      .addCase(generateRod.pending, (state) => {
+        state.meshGenerating = true;
+        state.meshError = null;
+        state.antennaType = 'rod';
+      })
+      .addCase(generateRod.fulfilled, (state, action) => {
+        state.meshGenerating = false;
+        state.mesh = action.payload.mesh;
+        state.sources = action.payload.element?.sources || [];
+        state.lumpedElements = action.payload.element?.lumped_elements || [];
+        state.meshError = null;
+      })
+      .addCase(generateRod.rejected, (state, action) => {
         state.meshGenerating = false;
         state.meshError = action.payload as string || 'Mesh generation failed';
       });

@@ -31,7 +31,7 @@ export const checkHealth = async (): Promise<{ status: string }> => {
 export const createDipole = async (
   config: DipoleConfig
 ): Promise<PreprocessorResponse> => {
-  const response = await preprocessorClient.post('/dipole', config)
+  const response = await preprocessorClient.post('/api/v1/antenna/dipole', config)
   return handleApiResponse(response)
 }
 
@@ -39,7 +39,7 @@ export const createDipole = async (
  * Create a loop antenna (circular, rectangular, or polygon)
  */
 export const createLoop = async (config: LoopConfig): Promise<PreprocessorResponse> => {
-  const response = await preprocessorClient.post('/loop', config)
+  const response = await preprocessorClient.post('/api/v1/antenna/loop', config)
   return handleApiResponse(response)
 }
 
@@ -47,7 +47,7 @@ export const createLoop = async (config: LoopConfig): Promise<PreprocessorRespon
  * Create a helical antenna
  */
 export const createHelix = async (config: HelixConfig): Promise<PreprocessorResponse> => {
-  const response = await preprocessorClient.post('/helix', config)
+  const response = await preprocessorClient.post('/api/v1/antenna/helix', config)
   return handleApiResponse(response)
 }
 
@@ -55,7 +55,7 @@ export const createHelix = async (config: HelixConfig): Promise<PreprocessorResp
  * Create a rod (monopole) antenna
  */
 export const createRod = async (config: RodConfig): Promise<PreprocessorResponse> => {
-  const response = await preprocessorClient.post('/rod', config)
+  const response = await preprocessorClient.post('/api/v1/antenna/rod', config)
   return handleApiResponse(response)
 }
 
@@ -67,7 +67,15 @@ export const createRod = async (config: RodConfig): Promise<PreprocessorResponse
  * Validate antenna geometry
  */
 export const validateGeometry = async (mesh: any): Promise<{ valid: boolean; errors?: string[] }> => {
-  const response = await preprocessorClient.post('/validate', mesh)
+  const response = await preprocessorClient.post('/api/v1/validate', mesh)
+  return handleApiResponse(response)
+}
+
+/**
+ * Add lumped element to existing mesh
+ */
+export const addLumpedElement = async (element: any): Promise<PreprocessorResponse> => {
+  const response = await preprocessorClient.post('/lumped-element', element)
   return handleApiResponse(response)
 }
 
@@ -179,7 +187,80 @@ export const generateLoopMesh = async (formData: {
   return createLoop(config);
 };
 
-// Export all functions as a single object
+// Wrapper function for helix dialog
+export async function generateHelixMesh(formData: any): Promise<PreprocessorResponse> {
+  const config: HelixConfig = {
+    radius: formData.diameter / 2,
+    pitch: formData.pitch,
+    turns: formData.turns,
+    wire_radius: formData.wire_radius,
+    center_position: [0, 0, 0],
+    axis_direction: [0, 0, 1],
+    start_angle: 0,
+    segments_per_turn: formData.segments_per_turn,
+    helix_mode: formData.helix_mode,
+    polarization: formData.polarization,
+  }
+
+  return createHelix(config)
+}
+
+// Wrapper function for rod dialog
+export async function generateRodMesh(formData: any): Promise<PreprocessorResponse> {
+  const startPoint: [number, number, number] = [formData.start_x, formData.start_y, formData.start_z]
+  const endPoint: [number, number, number] = [formData.end_x, formData.end_y, formData.end_z]
+  const dx = endPoint[0] - startPoint[0]
+  const dy = endPoint[1] - startPoint[1]
+  const dz = endPoint[2] - startPoint[2]
+  const length = Math.sqrt(dx * dx + dy * dy + dz * dz)
+  const direction: [number, number, number] = length > 0 ? [dx / length, dy / length, dz / length] : [0, 0, 1]
+
+  const config: RodConfig = {
+    length,
+    base_position: startPoint,
+    direction,
+    wire_radius: formData.radius,
+    segments: formData.segments,
+    start_point: startPoint,
+    end_point: endPoint,
+  }
+
+  return createRod(config)
+}
+
+// Wrapper function for lumped element dialog
+export async function addLumpedElementToMesh(formData: any): Promise<LumpedElement> {
+  // Convert dialog data to LumpedElement shape (frontend state uses R/L/C_inv fields)
+  const base = {
+    node_start: formData.node1,
+    node_end: formData.node2,
+    R: 0,
+    L: 0,
+    C_inv: 0,
+  }
+
+  if (formData.element_type === 'R') {
+    return { ...base, type: 'resistor', R: formData.resistance }
+  }
+
+  if (formData.element_type === 'L') {
+    return { ...base, type: 'inductor', L: formData.inductance }
+  }
+
+  if (formData.element_type === 'C') {
+    return { ...base, type: 'capacitor', C_inv: formData.capacitance_inv }
+  }
+
+  return {
+    ...base,
+    type: 'rlc',
+    R: formData.resistance,
+    L: formData.inductance,
+    C_inv: formData.capacitance_inv,
+  }
+}
+
+// Export all functions as a single object (kept at bottom for clarity)
 const preprocessorApi = {
   checkHealth,
   createDipole,
@@ -190,6 +271,9 @@ const preprocessorApi = {
   exportGeometry,
   generateDipoleMesh,
   generateLoopMesh,
+  generateHelixMesh,
+  generateRodMesh,
+  addLumpedElementToMesh,
 }
 
 export default preprocessorApi

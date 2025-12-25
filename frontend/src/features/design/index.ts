@@ -10,5 +10,7 @@ export { default as ViewControls } from './ViewControls'
 // Dialog components (Task 12)
 export * from './DipoleDialog'
 export * from './LoopDialog'
-// export * from './HelixDialog'
+export * from './HelixDialog'
+export * from './RodDialog'
+export * from './LumpedElementDialog'
 
