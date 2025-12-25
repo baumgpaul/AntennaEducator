@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginStart, loginSuccess, loginFailure } from '@/store/authSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
 import { loginSchema, type LoginFormData } from '@/utils/validation';
+import { authApi } from '@/api';
 
 /**
  * LoginPage - User authentication with form validation
@@ -31,29 +32,20 @@ function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     dispatch(loginStart());
     
-    // Mock authentication for now (will integrate with backend in Task 9c)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
-      
-      const mockUser = {
-        id: '1',
-        username: data.email.split('@')[0],
+      // Call real backend authentication API
+      const response = await authApi.login({
         email: data.email,
-        created_at: new Date().toISOString(),
-      };
+        password: data.password,
+      });
       
-      const mockTokens = {
-        access_token: 'mock-access-token',
-        token_type: 'Bearer',
-        refresh_token: 'mock-refresh-token',
-      };
-      
-      dispatch(loginSuccess({ user: mockUser, tokens: mockTokens }));
+      dispatch(loginSuccess({ user: response.user, tokens: response.tokens }));
       dispatch(showSuccess('Login successful!'));
       navigate('/');
-    } catch (error) {
-      dispatch(loginFailure('Invalid credentials'));
-      dispatch(showError('Login failed. Please try again.'));
+    } catch (error: any) {
+      const errorMessage = error?.details?.detail || error?.message || 'Invalid credentials';
+      dispatch(loginFailure(errorMessage));
+      dispatch(showError(`Login failed: ${errorMessage}`));
     }
   };
 

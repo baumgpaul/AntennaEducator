@@ -4,8 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/store/hooks';
+import { loginSuccess } from '@/store/authSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
 import { registerSchema, type RegisterFormData } from '@/utils/validation';
+import { authApi } from '@/api';
 
 /**
  * RegisterPage - User registration with form validation
@@ -30,16 +32,24 @@ function RegisterPage() {
     },
   });
 
-  const onSubmit = async (_data: RegisterFormData) => {
+  const onSubmit = async (data: RegisterFormData) => {
     setLoading(true);
     
-    // Mock registration (will integrate with backend in Task 9d)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
-      dispatch(showSuccess('Registration successful! Please log in.'));
-      navigate('/login');
-    } catch (error) {
-      dispatch(showError('Registration failed. Please try again.'));
+      // Call real backend registration API
+      const response = await authApi.register({
+        email: data.email,
+        username: data.username,
+        password: data.password,
+      });
+      
+      // Auto-login after successful registration
+      dispatch(loginSuccess({ user: response.user, tokens: response.tokens }));
+      dispatch(showSuccess('Registration successful! Welcome to Antenna Educator.'));
+      navigate('/');
+    } catch (error: any) {
+      const errorMessage = error?.details?.detail || error?.message || 'Registration failed';
+      dispatch(showError(`Registration failed: ${errorMessage}`));
     } finally {
       setLoading(false);
     }

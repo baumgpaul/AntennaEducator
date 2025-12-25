@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar, toggleTheme } from '@/store/uiSlice';
 import { logout } from '@/store/authSlice';
+import { authApi } from '@/api';
 
 /**
  * Header component with navigation, theme toggle, and user menu
@@ -42,10 +43,18 @@ function Header() {
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
-    dispatch(logout());
-    handleMenuClose();
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      // Call backend logout API
+      await authApi.logout();
+    } catch (error) {
+      console.error('Logout API error:', error);
+    } finally {
+      // Always clear Redux state and redirect
+      dispatch(logout());
+      handleMenuClose();
+      navigate('/login');
+    }
   };
 
   const handleThemeToggle = () => {
