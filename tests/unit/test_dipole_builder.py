@@ -200,7 +200,7 @@ class TestDipoleToMesh:
         assert element.sources[1].node_end == 7
         assert element.sources[1].amplitude == -element.sources[0].amplitude  # Opposite polarity
     def test_dipole_to_mesh_with_gap_current_source(self):
-        """Test that current source with gap is at gap (ground to first node)."""
+        """Test that current source with gap uses node injection (MATLAB style)."""
         source_dict = {
             "type": "current",
             "amplitude": {"real": 1.0, "imag": 0.0},
@@ -208,12 +208,13 @@ class TestDipoleToMesh:
         element = create_dipole(length=1.0, gap=0.01, segments=5, source=source_dict)
         mesh = dipole_to_mesh(element)
 
-        # Same as voltage: dual sources for balanced feed
+        # Current sources: dual node injection for balanced feed
         assert len(element.sources) == 2
-        assert element.sources[0].node_start == 0
-        assert element.sources[0].node_end == 1
-        assert element.sources[1].node_start == 0
-        assert element.sources[1].node_end == 7
+        assert element.sources[0].node_start == 1  # First node of upper half
+        assert element.sources[0].node_end is None  # Current source (single node)
+        assert element.sources[1].node_start == 7  # First node of lower half
+        assert element.sources[1].node_end is None  # Current source (single node)
+        assert element.sources[1].amplitude == -element.sources[0].amplitude  # Opposite polarity
     def test_dipole_to_mesh_edge_mapping(self):
         """Test that edge to element mapping is correct."""
         element = create_dipole(length=1.0, segments=5, gap=0.01)

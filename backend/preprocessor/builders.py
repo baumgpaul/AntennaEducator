@@ -179,27 +179,49 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         total_segments = 2 * n_segments_per_half
         
         # Source is at the gap (balanced/differential feed for gap dipoles)
-        # Two voltage sources: ground→upper (+V) and ground→lower (-V)
+        # Matching MATLAB createDipole.m:
+        # - Voltage sources: ground→upper (+V) and ground→lower (-V)
+        # - Current sources: inject at upper node (+I) and lower node (-I)
         if len(element.sources) > 0:
-            # First source: ground to first node of upper half
-            element.sources[0].node_start = 0  # Ground
-            element.sources[0].node_end = 1     # First upper node
+            source_type = element.sources[0].type
             
-            # For gap dipoles, create second source with opposite polarity
-            # This creates a balanced feed matching the golden standard
-            if len(element.sources) == 1:
-                # Clone first source but with opposite polarity
-                second_source = Source(
-                    type=element.sources[0].type,
-                    amplitude=-element.sources[0].amplitude,  # Opposite polarity
-                    node_start=0,  # Ground
-                    node_end=node_offset + 1,  # First lower node (node 7 for 5 segments)
-                    series_R=element.sources[0].series_R,
-                    series_L=element.sources[0].series_L,
-                    series_C_inv=element.sources[0].series_C_inv,
-                    tag=element.sources[0].tag + "_lower" if element.sources[0].tag else "",
-                )
-                element.sources.append(second_source)
+            if source_type == "voltage":
+                # First source: ground to first node of upper half
+                element.sources[0].node_start = 0  # Ground
+                element.sources[0].node_end = 1     # First upper node
+                
+                # For gap dipoles, create second source with opposite polarity
+                # This creates a balanced feed matching the golden standard
+                if len(element.sources) == 1:
+                    # Clone first source but with opposite polarity
+                    second_source = Source(
+                        type=element.sources[0].type,
+                        amplitude=-element.sources[0].amplitude,  # Opposite polarity
+                        node_start=0,  # Ground
+                        node_end=node_offset + 1,  # First lower node (node 7 for 5 segments)
+                        series_R=element.sources[0].series_R,
+                        series_L=element.sources[0].series_L,
+                        series_C_inv=element.sources[0].series_C_inv,
+                        tag=element.sources[0].tag + "_lower" if element.sources[0].tag else "",
+                    )
+                    element.sources.append(second_source)
+            
+            elif source_type == "current":
+                # Current sources: inject at node (no node_start/node_end)
+                # MATLAB: Current_Source(1).node=1, Current_Source(2).node=N_p/2+1
+                element.sources[0].node_start = 1     # First node of upper half
+                element.sources[0].node_end = None    # Not used for current sources
+                
+                # For gap dipoles, create second current source with opposite polarity
+                if len(element.sources) == 1:
+                    second_source = Source(
+                        type="current",
+                        amplitude=-element.sources[0].amplitude,  # Opposite polarity
+                        node_start=node_offset + 1,  # First lower node (node 7 for 5 segments)
+                        node_end=None,
+                        tag=element.sources[0].tag + "_lower" if element.sources[0].tag else "",
+                    )
+                    element.sources.append(second_source)
     else:
         # Original continuous dipole (no gap)
         start_point = center - (length / 2.0) * orientation
@@ -297,39 +319,67 @@ def create_loop(
     # Create source object(s) if provided
     source_objs = []
     if source:
-        # For loop, source placement depends on whether there's a gap
-        # Use 1-based indexing (MATLAB convention)
-        if gap > 0:
-            # With gap: source across the gap (ground to first node)
-            node_start = 0
-            node_end = 1
-        else:
-            # Closed loop: source connects first and last nodes (wraparound)
-            node_start = 1  
-            node_end = segments + 1  # Last node index (1-based)
-        
-        # Allow custom positioning if specified
-        if "position" in source:
-            pos = source["position"]
-            if isinstance(pos, int):
-                # Custom position: between node pos and pos+1
-                node_start = pos + 1  # Convert to 1-based
-                node_end = pos + 2
-        
         # Convert amplitude dict to complex number
         amp = source["amplitude"]
         amplitude_complex = complex(amp["real"], amp["imag"])
         
-        source_objs.append(Source(
-            type=source["type"],
-            amplitude=amplitude_complex,
-            node_start=node_start,
-            node_end=node_end,
-            series_R=source.get("series_R", 0.0),
-            series_L=source.get("series_L", 0.0),
-            series_C_inv=source.get("series_C_inv", 0.0),
-            tag=source.get("tag", ""),
-        ))
+        source_type = source["type"]
+        
+        if source_type == "voltage":
+            # Voltage source: connects between two nodes
+            # For loop, source placement depends on whether there's a gap
+            # Use 1-based indexing (MATLAB convention)
+            if gap > 0:
+                # With gap: source across the gap (ground to first node)
+                node_start = 0
+                node_end = 1
+            else:
+                # Closed loop: source connects first and last nodes (wraparound)
+                node_start = 1  
+                node_end = segments + 1  # Last node index (1-based)
+            
+            # Allow custom positioning if specified
+            if "position" in source:
+                pos = source["position"]
+                if isinstance(pos, int):
+                    # Custom position: between node pos and pos+1
+                    node_start = pos + 1  # Convert to 1-based
+                    node_end = pos + 2
+            
+            source_objs.append(Source(
+                type=source_type,
+                amplitude=amplitude_complex,
+                node_start=node_start,
+                node_end=node_end,
+                series_R=source.get("series_R", 0.0),
+                series_L=source.get("series_L", 0.0),
+                series_C_inv=source.get("series_C_inv", 0.0),
+                tag=source.get("tag", ""),
+            ))
+        
+        elif source_type == "current":
+            # Current source: injects at a single node (MATLAB style)
+            # For loop with gap: inject at first node
+            # For closed loop: inject at first node
+            node_start = 1  # First mesh node (1-based)
+            node_end = None  # Not used for current sources
+            
+            # Allow custom positioning if specified
+            if "position" in source:
+                pos = source["position"]
+                if isinstance(pos, int):
+                    node_start = pos + 1  # Convert to 1-based
+            
+            source_objs.append(Source(
+                type=source_type,
+                amplitude=amplitude_complex,
+                node_start=node_start,
+                node_end=node_end,
+                series_R=source.get("series_R", 0.0),
+                series_L=source.get("series_L", 0.0),
+                series_C_inv=source.get("series_C_inv", 0.0),
+                tag=source.get("tag", ""),
+            ))
     
     # Create lumped element objects if provided
     lumped_objs = []
@@ -696,32 +746,58 @@ def create_helix(
     # Create source object(s) if provided
     source_objs = []
     if source:
-        # For helix, source is typically at start (between ground and first mesh node)
-        # Use 1-based indexing (MATLAB convention)
-        node_start = 0  # Ground node
-        node_end = 1  # First mesh node (1-based)
-        
-        if "position" in source:
-            pos = source["position"]
-            if isinstance(pos, int):
-                # Custom position: between node pos and pos+1
-                node_start = pos + 1  # Convert to 1-based
-                node_end = pos + 2
-        
         # Convert amplitude dict to complex number
         amp = source["amplitude"]
         amplitude_complex = complex(amp["real"], amp["imag"])
         
-        source_objs.append(Source(
-            type=source["type"],
-            amplitude=amplitude_complex,
-            node_start=node_start,
-            node_end=node_end,
-            series_R=source.get("series_R", 0.0),
-            series_L=source.get("series_L", 0.0),
-            series_C_inv=source.get("series_C_inv", 0.0),
-            tag=source.get("tag", ""),
-        ))
+        source_type = source["type"]
+        
+        if source_type == "voltage":
+            # Voltage source: connects between two nodes
+            # For helix, source is typically at start (between ground and first mesh node)
+            # Use 1-based indexing (MATLAB convention)
+            node_start = 0  # Ground node
+            node_end = 1  # First mesh node (1-based)
+            
+            if "position" in source:
+                pos = source["position"]
+                if isinstance(pos, int):
+                    # Custom position: between node pos and pos+1
+                    node_start = pos + 1  # Convert to 1-based
+                    node_end = pos + 2
+            
+            source_objs.append(Source(
+                type=source_type,
+                amplitude=amplitude_complex,
+                node_start=node_start,
+                node_end=node_end,
+                series_R=source.get("series_R", 0.0),
+                series_L=source.get("series_L", 0.0),
+                series_C_inv=source.get("series_C_inv", 0.0),
+                tag=source.get("tag", ""),
+            ))
+        
+        elif source_type == "current":
+            # Current source: injects at a single node (MATLAB style)
+            # For helix, typically inject at first mesh node
+            node_start = 1  # First mesh node (1-based)
+            node_end = None  # Not used for current sources
+            
+            if "position" in source:
+                pos = source["position"]
+                if isinstance(pos, int):
+                    node_start = pos + 1  # Convert to 1-based
+            
+            source_objs.append(Source(
+                type=source_type,
+                amplitude=amplitude_complex,
+                node_start=node_start,
+                node_end=node_end,
+                series_R=source.get("series_R", 0.0),
+                series_L=source.get("series_L", 0.0),
+                series_C_inv=source.get("series_C_inv", 0.0),
+                tag=source.get("tag", ""),
+            ))
     
     # Create lumped element objects if provided
     lumped_objs = []

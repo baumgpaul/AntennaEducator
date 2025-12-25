@@ -360,16 +360,37 @@ def solve_peec_frequency_sweep(
         # Compute node voltages (following MATLAB: V = (1/jω)*(P*I_source + P*A*I))
         V = compute_node_voltages(I, I_source, A, P_nodal_retarded, omega)
         
-        # Compute input impedance
-        # Find voltage source branch (first one by convention)
-        vsrc_branch_idx = n_edges  # First voltage source after edges
-        input_current = I[vsrc_branch_idx]
-        input_voltage = voltage_sources[0].value
+        # Compute input impedance/admittance
+        if len(voltage_sources) > 0:
+            # Voltage source excitation: compute input impedance Z = V/I
+            vsrc_branch_idx = n_edges  # First voltage source after edges
+            input_current = I[vsrc_branch_idx]
+            input_voltage = voltage_sources[0].value
+            
+            if np.abs(input_current) > 1e-12:
+                input_impedance = input_voltage / input_current
+            else:
+                input_impedance = np.inf + 0j
         
-        if np.abs(input_current) > 1e-12:
-            input_impedance = input_voltage / input_current
+        elif len(current_sources) > 0:
+            # Current source excitation: compute input impedance Z = V/I
+            # Use voltage at first current source node
+            isrc_node = current_sources[0].node
+            if isrc_node > 0:  # Regular mesh node (1-based)
+                input_voltage = V[isrc_node - 1]  # Convert to 0-based
+            else:
+                input_voltage = 0.0 + 0j  # Ground
+            
+            input_current = current_sources[0].value
+            
+            if np.abs(input_current) > 1e-12:
+                input_impedance = input_voltage / input_current
+            else:
+                input_impedance = np.inf + 0j
+        
         else:
-            input_impedance = np.inf + 0j
+            # No sources - undefined impedance
+            input_impedance = np.nan + 0j
         
         # Compute power dissipated in resistances
         # P = I^H * R * I (real part)
