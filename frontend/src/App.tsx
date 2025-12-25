@@ -7,7 +7,7 @@ import DesignPage from './features/design/DesignPage';
 import ResultsPage from './features/results/ResultsPage';
 import { LoginPage, RegisterPage, ProtectedRoute } from './features/auth';
 import NotFoundPage from './features/common/NotFoundPage';
-import NotificationManager from './components/common/NotificationManager';
+import { NotificationManager, SessionManager } from './components/common';
 
 /**
  * Main App component with routing configuration
@@ -17,6 +17,9 @@ function App() {
     <Box sx={{ display: 'flex', height: '100vh', width: '100vw' }}>
       {/* Global notification system */}
       <NotificationManager />
+      
+      {/* Session timeout management */}
+      <SessionManager />
       
       {/* Route definitions */}
       <Routes>

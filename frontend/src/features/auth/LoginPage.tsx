@@ -1,4 +1,4 @@
-import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress, Alert } from '@mui/material';
+import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress, Alert, FormControlLabel, Checkbox } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
@@ -20,6 +20,7 @@ function LoginPage() {
   const dispatch = useAppDispatch();
   const { loading } = useAppSelector((state) => state.auth);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Get the page user was trying to access before being redirected to login
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
@@ -118,6 +119,23 @@ function LoginPage() {
                   disabled={loading}
                 />
               )}
+            />
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  color="primary"
+                  disabled={loading}
+                />
+              }
+              label={
+                <Typography variant="body2" color="text.secondary">
+                  Remember me
+                </Typography>
+              }
+              sx={{ mt: 1 }}
             />
 
             <Button
