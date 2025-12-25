@@ -281,7 +281,6 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               <Divider sx={{ my: 2 }} />
               <PositionControl
                 control={control}
-                errors={errors}
                 positionPrefix="position"
                 orientationPrefix="orientation"
                 title="Position & Orientation"

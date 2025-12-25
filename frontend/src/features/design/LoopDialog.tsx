@@ -439,7 +439,6 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               <Divider sx={{ my: 2 }} />
               <PositionControl
                 control={control}
-                errors={errors}
                 positionPrefix="position"
                 orientationPrefix="orientation"
                 title="Position & Orientation"

@@ -1,12 +1,12 @@
-import React from 'react';
 import {
   Grid,
   TextField,
   Typography,
   InputAdornment,
   Box,
+  Divider,
 } from '@mui/material';
-import { Control, Controller, FieldErrors, FieldPath } from 'react-hook-form';
+import { Control, Controller } from 'react-hook-form';
 
 export interface PositionData {
   x: number;
@@ -20,25 +20,23 @@ export interface OrientationData {
   rotZ: number;
 }
 
-interface PositionControlProps<T extends Record<string, any>> {
-  control: Control<T>;
-  errors: FieldErrors<T>;
-  positionPrefix?: string; // e.g., 'position' for fields like position.x
-  orientationPrefix?: string; // e.g., 'orientation' for fields like orientation.rotX
+interface PositionControlProps {
+  control: Control<any>;
+  positionPrefix?: string;
+  orientationPrefix?: string;
   showOrientation?: boolean;
   title?: string;
   subtitle?: string;
 }
 
-export function PositionControl<T extends Record<string, any>>({
+export function PositionControl({
   control,
-  errors,
   positionPrefix = 'position',
   orientationPrefix = 'orientation',
   showOrientation = true,
   title = 'Position & Orientation',
   subtitle = 'Set element placement in 3D space',
-}: PositionControlProps<T>) {
+}: PositionControlProps) {
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
@@ -58,8 +56,9 @@ export function PositionControl<T extends Record<string, any>>({
         
         <Grid item xs={4}>
           <Controller
-            name={`${positionPrefix}.x` as FieldPath<T>}
+            name={`${positionPrefix}.x`}
             control={control}
+            defaultValue={0}
             render={({ field }) => (
               <TextField
                 {...field}
@@ -70,8 +69,6 @@ export function PositionControl<T extends Record<string, any>>({
                 InputProps={{
                   endAdornment: <InputAdornment position="end">m</InputAdornment>,
                 }}
-                error={Boolean(errors[positionPrefix as keyof T]?.['x' as keyof any])}
-                helperText={errors[positionPrefix as keyof T]?.['x' as keyof any]?.message as string}
                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
               />
             )}
@@ -80,8 +77,9 @@ export function PositionControl<T extends Record<string, any>>({
         
         <Grid item xs={4}>
           <Controller
-            name={`${positionPrefix}.y` as FieldPath<T>}
+            name={`${positionPrefix}.y`}
             control={control}
+            defaultValue={0}
             render={({ field }) => (
               <TextField
                 {...field}
@@ -92,8 +90,6 @@ export function PositionControl<T extends Record<string, any>>({
                 InputProps={{
                   endAdornment: <InputAdornment position="end">m</InputAdornment>,
                 }}
-                error={Boolean(errors[positionPrefix as keyof T]?.['y' as keyof any])}
-                helperText={errors[positionPrefix as keyof T]?.['y' as keyof any]?.message as string}
                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
               />
             )}
@@ -102,8 +98,9 @@ export function PositionControl<T extends Record<string, any>>({
         
         <Grid item xs={4}>
           <Controller
-            name={`${positionPrefix}.z` as FieldPath<T>}
+            name={`${positionPrefix}.z`}
             control={control}
+            defaultValue={0}
             render={({ field }) => (
               <TextField
                 {...field}
@@ -114,8 +111,6 @@ export function PositionControl<T extends Record<string, any>>({
                 InputProps={{
                   endAdornment: <InputAdornment position="end">m</InputAdornment>,
                 }}
-                error={Boolean(errors[positionPrefix as keyof T]?.['z' as keyof any])}
-                helperText={errors[positionPrefix as keyof T]?.['z' as keyof any]?.message as string}
                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
               />
             )}
@@ -133,8 +128,9 @@ export function PositionControl<T extends Record<string, any>>({
             
             <Grid item xs={4}>
               <Controller
-                name={`${orientationPrefix}.rotX` as FieldPath<T>}
+                name={`${orientationPrefix}.rotX`}
                 control={control}
+                defaultValue={0}
                 render={({ field }) => (
                   <TextField
                     {...field}
@@ -145,8 +141,6 @@ export function PositionControl<T extends Record<string, any>>({
                     InputProps={{
                       endAdornment: <InputAdornment position="end">°</InputAdornment>,
                     }}
-                    error={Boolean(errors[orientationPrefix as keyof T]?.['rotX' as keyof any])}
-                    helperText={errors[orientationPrefix as keyof T]?.['rotX' as keyof any]?.message as string}
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                   />
                 )}
@@ -155,8 +149,9 @@ export function PositionControl<T extends Record<string, any>>({
             
             <Grid item xs={4}>
               <Controller
-                name={`${orientationPrefix}.rotY` as FieldPath<T>}
+                name={`${orientationPrefix}.rotY`}
                 control={control}
+                defaultValue={0}
                 render={({ field }) => (
                   <TextField
                     {...field}
@@ -167,8 +162,6 @@ export function PositionControl<T extends Record<string, any>>({
                     InputProps={{
                       endAdornment: <InputAdornment position="end">°</InputAdornment>,
                     }}
-                    error={Boolean(errors[orientationPrefix as keyof T]?.['rotY' as keyof any])}
-                    helperText={errors[orientationPrefix as keyof T]?.['rotY' as keyof any]?.message as string}
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                   />
                 )}
@@ -177,8 +170,9 @@ export function PositionControl<T extends Record<string, any>>({
             
             <Grid item xs={4}>
               <Controller
-                name={`${orientationPrefix}.rotZ` as FieldPath<T>}
+                name={`${orientationPrefix}.rotZ`}
                 control={control}
+                defaultValue={0}
                 render={({ field }) => (
                   <TextField
                     {...field}
@@ -189,8 +183,6 @@ export function PositionControl<T extends Record<string, any>>({
                     InputProps={{
                       endAdornment: <InputAdornment position="end">°</InputAdornment>,
                     }}
-                    error={Boolean(errors[orientationPrefix as keyof T]?.['rotZ' as keyof any])}
-                    helperText={errors[orientationPrefix as keyof T]?.['rotZ' as keyof any]?.message as string}
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                   />
                 )}

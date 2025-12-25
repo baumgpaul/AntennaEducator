@@ -301,7 +301,6 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
               <Divider sx={{ my: 2 }} />
               <PositionControl
                 control={control}
-                errors={errors}
                 positionPrefix="position"
                 orientationPrefix="orientation"
                 title="Position & Orientation"

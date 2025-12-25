@@ -307,7 +307,6 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
               <Divider sx={{ my: 2 }} />
               <PositionControl
                 control={control}
-                errors={errors}
                 positionPrefix="position"
                 orientationPrefix="orientation"
                 title="Global Position & Orientation"
