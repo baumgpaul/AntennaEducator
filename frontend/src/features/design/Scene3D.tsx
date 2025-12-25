@@ -17,8 +17,8 @@ function Scene3D({ children }: Scene3DProps) {
   return (
     <Box sx={{ width: '100%', height: '100%', position: 'relative', bgcolor: '#1a1a1a' }}>
       <Canvas>
-        {/* Camera setup */}
-        <PerspectiveCamera makeDefault position={[5, 5, 5]} fov={60} />
+        {/* Camera setup - Z-axis up, viewing from front-right-top */}
+        <PerspectiveCamera makeDefault position={[5, 5, 5]} fov={60} up={[0, 0, 1]} />
 
         {/* Lighting */}
         <ambientLight intensity={0.5} />
@@ -26,7 +26,7 @@ function Scene3D({ children }: Scene3DProps) {
         <directionalLight position={[-10, -10, -10]} intensity={0.3} />
         <pointLight position={[0, 10, 0]} intensity={0.5} />
 
-        {/* Grid and axes */}
+        {/* Grid and axes - Grid on XY plane (Z-up) */}
         <Grid
           args={[20, 20]}
           cellSize={0.5}
@@ -39,6 +39,7 @@ function Scene3D({ children }: Scene3DProps) {
           fadeStrength={1}
           followCamera={false}
           infiniteGrid={false}
+          rotation={[Math.PI / 2, 0, 0]}
         />
 
         {/* Axes helper */}
@@ -55,10 +56,9 @@ function Scene3D({ children }: Scene3DProps) {
           panSpeed={0.5}
           minDistance={1}
           maxDistance={50}
-          maxPolarAngle={Math.PI / 2}
         />
 
-        {/* Gizmo for orientation */}
+        {/* Gizmo for orientation - Red=X, Green=Y, Blue=Z(up) */}
         <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
           <GizmoViewport
             axisColors={['#ff0000', '#00ff00', '#0000ff']}
