@@ -86,6 +86,36 @@ export const exportGeometry = async (
   return response.data
 }
 
+// ============================================================================
+// Convenience wrappers for dialogs
+// ============================================================================
+
+/**
+ * Generate dipole mesh from dialog form data
+ */
+export const generateDipoleMesh = async (formData: {
+  name: string;
+  length: number;
+  radius: number;
+  gap: number;
+  frequency: number;
+  segments: number;
+  feedType: 'gap' | 'balanced';
+}): Promise<PreprocessorResponse> => {
+  const config: DipoleConfig = {
+    length: formData.length,
+    wire_radius: formData.radius,
+    gap: formData.gap,
+    segments: formData.segments,
+    balanced_feed: formData.feedType === 'balanced',
+    // Default values
+    center_position: [0, 0, 0],
+    orientation: [0, 0, 1], // Vertical along Z-axis
+  };
+  
+  return createDipole(config);
+};
+
 // Export all functions as a single object
 const preprocessorApi = {
   checkHealth,
@@ -95,6 +125,7 @@ const preprocessorApi = {
   createRod,
   validateGeometry,
   exportGeometry,
+  generateDipoleMesh,
 }
 
 export default preprocessorApi
