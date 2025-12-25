@@ -16,6 +16,7 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { PositionControl, PositionData, OrientationData } from '../../../components/PositionControl';
 
 // Validation schema
 const dipoleSchema = z.object({
@@ -26,6 +27,16 @@ const dipoleSchema = z.object({
   frequency: z.number().positive('Frequency must be positive').max(100e9, 'Frequency too high'),
   segments: z.number().int('Must be integer').min(5, 'Minimum 5 segments').max(1000, 'Maximum 1000 segments'),
   feedType: z.enum(['gap', 'balanced']),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+    z: z.number(),
+  }),
+  orientation: z.object({
+    rotX: z.number().min(-180).max(180),
+    rotY: z.number().min(-180).max(180),
+    rotZ: z.number().min(-180).max(180),
+  }),
 });
 
 type DipoleFormData = z.infer<typeof dipoleSchema>;
@@ -54,6 +65,16 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
       frequency: 1e9, // 1 GHz
       segments: 21,
       feedType: 'gap',
+      position: {
+        x: 0,
+        y: 0,
+        z: 0,
+      },
+      orientation: {
+        rotX: 0,
+        rotY: 0,
+        rotZ: 0,
+      },
     },
   });
 
@@ -253,6 +274,19 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               <FormHelperText>
                 Wavelength: {(calculateWavelength(control._formValues.frequency || 1e9) * 1000).toFixed(2)} mm
               </FormHelperText>
+            </Grid>
+
+            {/* Position and Orientation Controls */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <PositionControl
+                control={control}
+                errors={errors}
+                positionPrefix="position"
+                orientationPrefix="orientation"
+                title="Position & Orientation"
+                subtitle="Set the dipole placement and rotation in 3D space"
+              />
             </Grid>
 
             {/* Design Guidelines */}

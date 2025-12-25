@@ -22,6 +22,21 @@ import { Info } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { PositionControl, PositionData, OrientationData } from '../../../components/PositionControl';
+
+// Common position and orientation schema
+const positionOrientationSchema = {
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+    z: z.number(),
+  }),
+  orientation: z.object({
+    rotX: z.number().min(-180).max(180),
+    rotY: z.number().min(-180).max(180),
+    rotZ: z.number().min(-180).max(180),
+  }),
+};
 
 // Validation schema - conditional based on loop type
 const loopSchema = z.discriminatedUnion('loopType', [
@@ -33,6 +48,7 @@ const loopSchema = z.discriminatedUnion('loopType', [
     wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
     frequency: z.number().positive('Frequency must be positive').max(100e9, 'Frequency too high'),
     segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
+    ...positionOrientationSchema,
   }),
   // Rectangular loop
   z.object({
@@ -43,6 +59,7 @@ const loopSchema = z.discriminatedUnion('loopType', [
     wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
     frequency: z.number().positive('Frequency must be positive').max(100e9, 'Frequency too high'),
     segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
+    ...positionOrientationSchema,
   }),
   // Polygon loop - simplified for now
   z.object({
@@ -53,6 +70,7 @@ const loopSchema = z.discriminatedUnion('loopType', [
     wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
     frequency: z.number().positive('Frequency must be positive').max(100e9, 'Frequency too high'),
     segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
+    ...positionOrientationSchema,
   }),
 ]);
 
@@ -82,6 +100,16 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
       wireRadius: 0.001, // 1mm
       frequency: 1e9, // 1 GHz
       segments: 32,
+      position: {
+        x: 0,
+        y: 0,
+        z: 0,
+      },
+      orientation: {
+        rotX: 0,
+        rotY: 0,
+        rotZ: 0,
+      },
     },
   });
 
@@ -403,6 +431,19 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                     disabled={isGenerating}
                   />
                 )}
+              />
+            </Grid>
+
+            {/* Position and Orientation Controls */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <PositionControl
+                control={control}
+                errors={errors}
+                positionPrefix="position"
+                orientationPrefix="orientation"
+                title="Position & Orientation"
+                subtitle="Set the loop placement and rotation in 3D space"
               />
             </Grid>
 

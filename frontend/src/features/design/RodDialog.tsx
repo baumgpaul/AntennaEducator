@@ -10,10 +10,12 @@ import {
   Alert,
   CircularProgress,
   Typography,
+  Divider,
 } from '@mui/material';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { PositionControl, PositionData, OrientationData } from '../../../components/PositionControl';
 
 // Zod validation schema
 const rodSchema = z.object({
@@ -25,6 +27,16 @@ const rodSchema = z.object({
   end_z: z.number().min(-10, 'Z too small').max(10, 'Z too large'),
   radius: z.number().positive('Radius must be positive').max(0.1, 'Radius too large'),
   segments: z.number().int().min(1, 'At least 1 segment required').max(200, 'Max 200 segments'),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+    z: z.number(),
+  }),
+  orientation: z.object({
+    rotX: z.number().min(-180).max(180),
+    rotY: z.number().min(-180).max(180),
+    rotZ: z.number().min(-180).max(180),
+  }),
 }).refine(
   (data) => {
     // Check that start and end points are different
@@ -69,6 +81,16 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
       end_z: 1.0,
       radius: 0.001,
       segments: 20,
+      position: {
+        x: 0,
+        y: 0,
+        z: 0,
+      },
+      orientation: {
+        rotX: 0,
+        rotY: 0,
+        rotZ: 0,
+      },
     },
   });
 
@@ -278,6 +300,19 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
               <Alert severity="info">
                 <strong>Calculated Length:</strong> {rodLength.toFixed(4)} m ({(rodLength * 100).toFixed(2)} cm)
               </Alert>
+            </Grid>
+
+            {/* Position and Orientation Controls */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <PositionControl
+                control={control}
+                errors={errors}
+                positionPrefix="position"
+                orientationPrefix="orientation"
+                title="Global Position & Orientation"
+                subtitle="Additional offset and rotation applied to the rod after local coordinates"
+              />
             </Grid>
 
             {/* Usage Info */}

@@ -95,6 +95,8 @@ export const generateDipole = createAsyncThunk(
       frequency: number
       segments: number
       feedType: 'gap' | 'balanced'
+      position: { x: number; y: number; z: number }
+      orientation: { rotX: number; rotY: number; rotZ: number }
     },
     { rejectWithValue }
   ) => {
@@ -124,6 +126,8 @@ export const generateLoop = createAsyncThunk(
       wireRadius: number
       frequency: number
       segments: number
+      position: { x: number; y: number; z: number }
+      orientation: { rotX: number; rotY: number; rotZ: number }
     },
     { rejectWithValue }
   ) => {
@@ -141,7 +145,21 @@ export const generateLoop = createAsyncThunk(
  */
 export const generateHelix = createAsyncThunk(
   'design/generateHelix',
-  async (formData: any, { rejectWithValue }) => {
+  async (
+    formData: {
+      diameter: number
+      pitch: number
+      turns: number
+      helix_mode: 'axial' | 'normal'
+      polarization: 'RHCP' | 'LHCP'
+      wire_radius: number
+      frequency: number
+      segments_per_turn: number
+      position: { x: number; y: number; z: number }
+      orientation: { rotX: number; rotY: number; rotZ: number }
+    },
+    { rejectWithValue }
+  ) => {
     try {
       const response = await generateHelixMesh(formData)
       return response
@@ -156,7 +174,21 @@ export const generateHelix = createAsyncThunk(
  */
 export const generateRod = createAsyncThunk(
   'design/generateRod',
-  async (formData: any, { rejectWithValue }) => {
+  async (
+    formData: {
+      start_x: number
+      start_y: number
+      start_z: number
+      end_x: number
+      end_y: number
+      end_z: number
+      radius: number
+      segments: number
+      position: { x: number; y: number; z: number }
+      orientation: { rotX: number; rotY: number; rotZ: number }
+    },
+    { rejectWithValue }
+  ) => {
     try {
       const response = await generateRodMesh(formData)
       return response

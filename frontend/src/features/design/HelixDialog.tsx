@@ -14,10 +14,12 @@ import {
   FormControl,
   InputLabel,
   FormHelperText,
+  Divider,
 } from '@mui/material';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { PositionControl, PositionData, OrientationData } from '../../../components/PositionControl';
 
 // Zod validation schema
 const helixSchema = z.object({
@@ -29,6 +31,16 @@ const helixSchema = z.object({
   wire_radius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
   frequency: z.number().positive('Frequency must be positive').max(10, 'Frequency too high (max 10 GHz)'),
   segments_per_turn: z.number().int().min(8, 'Min 8 segments per turn').max(50, 'Max 50 segments per turn'),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+    z: z.number(),
+  }),
+  orientation: z.object({
+    rotX: z.number().min(-180).max(180),
+    rotY: z.number().min(-180).max(180),
+    rotZ: z.number().min(-180).max(180),
+  }),
 });
 
 type HelixFormData = z.infer<typeof helixSchema>;
@@ -60,6 +72,16 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
       wire_radius: 0.001,
       frequency: 1.0,
       segments_per_turn: 16,
+      position: {
+        x: 0,
+        y: 0,
+        z: 0,
+      },
+      orientation: {
+        rotX: 0,
+        rotY: 0,
+        rotZ: 0,
+      },
     },
   });
 
@@ -272,6 +294,19 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
                 <br />
                 Circumference = {(Math.PI * diameter).toFixed(4)} m
               </Alert>
+            </Grid>
+
+            {/* Position and Orientation Controls */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <PositionControl
+                control={control}
+                errors={errors}
+                positionPrefix="position"
+                orientationPrefix="orientation"
+                title="Position & Orientation"
+                subtitle="Set the helix placement and rotation in 3D space"
+              />
             </Grid>
 
             {/* Design Guidelines */}
