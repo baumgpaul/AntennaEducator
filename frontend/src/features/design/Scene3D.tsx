@@ -124,7 +124,7 @@ function Scene3D({ children, showScale = true, showAxisLabels = true, elements, 
   
   // Auto-scale grid and helpers based on antenna size
   const gridSize = Math.max(bounds.size * 2, 2); // At least 2x antenna size, minimum 2m
-  const gridDivisions = Math.ceil(gridSize / 0.5) * 2; // Divisions every 0.5m
+  // const gridDivisions = Math.ceil(gridSize / 0.5) * 2; // Divisions every 0.5m (unused)
   const axesSize = bounds.size * 1.5;
   const scaleIndicatorSize = Math.max(bounds.size * 0.3, 0.5); // 30% of antenna size, min 0.5m
 

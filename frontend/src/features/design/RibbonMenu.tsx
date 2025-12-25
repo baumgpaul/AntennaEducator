@@ -20,7 +20,6 @@ import {
   Widgets,
   PlayArrow,
   Assessment,
-  Visibility,
   Settings,
   ExpandMore,
   ColorLens,
