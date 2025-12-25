@@ -16,6 +16,7 @@ import type {
   AntennaElement,
 } from '@/types/models'
 import { generateDipoleMesh, generateLoopMesh, generateHelixMesh, generateRodMesh } from '@/api/preprocessor'
+import { getNextElementColor } from '@/utils/colors'
 
 interface DesignState {
   // Multi-element system
@@ -257,6 +258,13 @@ const designSlice = createSlice({
       }
     },
 
+    setElementColor: (state, action: PayloadAction<{ id: string; color: string }>) => {
+      const index = state.elements.findIndex(el => el.id === action.payload.id)
+      if (index >= 0) {
+        state.elements[index].color = action.payload.color
+      }
+    },
+
     setSelectedElement: (state, action: PayloadAction<string | null>) => {
       state.selectedElementId = action.payload
     },
@@ -403,6 +411,9 @@ const designSlice = createSlice({
           ? [formData.orientation.rotX, formData.orientation.rotY, formData.orientation.rotZ]
           : [0, 0, 0];
         
+        // Auto-assign color
+        const color = getNextElementColor(state.elements);
+        
         // Create AntennaElement from response
         const element: AntennaElement = {
           id: `dipole_${Date.now()}`,
@@ -414,9 +425,10 @@ const designSlice = createSlice({
           mesh: action.payload.mesh,
           visible: true,
           locked: false,
+          color,
         };
         
-        console.log('Redux: Created element with position:', position, 'rotation:', rotation);
+        console.log('Redux: Created element with position:', position, 'rotation:', rotation, 'color:', color);
         
         // Add to elements array
         state.elements.push(element);
@@ -449,6 +461,9 @@ const designSlice = createSlice({
           ? [formData.orientation.rotX, formData.orientation.rotY, formData.orientation.rotZ]
           : [0, 0, 0];
         
+        // Auto-assign color
+        const color = getNextElementColor(state.elements);
+        
         // Create AntennaElement from response
         const element: AntennaElement = {
           id: `loop_${Date.now()}`,
@@ -460,6 +475,7 @@ const designSlice = createSlice({
           mesh: action.payload.mesh,
           visible: true,
           locked: false,
+          color,
         };
         
         // Add to elements array
@@ -493,6 +509,9 @@ const designSlice = createSlice({
           ? [formData.orientation.rotX, formData.orientation.rotY, formData.orientation.rotZ]
           : [0, 0, 0];
         
+        // Auto-assign color
+        const color = getNextElementColor(state.elements);
+        
         // Create AntennaElement from response
         const element: AntennaElement = {
           id: `helix_${Date.now()}`,
@@ -504,6 +523,7 @@ const designSlice = createSlice({
           mesh: action.payload.mesh,
           visible: true,
           locked: false,
+          color,
         };
         
         // Add to elements array
@@ -529,6 +549,9 @@ const designSlice = createSlice({
       .addCase(generateRod.fulfilled, (state, action) => {
         state.meshGenerating = false;
         
+        // Auto-assign color
+        const color = getNextElementColor(state.elements);
+        
         // Rod uses start/end coordinates, not separate position field
         // Position is implicitly defined by the rod geometry
         const element: AntennaElement = {
@@ -541,6 +564,7 @@ const designSlice = createSlice({
           mesh: action.payload.mesh,
           visible: true,
           locked: false,
+          color,
         };
         
         // Add to elements array
@@ -568,6 +592,7 @@ export const {
   duplicateElement,
   setElementVisibility,
   setElementLocked,
+  setElementColor,
   setSelectedElement,
   setActiveElement,
   clearElements,

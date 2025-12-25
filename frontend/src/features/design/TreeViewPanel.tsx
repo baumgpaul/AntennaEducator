@@ -27,6 +27,7 @@ import {
   AllInclusive,
   LinearScale,
 } from '@mui/icons-material';
+import { DEFAULT_ELEMENT_COLOR } from '@/utils/colors';
 import type { Mesh, Source, LumpedElement, AntennaElement } from '@/types/models';
 
 interface TreeNode {
@@ -271,6 +272,20 @@ function TreeViewPanel({
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+              {/* Color indicator for elements */}
+              {node.type === 'element' && node.elementId && (
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    bgcolor: elements?.find(el => el.id === node.elementId)?.color || DEFAULT_ELEMENT_COLOR,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    flexShrink: 0,
+                  }}
+                />
+              )}
               <ListItemIcon sx={{ minWidth: 32 }}>
                 {getIcon(node.type, node.elementId ? elements?.find(el => el.id === node.elementId)?.type : undefined)}
               </ListItemIcon>
@@ -337,6 +352,21 @@ function TreeViewPanel({
           }}
           sx={{ pl: level * 2 + 2 }}
         >
+          {/* Color indicator for elements */}
+          {node.type === 'element' && node.elementId && (
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                bgcolor: elements?.find(el => el.id === node.elementId)?.color || DEFAULT_ELEMENT_COLOR,
+                border: '1px solid',
+                borderColor: 'divider',
+                flexShrink: 0,
+                mr: 1,
+              }}
+            />
+          )}
           <ListItemIcon sx={{ minWidth: 32 }}>
             {getIcon(node.type, node.elementId ? elements?.find(el => el.id === node.elementId)?.type : undefined)}
           </ListItemIcon>
