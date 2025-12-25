@@ -1,28 +1,13 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { Box } from '@mui/material';
 import MainLayout from './components/layout/MainLayout';
 import HomePage from './features/home/HomePage';
 import ProjectsPage from './features/projects/ProjectsPage';
 import DesignPage from './features/design/DesignPage';
 import ResultsPage from './features/results/ResultsPage';
-import LoginPage from './features/auth/LoginPage';
-import RegisterPage from './features/auth/RegisterPage';
+import { LoginPage, RegisterPage, ProtectedRoute } from './features/auth';
 import NotFoundPage from './features/common/NotFoundPage';
-import { useAppSelector } from './store/hooks';
 import NotificationManager from './components/common/NotificationManager';
-
-/**
- * ProtectedRoute wrapper ensures user is authenticated
- */
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  return <>{children}</>;
-}
 
 /**
  * Main App component with routing configuration

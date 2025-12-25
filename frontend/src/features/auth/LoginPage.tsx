@@ -1,7 +1,7 @@
 import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginStart, loginSuccess, loginFailure } from '@/store/authSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
@@ -14,8 +14,12 @@ import { authApi } from '@/api';
  */
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const { loading } = useAppSelector((state) => state.auth);
+
+  // Get the page user was trying to access before being redirected to login
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
 
   const {
     control,
@@ -41,7 +45,8 @@ function LoginPage() {
       
       dispatch(loginSuccess({ user: response.user, tokens: response.tokens }));
       dispatch(showSuccess('Login successful!'));
-      navigate('/');
+      // Redirect to the page they were trying to access, or home
+      navigate(from, { replace: true });
     } catch (error: any) {
       const errorMessage = error?.details?.detail || error?.message || 'Invalid credentials';
       dispatch(loginFailure(errorMessage));

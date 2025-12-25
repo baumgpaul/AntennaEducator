@@ -1,4 +1,4 @@
-// Authentication feature module
-export * from './LoginPage'
-export * from './RegisterPage'
-export * from './ProtectedRoute'
+// Authentication feature exports
+export { default as LoginPage } from './LoginPage'
+export { default as RegisterPage } from './RegisterPage'
+export { default as ProtectedRoute } from './ProtectedRoute'
