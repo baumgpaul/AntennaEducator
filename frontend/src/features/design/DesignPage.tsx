@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { Box } from '@mui/material';
 import { useParams } from 'react-router-dom';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { generateDipole } from '@/store/designSlice';
+import { showNotification } from '@/store/uiSlice';
 import DesignCanvas from './DesignCanvas';
 import TreeViewPanel from './TreeViewPanel';
 import PropertiesPanel from './PropertiesPanel';
 import RibbonMenu from './RibbonMenu';
 import ViewControls from './ViewControls';
+import { DipoleDialog } from './DipoleDialog';
 import type { Mesh } from '@/types/models';
 
 /**
@@ -14,30 +18,53 @@ import type { Mesh } from '@/types/models';
  */
 function DesignPage() {
   const { projectId } = useParams();
+  const dispatch = useAppDispatch();
+  const { mesh, meshGenerating } = useAppSelector((state) => state.design);
+  
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-
-  // Mock mesh data for demonstration - will be replaced with Redux state
-  const mockMesh: Mesh | undefined = undefined; // Set to actual mesh when available
-  /*
-  const mockMesh: Mesh = {
-    nodes: [
-      [0, 0, -0.5],
-      [0, 0, 0],
-      [0, 0, 0.5],
-    ],
-    edges: [
-      [0, 1],
-      [1, 2],
-    ],
-    radii: [0.001, 0.001],
-  };
-  */
+  const [dipoleDialogOpen, setDipoleDialogOpen] = useState(false);
 
   const handleAntennaTypeSelect = (type: string) => {
     console.log('Antenna type selected:', type);
-    // TODO: Open corresponding dialog (Dipole, Loop, Helix, etc.)
+    
+    // Open corresponding dialog
+    switch (type.toLowerCase()) {
+      case 'dipole':
+        setDipoleDialogOpen(true);
+        break;
+      case 'loop':
+        // TODO: Open LoopDialog
+        dispatch(showNotification({ message: 'Loop dialog coming soon!', severity: 'info' }));
+        break;
+      case 'helix':
+        // TODO: Open HelixDialog
+        dispatch(showNotification({ message: 'Helix dialog coming soon!', severity: 'info' }));
+        break;
+      case 'rod':
+        // TODO: Open RodDialog
+        dispatch(showNotification({ message: 'Rod dialog coming soon!', severity: 'info' }));
+        break;
+      default:
+        console.log('Unknown antenna type:', type);
+    }
+  };
+
+  const handleDipoleGenerate = async (data: any) => {
+    try {
+      await dispatch(generateDipole(data)).unwrap();
+      dispatch(showNotification({
+        message: `Dipole antenna "${data.name}" generated successfully!`,
+        severity: 'success',
+      }));
+    } catch (error: any) {
+      dispatch(showNotification({
+        message: error || 'Failed to generate dipole antenna',
+        severity: 'error',
+      }));
+      throw error; // Re-throw so dialog can handle it
+    }
   };
 
   const handleAnalysisAction = (action: string) => {
@@ -80,7 +107,7 @@ function DesignPage() {
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <DesignCanvas
-        mesh={mockMesh}
+        mesh={mesh || undefined}
         leftPanel={
           <TreeViewPanel
             selectedNodeId={selectedNodeId || undefined}
@@ -143,6 +170,13 @@ function DesignPage() {
         onToggleFullscreen={handleToggleFullscreen}
         gridVisible={gridVisible}
         isFullscreen={isFullscreen}
+      />
+      
+      {/* Antenna Configuration Dialogs */}
+      <DipoleDialog
+        open={dipoleDialogOpen}
+        onClose={() => setDipoleDialogOpen(false)}
+        onGenerate={handleDipoleGenerate}
       />
     </Box>
   );
