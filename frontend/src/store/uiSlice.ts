@@ -30,8 +30,6 @@ const initialState: UIState = {
   modals: {},
 }
 
-let notificationIdCounter = 0
-
 const uiSlice = createSlice({
   name: 'ui',
   initialState,
