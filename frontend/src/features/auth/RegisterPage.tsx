@@ -1,36 +1,47 @@
-import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink } from '@mui/material';
+import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress } from '@mui/material';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/store/hooks';
 import { showSuccess, showError } from '@/store/uiSlice';
+import { registerSchema, type RegisterFormData } from '@/utils/validation';
 
 /**
- * RegisterPage - User registration
- * Placeholder implementation - will be fully implemented in Task 9
+ * RegisterPage - User registration with form validation
+ * Uses react-hook-form with Zod validation schema
  */
 function RegisterPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      username: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
+
+  const onSubmit = async (_data: RegisterFormData) => {
+    setLoading(true);
     
-    if (password !== confirmPassword) {
-      dispatch(showError('Passwords do not match'));
-      return;
-    }
-    
-    // Mock registration (will integrate with backend in Task 9)
+    // Mock registration (will integrate with backend in Task 9d)
     try {
       await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
       dispatch(showSuccess('Registration successful! Please log in.'));
       navigate('/login');
     } catch (error) {
       dispatch(showError('Registration failed. Please try again.'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -54,51 +65,84 @@ function RegisterPage() {
             Sign up for Antenna Educator
           </Typography>
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-            <TextField
-              fullWidth
-              label="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              margin="normal"
-              required
-              autoFocus
+          <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 3 }}>
+            <Controller
+              name="username"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="Username"
+                  margin="normal"
+                  autoFocus
+                  error={!!errors.username}
+                  helperText={errors.username?.message}
+                  disabled={loading}
+                />
+              )}
             />
-            <TextField
-              fullWidth
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              margin="normal"
-              required
+
+            <Controller
+              name="email"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  margin="normal"
+                  error={!!errors.email}
+                  helperText={errors.email?.message}
+                  disabled={loading}
+                />
+              )}
             />
-            <TextField
-              fullWidth
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              margin="normal"
-              required
+
+            <Controller
+              name="password"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="Password"
+                  type="password"
+                  margin="normal"
+                  error={!!errors.password}
+                  helperText={errors.password?.message}
+                  disabled={loading}
+                />
+              )}
             />
-            <TextField
-              fullWidth
-              label="Confirm Password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              margin="normal"
-              required
+
+            <Controller
+              name="confirmPassword"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="Confirm Password"
+                  type="password"
+                  margin="normal"
+                  error={!!errors.confirmPassword}
+                  helperText={errors.confirmPassword?.message}
+                  disabled={loading}
+                />
+              )}
             />
+
             <Button
               type="submit"
               fullWidth
               variant="contained"
               size="large"
+              disabled={loading}
               sx={{ mt: 3, mb: 2 }}
             >
-              Sign Up
+              {loading ? <CircularProgress size={24} /> : 'Sign Up'}
             </Button>
 
             <Box sx={{ textAlign: 'center' }}>
@@ -108,6 +152,7 @@ function RegisterPage() {
                   component="button"
                   variant="body2"
                   onClick={() => navigate('/login')}
+                  type="button"
                 >
                   Sign in
                 </MuiLink>

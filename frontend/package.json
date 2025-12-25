@@ -13,21 +13,27 @@
   "dependencies": {
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
+    "@hookform/resolvers": "^5.2.2",
     "@mui/icons-material": "^5.15.3",
     "@mui/material": "^5.15.3",
+    "@react-three/drei": "^9.95.0",
+    "@react-three/fiber": "^8.15.16",
     "@reduxjs/toolkit": "^2.0.1",
     "@types/three": "^0.160.0",
     "axios": "^1.6.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-hook-form": "^7.69.0",
     "react-query": "^3.39.3",
     "react-redux": "^9.1.0",
     "react-router-dom": "^6.21.1",
     "three": "^0.160.0",
-    "@react-three/fiber": "^8.15.16",
-    "@react-three/drei": "^9.95.0"
+    "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
     "@types/node": "^20.10.6",
     "@types/react": "^18.2.46",
     "@types/react-dom": "^18.2.18",
@@ -40,9 +46,6 @@
     "prettier": "^3.1.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.10",
-    "vitest": "^1.1.1",
-    "@testing-library/react": "^14.1.2",
-    "@testing-library/jest-dom": "^6.1.5",
-    "@testing-library/user-event": "^14.5.1"
+    "vitest": "^1.1.1"
   }
 }

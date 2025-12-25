@@ -1,35 +1,46 @@
-import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink } from '@mui/material';
-import { useState } from 'react';
+import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress } from '@mui/material';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
-import { useAppDispatch } from '@/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginStart, loginSuccess, loginFailure } from '@/store/authSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
+import { loginSchema, type LoginFormData } from '@/utils/validation';
 
 /**
- * LoginPage - User authentication
- * Placeholder implementation with mock auth - will be enhanced in Task 9
+ * LoginPage - User authentication with form validation
+ * Uses react-hook-form with Zod validation schema
  */
 function LoginPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { loading } = useAppSelector((state) => state.auth);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
+
+  const onSubmit = async (data: LoginFormData) => {
     dispatch(loginStart());
     
-    // Mock authentication for now (will integrate with backend in Task 9)
+    // Mock authentication for now (will integrate with backend in Task 9c)
     try {
       await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
       
       const mockUser = {
         id: '1',
-        username: email.split('@')[0],
-        email: email,
+        username: data.email.split('@')[0],
+        email: data.email,
         created_at: new Date().toISOString(),
-      }
+      };
       
       const mockTokens = {
         access_token: 'mock-access-token',
@@ -66,34 +77,51 @@ function LoginPage() {
             Sign in to your account
           </Typography>
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-            <TextField
-              fullWidth
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              margin="normal"
-              required
-              autoFocus
+          <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 3 }}>
+            <Controller
+              name="email"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  margin="normal"
+                  autoFocus
+                  error={!!errors.email}
+                  helperText={errors.email?.message}
+                  disabled={loading}
+                />
+              )}
             />
-            <TextField
-              fullWidth
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              margin="normal"
-              required
+            
+            <Controller
+              name="password"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="Password"
+                  type="password"
+                  margin="normal"
+                  error={!!errors.password}
+                  helperText={errors.password?.message}
+                  disabled={loading}
+                />
+              )}
             />
+
             <Button
               type="submit"
               fullWidth
               variant="contained"
               size="large"
+              disabled={loading}
               sx={{ mt: 3, mb: 2 }}
             >
-              Sign In
+              {loading ? <CircularProgress size={24} /> : 'Sign In'}
             </Button>
 
             <Box sx={{ textAlign: 'center' }}>
@@ -103,6 +131,7 @@ function LoginPage() {
                   component="button"
                   variant="body2"
                   onClick={() => navigate('/register')}
+                  type="button"
                 >
                   Sign up
                 </MuiLink>
