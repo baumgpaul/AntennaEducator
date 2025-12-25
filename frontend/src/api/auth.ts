@@ -59,34 +59,23 @@ export const login = async (credentials: LoginRequest): Promise<LoginResponse> =
   if (USE_MOCK_API) {
     const mockResponse = await mockAuth.login(credentials);
     // Store tokens in localStorage
-    localStorage.setItem('auth_token', mockResponse.access_token);
-    localStorage.setItem('refresh_token', mockResponse.refresh_token);
+    if (mockResponse.access_token) {
+      localStorage.setItem('auth_token', mockResponse.access_token);
+    }
+    if (mockResponse.refresh_token) {
+      localStorage.setItem('refresh_token', mockResponse.refresh_token);
+    }
     return {
       user: mockResponse.user,
       tokens: {
-        access_token: mockResponse.access_token,
+        access_token: mockResponse.access_token || '',
         refresh_token: mockResponse.refresh_token,
-        token_type: mockResponse.token_type,
+        token_type: mockResponse.token_type || 'Bearer',
       }
     };
   }
   
   const response = await apiClient.post<LoginResponse>('/api/auth/login', credentials)
-  
-  if (USE_MOCK_API) {
-    const mockResponse = await mockAuth.register(data);
-    // Store tokens in localStorage
-    localStorage.setItem('auth_token', mockResponse.access_token);
-    localStorage.setItem('refresh_token', mockResponse.refresh_token);
-    return {
-      user: mockResponse.user,
-      tokens: {
-        access_token: mockResponse.access_token,
-        refresh_token: mockResponse.refresh_token,
-        token_type: mockResponse.token_type,
-      }
-    };
-  }
   
   // Store tokens in localStorage
   if (response.data.tokens.access_token) {
@@ -103,6 +92,25 @@ export const login = async (credentials: LoginRequest): Promise<LoginResponse> =
  * Register new user
  */
 export const register = async (data: RegisterRequest): Promise<RegisterResponse> => {
+  if (USE_MOCK_API) {
+    const mockResponse = await mockAuth.register(data);
+    // Store tokens in localStorage
+    if (mockResponse.access_token) {
+      localStorage.setItem('auth_token', mockResponse.access_token);
+    }
+    if (mockResponse.refresh_token) {
+      localStorage.setItem('refresh_token', mockResponse.refresh_token);
+    }
+    return {
+      user: mockResponse.user,
+      tokens: {
+        access_token: mockResponse.access_token || '',
+        refresh_token: mockResponse.refresh_token,
+        token_type: mockResponse.token_type || 'Bearer',
+      }
+    };
+  }
+  
   const response = await apiClient.post<RegisterResponse>('/api/auth/register', data)
   
   // Store tokens in localStorage

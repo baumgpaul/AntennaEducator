@@ -18,7 +18,6 @@ let mockUsers: MockUser[] = [
 ];
 
 let nextUserId = 2;
-let currentToken: string | null = null;
 
 // Simulate network delay
 const delay = (ms: number = 500) => new Promise(resolve => setTimeout(resolve, ms));
@@ -37,7 +36,6 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
   
   const token = `mock-token-${Date.now()}`;
   const refreshToken = `mock-refresh-${Date.now()}`;
-  currentToken = token;
   
   return {
     access_token: token,
@@ -46,7 +44,13 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
     user: {
       id: user.id,
       email: user.email,
-      name: user.name,
+      username: user.email.split('@')[0],
+      created_at: new Date().toISOString(),
+    },
+    tokens: {
+      access_token: token,
+      refresh_token: refreshToken,
+      token_type: 'Bearer',
     },
   };
 }
@@ -63,13 +67,12 @@ export async function register(data: RegisterRequest): Promise<LoginResponse> {
     id: String(nextUserId++),
     email: data.email,
     password: data.password,
-    name: data.name || data.email.split('@')[0],
+    name: data.username || data.email.split('@')[0],
   };
   mockUsers.push(newUser);
   
   const token = `mock-token-${Date.now()}`;
   const refreshToken = `mock-refresh-${Date.now()}`;
-  currentToken = token;
   
   return {
     access_token: token,
@@ -78,17 +81,22 @@ export async function register(data: RegisterRequest): Promise<LoginResponse> {
     user: {
       id: newUser.id,
       email: newUser.email,
-      name: newUser.name,
+      username: data.username,
+      created_at: new Date().toISOString(),
+    },
+    tokens: {
+      access_token: token,
+      refresh_token: refreshToken,
+      token_type: 'Bearer',
     },
   };
 }
 
 export async function logout(): Promise<void> {
   await delay(200);
-  currentToken = null;
 }
 
-export async function refreshToken(token: string): Promise<{ access_token: string; refresh_token: string }> {
+export async function refreshToken(_token: string): Promise<{ access_token: string; refresh_token: string }> {
   await delay(200);
   return {
     access_token: `mock-token-${Date.now()}`,
