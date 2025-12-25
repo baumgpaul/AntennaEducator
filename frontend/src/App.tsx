@@ -1,0 +1,57 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { Box } from '@mui/material';
+import MainLayout from './components/layout/MainLayout';
+import HomePage from './features/home/HomePage';
+import ProjectsPage from './features/projects/ProjectsPage';
+import DesignPage from './features/design/DesignPage';
+import ResultsPage from './features/results/ResultsPage';
+import LoginPage from './features/auth/LoginPage';
+import RegisterPage from './features/auth/RegisterPage';
+import NotFoundPage from './features/common/NotFoundPage';
+import { useAppSelector } from './store/hooks';
+import NotificationManager from './components/common/NotificationManager';
+
+/**
+ * ProtectedRoute wrapper ensures user is authenticated
+ */
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAppSelector((state) => state.auth);
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
+/**
+ * Main App component with routing configuration
+ */
+function App() {
+  return (
+    <Box sx={{ display: 'flex', height: '100vh', width: '100vw' }}>
+      {/* Global notification system */}
+      <NotificationManager />
+      
+      {/* Route definitions */}
+      <Routes>
+        {/* Public routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        
+        {/* Protected routes with main layout */}
+        <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+          <Route index element={<HomePage />} />
+          <Route path="projects" element={<ProjectsPage />} />
+          <Route path="design/:projectId?" element={<DesignPage />} />
+          <Route path="results/:simulationId?" element={<ResultsPage />} />
+        </Route>
+        
+        {/* 404 catch-all */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Box>
+  );
+}
+
+export default App;
