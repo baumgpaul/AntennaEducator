@@ -3,7 +3,7 @@
  * Manages antenna geometry, mesh, and design workflow state
  */
 
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import type {
   Mesh,
   Source,
@@ -14,6 +14,7 @@ import type {
   HelixConfig,
   RodConfig,
 } from '@/types/models'
+import { generateDipoleMesh } from '@/api/preprocessor'
 
 interface DesignState {
   // Antenna configuration
@@ -57,6 +58,40 @@ const initialState: DesignState = {
   meshError: null,
   solverError: null,
 }
+
+// ============================================================================
+// Async Thunks
+// ============================================================================
+
+/**
+ * Generate dipole antenna mesh
+ */
+export const generateDipole = createAsyncThunk(
+  'design/generateDipole',
+  async (
+    formData: {
+      name: string;
+      length: number;
+      radius: number;
+      gap: number;
+      frequency: number;
+      segments: number;
+      feedType: 'gap' | 'balanced';
+    },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await generateDipoleMesh(formData);
+      return response;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to generate dipole mesh');
+    }
+  }
+);
+
+// ============================================================================
+// Slice
+// ============================================================================
 
 const designSlice = createSlice({
   name: 'design',
@@ -176,6 +211,26 @@ const designSlice = createSlice({
     loadDesign: (_state, action: PayloadAction<Partial<DesignState>>) => {
       return { ...initialState, ...action.payload }
     },
+  },
+  extraReducers: (builder) => {
+    // Generate dipole mesh
+    builder
+      .addCase(generateDipole.pending, (state) => {
+        state.meshGenerating = true;
+        state.meshError = null;
+        state.antennaType = 'dipole';
+      })
+      .addCase(generateDipole.fulfilled, (state, action) => {
+        state.meshGenerating = false;
+        state.mesh = action.payload.mesh;
+        state.sources = action.payload.sources || [];
+        state.lumpedElements = action.payload.lumped_elements || [];
+        state.meshError = null;
+      })
+      .addCase(generateDipole.rejected, (state, action) => {
+        state.meshGenerating = false;
+        state.meshError = action.payload as string || 'Mesh generation failed';
+      });
   },
 })
 
