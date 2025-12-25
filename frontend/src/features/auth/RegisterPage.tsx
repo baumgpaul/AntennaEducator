@@ -1,12 +1,13 @@
-import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress } from '@mui/material';
+import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress, Alert } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/store/hooks';
 import { loginSuccess } from '@/store/authSlice';
-import { showSuccess, showError } from '@/store/uiSlice';
+import { showSuccess } from '@/store/uiSlice';
 import { registerSchema, type RegisterFormData } from '@/utils/validation';
+import { formatErrorMessage } from '@/utils/errors';
 import { authApi } from '@/api';
 
 /**
@@ -17,6 +18,7 @@ function RegisterPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   const {
     control,
@@ -34,6 +36,7 @@ function RegisterPage() {
 
   const onSubmit = async (data: RegisterFormData) => {
     setLoading(true);
+    setErrorMessage('');
     
     try {
       // Call real backend registration API
@@ -48,8 +51,8 @@ function RegisterPage() {
       dispatch(showSuccess('Registration successful! Welcome to Antenna Educator.'));
       navigate('/');
     } catch (error: any) {
-      const errorMessage = error?.details?.detail || error?.message || 'Registration failed';
-      dispatch(showError(`Registration failed: ${errorMessage}`));
+      const message = formatErrorMessage(error);
+      setErrorMessage(message);
     } finally {
       setLoading(false);
     }
@@ -76,6 +79,12 @@ function RegisterPage() {
           </Typography>
 
           <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 3 }}>
+            {errorMessage && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {errorMessage}
+              </Alert>
+            )}
+            
             <Controller
               name="username"
               control={control}

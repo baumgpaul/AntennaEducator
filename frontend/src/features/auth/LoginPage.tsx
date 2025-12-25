@@ -1,11 +1,13 @@
-import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress } from '@mui/material';
+import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress, Alert } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginStart, loginSuccess, loginFailure } from '@/store/authSlice';
-import { showSuccess, showError } from '@/store/uiSlice';
+import { showSuccess } from '@/store/uiSlice';
 import { loginSchema, type LoginFormData } from '@/utils/validation';
+import { formatErrorMessage } from '@/utils/errors';
 import { authApi } from '@/api';
 
 /**
@@ -17,6 +19,7 @@ function LoginPage() {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { loading } = useAppSelector((state) => state.auth);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   // Get the page user was trying to access before being redirected to login
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
@@ -34,6 +37,7 @@ function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
+    setErrorMessage('');
     dispatch(loginStart());
     
     try {
@@ -48,9 +52,9 @@ function LoginPage() {
       // Redirect to the page they were trying to access, or home
       navigate(from, { replace: true });
     } catch (error: any) {
-      const errorMessage = error?.details?.detail || error?.message || 'Invalid credentials';
-      dispatch(loginFailure(errorMessage));
-      dispatch(showError(`Login failed: ${errorMessage}`));
+      const message = formatErrorMessage(error);
+      setErrorMessage(message);
+      dispatch(loginFailure(message));
     }
   };
 
@@ -75,6 +79,12 @@ function LoginPage() {
           </Typography>
 
           <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 3 }}>
+            {errorMessage && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {errorMessage}
+              </Alert>
+            )}
+            
             <Controller
               name="email"
               control={control}
