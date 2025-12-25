@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Box } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { generateDipole } from '@/store/designSlice';
+import { generateDipole, generateLoop } from '@/store/designSlice';
 import { showNotification } from '@/store/uiSlice';
 import DesignCanvas from './DesignCanvas';
 import TreeViewPanel from './TreeViewPanel';
@@ -10,6 +10,7 @@ import PropertiesPanel from './PropertiesPanel';
 import RibbonMenu from './RibbonMenu';
 import ViewControls from './ViewControls';
 import { DipoleDialog } from './DipoleDialog';
+import { LoopDialog } from './LoopDialog';
 import type { Mesh } from '@/types/models';
 
 /**
@@ -27,6 +28,7 @@ function DesignPage() {
   const [gridVisible, setGridVisible] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dipoleDialogOpen, setDipoleDialogOpen] = useState(false);
+  const [loopDialogOpen, setLoopDialogOpen] = useState(false);
 
   const handleAntennaTypeSelect = (type: string) => {
     console.log('Antenna type selected:', type);
@@ -37,8 +39,7 @@ function DesignPage() {
         setDipoleDialogOpen(true);
         break;
       case 'loop':
-        // TODO: Open LoopDialog
-        dispatch(showNotification({ message: 'Loop dialog coming soon!', severity: 'info' }));
+        setLoopDialogOpen(true);
         break;
       case 'helix':
         // TODO: Open HelixDialog
@@ -63,6 +64,22 @@ function DesignPage() {
     } catch (error: any) {
       dispatch(showNotification({
         message: error || 'Failed to generate dipole antenna',
+        severity: 'error',
+      }));
+      throw error; // Re-throw so dialog can handle it
+    }
+  };
+
+  const handleLoopGenerate = async (data: any) => {
+    try {
+      await dispatch(generateLoop(data)).unwrap();
+      dispatch(showNotification({
+        message: `Loop antenna "${data.name}" generated successfully!`,
+        severity: 'success',
+      }));
+    } catch (error: any) {
+      dispatch(showNotification({
+        message: error || 'Failed to generate loop antenna',
         severity: 'error',
       }));
       throw error; // Re-throw so dialog can handle it
@@ -183,6 +200,11 @@ function DesignPage() {
         open={dipoleDialogOpen}
         onClose={() => setDipoleDialogOpen(false)}
         onGenerate={handleDipoleGenerate}
+      />
+      <LoopDialog
+        open={loopDialogOpen}
+        onClose={() => setLoopDialogOpen(false)}
+        onGenerate={handleLoopGenerate}
       />
     </Box>
   );

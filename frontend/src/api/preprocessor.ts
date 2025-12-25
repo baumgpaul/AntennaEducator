@@ -116,6 +116,69 @@ export const generateDipoleMesh = async (formData: {
   return createDipole(config);
 };
 
+/**
+ * Generate loop mesh from dialog form data
+ */
+export const generateLoopMesh = async (formData: {
+  name: string;
+  loopType: 'circular' | 'rectangular' | 'polygon';
+  radius?: number;
+  width?: number;
+  height?: number;
+  sides?: number;
+  circumradius?: number;
+  wireRadius: number;
+  frequency: number;
+  segments: number;
+}): Promise<PreprocessorResponse> => {
+  const baseConfig = {
+    loop_type: formData.loopType,
+    wire_radius: formData.wireRadius,
+    segments: formData.segments,
+    center_position: [0, 0, 0] as [number, number, number],
+    normal_vector: [0, 0, 1] as [number, number, number], // Loop in XY plane
+  };
+
+  let config: LoopConfig;
+
+  if (formData.loopType === 'circular') {
+    config = {
+      ...baseConfig,
+      loop_type: 'circular',
+      radius: formData.radius!,
+    };
+  } else if (formData.loopType === 'rectangular') {
+    config = {
+      ...baseConfig,
+      loop_type: 'rectangular',
+      width: formData.width!,
+      height: formData.height!,
+    };
+  } else {
+    // polygon - generate regular polygon vertices
+    const sides = formData.sides!;
+    const r = formData.circumradius!;
+    const vertices: [number, number, number][] = [];
+    
+    for (let i = 0; i < sides; i++) {
+      const angle = (2 * Math.PI * i) / sides;
+      vertices.push([
+        r * Math.cos(angle),
+        r * Math.sin(angle),
+        0,
+      ]);
+    }
+
+    config = {
+      ...baseConfig,
+      loop_type: 'polygon',
+      vertices,
+    };
+  }
+
+  return createLoop(config);
+};
+
 // Export all functions as a single object
 const preprocessorApi = {
   checkHealth,
@@ -126,6 +189,7 @@ const preprocessorApi = {
   validateGeometry,
   exportGeometry,
   generateDipoleMesh,
+  generateLoopMesh,
 }
 
 export default preprocessorApi

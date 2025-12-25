@@ -14,7 +14,7 @@ import type {
   HelixConfig,
   RodConfig,
 } from '@/types/models'
-import { generateDipoleMesh } from '@/api/preprocessor'
+import { generateDipoleMesh, generateLoopMesh } from '@/api/preprocessor'
 
 interface DesignState {
   // Antenna configuration
@@ -85,6 +85,35 @@ export const generateDipole = createAsyncThunk(
       return response;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to generate dipole mesh');
+    }
+  }
+);
+
+/**
+ * Generate loop antenna mesh
+ */
+export const generateLoop = createAsyncThunk(
+  'design/generateLoop',
+  async (
+    formData: {
+      name: string;
+      loopType: 'circular' | 'rectangular' | 'polygon';
+      radius?: number;
+      width?: number;
+      height?: number;
+      sides?: number;
+      circumradius?: number;
+      wireRadius: number;
+      frequency: number;
+      segments: number;
+    },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await generateLoopMesh(formData);
+      return response;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to generate loop mesh');
     }
   }
 );
@@ -228,6 +257,23 @@ const designSlice = createSlice({
         state.meshError = null;
       })
       .addCase(generateDipole.rejected, (state, action) => {
+        state.meshGenerating = false;
+        state.meshError = action.payload as string || 'Mesh generation failed';
+      })
+      // Generate loop mesh
+      .addCase(generateLoop.pending, (state) => {
+        state.meshGenerating = true;
+        state.meshError = null;
+        state.antennaType = 'loop';
+      })
+      .addCase(generateLoop.fulfilled, (state, action) => {
+        state.meshGenerating = false;
+        state.mesh = action.payload.mesh;
+        state.sources = action.payload.sources || [];
+        state.lumpedElements = action.payload.lumped_elements || [];
+        state.meshError = null;
+      })
+      .addCase(generateLoop.rejected, (state, action) => {
         state.meshGenerating = false;
         state.meshError = action.payload as string || 'Mesh generation failed';
       });

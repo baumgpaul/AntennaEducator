@@ -9,6 +9,6 @@ export { default as RibbonMenu } from './RibbonMenu'
 export { default as ViewControls } from './ViewControls'
 // Dialog components (Task 12)
 export * from './DipoleDialog'
-// export * from './LoopDialog'
+export * from './LoopDialog'
 // export * from './HelixDialog'
 
