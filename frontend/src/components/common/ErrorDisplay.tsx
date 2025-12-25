@@ -1,4 +1,4 @@
-import { Box, Typography, Button, Paper } from '@mui/material';
+import { Typography, Button, Paper } from '@mui/material';
 import { Error as ErrorIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import { parseApiError } from '@/utils/errors';
 
@@ -16,7 +16,7 @@ function ErrorDisplay({ error, onRetry, compact = false }: ErrorDisplayProps) {
 
   if (compact) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--mui-palette-error-main, #d32f2f)' }}>
         <ErrorIcon fontSize="small" />
         <Typography variant="body2" color="error">
           {errorInfo.message}
@@ -26,7 +26,7 @@ function ErrorDisplay({ error, onRetry, compact = false }: ErrorDisplayProps) {
             Retry
           </Button>
         )}
-      </Box>
+      </div>
     );
   }
 
@@ -41,9 +41,9 @@ function ErrorDisplay({ error, onRetry, compact = false }: ErrorDisplayProps) {
         color: 'error.dark',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
         <ErrorIcon sx={{ mt: 0.5 }} />
-        <Box sx={{ flex: 1 }}>
+        <div style={{ flex: 1 }}>
           <Typography variant="h6" gutterBottom>
             {errorInfo.title}
           </Typography>
@@ -60,8 +60,8 @@ function ErrorDisplay({ error, onRetry, compact = false }: ErrorDisplayProps) {
               {errorInfo.action || 'Retry'}
             </Button>
           )}
-        </Box>
-      </Box>
+        </div>
+      </div>
     </Paper>
   );
 }

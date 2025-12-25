@@ -15,8 +15,7 @@ import {
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PositionControl, PositionData, OrientationData } from '../../../components/PositionControl';
-
+import { PositionControl } from '@/components/PositionControl';
 // Zod validation schema
 const rodSchema = z.object({
   start_x: z.number().min(-10, 'X too small').max(10, 'X too large'),

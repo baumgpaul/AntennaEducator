@@ -6,7 +6,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Box,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -89,7 +88,7 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProp
       onClick={handleOpen}
     >
       <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
           <Typography variant="h6" component="h3" noWrap sx={{ flex: 1, pr: 1 }}>
             {project.name}
           </Typography>
@@ -100,7 +99,7 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProp
           >
             <MoreVertIcon />
           </IconButton>
-        </Box>
+        </div>
 
         {project.description && (
           <Typography

@@ -3,7 +3,6 @@ import {
   Toolbar,
   Typography,
   IconButton,
-  Box,
   Avatar,
   Menu,
   MenuItem,
@@ -85,7 +84,7 @@ function Header() {
         </Typography>
 
         {/* Right side controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {/* Theme toggle */}
           <Tooltip title={`Switch to ${mode === 'light' ? 'dark' : 'light'} mode`}>
             <IconButton color="inherit" onClick={handleThemeToggle}>
@@ -111,7 +110,7 @@ function Header() {
               )}
             </IconButton>
           </Tooltip>
-        </Box>
+        </div>
 
         {/* User dropdown menu */}
         <Menu

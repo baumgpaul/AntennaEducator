@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Box } from '@mui/material';
-import { useParams } from 'react-router-dom';
+// import { useParams } from 'react-router-dom'; // TODO: Use when needed
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { 
   generateDipole, 
@@ -22,14 +22,14 @@ import { HelixDialog } from './HelixDialog';
 import { RodDialog } from './RodDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { addLumpedElementToMesh } from '@/api/preprocessor';
-import type { Mesh, AntennaElement } from '@/types/models';
+
 
 /**
  * DesignPage - 3D antenna design interface
  * Main workspace for creating and editing antenna geometries
  */
 function DesignPage() {
-  const { projectId } = useParams();
+  // const { projectId } = useParams(); // TODO: Use projectId when needed
   const dispatch = useAppDispatch();
   const { 
     elements, 

@@ -6,7 +6,6 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
-  Box,
   Typography,
   IconButton,
   Collapse,
@@ -68,13 +67,13 @@ function Sidebar() {
         },
       }}
     >
-      <Box sx={{ overflow: 'auto', display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ overflow: 'auto', display: 'flex', flexDirection: 'column', height: '100%' }}>
         {/* Close button */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px' }}>
           <IconButton onClick={handleSidebarClose}>
             <ChevronLeft />
           </IconButton>
-        </Box>
+        </div>
 
         <Divider />
 
@@ -179,7 +178,7 @@ function Sidebar() {
             </List>
           </Collapse>
         </List>
-      </Box>
+      </div>
     </Drawer>
   );
 }

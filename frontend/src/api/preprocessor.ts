@@ -229,7 +229,7 @@ export async function generateRodMesh(formData: any): Promise<PreprocessorRespon
 }
 
 // Wrapper function for lumped element dialog
-export async function addLumpedElementToMesh(formData: any): Promise<LumpedElement> {
+export async function addLumpedElementToMesh(formData: any): Promise<any> {
   // Convert dialog data to LumpedElement shape (frontend state uses R/L/C_inv fields)
   const base = {
     node_start: formData.node1,

@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { CircularProgress, Typography } from '@mui/material';
 
 interface LoadingSpinnerProps {
   message?: string;
@@ -10,14 +10,13 @@ interface LoadingSpinnerProps {
  */
 function LoadingSpinner({ message = 'Loading...', size = 40 }: LoadingSpinnerProps) {
   return (
-    <Box
-      sx={{
+    <div style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 2,
-        py: 4,
+        gap: '16px',
+        padding: '32px 0',
       }}
     >
       <CircularProgress size={size} />
@@ -26,7 +25,7 @@ function LoadingSpinner({ message = 'Loading...', size = 40 }: LoadingSpinnerPro
           {message}
         </Typography>
       )}
-    </Box>
+    </div>
   );
 }
 

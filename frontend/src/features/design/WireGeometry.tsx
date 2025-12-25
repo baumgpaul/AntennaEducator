@@ -1,5 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useMemo, useState } from 'react';
 import * as THREE from 'three';
 import type { Mesh, AntennaElement } from '@/types/models';
 
@@ -34,11 +33,30 @@ function WireGeometry({
   onSelect,
   showNodes = false
 }: WireGeometryProps) {
-  const groupRef = useRef<THREE.Group>(null);
   const [hoveredElement, setHoveredElement] = useState<string | null>(null);
+  
+  console.log('WireGeometry render:', { 
+    elementsCount: elements?.length, 
+    hasLegacyMesh: !!mesh,
+    selectedElementId,
+    elements: elements?.map(e => ({ 
+      id: e.id, 
+      name: e.name, 
+      visible: e.visible, 
+      hasMesh: !!e.mesh,
+      nodeCount: e.mesh?.nodes?.length,
+      edgeCount: e.mesh?.edges?.length
+    }))
+  });
 
   // Convert elements or single mesh to renderable segments
   const elementSegments = useMemo(() => {
+    console.log('WireGeometry: Computing segments', { 
+      elementCount: elements?.length, 
+      hasLegacyMesh: !!mesh,
+      elements: elements?.map(e => ({ id: e.id, visible: e.visible, meshDefined: !!e.mesh }))
+    });
+    
     const result: Array<{
       elementId: string;
       segments: Array<{
@@ -142,6 +160,11 @@ function WireGeometry({
       }
     }
 
+    console.log('WireGeometry: Computed segments', { 
+      totalElements: result.length,
+      totalSegments: result.reduce((sum, el) => sum + el.segments.length, 0)
+    });
+
     return result;
   }, [elements, mesh, currentDistribution]);
 
@@ -172,17 +195,11 @@ function WireGeometry({
     }
   };
 
-  // Animation for selected/hovered state
-  useFrame((state) => {
-    if (groupRef.current && (selectedElementId || hoveredElement)) {
-      groupRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 3) * 0.05);
-    } else if (groupRef.current) {
-      groupRef.current.scale.setScalar(1);
-    }
-  });
+  // Removed pulsation animation - caused unwanted visual effects
+  // Selected/hovered state is now indicated by emissive glow only
 
   return (
-    <group ref={groupRef}>
+    <group>
       {elementSegments.map(({ elementId, segments }) => {
         const isSelected = elementId === selectedElementId || (elementId === 'single-mesh' && selected);
         const isHovered = elementId === hoveredElement;
@@ -203,6 +220,9 @@ function WireGeometry({
               );
 
               const color = getColorFromCurrent(segment.current);
+              
+              // Make wires more visible by using a minimum render radius
+              const renderRadius = Math.max(segment.radius, 0.003);
 
               return (
                 <group key={`${elementId}-${idx}`} position={midpoint} quaternion={orientation}>
@@ -226,31 +246,31 @@ function WireGeometry({
                       document.body.style.cursor = 'default';
                     }}
                   >
-                    <cylinderGeometry args={[segment.radius, segment.radius, length, 8]} />
+                    <cylinderGeometry args={[renderRadius, renderRadius, length, 16]} />
                     <meshStandardMaterial
                       color={color}
                       emissive={isSelected || isHovered ? color : new THREE.Color(0x000000)}
-                      emissiveIntensity={isSelected || isHovered ? 0.3 : 0}
-                      metalness={0.6}
-                      roughness={0.4}
+                      emissiveIntensity={isSelected || isHovered ? 0.5 : 0}
+                      metalness={0.7}
+                      roughness={0.3}
                     />
                   </mesh>
 
                   {/* Wire caps */}
                   <mesh position={[0, length / 2, 0]}>
-                    <sphereGeometry args={[segment.radius, 8, 8]} />
+                    <sphereGeometry args={[renderRadius, 12, 12]} />
                     <meshStandardMaterial
                       color={color}
-                      metalness={0.6}
-                      roughness={0.4}
+                      metalness={0.7}
+                      roughness={0.3}
                     />
                   </mesh>
                   <mesh position={[0, -length / 2, 0]}>
-                    <sphereGeometry args={[segment.radius, 8, 8]} />
+                    <sphereGeometry args={[renderRadius, 12, 12]} />
                     <meshStandardMaterial
                       color={color}
-                      metalness={0.6}
-                      roughness={0.4}
+                      metalness={0.7}
+                      roughness={0.3}
                     />
                   </mesh>
                 </group>

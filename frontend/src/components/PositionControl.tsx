@@ -4,7 +4,6 @@ import {
   Typography,
   InputAdornment,
   Box,
-  Divider,
 } from '@mui/material';
 import { Control, Controller } from 'react-hook-form';
 
@@ -21,7 +20,7 @@ export interface OrientationData {
 }
 
 interface PositionControlProps {
-  control: Control<any>;
+  control: Control<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   positionPrefix?: string;
   orientationPrefix?: string;
   showOrientation?: boolean;

@@ -98,7 +98,7 @@ function TreeViewPanel({
 
           // Add edges
           if (element.mesh.edges && element.mesh.edges.length > 0) {
-            element.mesh.edges.forEach((edge, idx) => {
+            element.mesh.edges.forEach((_, idx) => {
               meshNode.children!.push({
                 id: `${element.id}_edge_${idx}`,
                 elementId: element.id,
@@ -159,7 +159,7 @@ function TreeViewPanel({
 
       // Add edges
       if (mesh.edges && mesh.edges.length > 0) {
-        mesh.edges.forEach((edge, idx) => {
+        mesh.edges.forEach((_, idx) => {
           meshNode.children!.push({
             id: `edge_${idx}`,
             label: `Edge ${idx + 1}`,

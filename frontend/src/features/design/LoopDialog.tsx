@@ -22,7 +22,7 @@ import { Info } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PositionControl, PositionData, OrientationData } from '../../../components/PositionControl';
+import { PositionControl } from '@/components/PositionControl';
 
 // Common position and orientation schema
 const positionOrientationSchema = {

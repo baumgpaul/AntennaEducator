@@ -143,7 +143,7 @@ function DesignCanvas({
           margin: 0,
           padding: 0,
         }}>
-          <Scene3D>
+          <Scene3D elements={elements} mesh={mesh}>
             {(elements && elements.length > 0) || mesh ? (
               <WireGeometry
                 elements={elements}

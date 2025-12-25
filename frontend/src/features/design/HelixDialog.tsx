@@ -19,8 +19,7 @@ import {
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PositionControl, PositionData, OrientationData } from '../../../components/PositionControl';
-
+import { PositionControl } from '@/components/PositionControl';
 // Zod validation schema
 const helixSchema = z.object({
   diameter: z.number().positive('Diameter must be positive').max(10, 'Diameter too large'),

@@ -1,2 +1,3 @@
 // 3D visualization components
-// TODO: Add visualization components when needed
+export { default as ScaleIndicator } from './ScaleIndicator';
+export { default as AxisLabels } from './AxisLabels';

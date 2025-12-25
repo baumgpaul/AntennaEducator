@@ -20,12 +20,12 @@ function Footer() {
         borderTop: (theme) => `1px solid ${theme.palette.divider}`,
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="body2" color="text.secondary">
           © {currentYear} Antenna Educator. All rights reserved.
         </Typography>
         
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <div style={{ display: 'flex', gap: '16px' }}>
           <Link href="#" variant="body2" color="text.secondary" underline="hover">
             Documentation
           </Link>
@@ -35,8 +35,8 @@ function Footer() {
           <Link href="#" variant="body2" color="text.secondary" underline="hover">
             About
           </Link>
-        </Box>
-      </Box>
+        </div>
+      </div>
     </Box>
   );
 }

@@ -10,11 +10,11 @@ import Footer from './Footer';
  */
 function MainLayout() {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}>
       {/* Top header bar */}
       <Header />
       
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left sidebar */}
         <Sidebar />
         
@@ -29,15 +29,15 @@ function MainLayout() {
           }}
         >
           {/* Router outlet for page content */}
-          <Box sx={{ flex: 1, overflow: 'auto' }}>
+          <div style={{ flex: 1, overflow: 'auto' }}>
             <Outlet />
-          </Box>
+          </div>
           
           {/* Bottom footer */}
           <Footer />
         </Box>
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }
 

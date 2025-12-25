@@ -37,7 +37,7 @@ interface DesignState {
   lumpedElements: LumpedElement[]
   
   // UI state
-  viewMode: '3d' | '2d'
+  viewMode: '3d' | '2d' | 'tree' | 'properties'
   
   // Loading states
   meshGenerating: boolean
@@ -102,7 +102,7 @@ export const generateDipole = createAsyncThunk(
   ) => {
     try {
       const response = await generateDipoleMesh(formData)
-      return response
+      return { ...response, formData } // Include formData for position/rotation
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to generate dipole mesh')
     }
@@ -133,7 +133,7 @@ export const generateLoop = createAsyncThunk(
   ) => {
     try {
       const response = await generateLoopMesh(formData)
-      return response
+      return { ...response, formData }
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to generate loop mesh')
     }
@@ -162,7 +162,7 @@ export const generateHelix = createAsyncThunk(
   ) => {
     try {
       const response = await generateHelixMesh(formData)
-      return response
+      return { ...response, formData }
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to generate helix mesh')
     }
@@ -394,18 +394,29 @@ const designSlice = createSlice({
         
         console.log('Redux: Dipole generated, payload:', action.payload);
         
+        // Extract position and rotation from formData
+        const formData = action.payload.formData;
+        const position: [number, number, number] = formData 
+          ? [formData.position.x, formData.position.y, formData.position.z]
+          : [0, 0, 0];
+        const rotation: [number, number, number] = formData
+          ? [formData.orientation.rotX, formData.orientation.rotY, formData.orientation.rotZ]
+          : [0, 0, 0];
+        
         // Create AntennaElement from response
         const element: AntennaElement = {
           id: `dipole_${Date.now()}`,
           type: 'dipole',
-          name: `Dipole ${state.elements.length + 1}`,
+          name: formData?.name || `Dipole ${state.elements.length + 1}`,
           config: action.payload.element?.config || action.payload.element || {},
-          position: [0, 0, 0],  // Default position, will be configurable later
-          rotation: [0, 0, 0],  // Default rotation
+          position,
+          rotation,
           mesh: action.payload.mesh,
           visible: true,
           locked: false,
         };
+        
+        console.log('Redux: Created element with position:', position, 'rotation:', rotation);
         
         // Add to elements array
         state.elements.push(element);
@@ -430,14 +441,22 @@ const designSlice = createSlice({
       .addCase(generateLoop.fulfilled, (state, action) => {
         state.meshGenerating = false;
         
+        const formData = action.payload.formData;
+        const position: [number, number, number] = formData 
+          ? [formData.position.x, formData.position.y, formData.position.z]
+          : [0, 0, 0];
+        const rotation: [number, number, number] = formData
+          ? [formData.orientation.rotX, formData.orientation.rotY, formData.orientation.rotZ]
+          : [0, 0, 0];
+        
         // Create AntennaElement from response
         const element: AntennaElement = {
           id: `loop_${Date.now()}`,
           type: 'loop',
-          name: `Loop ${state.elements.length + 1}`,
+          name: formData?.name || `Loop ${state.elements.length + 1}`,
           config: action.payload.element?.config || action.payload.element || {},
-          position: [0, 0, 0],
-          rotation: [0, 0, 0],
+          position,
+          rotation,
           mesh: action.payload.mesh,
           visible: true,
           locked: false,
@@ -466,14 +485,22 @@ const designSlice = createSlice({
       .addCase(generateHelix.fulfilled, (state, action) => {
         state.meshGenerating = false;
         
+        const formData = action.payload.formData;
+        const position: [number, number, number] = formData 
+          ? [formData.position.x, formData.position.y, formData.position.z]
+          : [0, 0, 0];
+        const rotation: [number, number, number] = formData
+          ? [formData.orientation.rotX, formData.orientation.rotY, formData.orientation.rotZ]
+          : [0, 0, 0];
+        
         // Create AntennaElement from response
         const element: AntennaElement = {
           id: `helix_${Date.now()}`,
           type: 'helix',
           name: `Helix ${state.elements.length + 1}`,
           config: action.payload.element?.config || action.payload.element || {},
-          position: [0, 0, 0],
-          rotation: [0, 0, 0],
+          position,
+          rotation,
           mesh: action.payload.mesh,
           visible: true,
           locked: false,
@@ -502,13 +529,14 @@ const designSlice = createSlice({
       .addCase(generateRod.fulfilled, (state, action) => {
         state.meshGenerating = false;
         
-        // Create AntennaElement from response
+        // Rod uses start/end coordinates, not separate position field
+        // Position is implicitly defined by the rod geometry
         const element: AntennaElement = {
           id: `rod_${Date.now()}`,
           type: 'rod',
           name: `Rod ${state.elements.length + 1}`,
           config: action.payload.element?.config || action.payload.element || {},
-          position: [0, 0, 0],
+          position: [0, 0, 0], // Rod position is in its geometry
           rotation: [0, 0, 0],
           mesh: action.payload.mesh,
           visible: true,

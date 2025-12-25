@@ -1,4 +1,4 @@
-import { Box, Container, Typography, Paper, Grid, Button } from '@mui/material';
+import { Container, Typography, Paper, Grid, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { Dashboard, Folder, Assessment } from '@mui/icons-material';
 
@@ -11,14 +11,14 @@ function HomePage() {
 
   return (
     <Container maxWidth="lg">
-      <Box sx={{ mt: 4, mb: 4 }}>
+      <div style={{ marginTop: '32px', marginBottom: '32px' }}>
         <Typography variant="h3" gutterBottom>
           Welcome to Antenna Educator
         </Typography>
         <Typography variant="body1" color="text.secondary" paragraph>
           Design, simulate, and analyze antenna systems with our comprehensive PEEC-based solver.
         </Typography>
-      </Box>
+      </div>
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={4}>
