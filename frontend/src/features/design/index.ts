@@ -7,8 +7,8 @@ export { default as TreeViewPanel } from './TreeViewPanel'
 export { default as PropertiesPanel } from './PropertiesPanel'
 export { default as RibbonMenu } from './RibbonMenu'
 export { default as ViewControls } from './ViewControls'
-// Dialog components (to be created in Task 12)
-// export * from './DipoleDialog'
+// Dialog components (Task 12)
+export * from './DipoleDialog'
 // export * from './LoopDialog'
 // export * from './HelixDialog'
 
