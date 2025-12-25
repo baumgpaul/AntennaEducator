@@ -4,7 +4,7 @@ React-based web interface for the PEEC Antenna Simulator.
 
 ## Current Status
 
-**Phase 2 Progress: 53% Complete (Tasks 1-8, 9a of 15)**
+**Phase 2 Progress: 60% Complete (Tasks 1-8, 9a-c of 15)**
 
 ### ✅ Completed Features
 
@@ -20,6 +20,8 @@ React-based web interface for the PEEC Antenna Simulator.
 - **Authentication**: Mock login/register (ready for backend integration)
 - **Notifications**: Global notification system with Redux
 - **Form Validation**: react-hook-form + Zod schemas for authentication pages
+- **Auth API**: Real backend integration with JWT token management
+- **Protected Routes**: Automatic token refresh and route protection
 
 ### 🎯 Working Demo
 
@@ -35,12 +37,11 @@ The application is viewable and interactive at **http://localhost:3000**
 - ✅ See working notifications
 - ✅ Logout and return to login
 
-### 🚧 Next Up (Task 9b-e)
+### 🚧 Next Up (Task 9d-e)
 
-- Real backend authentication API integration
-- JWT token refresh logic
-- Protected route enforcement
-- Error handling and retry logic
+- Enhanced error handling and user feedback
+- API error recovery strategies
+- Loading states and skeleton screens
 
 ## Tech Stack
 
