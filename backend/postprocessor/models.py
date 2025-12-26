@@ -1,7 +1,7 @@
 """Pydantic models for Postprocessor service."""
 
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 import numpy as np
 
 
@@ -38,7 +38,8 @@ class FarFieldRequest(BaseModel):
     
     # Solver results
     frequencies: List[float] = Field(..., description="Frequencies [Hz]")
-    branch_currents: List[List[complex]] = Field(..., description="Branch currents [A]")
+    # Allow complex numbers as strings, dicts, or actual complex
+    branch_currents: List[List[Union[complex, str, Dict[str, float]]]] = Field(..., description="Branch currents [A]")
     
     # Geometry
     nodes: List[List[float]] = Field(..., description="Node coordinates")
