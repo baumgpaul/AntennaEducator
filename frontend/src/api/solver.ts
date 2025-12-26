@@ -10,6 +10,19 @@ import type {
   MultiFrequencySolverRequest,
   MultiFrequencySolverResult,
 } from '@/types/models'
+import type {
+  MultiAntennaRequest,
+  MultiAntennaSolutionResponse,
+} from '@/types/api'
+
+// Export helper functions
+export {
+  convertToMultiAntennaRequest,
+  parseComplex,
+  complexMagnitude,
+  complexPhase,
+  formatComplex,
+} from './solverHelpers'
 
 // ============================================================================
 // Health Check
@@ -28,7 +41,7 @@ export const checkHealth = async (): Promise<{ status: string }> => {
  * Solve for a single frequency
  */
 export const solveSingle = async (request: SolverRequest): Promise<SolverResult> => {
-  const response = await solverClient.post('/solve', request)
+  const response = await solverClient.post('/api/v1/solve/single', request)
   return handleApiResponse(response)
 }
 
@@ -39,6 +52,20 @@ export const solveMultiFrequency = async (
   request: MultiFrequencySolverRequest
 ): Promise<MultiFrequencySolverResult> => {
   const response = await solverClient.post('/solve/multi', request)
+  return handleApiResponse(response)
+}
+
+/**
+ * Solve multiple antennas at a single frequency
+ * This is the recommended method for all simulations as it:
+ * - Handles single antennas (just pass one in the array)
+ * - Handles antenna arrays (pass multiple antennas)
+ * - Returns per-antenna solutions with impedance and currents
+ */
+export const solveMultiAntenna = async (
+  request: MultiAntennaRequest
+): Promise<MultiAntennaSolutionResponse> => {
+  const response = await solverClient.post('/api/v1/solve/multi', request)
   return handleApiResponse(response)
 }
 
@@ -90,6 +117,7 @@ const solverApi = {
   checkHealth,
   solveSingle,
   solveMultiFrequency,
+  solveMultiAntenna,
   solveAsync,
   getJobStatus,
   cancelJob,
