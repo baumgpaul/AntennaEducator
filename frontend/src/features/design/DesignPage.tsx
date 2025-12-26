@@ -11,7 +11,12 @@ import {
   setSelectedElement,
   setElementColor,
   setElementPosition,
-  setElementRotation
+  setElementRotation,
+  updateElement,
+  removeElement,
+  duplicateElement,
+  setElementVisibility,
+  setElementLocked,
 } from '@/store/designSlice';
 import { addNotification } from '@/store/uiSlice';
 import { runSimulation, clearResults } from '@/store/solverSlice';
@@ -214,6 +219,45 @@ function DesignPage() {
     dispatch(setElementRotation({ id: elementId, rotation }));
   };
 
+  // Element management handlers
+  const handleElementRename = (elementId: string, newName: string) => {
+    dispatch(updateElement({ id: elementId, updates: { name: newName } }));
+    dispatch(addNotification({
+      id: Date.now(),
+      message: `Element renamed to "${newName}"`,
+      severity: 'success',
+      duration: 3000,
+    }));
+  };
+
+  const handleElementDuplicate = (elementId: string) => {
+    dispatch(duplicateElement(elementId));
+    dispatch(addNotification({
+      id: Date.now(),
+      message: 'Element duplicated',
+      severity: 'success',
+      duration: 3000,
+    }));
+  };
+
+  const handleElementDelete = (elementId: string) => {
+    dispatch(removeElement(elementId));
+    dispatch(addNotification({
+      id: Date.now(),
+      message: 'Element deleted',
+      severity: 'success',
+      duration: 3000,
+    }));
+  };
+
+  const handleElementLock = (elementId: string, locked: boolean) => {
+    dispatch(setElementLocked({ id: elementId, locked }));
+  };
+
+  const handleElementVisibilityToggle = (elementId: string, visible: boolean) => {
+    dispatch(setElementVisibility({ id: elementId, visible }));
+  };
+
   const handleAnalysisAction = async (action: string) => {
     console.log('Analysis action:', action);
     
@@ -338,6 +382,11 @@ function DesignPage() {
             elements={elements}
             selectedElementId={selectedElementId}
             onElementSelect={handleElementSelect}
+            onElementDelete={handleElementDelete}
+            onElementDuplicate={handleElementDuplicate}
+            onElementRename={handleElementRename}
+            onElementLock={handleElementLock}
+            onElementVisibilityToggle={handleElementVisibilityToggle}
             // Legacy props for backward compatibility
             mesh={mesh || undefined}
             sources={sources}

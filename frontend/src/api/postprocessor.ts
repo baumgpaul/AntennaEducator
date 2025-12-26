@@ -177,7 +177,6 @@ const postprocessorApi = {
   computeFields,
   computeFieldGrid,
   computeFarField,
-  computeRadiationPattern,
   computePatternPlanes,
   computeAntennaParameters,
   exportToVTK,

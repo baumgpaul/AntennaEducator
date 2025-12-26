@@ -13,6 +13,14 @@ import {
   IconButton,
   Tooltip,
   Chip,
+  Menu,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
 } from '@mui/material';
 import {
   ExpandMore,
@@ -26,6 +34,12 @@ import {
   Radio,
   AllInclusive,
   LinearScale,
+  MoreVert,
+  ContentCopy,
+  Delete,
+  Edit,
+  Lock,
+  LockOpen,
 } from '@mui/icons-material';
 import { DEFAULT_ELEMENT_COLOR } from '@/utils/colors';
 import type { Mesh, Source, LumpedElement, AntennaElement } from '@/types/models';
@@ -44,6 +58,11 @@ interface TreeViewPanelProps {
   elements?: AntennaElement[];
   selectedElementId?: string | null;
   onElementSelect?: (elementId: string) => void;
+  onElementDelete?: (elementId: string) => void;
+  onElementDuplicate?: (elementId: string) => void;
+  onElementRename?: (elementId: string, newName: string) => void;
+  onElementLock?: (elementId: string, locked: boolean) => void;
+  onElementVisibilityToggle?: (elementId: string, visible: boolean) => void;
   
   // Single mesh support (backward compatibility)
   mesh?: Mesh;
@@ -63,6 +82,11 @@ function TreeViewPanel({
   elements,
   selectedElementId,
   onElementSelect,
+  onElementDelete,
+  onElementDuplicate,
+  onElementRename,
+  onElementLock,
+  onElementVisibilityToggle,
   mesh,
   sources = [],
   lumpedElements = [],
@@ -70,6 +94,17 @@ function TreeViewPanel({
   onSelectNode,
   selectedNodeId,
 }: TreeViewPanelProps) {
+  // Element context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    elementId: string;
+  } | null>(null);
+  
+  // Rename dialog state
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renamingElementId, setRenamingElementId] = useState<string | null>(null);
+  const [newElementName, setNewElementName] = useState('');
   // Build tree data from elements or single mesh
   const treeData = useMemo<TreeNode[]>(() => {
     const result: TreeNode[] = [];
@@ -193,6 +228,55 @@ function TreeViewPanel({
     return result;
   }, [elements, mesh, sources, lumpedElements, antennaType]);
 
+  // Context menu handlers
+  const handleContextMenu = (e: React.MouseEvent, elementId: string) => {
+    e.preventDefault();
+    setContextMenu({
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      elementId,
+    });
+  };
+
+  const handleCloseContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  const handleRenameClick = (elementId: string) => {
+    const element = elements?.find(el => el.id === elementId);
+    if (element) {
+      setRenamingElementId(elementId);
+      setNewElementName(element.name);
+      setRenameDialogOpen(true);
+      handleCloseContextMenu();
+    }
+  };
+
+  const handleRenameConfirm = () => {
+    if (renamingElementId && newElementName.trim()) {
+      onElementRename?.(renamingElementId, newElementName.trim());
+      setRenameDialogOpen(false);
+      setRenamingElementId(null);
+    }
+  };
+
+  const handleDuplicateClick = (elementId: string) => {
+    onElementDuplicate?.(elementId);
+    handleCloseContextMenu();
+  };
+
+  const handleDeleteClick = (elementId: string) => {
+    if (window.confirm('Are you sure you want to delete this element?')) {
+      onElementDelete?.(elementId);
+      handleCloseContextMenu();
+    }
+  };
+
+  const handleLockClick = (elementId: string, currentLocked: boolean) => {
+    onElementLock?.(elementId, !currentLocked);
+    handleCloseContextMenu();
+  };
+
   const [visibilityState, setVisibilityState] = useState<Record<string, boolean>>({});
 
   const toggleVisibility = (nodeId: string) => {
@@ -241,7 +325,9 @@ function TreeViewPanel({
     const hasChildren = node.children && node.children.length > 0;
     const isSelected = (node.type === 'element' && selectedElementId === node.id) || 
                       (node.type !== 'element' && selectedNodeId === node.id);
-    const visible = isVisible(node.id);
+    // For element nodes, use Redux visible state; for others use local state
+    const visible = node.type === 'element' ? (node.visible ?? true) : isVisible(node.id);
+    const element = elements?.find(el => el.id === node.elementId && node.type === 'element');
 
     if (hasChildren) {
       return (
@@ -290,7 +376,11 @@ function TreeViewPanel({
                   size="small"
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleVisibility(node.id);
+                    if (node.type === 'element') {
+                      onElementVisibilityToggle?.(node.id, !visible);
+                    } else {
+                      toggleVisibility(node.id);
+                    }
                   }}
                   sx={{ p: 0.5 }}
                 >
@@ -301,6 +391,40 @@ function TreeViewPanel({
                   )}
                 </IconButton>
               </Tooltip>
+              {/* Element lock button */}
+              {node.type === 'element' && element && (
+                <Tooltip title={element.locked ? 'Unlock' : 'Lock'}>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLockClick(element.id, element.locked);
+                    }}
+                    sx={{ p: 0.5 }}
+                  >
+                    {element.locked ? (
+                      <Lock fontSize="small" />
+                    ) : (
+                      <LockOpen fontSize="small" />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              )}
+              {/* Element context menu */}
+              {node.type === 'element' && (
+                <Tooltip title="More actions">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleContextMenu(e, node.id);
+                    }}
+                    sx={{ p: 0.5 }}
+                  >
+                    <MoreVert fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Box>
           </AccordionSummary>
           <AccordionDetails sx={{ p: 0 }}>
@@ -321,7 +445,12 @@ function TreeViewPanel({
               edge="end"
               onClick={(e) => {
                 e.stopPropagation();
-                toggleVisibility(node.id);
+                // If it's an element node, dispatch to Redux; otherwise use local state
+                if (node.elementId && node.type === 'element') {
+                  onElementVisibilityToggle?.(node.elementId, !visible);
+                } else {
+                  toggleVisibility(node.id);
+                }
               }}
               sx={{ p: 0.5 }}
             >
@@ -445,6 +574,63 @@ function TreeViewPanel({
           </>
         )}
       </Box>
+
+      {/* Context Menu for Element Actions */}
+      <Menu
+        open={contextMenu !== null}
+        onClose={handleCloseContextMenu}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined
+        }
+      >
+        <MenuItem
+          onClick={() => contextMenu && handleRenameClick(contextMenu.elementId)}
+          sx={{ gap: 1 }}
+        >
+          <Edit fontSize="small" />
+          Rename
+        </MenuItem>
+        <MenuItem
+          onClick={() => contextMenu && handleDuplicateClick(contextMenu.elementId)}
+          sx={{ gap: 1 }}
+        >
+          <ContentCopy fontSize="small" />
+          Duplicate
+        </MenuItem>
+        <MenuItem
+          onClick={() => contextMenu && handleDeleteClick(contextMenu.elementId)}
+          sx={{ gap: 1, color: 'error.main' }}
+        >
+          <Delete fontSize="small" />
+          Delete
+        </MenuItem>
+      </Menu>
+
+      {/* Rename Element Dialog */}
+      <Dialog open={renameDialogOpen} onClose={() => setRenameDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Rename Element</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Element Name"
+            value={newElementName}
+            onChange={(e) => setNewElementName(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleRenameConfirm();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRenameDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleRenameConfirm} variant="contained" disabled={!newElementName.trim()}>
+            Rename
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
