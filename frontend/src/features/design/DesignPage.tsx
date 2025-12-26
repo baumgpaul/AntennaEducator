@@ -218,29 +218,43 @@ function DesignPage() {
     console.log('Analysis action:', action);
     
     if (action === 'run-solver') {
-      // Check if we have mesh and source
-      if (!mesh || !mesh.nodes || mesh.nodes.length === 0) {
+      // Check if we have elements
+      if (!elements || elements.length === 0) {
         dispatch(addNotification({
           id: Date.now(),
-          message: 'No mesh available. Please create an antenna first.',
+          message: 'No antenna elements. Please create an antenna first.',
           severity: 'warning',
           duration: 5000,
         }));
         return;
       }
 
-      if (!sources || sources.length === 0) {
+      // For now, solve the first element (single element case)
+      // TODO: Merge multiple elements into combined mesh
+      const element = elements[0];
+      
+      if (!element.mesh || !element.mesh.nodes || element.mesh.nodes.length === 0) {
         dispatch(addNotification({
           id: Date.now(),
-          message: 'No voltage source defined. Mesh cannot be solved.',
+          message: 'Element has no mesh. This should not happen.',
+          severity: 'error',
+          duration: 5000,
+        }));
+        return;
+      }
+
+      if (!element.sources || element.sources.length === 0) {
+        dispatch(addNotification({
+          id: Date.now(),
+          message: 'No voltage source defined. Cannot solve.',
           severity: 'warning',
           duration: 5000,
         }));
         return;
       }
 
-      // Use first source for now
-      const source = sources[0];
+      // Use first source
+      const source = element.sources[0];
       const frequency = 300e6; // Default 300 MHz
 
       try {
@@ -251,7 +265,7 @@ function DesignPage() {
           duration: 3000,
         }));
 
-        await dispatch(runSimulation({ mesh, frequency, source })).unwrap();
+        await dispatch(runSimulation({ mesh: element.mesh, frequency, source })).unwrap();
 
         dispatch(addNotification({
           id: Date.now(),
