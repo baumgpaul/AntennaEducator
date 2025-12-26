@@ -79,16 +79,26 @@ function WireGeometry({
         const mesh = element.mesh;
         if (!mesh.edges || !mesh.nodes || !mesh.radii) return;
         
+        console.log(`WireGeometry: Element ${element.id} - nodes: ${mesh.nodes.length}, edges: ${mesh.edges.length}, radii: ${mesh.radii.length}`);
+        
         const segments = mesh.edges.map((edge, idx) => {
+          // Backend uses 1-based indexing, convert to 0-based for JavaScript arrays
           const [startIdx, endIdx] = edge;
+          const startIdx0 = startIdx - 1;
+          const endIdx0 = endIdx - 1;
           
-          if (!mesh.nodes[startIdx] || !mesh.nodes[endIdx]) {
-            console.error(`WireGeometry: Invalid node indices - element ${element.id}, edge ${idx}`);
+          if (startIdx0 < 0 || endIdx0 < 0 || startIdx0 >= mesh.nodes.length || endIdx0 >= mesh.nodes.length) {
+            console.error(`WireGeometry: Invalid node indices - element ${element.id}, edge ${idx}, start=${startIdx}(${startIdx0}), end=${endIdx}(${endIdx0}), nodes.length=${mesh.nodes.length}`);
             return null;
           }
           
-          const start = mesh.nodes[startIdx];
-          const end = mesh.nodes[endIdx];
+          if (!mesh.nodes[startIdx0] || !mesh.nodes[endIdx0]) {
+            console.error(`WireGeometry: Undefined nodes - element ${element.id}, edge ${idx}`);
+            return null;
+          }
+          
+          const start = mesh.nodes[startIdx0];
+          const end = mesh.nodes[endIdx0];
           const radius = mesh.radii[idx];
 
           if (!start || !end || start.length < 3 || end.length < 3) {
@@ -130,15 +140,18 @@ function WireGeometry({
       // Single mesh mode (backward compatibility)
       if (mesh.edges && mesh.nodes && mesh.radii) {
         const segments = mesh.edges.map((edge, idx) => {
+          // Backend uses 1-based indexing, convert to 0-based for JavaScript arrays
           const [startIdx, endIdx] = edge;
+          const startIdx0 = startIdx - 1;
+          const endIdx0 = endIdx - 1;
           
-          if (!mesh.nodes[startIdx] || !mesh.nodes[endIdx]) {
-            console.error(`WireGeometry: Invalid node indices - edge ${idx}`);
+          if (startIdx0 < 0 || endIdx0 < 0 || !mesh.nodes[startIdx0] || !mesh.nodes[endIdx0]) {
+            console.error(`WireGeometry: Invalid node indices - edge ${idx}, start=${startIdx}(${startIdx0}), end=${endIdx}(${endIdx0})`);
             return null;
           }
           
-          const start = mesh.nodes[startIdx];
-          const end = mesh.nodes[endIdx];
+          const start = mesh.nodes[startIdx0];
+          const end = mesh.nodes[endIdx0];
           const radius = mesh.radii[idx];
 
           if (!start || !end || start.length < 3 || end.length < 3) {
@@ -248,6 +261,13 @@ function WireGeometry({
               
               // Make wires more visible by using a minimum render radius
               const renderRadius = Math.max(segment.radius, 0.003);
+              
+              // Detect if this is a gap segment (no adjacent segment at one end)
+              // Check if next/previous segment connects to this one
+              const hasNextSegment = idx < segments.length - 1 && 
+                segment.end.distanceTo(segments[idx + 1].start) < 0.001;
+              const hasPrevSegment = idx > 0 && 
+                segment.start.distanceTo(segments[idx - 1].end) < 0.001;
 
               return (
                 <group key={`${elementId}-${idx}`} position={midpoint} quaternion={orientation}>
@@ -281,49 +301,137 @@ function WireGeometry({
                     />
                   </mesh>
 
-                  {/* Wire caps */}
-                  <mesh position={[0, length / 2, 0]}>
-                    <sphereGeometry args={[renderRadius, 12, 12]} />
-                    <meshStandardMaterial
-                      color={color}
-                      metalness={0.7}
-                      roughness={0.3}
-                    />
-                  </mesh>
-                  <mesh position={[0, -length / 2, 0]}>
-                    <sphereGeometry args={[renderRadius, 12, 12]} />
-                    <meshStandardMaterial
-                      color={color}
-                      metalness={0.7}
-                      roughness={0.3}
-                    />
-                  </mesh>
+                  {/* Wire caps - only render where segments connect, NOT at terminals */}
+                  {/* Top cap: only if there's a next segment (not at terminal) */}
+                  {hasNextSegment && (
+                    <mesh position={[0, length / 2, 0]}>
+                      <sphereGeometry args={[renderRadius, 12, 12]} />
+                      <meshStandardMaterial
+                        color={color}
+                        metalness={0.7}
+                        roughness={0.3}
+                      />
+                    </mesh>
+                  )}
+                  {/* Bottom cap: only if there's a previous segment (not at terminal) */}
+                  {hasPrevSegment && (
+                    <mesh position={[0, -length / 2, 0]}>
+                      <sphereGeometry args={[renderRadius, 12, 12]} />
+                      <meshStandardMaterial
+                        color={color}
+                        metalness={0.7}
+                        roughness={0.3}
+                      />
+                    </mesh>
+                  )}
                 </group>
               );
             })}
 
-            {/* Node markers (optional, for debugging) */}
-            {showNodes && elements && elements.find(el => el.id === elementId)?.mesh?.nodes?.map((node, idx) => {
-              const element = elements.find(el => el.id === elementId)!;
-              return (
-                <mesh key={`node-${elementId}-${idx}`} position={new THREE.Vector3(
-                  node[0] + element.position[0], 
-                  node[1] + element.position[1], 
-                  node[2] + element.position[2]
-                )}>
-                  <sphereGeometry args={[0.02, 8, 8]} />
-                  <meshBasicMaterial color={isSelected ? 0xff0000 : 0xffff00} />
-                </mesh>
-              );
-            })}
+            {/* Node markers - only show nodes with sources or loads */}
+            {showNodes && elements && (() => {
+              const element = elements.find(el => el.id === elementId);
+              if (!element || !element.mesh) return null;
+              
+              // Collect important node indices (0-based)
+              const importantNodes = new Set<number>();
+              
+              // Add source nodes (convert from 1-based to 0-based)
+              if (element.sources && element.sources.length > 0) {
+                element.sources.forEach(src => {
+                  if (src.node_start !== undefined) {
+                    const nodeIdx = src.node_start - 1;
+                    if (nodeIdx >= 0) importantNodes.add(nodeIdx);
+                  }
+                  if (src.node_end !== undefined) {
+                    const nodeIdx = src.node_end - 1;
+                    if (nodeIdx >= 0) importantNodes.add(nodeIdx);
+                  }
+                });
+              }
+              
+              // Add lumped element nodes (convert from 1-based to 0-based)
+              if (element.lumped_elements && element.lumped_elements.length > 0) {
+                element.lumped_elements.forEach(le => {
+                  if (le.node_start !== undefined) {
+                    const nodeIdx = le.node_start - 1;
+                    if (nodeIdx >= 0) importantNodes.add(nodeIdx);
+                  }
+                  if (le.node_end !== undefined) {
+                    const nodeIdx = le.node_end - 1;
+                    if (nodeIdx >= 0) importantNodes.add(nodeIdx);
+                  }
+                });
+              }
+              
+              // Only render marked nodes
+              return element.mesh.nodes
+                .map((node, idx) => {
+                  if (!importantNodes.has(idx)) return null;
+                  
+                  // Calculate node sphere radius as 10% larger than wire radius
+                  // Use the first segment's radius as reference
+                  const wireRadius = element.mesh.radii && element.mesh.radii.length > 0 
+                    ? element.mesh.radii[0] 
+                    : 0.001; // fallback
+                  const renderRadius = Math.max(wireRadius, 0.003); // minimum visibility
+                  const nodeSphereRadius = renderRadius * 1.1;
+                  
+                  return (
+                    <mesh key={`node-${elementId}-${idx}`} position={new THREE.Vector3(
+                      node[0] + element.position[0], 
+                      node[1] + element.position[1], 
+                      node[2] + element.position[2]
+                    )}>
+                      <sphereGeometry args={[nodeSphereRadius, 12, 12]} />
+                      <meshStandardMaterial 
+                        color={isSelected ? 0xff0000 : 0x00ff00}
+                        emissive={0x00ff00}
+                        emissiveIntensity={0.5}
+                      />
+                    </mesh>
+                  );
+                })
+                .filter(Boolean);
+            })()}
             
             {/* Legacy single mesh node markers */}
-            {showNodes && elementId === 'single-mesh' && mesh?.nodes?.map((node, idx) => (
-              <mesh key={`node-${idx}`} position={new THREE.Vector3(node[0], node[1], node[2])}>
-                <sphereGeometry args={[0.02, 8, 8]} />
-                <meshBasicMaterial color={selected ? 0xff0000 : 0xffff00} />
-              </mesh>
-            ))}
+            {/* Node markers for single mesh - show source/load nodes only */}
+            {showNodes && elementId === 'single-mesh' && mesh && (() => {
+              // For single mesh mode, check global sources and lumped elements
+              const importantNodes = new Set<number>();
+              
+              // This would need access to sources from state - for now show first/last nodes
+              // TODO: Pass sources prop to filter nodes properly
+              if (mesh.nodes.length > 0) {
+                importantNodes.add(0); // First node (often ground)
+                importantNodes.add(Math.floor(mesh.nodes.length / 2)); // Middle (feed point)
+              }
+              
+              // Calculate node sphere radius as 10% larger than wire radius
+              const wireRadius = mesh.radii && mesh.radii.length > 0 
+                ? mesh.radii[0] 
+                : 0.001; // fallback
+              const renderRadius = Math.max(wireRadius, 0.003); // minimum visibility
+              const nodeSphereRadius = renderRadius * 1.1;
+              
+              return mesh.nodes
+                .map((node, idx) => {
+                  if (!importantNodes.has(idx)) return null;
+                  
+                  return (
+                    <mesh key={`node-single-${idx}`} position={new THREE.Vector3(node[0], node[1], node[2])}>
+                      <sphereGeometry args={[nodeSphereRadius, 12, 12]} />
+                      <meshStandardMaterial 
+                        color={selected ? 0xff0000 : 0x00ff00}
+                        emissive={0x00ff00}
+                        emissiveIntensity={0.5}
+                      />
+                    </mesh>
+                  );
+                })
+                .filter(Boolean);
+            })()}
           </group>
         );
       })}

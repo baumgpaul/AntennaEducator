@@ -109,6 +109,8 @@ export const generateDipoleMesh = async (formData: {
   frequency: number;
   segments: number;
   feedType: 'gap' | 'balanced';
+  position?: { x: number; y: number; z: number };
+  orientation?: { rotX: number; rotY: number; rotZ: number };
 }): Promise<PreprocessorResponse> => {
   const config: DipoleConfig = {
     length: formData.length,
@@ -116,9 +118,17 @@ export const generateDipoleMesh = async (formData: {
     gap: formData.gap,
     segments: formData.segments,
     balanced_feed: formData.feedType === 'balanced',
-    // Default values - Z-axis up
+    // Always generate at origin - frontend will apply position offset
     center_position: [0, 0, 0],
-    orientation: [0, 0, 1], // Dipole along Z-axis (vertical/up)
+    // Dipole along Z-axis (vertical/up)
+    // TODO: Apply rotation based on formData.orientation
+    orientation: [0, 0, 1],
+    // Default voltage source at gap
+    source: {
+      type: 'voltage',
+      amplitude: { real: 1.0, imag: 0.0 },
+      position: 'center',
+    },
   };
   
   return createDipole(config);
@@ -138,11 +148,14 @@ export const generateLoopMesh = async (formData: {
   wireRadius: number;
   frequency: number;
   segments: number;
+  position?: { x: number; y: number; z: number };
+  orientation?: { rotX: number; rotY: number; rotZ: number };
 }): Promise<PreprocessorResponse> => {
   const baseConfig = {
     loop_type: formData.loopType,
     wire_radius: formData.wireRadius,
     segments: formData.segments,
+    // Always generate at origin - frontend will apply position offset
     center_position: [0, 0, 0] as [number, number, number],
     normal_vector: [0, 0, 1] as [number, number, number], // Loop in XY plane, normal points up (Z)
   };
@@ -194,6 +207,7 @@ export async function generateHelixMesh(formData: any): Promise<PreprocessorResp
     pitch: formData.pitch,
     turns: formData.turns,
     wire_radius: formData.wire_radius,
+    // Always generate at origin - frontend will apply position offset
     center_position: [0, 0, 0],
     axis_direction: [0, 0, 1], // Helix grows along Z-axis (up)
     start_angle: 0,

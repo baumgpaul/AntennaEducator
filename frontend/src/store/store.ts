@@ -8,6 +8,7 @@ import authReducer from './authSlice'
 import projectsReducer from './projectsSlice'
 import designReducer from './designSlice'
 import uiReducer from './uiSlice'
+import solverReducer from './solverSlice'
 
 export const store = configureStore({
   reducer: {
@@ -15,16 +16,17 @@ export const store = configureStore({
     projects: projectsReducer,
     design: designReducer,
     ui: uiReducer,
+    solver: solverReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
         // Ignore these action types
-        ignoredActions: ['design/setMesh'],
+        ignoredActions: ['design/setMesh', 'solver/runSimulation/fulfilled', 'solver/runAsyncSimulation/fulfilled'],
         // Ignore these field paths in all actions
-        ignoredActionPaths: ['payload.mesh', 'payload.results'],
+        ignoredActionPaths: ['payload.mesh', 'payload.results', 'payload.branch_currents', 'meta.arg'],
         // Ignore these paths in the state
-        ignoredPaths: ['design.mesh', 'design.results'],
+        ignoredPaths: ['design.mesh', 'design.results', 'solver.results', 'solver.currentDistribution'],
       },
     }),
 })

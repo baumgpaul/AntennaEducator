@@ -31,6 +31,7 @@ function App() {
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route path="/" element={<HomePage />} />
           <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/design" element={<DesignPage />} />
           <Route path="/project/:projectId/design" element={<DesignPage />} />
           <Route path="/project/:projectId/results" element={<ResultsPage />} />
         </Route>

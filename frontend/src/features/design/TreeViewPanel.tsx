@@ -86,6 +86,32 @@ function TreeViewPanel({
           children: [],
         };
 
+        // Add sources as direct children of element
+        if (element.sources && element.sources.length > 0) {
+          element.sources.forEach((source, idx) => {
+            elementNode.children!.push({
+              id: `${element.id}_source_${idx}`,
+              elementId: element.id,
+              label: `${source.type.toUpperCase()} Source`,
+              type: 'source',
+              visible: element.visible,
+            });
+          });
+        }
+
+        // Add lumped elements as direct children of element
+        if (element.lumped_elements && element.lumped_elements.length > 0) {
+          element.lumped_elements.forEach((le, idx) => {
+            elementNode.children!.push({
+              id: `${element.id}_load_${idx}`,
+              elementId: element.id,
+              label: `${le.type.charAt(0).toUpperCase() + le.type.slice(1)}`,
+              type: 'load',
+              visible: element.visible,
+            });
+          });
+        }
+
         // Add mesh structure for each element
         if (element.mesh) {
           const meshNode: TreeNode = {
@@ -115,39 +141,6 @@ function TreeViewPanel({
 
         result.push(elementNode);
       });
-      
-      // Add global sources and lumped elements if any
-      if (sources.length > 0 || lumpedElements.length > 0) {
-        const globalNode: TreeNode = {
-          id: 'global',
-          label: 'Global Elements',
-          type: 'mesh',
-          visible: true,
-          children: [],
-        };
-
-        sources.forEach((source, idx) => {
-          globalNode.children!.push({
-            id: `source_${idx}`,
-            label: `${source.type.toUpperCase()} Source`,
-            type: 'source',
-            visible: true,
-          });
-        });
-
-        lumpedElements.forEach((element, idx) => {
-          globalNode.children!.push({
-            id: `lumped_${idx}`,
-            label: `${element.type.charAt(0).toUpperCase() + element.type.slice(1)}`,
-            type: 'load',
-            visible: true,
-          });
-        });
-
-        if (globalNode.children!.length > 0) {
-          result.push(globalNode);
-        }
-      }
     } else if (mesh) {
       // Single mesh mode (backward compatibility)
       const meshNode: TreeNode = {

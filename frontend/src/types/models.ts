@@ -145,6 +145,8 @@ export interface AntennaElement {
   position: Vector3D
   rotation: Vector3D  // Euler angles (rx, ry, rz) in radians
   mesh: Mesh
+  sources?: Source[]  // Voltage/current sources
+  lumped_elements?: LumpedElement[]  // Loads (R, L, C)
   visible: boolean
   locked: boolean
   color?: string  // Hex color string (e.g., '#FF8C00')

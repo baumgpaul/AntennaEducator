@@ -24,6 +24,10 @@ import {
   ExpandMore,
   ColorLens,
   TrendingUp,
+  Stop,
+  CheckCircle,
+  Error as ErrorIcon,
+  HourglassEmpty,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleVisualizationMode } from '@/store/uiSlice';
@@ -32,17 +36,21 @@ interface RibbonMenuProps {
   onAntennaTypeSelect?: (type: string) => void;
   onAnalysisAction?: (action: string) => void;
   onViewOption?: (option: string) => void;
+  solverStatus?: 'idle' | 'preparing' | 'running' | 'completed' | 'failed' | 'cancelled';
+  solverProgress?: number;
 }
 
 /**
  * RibbonMenu - Top toolbar with categorized actions
  * Similar to Microsoft Office ribbon interface
  */
-function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption }: RibbonMenuProps) {
+function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption, solverStatus = 'idle', solverProgress = 0 }: RibbonMenuProps) {
   const dispatch = useAppDispatch();
   const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
   const [currentTab, setCurrentTab] = useState(0);
   const [antennaMenuAnchor, setAntennaMenuAnchor] = useState<null | HTMLElement>(null);
+
+  const isSimulationRunning = solverStatus === 'preparing' || solverStatus === 'running';
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
@@ -204,13 +212,14 @@ function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption }: Rib
                 Simulation
               </Box>
               <ButtonGroup variant="outlined" size="small">
-                <Tooltip title="Run solver">
+                <Tooltip title={isSimulationRunning ? 'Simulation running...' : 'Run solver'}>
                   <Button
-                    startIcon={<PlayArrow />}
+                    startIcon={isSimulationRunning ? <HourglassEmpty /> : <PlayArrow />}
                     onClick={() => onAnalysisAction?.('run-solver')}
                     color="primary"
+                    disabled={isSimulationRunning}
                   >
-                    Solve
+                    {isSimulationRunning ? `${solverProgress}%` : 'Solve'}
                   </Button>
                 </Tooltip>
                 <Tooltip title="Solver configuration">
@@ -219,6 +228,35 @@ function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption }: Rib
                   </Button>
                 </Tooltip>
               </ButtonGroup>
+              {/* Status indicator */}
+              {solverStatus !== 'idle' && (
+                <Box sx={{ mt: 0.5, fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {solverStatus === 'completed' && (
+                    <>
+                      <CheckCircle sx={{ fontSize: '0.9rem', color: 'success.main' }} />
+                      <span style={{ color: 'var(--mui-palette-success-main)' }}>Complete</span>
+                    </>
+                  )}
+                  {solverStatus === 'failed' && (
+                    <>
+                      <ErrorIcon sx={{ fontSize: '0.9rem', color: 'error.main' }} />
+                      <span style={{ color: 'var(--mui-palette-error-main)' }}>Failed</span>
+                    </>
+                  )}
+                  {solverStatus === 'running' && (
+                    <>
+                      <HourglassEmpty sx={{ fontSize: '0.9rem', color: 'info.main' }} />
+                      <span style={{ color: 'var(--mui-palette-info-main)' }}>Running...</span>
+                    </>
+                  )}
+                  {solverStatus === 'preparing' && (
+                    <>
+                      <HourglassEmpty sx={{ fontSize: '0.9rem', color: 'info.main' }} />
+                      <span style={{ color: 'var(--mui-palette-info-main)' }}>Preparing...</span>
+                    </>
+                  )}
+                </Box>
+              )}
             </Box>
 
             <Divider orientation="vertical" flexItem />

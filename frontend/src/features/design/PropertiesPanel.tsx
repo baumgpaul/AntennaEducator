@@ -33,6 +33,8 @@ interface PropertiesPanelProps {
   // New: Support for AntennaElement editing
   antennaElement?: AntennaElement | null;
   onColorChange?: (elementId: string, color: string) => void;
+  onPositionChange?: (elementId: string, position: [number, number, number]) => void;
+  onRotationChange?: (elementId: string, rotation: [number, number, number]) => void;
 }
 
 /**
@@ -43,7 +45,9 @@ function PropertiesPanel({
   selectedElement, 
   onPropertyChange, 
   antennaElement, 
-  onColorChange 
+  onColorChange,
+  onPositionChange,
+  onRotationChange
 }: PropertiesPanelProps) {
   const renderPropertyField = (key: string, field: PropertyField) => {
     const handleChange = (value: string | number) => {
@@ -148,33 +152,36 @@ function PropertiesPanel({
   };
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box 
+      key={antennaElement?.id || selectedElement?.id || 'no-selection'} 
+      sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}
+    >
       {/* Header */}
       <Box
         sx={{
           p: 2,
           borderBottom: '1px solid',
           borderColor: 'divider',
-          bgcolor: 'background.default',
+          bgcolor: 'background.paper',
         }}
       >
-        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, color: 'text.primary' }}>
           Properties
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          {selectedElement ? 'Element properties' : 'No element selected'}
+          {antennaElement ? antennaElement.name : selectedElement ? 'Element properties' : 'No element selected'}
         </Typography>
       </Box>
 
       {/* Content */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+      <Box sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: 'background.paper' }}>
         {!selectedElement && !antennaElement ? (
           <Paper
             variant="outlined"
             sx={{
               p: 3,
               textAlign: 'center',
-              bgcolor: 'background.default',
+              bgcolor: 'background.paper',
               borderStyle: 'dashed',
             }}
           >
@@ -210,6 +217,7 @@ function PropertiesPanel({
                     size="small"
                     value={antennaElement.name}
                     disabled
+                    sx={{ bgcolor: 'background.default' }}
                   />
                 </Box>
 
@@ -243,7 +251,17 @@ function PropertiesPanel({
                       label="X"
                       type="number"
                       value={antennaElement.position[0]}
-                      disabled
+                      onChange={(e) => {
+                        if (onPositionChange) {
+                          const newPos: [number, number, number] = [
+                            parseFloat(e.target.value) || 0,
+                            antennaElement.position[1],
+                            antennaElement.position[2]
+                          ];
+                          onPositionChange(antennaElement.id, newPos);
+                        }
+                      }}
+                      sx={{ bgcolor: 'background.default' }}
                       InputProps={{
                         endAdornment: <Typography variant="caption">m</Typography>,
                       }}
@@ -254,7 +272,17 @@ function PropertiesPanel({
                       label="Y"
                       type="number"
                       value={antennaElement.position[1]}
-                      disabled
+                      onChange={(e) => {
+                        if (onPositionChange) {
+                          const newPos: [number, number, number] = [
+                            antennaElement.position[0],
+                            parseFloat(e.target.value) || 0,
+                            antennaElement.position[2]
+                          ];
+                          onPositionChange(antennaElement.id, newPos);
+                        }
+                      }}
+                      sx={{ bgcolor: 'background.default' }}
                       InputProps={{
                         endAdornment: <Typography variant="caption">m</Typography>,
                       }}
@@ -265,7 +293,17 @@ function PropertiesPanel({
                       label="Z"
                       type="number"
                       value={antennaElement.position[2]}
-                      disabled
+                      onChange={(e) => {
+                        if (onPositionChange) {
+                          const newPos: [number, number, number] = [
+                            antennaElement.position[0],
+                            antennaElement.position[1],
+                            parseFloat(e.target.value) || 0
+                          ];
+                          onPositionChange(antennaElement.id, newPos);
+                        }
+                      }}
+                      sx={{ bgcolor: 'background.default' }}
                       InputProps={{
                         endAdornment: <Typography variant="caption">m</Typography>,
                       }}
@@ -285,7 +323,18 @@ function PropertiesPanel({
                       label="X"
                       type="number"
                       value={(antennaElement.rotation[0] * 180 / Math.PI).toFixed(1)}
-                      disabled
+                      onChange={(e) => {
+                        if (onRotationChange) {
+                          const degToRad = parseFloat(e.target.value) * Math.PI / 180;
+                          const newRot: [number, number, number] = [
+                            degToRad,
+                            antennaElement.rotation[1],
+                            antennaElement.rotation[2]
+                          ];
+                          onRotationChange(antennaElement.id, newRot);
+                        }
+                      }}
+                      sx={{ bgcolor: 'background.default' }}
                       InputProps={{
                         endAdornment: <Typography variant="caption">°</Typography>,
                       }}
@@ -296,7 +345,18 @@ function PropertiesPanel({
                       label="Y"
                       type="number"
                       value={(antennaElement.rotation[1] * 180 / Math.PI).toFixed(1)}
-                      disabled
+                      onChange={(e) => {
+                        if (onRotationChange) {
+                          const degToRad = parseFloat(e.target.value) * Math.PI / 180;
+                          const newRot: [number, number, number] = [
+                            antennaElement.rotation[0],
+                            degToRad,
+                            antennaElement.rotation[2]
+                          ];
+                          onRotationChange(antennaElement.id, newRot);
+                        }
+                      }}
+                      sx={{ bgcolor: 'background.default' }}
                       InputProps={{
                         endAdornment: <Typography variant="caption">°</Typography>,
                       }}
@@ -307,7 +367,18 @@ function PropertiesPanel({
                       label="Z"
                       type="number"
                       value={(antennaElement.rotation[2] * 180 / Math.PI).toFixed(1)}
-                      disabled
+                      onChange={(e) => {
+                        if (onRotationChange) {
+                          const degToRad = parseFloat(e.target.value) * Math.PI / 180;
+                          const newRot: [number, number, number] = [
+                            antennaElement.rotation[0],
+                            antennaElement.rotation[1],
+                            degToRad
+                          ];
+                          onRotationChange(antennaElement.id, newRot);
+                        }
+                      }}
+                      sx={{ bgcolor: 'background.default' }}
                       InputProps={{
                         endAdornment: <Typography variant="caption">°</Typography>,
                       }}
@@ -367,7 +438,7 @@ function PropertiesPanel({
             )}
 
             {/* Additional Info Section */}
-            {selectedElement.type === 'edge' && (
+            {selectedElement && selectedElement.type === 'edge' && (
               <>
                 <Divider />
                 <Box>
@@ -398,7 +469,7 @@ function PropertiesPanel({
               </>
             )}
 
-            {selectedElement.type === 'source' && (
+            {selectedElement && selectedElement.type === 'source' && (
               <>
                 <Divider />
                 <Box>

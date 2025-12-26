@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { useAppSelector } from '@/store/hooks';
 import Scene3D from './Scene3D';
 import WireGeometry from './WireGeometry';
+import ColorLegend from './ColorLegend';
 import type { Mesh, AntennaElement } from '@/types/models';
 
 interface DesignCanvasProps {
@@ -42,6 +43,13 @@ function DesignCanvas({
   
   // Get visualization mode from Redux store
   const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
+
+  // Auto-open right panel when an element is selected
+  useEffect(() => {
+    if (selectedElementId) {
+      setRightPanelOpen(true);
+    }
+  }, [selectedElementId]);
 
   const leftPanelWidth = 280;
   const rightPanelWidth = 320;
@@ -157,11 +165,16 @@ function DesignCanvas({
                 currentDistribution={currentDistribution}
                 selected={selectedElement !== null}
                 onSelect={() => setSelectedElement(selectedElement === null ? 0 : null)}
-                showNodes={false} // Hide debug node markers by default
+                showNodes={true} // Show source and load connection points
                 visualizationMode={visualizationMode}
               />
             ) : null}
           </Scene3D>
+
+          {/* Color Legend - Show only in element-colors mode */}
+          {visualizationMode === 'element-colors' && (
+            <ColorLegend elements={elements} visible={true} />
+          )}
 
           {/* Center overlay for empty state */}
           {!elements?.length && !mesh && (

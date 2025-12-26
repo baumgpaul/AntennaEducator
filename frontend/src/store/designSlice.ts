@@ -265,6 +265,20 @@ const designSlice = createSlice({
       }
     },
 
+    setElementPosition: (state, action: PayloadAction<{ id: string; position: [number, number, number] }>) => {
+      const index = state.elements.findIndex(el => el.id === action.payload.id)
+      if (index >= 0) {
+        state.elements[index].position = action.payload.position
+      }
+    },
+
+    setElementRotation: (state, action: PayloadAction<{ id: string; rotation: [number, number, number] }>) => {
+      const index = state.elements.findIndex(el => el.id === action.payload.id)
+      if (index >= 0) {
+        state.elements[index].rotation = action.payload.rotation
+      }
+    },
+
     setSelectedElement: (state, action: PayloadAction<string | null>) => {
       state.selectedElementId = action.payload
     },
@@ -423,6 +437,8 @@ const designSlice = createSlice({
           position,
           rotation,
           mesh: action.payload.mesh,
+          sources: action.payload.element?.sources || [],
+          lumped_elements: action.payload.element?.lumped_elements || [],
           visible: true,
           locked: false,
           color,
@@ -593,6 +609,8 @@ export const {
   setElementVisibility,
   setElementLocked,
   setElementColor,
+  setElementPosition,
+  setElementRotation,
   setSelectedElement,
   setActiveElement,
   clearElements,

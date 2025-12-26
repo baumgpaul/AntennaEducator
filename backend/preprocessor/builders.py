@@ -144,16 +144,21 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
     edges = []
     
     if gap > 0:
-        # Create two separate poles with gap in between
-        # Upper half: nodes from gap/2 to (length-gap)/2
-        # Matching MATLAB: z = linspace(gap/2, (length-gap)/2, N_half+1)
-        z_start = gap / 2.0
-        z_end = (length - gap) / 2.0
+        # Create two separate poles with gap in between (symmetric about center)
+        # Upper half: nodes from gap/2 to length/2
+        # Lower half: nodes from -gap/2 to -length/2
+        # Each half has length (length - gap) / 2
+        z_start_upper = gap / 2.0
+        z_end_upper = length / 2.0
+        
+        print(f"DEBUG: Creating dipole - length={length}, gap={gap}")
+        print(f"DEBUG: Upper half: {z_start_upper} to {z_end_upper} (length={(z_end_upper-z_start_upper)})")
+        print(f"DEBUG: Lower half: {-z_start_upper} to {-z_end_upper} (length={(z_end_upper-z_start_upper)})")
         
         # Create nodes for upper half
         for i in range(n_segments_per_half + 1):
             t = i / n_segments_per_half
-            z = z_start + t * (z_end - z_start)
+            z = z_start_upper + t * (z_end_upper - z_start_upper)
             node = center + z * orientation
             nodes.append(node.tolist())
         
@@ -161,13 +166,15 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         for i in range(n_segments_per_half):
             edges.append([i + 1, i + 2])
         
-        # Lower half: nodes from -gap/2 to -(length-gap)/2
-        # Matching MATLAB: z = -linspace(gap/2, (length-gap)/2, N_half+1)
+        # Lower half: nodes from -gap/2 to -length/2 (symmetric)
         # Create nodes for lower half (mirrored)
         node_offset = n_segments_per_half + 1
+        z_start_lower = -gap / 2.0
+        z_end_lower = -length / 2.0
+        
         for i in range(n_segments_per_half + 1):
             t = i / n_segments_per_half
-            z = -(z_start + t * (z_end - z_start))
+            z = z_start_lower + t * (z_end_lower - z_start_lower)
             node = center + z * orientation
             nodes.append(node.tolist())
         

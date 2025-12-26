@@ -9,9 +9,12 @@ import {
   generateRod, 
   addLumpedElement,
   setSelectedElement,
-  setElementColor
+  setElementColor,
+  setElementPosition,
+  setElementRotation
 } from '@/store/designSlice';
 import { addNotification } from '@/store/uiSlice';
+import { runSimulation, clearResults } from '@/store/solverSlice';
 import DesignCanvas from './DesignCanvas';
 import TreeViewPanel from './TreeViewPanel';
 import PropertiesPanel from './PropertiesPanel';
@@ -42,6 +45,14 @@ function DesignPage() {
     meshGenerating 
   } = useAppSelector(
     (state) => state.design
+  );
+  
+  const { 
+    status: solverStatus, 
+    progress: solverProgress,
+    currentDistribution 
+  } = useAppSelector(
+    (state) => state.solver
   );
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -191,9 +202,81 @@ function DesignPage() {
     dispatch(setElementColor({ id: elementId, color }));
   };
 
-  const handleAnalysisAction = (action: string) => {
+  // Position change handler
+  const handlePositionChange = (elementId: string, position: [number, number, number]) => {
+    console.log('Position changed:', elementId, position);
+    dispatch(setElementPosition({ id: elementId, position }));
+  };
+
+  // Rotation change handler
+  const handleRotationChange = (elementId: string, rotation: [number, number, number]) => {
+    console.log('Rotation changed:', elementId, rotation);
+    dispatch(setElementRotation({ id: elementId, rotation }));
+  };
+
+  const handleAnalysisAction = async (action: string) => {
     console.log('Analysis action:', action);
-    // TODO: Implement mesh generation, solver execution, etc.
+    
+    if (action === 'run-solver') {
+      // Check if we have mesh and source
+      if (!mesh || !mesh.nodes || mesh.nodes.length === 0) {
+        dispatch(addNotification({
+          id: Date.now(),
+          message: 'No mesh available. Please create an antenna first.',
+          severity: 'warning',
+          duration: 5000,
+        }));
+        return;
+      }
+
+      if (!sources || sources.length === 0) {
+        dispatch(addNotification({
+          id: Date.now(),
+          message: 'No voltage source defined. Mesh cannot be solved.',
+          severity: 'warning',
+          duration: 5000,
+        }));
+        return;
+      }
+
+      // Use first source for now
+      const source = sources[0];
+      const frequency = 300e6; // Default 300 MHz
+
+      try {
+        dispatch(addNotification({
+          id: Date.now(),
+          message: `Running simulation at ${(frequency / 1e6).toFixed(0)} MHz...`,
+          severity: 'info',
+          duration: 3000,
+        }));
+
+        await dispatch(runSimulation({ mesh, frequency, source })).unwrap();
+
+        dispatch(addNotification({
+          id: Date.now(),
+          message: 'Simulation completed successfully!',
+          severity: 'success',
+          duration: 5000,
+        }));
+      } catch (error: any) {
+        dispatch(addNotification({
+          id: Date.now(),
+          message: `Simulation failed: ${error}`,
+          severity: 'error',
+          duration: 7000,
+        }));
+      }
+    } else if (action === 'view-results') {
+      console.log('View results');
+    } else if (action === 'generate-mesh') {
+      dispatch(addNotification({
+        id: Date.now(),
+        message: 'Mesh is automatically generated when antenna is created.',
+        severity: 'info',
+        duration: 4000,
+      }));
+    }
   };
 
   const handleViewOption = (option: string) => {
@@ -235,6 +318,7 @@ function DesignPage() {
         selectedElementId={selectedElementId}
         onElementSelect={handleElementSelect}
         mesh={mesh || undefined} // Keep for backward compatibility
+        currentDistribution={currentDistribution || undefined} // Pass solver results
         leftPanel={
           <TreeViewPanel
             elements={elements}
@@ -257,6 +341,8 @@ function DesignPage() {
                 : undefined
             }
             onColorChange={handleColorChange}
+            onPositionChange={handlePositionChange}
+            onRotationChange={handleRotationChange}
             selectedElement={
               selectedNodeId && !selectedElementId
                 ? {
@@ -300,6 +386,8 @@ function DesignPage() {
             onAntennaTypeSelect={handleAntennaTypeSelect}
             onAnalysisAction={handleAnalysisAction}
             onViewOption={handleViewOption}
+            solverStatus={solverStatus}
+            solverProgress={solverProgress}
           />
         }
       />
