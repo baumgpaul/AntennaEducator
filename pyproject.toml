@@ -106,6 +106,7 @@ addopts = [
 markers = [
     "critical: Critical tests that must pass (gold standard tests like halfwave dipole)",
     "solver: Tests related to the PEEC solver core functionality",
+    "multi_antenna: Tests for multi-antenna solver functionality",
     "unit: Unit tests",
     "integration: Integration tests combining multiple components",
     "e2e: End-to-end tests",
