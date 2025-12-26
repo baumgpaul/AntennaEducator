@@ -145,11 +145,11 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
     
     if gap > 0:
         # Create two separate poles with gap in between (symmetric about center)
-        # Upper half: nodes from gap/2 to length/2
-        # Lower half: nodes from -gap/2 to -length/2
+        # Upper half: nodes from gap/2 to (length-gap)/2
+        # Lower half: nodes from -gap/2 to -(length-gap)/2
         # Each half has length (length - gap) / 2
         z_start_upper = gap / 2.0
-        z_end_upper = length / 2.0
+        z_end_upper = (length - gap) / 2.0
         
         print(f"DEBUG: Creating dipole - length={length}, gap={gap}")
         print(f"DEBUG: Upper half: {z_start_upper} to {z_end_upper} (length={(z_end_upper-z_start_upper)})")
@@ -166,11 +166,11 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         for i in range(n_segments_per_half):
             edges.append([i + 1, i + 2])
         
-        # Lower half: nodes from -gap/2 to -length/2 (symmetric)
+        # Lower half: nodes from -gap/2 to -(length-gap)/2 (symmetric)
         # Create nodes for lower half (mirrored)
         node_offset = n_segments_per_half + 1
         z_start_lower = -gap / 2.0
-        z_end_lower = -length / 2.0
+        z_end_lower = -(length - gap) / 2.0
         
         for i in range(n_segments_per_half + 1):
             t = i / n_segments_per_half

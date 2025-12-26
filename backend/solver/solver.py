@@ -424,7 +424,7 @@ def solve_peec_frequency_sweep(
         solution = FrequencyPoint(
             frequency=freq,
             omega=omega,
-            branch_currents=I.copy(),
+            branch_currents=I[:n_edges].copy(),  # Only edge currents, not source/load currents
             node_voltages=V.copy(),
             appended_voltages=V_app.copy(),
             input_impedance=input_impedance,

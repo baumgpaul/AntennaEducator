@@ -43,7 +43,7 @@ def test_complete_dipole_farfield_flow():
     assert response.status_code == 200, f"Solver failed: {response.text}"
     
     solve_result = response.json()
-    print(f"  ✓ Solved: Z = {solve_result['antenna_solutions'][0]['input_impedance']}")
+    print(f"  [OK] Solved: Z = {solve_result['antenna_solutions'][0]['input_impedance']}")
     
     # Step 2: Prepare geometry for far-field (combine both antennas, 1-based edges)
     print("\nStep 2: Preparing far-field request...")
@@ -94,13 +94,13 @@ def test_complete_dipole_farfield_flow():
     response = requests.post(f"{POSTPROCESSOR_URL}/api/v1/fields/far", json=farfield_request, timeout=30)
     
     if response.status_code != 200:
-        print(f"  ✗ Far-field failed: {response.status_code}")
+        print(f"  [ERROR] Far-field failed: {response.status_code}")
         print(f"  Response: {response.text}")
         pytest.fail(f"Far-field computation failed: {response.text}")
     
     farfield_result = response.json()
-    print(f"  ✓ Directivity: {farfield_result['directivity']:.2f} dBi")
-    print(f"  ✓ Max direction: θ={farfield_result['max_direction'][0]:.1f}°, φ={farfield_result['max_direction'][1]:.1f}°")
+    print(f"  [OK] Directivity: {farfield_result['directivity']:.2f} dBi")
+    print(f"  [OK] Max direction: θ={farfield_result['max_direction'][0]:.1f}°, φ={farfield_result['max_direction'][1]:.1f}°")
     
     # Step 4: Validate
     print("\nStep 4: Validating...")
@@ -111,9 +111,9 @@ def test_complete_dipole_farfield_flow():
     print(f"  Error: {error:.2f} dB")
     
     assert error < 1.0, f"Directivity error {error:.2f} dB exceeds 1 dB"
-    print(f"  ✓ Within tolerance!")
+    print(f"  [OK] Within tolerance!")
     
-    print("\n✅ Complete flow test PASSED")
+    print("\n[SUCCESS] Complete flow test PASSED")
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
