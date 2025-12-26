@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from datetime import datetime
+import numpy as np
 
 from .config import settings
 from .models import (
@@ -12,6 +13,7 @@ from .models import (
     RadiationPatternResponse,
     AntennaParametersRequest
 )
+from .field import compute_far_field, compute_directivity_from_pattern
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -91,10 +93,10 @@ async def compute_near_field(request: FieldRequest):
 
 @app.post(
     f"{settings.api_prefix}/fields/far",
-    response_model=dict,
+    response_model=RadiationPatternResponse,
     summary="Compute far-field radiation pattern"
 )
-async def compute_far_field(request: FarFieldRequest):
+async def compute_far_field_endpoint(request: FarFieldRequest):
     """
     Compute far-field radiation pattern over angular grid.
     
@@ -105,19 +107,84 @@ async def compute_far_field(request: FarFieldRequest):
     - Maximum radiation direction
     """
     try:
-        # TODO: Implement actual far-field computation
-        # For now, return a placeholder response
-        return {
-            "status": "success",
-            "message": "Far-field computation endpoint - implementation pending",
-            "frequencies": request.frequencies,
-            "angular_resolution": {
-                "theta_points": request.theta_points,
-                "phi_points": request.phi_points
-            },
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        # Convert inputs to numpy arrays
+        frequencies = np.array(request.frequencies)
+        nodes = np.array(request.nodes)
+        edges = np.array(request.edges)
+        
+        # Handle branch_currents which can be complex numbers in different formats
+        branch_currents_list = []
+        for freq_currents in request.branch_currents:
+            currents = []
+            for c in freq_currents:
+                if isinstance(c, (list, tuple)) and len(c) == 2:
+                    currents.append(complex(c[0], c[1]))
+                elif isinstance(c, str):
+                    currents.append(complex(c))
+                else:
+                    currents.append(complex(c))
+            branch_currents_list.append(currents)
+        branch_currents = np.array(branch_currents_list, dtype=complex)
+        
+        # Ensure branch_currents is 2D
+        if branch_currents.ndim == 1:
+            branch_currents = branch_currents.reshape(1, -1)
+        
+        # Create angular grid
+        theta_angles = np.linspace(0, np.pi, request.theta_points)
+        phi_angles = np.linspace(0, 2*np.pi, request.phi_points)
+        
+        # Compute far-field pattern
+        E_field, H_field = compute_far_field(
+            frequencies=frequencies,
+            branch_currents=branch_currents,
+            nodes=nodes,
+            edges=edges,
+            theta_angles=theta_angles,
+            phi_angles=phi_angles
+        )
+        
+        # Extract first frequency results
+        E_theta = E_field[0, :, :, 0]
+        E_phi = E_field[0, :, :, 1]
+        
+        # Compute directivity
+        directivity_linear, directivity_dBi, U_pattern, max_indices = compute_directivity_from_pattern(
+            E_theta, E_phi, theta_angles, phi_angles
+        )
+        
+        # Compute magnitudes
+        E_theta_mag = np.abs(E_theta).flatten().tolist()
+        E_phi_mag = np.abs(E_phi).flatten().tolist()
+        E_total_mag = np.sqrt(np.abs(E_theta)**2 + np.abs(E_phi)**2).flatten().tolist()
+        
+        # Normalized pattern in dB
+        U_max = np.max(U_pattern)
+        pattern_db = (10 * np.log10(U_pattern / U_max)).flatten().tolist()
+        
+        # Find max direction
+        max_theta_idx, max_phi_idx = max_indices
+        max_theta_deg = np.rad2deg(theta_angles[max_theta_idx])
+        max_phi_deg = np.rad2deg(phi_angles[max_phi_idx])
+        
+        return RadiationPatternResponse(
+            frequency=float(frequencies[0]),
+            theta_angles=theta_angles.tolist(),
+            phi_angles=phi_angles.tolist(),
+            E_theta_mag=E_theta_mag,
+            E_phi_mag=E_phi_mag,
+            E_total_mag=E_total_mag,
+            pattern_db=pattern_db,
+            directivity=float(directivity_dBi),
+            gain=float(directivity_dBi),  # Assume 100% efficiency for now
+            efficiency=1.0,
+            beamwidth_theta=None,  # TODO: Compute beamwidths
+            beamwidth_phi=None,
+            max_direction=[float(max_theta_deg), float(max_phi_deg)]
+        )
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Far-field computation failed: {str(e)}")
 
 

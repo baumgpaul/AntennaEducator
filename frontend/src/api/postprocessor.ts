@@ -63,11 +63,37 @@ export const computeFieldGrid = async (request: {
 
 /**
  * Compute far-field radiation pattern
+ * @param request Far-field computation request with geometry, currents, and angular resolution
+ * @returns Radiation pattern with directivity, gain, and field magnitudes
  */
-export const computeRadiationPattern = async (
-  request: RadiationPatternRequest
-): Promise<RadiationPatternResult> => {
-  const response = await postprocessorClient.post('/radiation-pattern', request)
+export const computeFarField = async (request: {
+  frequencies: number[]
+  branch_currents: Array<Array<number | string | { real: number; imag: number }>>
+  nodes: number[][]
+  edges: number[][]
+  radii: number[]
+  theta_points?: number
+  phi_points?: number
+}): Promise<{
+  frequency: number
+  theta_angles: number[]
+  phi_angles: number[]
+  E_theta_mag: number[]
+  E_phi_mag: number[]
+  E_total_mag: number[]
+  pattern_db: number[]
+  directivity: number
+  gain: number
+  efficiency: number
+  beamwidth_theta?: number
+  beamwidth_phi?: number
+  max_direction: [number, number]
+}> => {
+  const response = await postprocessorClient.post('/api/v1/fields/far', {
+    ...request,
+    theta_points: request.theta_points || 19,
+    phi_points: request.phi_points || 37,
+  })
   return handleApiResponse(response)
 }
 
@@ -150,6 +176,7 @@ const postprocessorApi = {
   checkHealth,
   computeFields,
   computeFieldGrid,
+  computeFarField,
   computeRadiationPattern,
   computePatternPlanes,
   computeAntennaParameters,
