@@ -106,19 +106,31 @@ function WireGeometry({
             return null;
           }
 
-          // Apply element position offset
+          // Create vectors from mesh nodes
+          const startVec = new THREE.Vector3(start[0], start[1], start[2]);
+          const endVec = new THREE.Vector3(end[0], end[1], end[2]);
+
+          // Apply rotation (convert degrees to radians)
+          const rotationEuler = new THREE.Euler(
+            THREE.MathUtils.degToRad(element.rotation[0]),
+            THREE.MathUtils.degToRad(element.rotation[1]),
+            THREE.MathUtils.degToRad(element.rotation[2]),
+            'XYZ'
+          );
+          startVec.applyEuler(rotationEuler);
+          endVec.applyEuler(rotationEuler);
+
+          // Apply position offset
           const startPos = new THREE.Vector3(
-            start[0] + element.position[0], 
-            start[1] + element.position[1], 
-            start[2] + element.position[2]
+            startVec.x + element.position[0], 
+            startVec.y + element.position[1], 
+            startVec.z + element.position[2]
           );
           const endPos = new THREE.Vector3(
-            end[0] + element.position[0], 
-            end[1] + element.position[1], 
-            end[2] + element.position[2]
+            endVec.x + element.position[0], 
+            endVec.y + element.position[1], 
+            endVec.z + element.position[2]
           );
-
-          // TODO: Apply rotation (element.rotation) using THREE.Euler/Quaternion
 
           return {
             start: startPos,
@@ -377,12 +389,25 @@ function WireGeometry({
                   const renderRadius = Math.max(wireRadius, 0.003); // minimum visibility
                   const nodeSphereRadius = renderRadius * 1.1;
                   
+                  // Apply rotation to node position
+                  const nodeVec = new THREE.Vector3(node[0], node[1], node[2]);
+                  const rotationEuler = new THREE.Euler(
+                    THREE.MathUtils.degToRad(element.rotation[0]),
+                    THREE.MathUtils.degToRad(element.rotation[1]),
+                    THREE.MathUtils.degToRad(element.rotation[2]),
+                    'XYZ'
+                  );
+                  nodeVec.applyEuler(rotationEuler);
+                  
+                  // Apply position offset
+                  const nodePos = new THREE.Vector3(
+                    nodeVec.x + element.position[0], 
+                    nodeVec.y + element.position[1], 
+                    nodeVec.z + element.position[2]
+                  );
+                  
                   return (
-                    <mesh key={`node-${elementId}-${idx}`} position={new THREE.Vector3(
-                      node[0] + element.position[0], 
-                      node[1] + element.position[1], 
-                      node[2] + element.position[2]
-                    )}>
+                    <mesh key={`node-${elementId}-${idx}`} position={nodePos}>
                       <sphereGeometry args={[nodeSphereRadius, 12, 12]} />
                       <meshStandardMaterial 
                         color={isSelected ? 0xff0000 : 0x00ff00}

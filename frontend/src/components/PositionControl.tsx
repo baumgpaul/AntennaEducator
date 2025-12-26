@@ -4,6 +4,9 @@ import {
   Typography,
   InputAdornment,
   Box,
+  ButtonGroup,
+  Button,
+  Tooltip,
 } from '@mui/material';
 import { Control, Controller } from 'react-hook-form';
 
@@ -19,6 +22,8 @@ export interface OrientationData {
   rotZ: number;
 }
 
+export type PositionPreset = 'center' | 'ground-plane' | 'above-ground';
+
 interface PositionControlProps {
   control: Control<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   positionPrefix?: string;
@@ -26,6 +31,8 @@ interface PositionControlProps {
   showOrientation?: boolean;
   title?: string;
   subtitle?: string;
+  showPresets?: boolean;
+  antennaHeight?: number;
 }
 
 export function PositionControl({
@@ -35,6 +42,8 @@ export function PositionControl({
   showOrientation = true,
   title = 'Position & Orientation',
   subtitle = 'Set element placement in 3D space',
+  showPresets = true,
+  antennaHeight = 0.5,
 }: PositionControlProps) {
   return (
     <Box>
@@ -69,6 +78,7 @@ export function PositionControl({
                   endAdornment: <InputAdornment position="end">m</InputAdornment>,
                 }}
                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                value={field.value ?? 0}
               />
             )}
           />
@@ -90,6 +100,7 @@ export function PositionControl({
                   endAdornment: <InputAdornment position="end">m</InputAdornment>,
                 }}
                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                value={field.value ?? 0}
               />
             )}
           />
@@ -111,10 +122,59 @@ export function PositionControl({
                   endAdornment: <InputAdornment position="end">m</InputAdornment>,
                 }}
                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                value={field.value ?? 0}
               />
             )}
           />
         </Grid>
+
+        {/* Position Presets */}
+        {showPresets && (
+          <Grid item xs={12}>
+            <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
+              Quick Presets:
+            </Typography>
+            <ButtonGroup size="small" fullWidth>
+              <Tooltip title="Position at origin [0, 0, 0]">
+                <Button
+                  onClick={() => {
+                    // Use getValues and setValue from form context
+                    const form = control as any;
+                    if (form._formValues) {
+                      form._formValues[positionPrefix] = { x: 0, y: 0, z: 0 };
+                    }
+                  }}
+                >
+                  Center
+                </Button>
+              </Tooltip>
+              <Tooltip title="Position on ground plane [0, 0, 0.01m]">
+                <Button
+                  onClick={() => {
+                    const form = control as any;
+                    if (form._formValues) {
+                      form._formValues[positionPrefix] = { x: 0, y: 0, z: 0.01 };
+                    }
+                  }}
+                >
+                  Ground
+                </Button>
+              </Tooltip>
+              <Tooltip title={`Position above ground [0, 0, ${(antennaHeight / 2).toFixed(2)}m]`}>
+                <Button
+                  onClick={() => {
+                    const form = control as any;
+                    if (form._formValues) {
+                      form._formValues[positionPrefix] = { x: 0, y: 0, z: antennaHeight / 2 };
+                    }
+                  }}
+                >
+                  Above
+                </Button>
+              </Tooltip>
+            </ButtonGroup>
+          </Grid>
+        )}
 
         {/* Orientation Controls */}
         {showOrientation && (
@@ -134,13 +194,14 @@ export function PositionControl({
                   <TextField
                     {...field}
                     fullWidth
-                    label="Rotation X"
+                    label="X Rotation"
                     type="number"
                     inputProps={{ step: 1, min: -180, max: 180 }}
                     InputProps={{
                       endAdornment: <InputAdornment position="end">°</InputAdornment>,
                     }}
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    value={field.value ?? 0}
                   />
                 )}
               />
@@ -155,13 +216,14 @@ export function PositionControl({
                   <TextField
                     {...field}
                     fullWidth
-                    label="Rotation Y"
+                    label="Y Rotation"
                     type="number"
                     inputProps={{ step: 1, min: -180, max: 180 }}
                     InputProps={{
                       endAdornment: <InputAdornment position="end">°</InputAdornment>,
                     }}
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    value={field.value ?? 0}
                   />
                 )}
               />
@@ -176,13 +238,14 @@ export function PositionControl({
                   <TextField
                     {...field}
                     fullWidth
-                    label="Rotation Z"
+                    label="Z Rotation"
                     type="number"
                     inputProps={{ step: 1, min: -180, max: 180 }}
                     InputProps={{
                       endAdornment: <InputAdornment position="end">°</InputAdornment>,
                     }}
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    value={field.value ?? 0}
                   />
                 )}
               />
