@@ -13,9 +13,11 @@ from .schemas import (
     FrequencySweepRequest,
     FrequencyPointResponse,
     SweepResultResponse,
-    ErrorResponse
+    ErrorResponse,
+    MultiAntennaRequest,
+    MultiAntennaSolutionResponse
 )
-from .solver import solve_single_frequency, solve_peec_frequency_sweep, SolverConfiguration
+from .solver import solve_single_frequency, solve_peec_frequency_sweep, solve_multi_antenna, SolverConfiguration
 from .system import VoltageSource, CurrentSource, Load
 
 
@@ -355,6 +357,92 @@ async def solve_frequency_sweep_endpoint(request: FrequencySweepRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Solver error: {str(e)}"
+        )
+
+
+@app.post(
+    f"{settings.api_prefix}/solve/multi",
+    response_model=MultiAntennaSolutionResponse,
+    tags=["Solver"],
+    summary="Solve multiple antennas at single frequency",
+)
+async def solve_multi_antenna_endpoint(request: MultiAntennaRequest):
+    """
+    Solve multiple antennas at a single frequency.
+    
+    Combines antennas into unified system, solves together,
+    then distributes solution back to individual antennas.
+    
+    Args:
+        request: Multi-antenna request with list of antennas
+    
+    Returns:
+        Solutions for each antenna with currents, voltages, and impedances
+    
+    Raises:
+        HTTPException: If validation or solving fails
+    """
+    try:
+        # Validate inputs
+        if len(request.antennas) < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="At least 1 antenna required"
+            )
+        
+        # Validate each antenna
+        for i, antenna in enumerate(request.antennas):
+            if len(antenna.nodes) < 2:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Antenna {antenna.antenna_id}: At least 2 nodes required"
+                )
+            
+            if len(antenna.edges) < 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Antenna {antenna.antenna_id}: At least 1 edge required"
+                )
+            
+            if len(antenna.radii) != len(antenna.edges):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Antenna {antenna.antenna_id}: Number of radii must match edges"
+                )
+            
+            # At least one excitation required per antenna
+            if len(antenna.voltage_sources) == 0 and len(antenna.current_sources) == 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Antenna {antenna.antenna_id}: At least one source required"
+                )
+        
+        # Get solver configuration
+        config = _get_solver_config(request.config)
+        
+        # Solve multi-antenna system
+        start_time = time.time()
+        result = solve_multi_antenna(
+            antennas=request.antennas,
+            frequency=request.frequency,
+            config=config
+        )
+        solve_time = time.time() - start_time
+        
+        # Update solve time
+        result['solve_time'] = solve_time
+        
+        # Return response matching schema
+        return MultiAntennaSolutionResponse(**result)
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Multi-antenna solver error: {str(e)}"
         )
 
 

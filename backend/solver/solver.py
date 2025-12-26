@@ -663,3 +663,360 @@ def compute_q_factor(f_resonant: float, bandwidth: float) -> float:
         return np.inf
     
     return f_resonant / bandwidth
+
+
+# ========== Multi-Antenna Solver ==========
+
+@dataclass
+class MergedAntennaSystem:
+    """Combined multi-antenna system ready for solving."""
+    
+    # Combined geometry
+    nodes: np.ndarray  # Combined node coordinates
+    edges: List[List[int]]  # Combined edge connectivity (renumbered)
+    radii: np.ndarray  # Combined radii
+    
+    # Combined sources/loads (renumbered)
+    voltage_sources: List[VoltageSource]
+    current_sources: List[CurrentSource]
+    loads: List[Load]
+    
+    # Per-antenna offsets for solution distribution
+    antenna_offsets: List[Dict]  # [{antenna_id, start_stick, n_sticks, start_point, n_points, ...}]
+    
+    # Global counts
+    n_total_sticks: int
+    n_total_points: int
+    n_total_voltage_sources: int
+    n_total_current_sources: int
+    n_total_loads: int
+    n_total_appended: int
+
+
+def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntennaSystem:
+    """
+    Merge multiple antennas into a unified system.
+    
+    Combines geometry, renumbers nodes with offsets, tracks per-antenna metadata.
+    Follows Matlab solvePEECLinear.m lines 26-154.
+    
+    Args:
+        antennas: List of AntennaInput objects from schemas
+        config: Solver configuration
+    
+    Returns:
+        MergedAntennaSystem with combined geometry and offset tracking
+    """
+    # Initialize global counters
+    n_sticks_total = 0
+    n_points_total = 0
+    n_voltage_sources_total = 0
+    n_current_sources_total = 0
+    n_loads_total = 0
+    n_appended_total = 0
+    
+    # Storage for combined system
+    combined_nodes = []
+    combined_edges = []
+    combined_radii = []
+    combined_voltage_sources = []
+    combined_current_sources = []
+    combined_loads = []
+    antenna_offsets = []
+    
+    for antenna in antennas:
+        # Get antenna dimensions
+        n_sticks = len(antenna.edges)
+        n_points = len(antenna.nodes)
+        n_voltage = len(antenna.voltage_sources)
+        n_current = len(antenna.current_sources)
+        n_load = len(antenna.loads)
+        
+        # Count appended nodes (negative indices in sources/loads)
+        appended_nodes = set()
+        for vs in antenna.voltage_sources:
+            if vs.node_start < 0:
+                appended_nodes.add(vs.node_start)
+            if vs.node_end < 0:
+                appended_nodes.add(vs.node_end)
+        for cs in antenna.current_sources:
+            if cs.node_start < 0:
+                appended_nodes.add(cs.node_start)
+            if cs.node_end < 0:
+                appended_nodes.add(cs.node_end)
+        for ld in antenna.loads:
+            if ld.node_start < 0:
+                appended_nodes.add(ld.node_start)
+            if ld.node_end < 0:
+                appended_nodes.add(ld.node_end)
+        n_appended = len(appended_nodes)
+        
+        # Store offsets for this antenna (1-based)
+        offset = {
+            'antenna_id': antenna.antenna_id,
+            'start_stick': n_sticks_total + 1,
+            'n_sticks': n_sticks,
+            'start_point': n_points_total + 1,
+            'n_points': n_points,
+            'start_voltage': n_voltage_sources_total + 1,
+            'n_voltage': n_voltage,
+            'start_current': n_current_sources_total + 1,
+            'n_current': n_current,
+            'start_load': n_loads_total + 1,
+            'n_load': n_load,
+            'start_appended': n_appended_total + 1,
+            'n_appended': n_appended
+        }
+        antenna_offsets.append(offset)
+        
+        # Add nodes (convert from list to array if needed)
+        nodes_array = np.array(antenna.nodes)
+        combined_nodes.append(nodes_array)
+        
+        # Renumber edges: positive indices += (start_point - 1)
+        for edge in antenna.edges:
+            node_start = edge[0]
+            node_end = edge[1]
+            
+            # Renumber positive indices
+            if node_start > 0:
+                node_start += (offset['start_point'] - 1)
+            else:  # Negative: appended nodes
+                node_start -= (offset['start_appended'] - 1)
+            
+            if node_end > 0:
+                node_end += (offset['start_point'] - 1)
+            else:
+                node_end -= (offset['start_appended'] - 1)
+            
+            combined_edges.append([node_start, node_end])
+        
+        # Add radii
+        combined_radii.extend(antenna.radii)
+        
+        # Renumber voltage sources
+        for vs in antenna.voltage_sources:
+            node_start = vs.node_start
+            node_end = vs.node_end
+            
+            if node_start > 0:
+                node_start += (offset['start_point'] - 1)
+            else:
+                node_start -= (offset['start_appended'] - 1)
+            
+            if node_end > 0:
+                node_end += (offset['start_point'] - 1)
+            else:
+                node_end -= (offset['start_appended'] - 1)
+            
+            combined_voltage_sources.append(VoltageSource(
+                node_start=node_start,
+                node_end=node_end,
+                value=vs.value,
+                R=getattr(vs, 'R', 0.0),
+                L=getattr(vs, 'L', 0.0),
+                C_inv=getattr(vs, 'C_inv', 0.0)
+            ))
+        
+        # Renumber current sources
+        for cs in antenna.current_sources:
+            node = cs.node
+            
+            if node > 0:
+                node += (offset['start_point'] - 1)
+            else:
+                node -= (offset['start_appended'] - 1)
+            
+            combined_current_sources.append(CurrentSource(
+                node=node,
+                value=cs.value
+            ))
+        
+        # Renumber loads
+        for ld in antenna.loads:
+            node_start = ld.node_start
+            node_end = ld.node_end
+            
+            if node_start > 0:
+                node_start += (offset['start_point'] - 1)
+            else:
+                node_start -= (offset['start_appended'] - 1)
+            
+            if node_end > 0:
+                node_end += (offset['start_point'] - 1)
+            else:
+                node_end -= (offset['start_appended'] - 1)
+            
+            combined_loads.append(Load(
+                node_start=node_start,
+                node_end=node_end,
+                R=getattr(ld, 'R', 0.0),
+                L=getattr(ld, 'L', 0.0),
+                C=getattr(ld, 'C', 0.0)
+            ))
+        
+        # Update global counters
+        n_sticks_total += n_sticks
+        n_points_total += n_points
+        n_voltage_sources_total += n_voltage
+        n_current_sources_total += n_current
+        n_loads_total += n_load
+        n_appended_total += n_appended
+    
+    # Combine nodes array
+    combined_nodes_array = np.vstack(combined_nodes) if combined_nodes else np.array([])
+    combined_radii_array = np.array(combined_radii)
+    
+    return MergedAntennaSystem(
+        nodes=combined_nodes_array,
+        edges=combined_edges,
+        radii=combined_radii_array,
+        voltage_sources=combined_voltage_sources,
+        current_sources=combined_current_sources,
+        loads=combined_loads,
+        antenna_offsets=antenna_offsets,
+        n_total_sticks=n_sticks_total,
+        n_total_points=n_points_total,
+        n_total_voltage_sources=n_voltage_sources_total,
+        n_total_current_sources=n_current_sources_total,
+        n_total_loads=n_loads_total,
+        n_total_appended=n_appended_total
+    )
+
+
+def distribute_solution(
+    solution: FrequencyPoint,
+    merged_system: MergedAntennaSystem
+) -> List[Dict]:
+    """
+    Distribute combined solution back to individual antennas.
+    
+    Slices solution vectors using stored offsets.
+    Follows Matlab solvePEECLinear.m lines 162-230.
+    
+    Args:
+        solution: FrequencyPoint from combined system solve
+        merged_system: MergedAntennaSystem with offset tracking
+    
+    Returns:
+        List of per-antenna solution dicts matching AntennaSolution schema
+    """
+    # Extract solution vectors
+    X_I = solution.branch_currents  # [edge_currents, voltage_source_currents, current_source_currents, load_currents]
+    X_V = np.concatenate([solution.node_voltages, solution.appended_voltages])  # [node_voltages, appended_voltages]
+    
+    # Slice indices (convert to 0-based for Python)
+    i_voltage_start = merged_system.n_total_sticks
+    i_current_start = i_voltage_start + merged_system.n_total_voltage_sources
+    i_load_start = i_current_start + merged_system.n_total_current_sources
+    i_appended_start = merged_system.n_total_points
+    
+    antenna_solutions = []
+    
+    for offset in merged_system.antenna_offsets:
+        # Extract edge currents (0-based slicing)
+        start_stick_0 = offset['start_stick'] - 1
+        end_stick_0 = start_stick_0 + offset['n_sticks']
+        branch_currents = X_I[start_stick_0:end_stick_0]
+        
+        # Extract voltage source currents
+        start_voltage_0 = i_voltage_start + offset['start_voltage'] - 1
+        end_voltage_0 = start_voltage_0 + offset['n_voltage']
+        voltage_source_currents = X_I[start_voltage_0:end_voltage_0] if offset['n_voltage'] > 0 else []
+        
+        # Extract current source currents
+        start_current_0 = i_current_start + offset['start_current'] - 1
+        end_current_0 = start_current_0 + offset['n_current']
+        current_source_currents = X_I[start_current_0:end_current_0] if offset['n_current'] > 0 else []
+        
+        # Extract load currents
+        start_load_0 = i_load_start + offset['start_load'] - 1
+        end_load_0 = start_load_0 + offset['n_load']
+        load_currents = X_I[start_load_0:end_load_0] if offset['n_load'] > 0 else []
+        
+        # Extract node voltages
+        start_point_0 = offset['start_point'] - 1
+        end_point_0 = start_point_0 + offset['n_points']
+        node_voltages = X_V[start_point_0:end_point_0]
+        
+        # Extract appended voltages
+        start_appended_0 = i_appended_start + offset['start_appended'] - 1
+        end_appended_0 = start_appended_0 + offset['n_appended']
+        appended_voltages = X_V[start_appended_0:end_appended_0] if offset['n_appended'] > 0 else []
+        
+        # Compute input impedance from first voltage source (if exists)
+        input_impedance = None
+        if offset['n_voltage'] > 0 and len(voltage_source_currents) > 0:
+            # Z = V / I for first voltage source
+            I_source = voltage_source_currents[0]
+            if abs(I_source) > 1e-12:
+                # Get voltage from first voltage source
+                # Assume voltage sources have value 1.0 for impedance calc
+                input_impedance = complex(1.0) / I_source
+        
+        antenna_solutions.append({
+            'antenna_id': offset['antenna_id'],
+            'branch_currents': branch_currents.tolist(),
+            'voltage_source_currents': voltage_source_currents.tolist() if len(voltage_source_currents) > 0 else [],
+            'current_source_currents': current_source_currents.tolist() if len(current_source_currents) > 0 else [],
+            'load_currents': load_currents.tolist() if len(load_currents) > 0 else [],
+            'node_voltages': node_voltages.tolist(),
+            'appended_voltages': appended_voltages.tolist() if len(appended_voltages) > 0 else [],
+            'input_impedance': input_impedance
+        })
+    
+    return antenna_solutions
+
+
+def solve_multi_antenna(
+    antennas: List,
+    frequency: float,
+    config: Optional[SolverConfiguration] = None
+) -> Dict:
+    """
+    Solve multiple antennas at a single frequency.
+    
+    Main entry point for multi-antenna solving. Merges antennas,
+    solves combined system, distributes solution.
+    
+    Args:
+        antennas: List of AntennaInput objects from schemas
+        frequency: Frequency [Hz]
+        config: Optional solver configuration
+    
+    Returns:
+        Dict matching MultiAntennaSolutionResponse schema
+    """
+    if config is None:
+        config = SolverConfiguration()
+    
+    start_time = time.time()
+    
+    # Merge antennas into unified system
+    merged = merge_antennas(antennas, config)
+    
+    # Solve combined system at single frequency
+    solution = solve_single_frequency(
+        nodes=merged.nodes,
+        edges=merged.edges,
+        radii=merged.radii,
+        frequency=frequency,
+        voltage_sources=merged.voltage_sources,
+        current_sources=merged.current_sources,
+        loads=merged.loads,
+        config=config
+    )
+    
+    # Distribute solution back to individual antennas
+    antenna_solutions = distribute_solution(solution, merged)
+    
+    solve_time = time.time() - start_time
+    
+    return {
+        'frequency': frequency,
+        'converged': True,  # solve_single_frequency doesn't return convergence status
+        'antenna_solutions': antenna_solutions,
+        'n_total_nodes': merged.n_total_points,
+        'n_total_edges': merged.n_total_sticks,
+        'solve_time': solve_time
+    }

@@ -295,3 +295,145 @@ class ErrorResponse(BaseModel):
                 "details": {"frequency": -100}
             }
         }
+
+
+# ========== Multi-Antenna Solver Models ==========
+
+class AntennaInput(BaseModel):
+    """
+    Single antenna input for multi-antenna solver.
+    All indices are 1-based (FORTRAN/MATLAB convention).
+    Nodes use positive indices for physical nodes, negative for appended (ground/reference).
+    """
+    
+    antenna_id: str = Field(..., description="Unique identifier for this antenna")
+    
+    # Geometry - 1-based indexing
+    nodes: List[List[float]] = Field(..., description="Node coordinates [[x,y,z], ...], 1-based")
+    edges: List[List[int]] = Field(..., description="Edge connectivity [[start, end], ...], 1-based node indices")
+    radii: List[float] = Field(..., description="Wire radius for each edge [m]")
+    
+    # Sources and loads - 1-based indexing
+    voltage_sources: List[VoltageSourceInput] = Field(default_factory=list, description="Voltage sources")
+    current_sources: List[CurrentSourceInput] = Field(default_factory=list, description="Current sources")
+    loads: List[LoadInput] = Field(default_factory=list, description="Lumped loads")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "antenna_id": "dipole_1",
+                "nodes": [[0, 0, 0], [0, 0, 0.25], [0, 0, 0.26], [0, 0, 0.5]],
+                "edges": [[1, 2], [3, 4]],
+                "radii": [0.001, 0.001],
+                "voltage_sources": [{"node_start": 2, "node_end": 3, "value": 1.0}],
+                "current_sources": [],
+                "loads": []
+            }
+        }
+
+
+class MultiAntennaRequest(BaseModel):
+    """
+    Request for solving multiple antennas at a single frequency.
+    Antennas are combined into a unified system, solved together,
+    then solution is distributed back to individual antennas.
+    """
+    
+    frequency: float = Field(..., gt=0, description="Frequency [Hz]")
+    antennas: List[AntennaInput] = Field(..., min_length=1, description="List of antennas to solve")
+    config: SolverConfiguration = Field(default_factory=SolverConfiguration, description="Solver configuration")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "frequency": 100e6,
+                "antennas": [
+                    {
+                        "antenna_id": "dipole_1",
+                        "nodes": [[0, 0, 0], [0, 0, 0.5]],
+                        "edges": [[1, 2]],
+                        "radii": [0.001],
+                        "voltage_sources": [{"node_start": 1, "node_end": 2, "value": 1.0}],
+                        "current_sources": [],
+                        "loads": []
+                    }
+                ],
+                "config": {
+                    "gauss_order": 2,
+                    "skin_effect": True,
+                    "resistivity": 1.68e-8
+                }
+            }
+        }
+
+
+class AntennaSolution(BaseModel):
+    """
+    Solution for a single antenna from multi-antenna solve.
+    Contains current and voltage data specific to this antenna.
+    """
+    
+    antenna_id: str = Field(..., description="Identifier matching the request")
+    
+    # Branch currents
+    branch_currents: List[complex] = Field(..., description="Edge currents [A]")
+    voltage_source_currents: List[complex] = Field(default_factory=list, description="Voltage source currents [A]")
+    load_currents: List[complex] = Field(default_factory=list, description="Load currents [A]")
+    
+    # Node voltages
+    node_voltages: List[complex] = Field(..., description="Node potentials [V]")
+    appended_voltages: List[complex] = Field(default_factory=list, description="Appended node potentials [V]")
+    
+    # Input impedance (computed from first voltage source)
+    input_impedance: Optional[complex] = Field(None, description="Input impedance Z = V/I [Ω]")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "antenna_id": "dipole_1",
+                "branch_currents": [0.012 + 0.003j, 0.011 + 0.002j],
+                "voltage_source_currents": [0.012 + 0.003j],
+                "load_currents": [],
+                "node_voltages": [0.5 + 0.1j, 0.0 + 0.0j, 0.5 - 0.1j],
+                "appended_voltages": [0.0 + 0.0j],
+                "input_impedance": 75.0 - 30.0j
+            }
+        }
+
+
+class MultiAntennaSolutionResponse(BaseModel):
+    """
+    Response from multi-antenna solver containing individual antenna solutions.
+    """
+    
+    frequency: float = Field(..., description="Frequency [Hz]")
+    converged: bool = Field(..., description="Whether solver converged")
+    
+    antenna_solutions: List[AntennaSolution] = Field(..., description="Solutions for each antenna")
+    
+    # Metadata
+    n_total_nodes: int = Field(..., description="Total nodes in combined system")
+    n_total_edges: int = Field(..., description="Total edges in combined system")
+    solve_time: float = Field(..., description="Computation time [s]")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "frequency": 100e6,
+                "converged": True,
+                "antenna_solutions": [
+                    {
+                        "antenna_id": "dipole_1",
+                        "branch_currents": [0.012 + 0.003j],
+                        "voltage_source_currents": [0.012 + 0.003j],
+                        "load_currents": [],
+                        "node_voltages": [0.5 + 0.1j, 0.0 + 0.0j],
+                        "appended_voltages": [],
+                        "input_impedance": 75.0 - 30.0j
+                    }
+                ],
+                "n_total_nodes": 2,
+                "n_total_edges": 1,
+                "solve_time": 0.012
+            }
+        }
