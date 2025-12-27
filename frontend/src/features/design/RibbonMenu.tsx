@@ -157,7 +157,7 @@ function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption, solve
             {/* Elements Section */}
             <Box>
               <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                Elements
+                Add Elements
               </Box>
               <ButtonGroup variant="outlined" size="small">
                 <Tooltip title="Add voltage source">
@@ -173,7 +173,7 @@ function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption, solve
                     startIcon={<Widgets />}
                     onClick={() => onAntennaTypeSelect?.('lumped-element')}
                   >
-                    Load
+                    R/L/C
                   </Button>
                 </Tooltip>
               </ButtonGroup>
