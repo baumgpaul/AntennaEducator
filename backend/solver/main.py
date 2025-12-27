@@ -6,6 +6,14 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 import numpy as np
 import time
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 from .config import settings
 from .schemas import (

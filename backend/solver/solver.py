@@ -26,6 +26,7 @@ import numpy as np
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
 import time
+import logging
 
 from backend.solver.geometry import build_edge_geometries, EdgeGeometry
 from backend.solver.resistance import assemble_resistance_matrix
@@ -41,6 +42,8 @@ from backend.solver.system import (
     solve_peec_system,
     compute_node_voltages
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -357,6 +360,18 @@ def solve_peec_frequency_sweep(
         # Solve system
         I, V_app = solve_peec_system(system_matrix, source_vector, n_branches)
         
+        # Debug logging for voltage source currents
+        if len(voltage_sources) > 0:
+            vsrc_branch_idx = n_edges
+            n_vsources = len(voltage_sources)
+            logger.info(f"Voltage sources: n_edges={n_edges}, n_branches={n_branches}, n_vsources={n_vsources}")
+            logger.info(f"Current vector I shape: {I.shape}, vsrc_branch_idx={vsrc_branch_idx}")
+            if vsrc_branch_idx < len(I):
+                vsrc_current = I[vsrc_branch_idx]
+                logger.info(f"First voltage source current: {vsrc_current} A (magnitude: {np.abs(vsrc_current):.6e} A)")
+            else:
+                logger.error(f"vsrc_branch_idx {vsrc_branch_idx} out of bounds for I with length {len(I)}")
+        
         # Compute node voltages (following MATLAB: V = (1/jω)*(P*I_source + P*A*I))
         V = compute_node_voltages(I, I_source, A, P_nodal_retarded, omega)
         
@@ -420,11 +435,13 @@ def solve_peec_frequency_sweep(
         
         freq_time = time.time() - freq_start
         
-        # Store solution
+        # Store solution - IMPORTANT: Store ALL branch currents (edges + voltage sources + current sources + loads)
+        # The branch_currents vector must include all branches for slice_multi_antenna_solution to work correctly
+        logger.debug(f"Storing branch_currents: I.shape={I.shape}, n_edges={n_edges}, n_branches={n_branches}")
         solution = FrequencyPoint(
             frequency=freq,
             omega=omega,
-            branch_currents=I[:n_edges].copy(),  # Only edge currents, not source/load currents
+            branch_currents=I.copy(),  # Store ALL branch currents (including voltage source, current source, and load currents)
             node_voltages=V.copy(),
             appended_voltages=V_app.copy(),
             input_impedance=input_impedance,
@@ -732,6 +749,12 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
         n_current = len(antenna.current_sources)
         n_load = len(antenna.loads)
         
+        logger.info(f"Antenna {antenna.antenna_id}: {n_sticks} edges, {n_points} nodes, "
+                   f"{n_voltage} voltage sources, {n_current} current sources, {n_load} loads")
+        if n_voltage > 0:
+            for i, vs in enumerate(antenna.voltage_sources):
+                logger.info(f"  Voltage source {i}: {vs.node_start} → {vs.node_end}, value={vs.value}")
+        
         # Count appended nodes (negative indices in sources/loads)
         appended_nodes = set()
         for vs in antenna.voltage_sources:
@@ -905,6 +928,13 @@ def distribute_solution(
     X_I = solution.branch_currents  # [edge_currents, voltage_source_currents, current_source_currents, load_currents]
     X_V = np.concatenate([solution.node_voltages, solution.appended_voltages])  # [node_voltages, appended_voltages]
     
+    # Debug logging
+    logger.info(f"distribute_solution: X_I.shape={X_I.shape}, X_V.shape={X_V.shape}")
+    logger.info(f"  n_total_sticks={merged_system.n_total_sticks}")
+    logger.info(f"  n_total_voltage_sources={merged_system.n_total_voltage_sources}")
+    logger.info(f"  n_total_current_sources={merged_system.n_total_current_sources}")
+    logger.info(f"  n_total_loads={merged_system.n_total_loads}")
+    
     # Slice indices (convert to 0-based for Python)
     i_voltage_start = merged_system.n_total_sticks
     i_current_start = i_voltage_start + merged_system.n_total_voltage_sources
@@ -914,6 +944,8 @@ def distribute_solution(
     antenna_solutions = []
     
     for offset in merged_system.antenna_offsets:
+        antenna_id = offset['antenna_id']
+        
         # Extract edge currents (0-based slicing)
         start_stick_0 = offset['start_stick'] - 1
         end_stick_0 = start_stick_0 + offset['n_sticks']
@@ -923,6 +955,15 @@ def distribute_solution(
         start_voltage_0 = i_voltage_start + offset['start_voltage'] - 1
         end_voltage_0 = start_voltage_0 + offset['n_voltage']
         voltage_source_currents = X_I[start_voltage_0:end_voltage_0] if offset['n_voltage'] > 0 else []
+        
+        # Debug logging for voltage source extraction
+        if offset['n_voltage'] > 0:
+            logger.info(f"Antenna {antenna_id}: Extracting {offset['n_voltage']} voltage source currents")
+            logger.info(f"  Slice indices: [{start_voltage_0}:{end_voltage_0}] from X_I with length {len(X_I)}")
+            if len(voltage_source_currents) > 0:
+                logger.info(f"  First voltage source current: {voltage_source_currents[0]} A (magnitude: {np.abs(voltage_source_currents[0]):.6e} A)")
+            else:
+                logger.warning(f"  Warning: voltage_source_currents is empty despite n_voltage={offset['n_voltage']}")
         
         # Extract current source currents
         start_current_0 = i_current_start + offset['start_current'] - 1
