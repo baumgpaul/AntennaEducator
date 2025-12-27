@@ -8,6 +8,7 @@ import type { RootState } from './store';
 import type { SolverRequest, SolverResult, Mesh, Source } from '@/types/models';
 import type { MultiAntennaRequest, MultiAntennaSolutionResponse } from '@/types/api';
 import { solveSingle, solveAsync, getJobStatus, cancelJob, solveMultiAntenna } from '@/api/solver';
+import { computeFarField } from '@/api/postprocessor';
 
 // ============================================================================
 // Helper Functions
@@ -67,6 +68,21 @@ interface SolverState {
   // Results
   results: SolverResult | null;
   currentDistribution: number[] | null; // Magnitude of branch currents for visualization
+  radiationPattern: {
+    frequency: number;
+    theta_angles: number[];
+    phi_angles: number[];
+    E_theta_mag: number[];
+    E_phi_mag: number[];
+    E_total_mag: number[];
+    pattern_db: number[];
+    directivity: number;
+    gain: number;
+    efficiency: number;
+    beamwidth_theta?: number;
+    beamwidth_phi?: number;
+    max_direction: [number, number];
+  } | null;
   
   // Multi-antenna results
   multiAntennaResults: MultiAntennaSolutionResponse | null;
@@ -87,6 +103,7 @@ const initialState: SolverState = {
   currentRequest: null,
   results: null,
   currentDistribution: null,
+  radiationPattern: null,
   multiAntennaResults: null,
   resultsHistory: [],
 };
@@ -257,6 +274,81 @@ export const runMultiAntennaSimulation = createAsyncThunk<
     console.error('Error status:', error.response?.status);
     
     const errorMessage = error.response?.data?.detail || error.message || 'Multi-antenna simulation failed';
+    return rejectWithValue(errorMessage);
+  }
+});
+
+/**
+ * Compute radiation pattern from solver results
+ */
+export const computeRadiationPattern = createAsyncThunk<
+  {
+    frequency: number;
+    theta_angles: number[];
+    phi_angles: number[];
+    E_theta_mag: number[];
+    E_phi_mag: number[];
+    E_total_mag: number[];
+    pattern_db: number[];
+    directivity: number;
+    gain: number;
+    efficiency: number;
+    beamwidth_theta?: number;
+    beamwidth_phi?: number;
+    max_direction: [number, number];
+  },
+  void,
+  { state: RootState }
+>('solver/computeRadiationPattern', async (_, { getState, rejectWithValue }) => {
+  try {
+    const state = getState();
+    const { results } = state.solver;
+    const { elements } = state.design;
+
+    if (!results || !elements || elements.length === 0) {
+      return rejectWithValue('No solver results or mesh data available');
+    }
+
+    // Get mesh data from first element (for now)
+    const element = elements[0];
+    if (!element.mesh) {
+      return rejectWithValue('No mesh data available');
+    }
+
+    const mesh = element.mesh;
+
+    // Prepare request for far-field computation
+    const request = {
+      frequencies: [results.frequency],
+      branch_currents: [results.branch_currents],
+      nodes: mesh.nodes,
+      edges: mesh.edges,
+      radii: mesh.radii,
+      theta_points: 19,
+      phi_points: 37,
+    };
+
+    console.log('Computing far-field radiation pattern:', {
+      frequency: results.frequency,
+      nodes: mesh.nodes.length,
+      edges: mesh.edges.length,
+      branch_currents: results.branch_currents.length,
+    });
+
+    const pattern = await computeFarField(request);
+
+    console.log('Far-field computation complete:', {
+      directivity: pattern.directivity,
+      gain: pattern.gain,
+      efficiency: pattern.efficiency,
+      theta_points: pattern.theta_angles.length,
+      phi_points: pattern.phi_angles.length,
+    });
+
+    return pattern;
+  } catch (error: any) {
+    console.error('Far-field computation failed:', error);
+    const errorMessage = error.response?.data?.detail || error.message || 'Far-field computation failed';
     return rejectWithValue(errorMessage);
   }
 });
@@ -522,6 +614,25 @@ const solverSlice = createSlice({
       state.error = action.payload as string || 'Multi-antenna simulation failed';
       state.progress = 0;
       console.error('Multi-antenna simulation rejected:', state.error);
+    });
+
+    // computeRadiationPattern
+    builder.addCase(computeRadiationPattern.pending, (state) => {
+      console.log('Computing radiation pattern...');
+    });
+
+    builder.addCase(computeRadiationPattern.fulfilled, (state, action) => {
+      state.radiationPattern = action.payload;
+      console.log('Radiation pattern computed:', {
+        directivity: action.payload.directivity,
+        gain: action.payload.gain,
+        efficiency: action.payload.efficiency,
+      });
+    });
+
+    builder.addCase(computeRadiationPattern.rejected, (state, action) => {
+      console.error('Radiation pattern computation failed:', action.payload);
+      state.radiationPattern = null;
     });
   },
 });

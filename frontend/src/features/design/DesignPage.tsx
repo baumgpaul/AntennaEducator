@@ -22,7 +22,7 @@ import {
   setElementLocked,
 } from '@/store/designSlice';
 import { addNotification } from '@/store/uiSlice';
-import { runMultiAntennaSimulation } from '@/store/solverSlice';
+import { runMultiAntennaSimulation, computeRadiationPattern } from '@/store/solverSlice';
 import {
   buildMultiAntennaRequest,
   countSimulationReadyElements,
@@ -68,6 +68,7 @@ function DesignPage() {
     progress: solverProgress,
     currentDistribution,
     results,
+    radiationPattern,
   } = useAppSelector(
     (state) => state.solver
   );
@@ -383,6 +384,15 @@ function DesignPage() {
           duration: 5000,
         }));
 
+        // Compute far-field radiation pattern
+        try {
+          await dispatch(computeRadiationPattern()).unwrap();
+          console.log('Radiation pattern computed successfully');
+        } catch (patternError) {
+          console.warn('Failed to compute radiation pattern:', patternError);
+          // Don't show error notification for pattern computation failure
+        }
+
         // Auto-open results panel on successful simulation
         setShowResultsPanel(true);
       } catch (error: any) {
@@ -526,7 +536,8 @@ function DesignPage() {
             onClose={() => setShowResultsPanel(false)}
             impedance={results?.input_impedance}
             currentDistribution={currentDistribution || undefined}
-            farFieldData={null}
+            radiationPattern={radiationPattern || undefined}
+            isLoadingPattern={false}
           />
         }
         showResultsPanel={showResultsPanel}

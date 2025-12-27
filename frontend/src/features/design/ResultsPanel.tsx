@@ -16,6 +16,7 @@ import {
   ElectricalServices,
   Assessment,
 } from '@mui/icons-material';
+import RadiationPatternPanel, { type RadiationPatternData } from './RadiationPatternPanel';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -38,8 +39,9 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 interface ResultsPanelProps {
   onClose?: () => void;
   impedance?: { real: number; imag: number } | null;
-  farFieldData?: any | null; // eslint-disable-line @typescript-eslint/no-explicit-any
+  radiationPattern?: RadiationPatternData | null;
   currentDistribution?: number[] | null;
+  isLoadingPattern?: boolean;
 }
 
 /**
@@ -49,8 +51,9 @@ interface ResultsPanelProps {
 function ResultsPanel({
   onClose,
   impedance,
-  // farFieldData, // TODO: Implement far-field visualization
+  radiationPattern,
   currentDistribution,
+  isLoadingPattern = false,
 }: ResultsPanelProps) {
   const [activeTab, setActiveTab] = useState(0);
 
@@ -271,14 +274,11 @@ function ResultsPanel({
 
         {/* Far-Field Tab */}
         <TabPanel value={activeTab} index={2}>
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Radar sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-            <Typography variant="body2" color="text.secondary">
-              Far-field visualization coming soon
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              2D polar plots and 3D radiation patterns
-            </Typography>
+          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <RadiationPatternPanel
+              patternData={radiationPattern}
+              isLoading={isLoadingPattern}
+            />
           </Box>
         </TabPanel>
 
