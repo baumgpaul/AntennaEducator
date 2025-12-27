@@ -19,7 +19,13 @@ import {
   setElementLocked,
 } from '@/store/designSlice';
 import { addNotification } from '@/store/uiSlice';
-import { runSimulation, clearResults } from '@/store/solverSlice';
+import { runSimulation, runMultiAntennaSimulation, clearResults } from '@/store/solverSlice';
+import {
+  buildMultiAntennaRequest,
+  countSimulationReadyElements,
+  validateHasSources,
+  getSimulationComplexity,
+} from '@/utils/multiAntennaBuilder';
 import DesignCanvas from './DesignCanvas';
 import TreeViewPanel from './TreeViewPanel';
 import PropertiesPanel from './PropertiesPanel';
@@ -273,47 +279,53 @@ function DesignPage() {
         return;
       }
 
-      // For now, solve the first element (single element case)
-      // TODO: Merge multiple elements into combined mesh
-      const element = elements[0];
-      
-      if (!element.mesh || !element.mesh.nodes || element.mesh.nodes.length === 0) {
+      // Count simulation-ready elements
+      const readyCount = countSimulationReadyElements(elements);
+      if (readyCount === 0) {
         dispatch(addNotification({
           id: Date.now(),
-          message: 'Element has no mesh. This should not happen.',
-          severity: 'error',
-          duration: 5000,
-        }));
-        return;
-      }
-
-      if (!element.sources || element.sources.length === 0) {
-        dispatch(addNotification({
-          id: Date.now(),
-          message: 'No voltage source defined. Cannot solve.',
+          message: 'No valid elements for simulation. Ensure elements are visible, unlocked, and have meshes.',
           severity: 'warning',
           duration: 5000,
         }));
         return;
       }
 
-      // Use first source
-      const source = element.sources[0];
-      const frequency = 300e6; // Default 300 MHz
-
-      try {
+      // Validate at least one element has a source
+      if (!validateHasSources(elements)) {
         dispatch(addNotification({
           id: Date.now(),
-          message: `Running simulation at ${(frequency / 1e6).toFixed(0)} MHz...`,
+          message: 'No voltage source defined. At least one element must have a source to run simulation.',
+          severity: 'warning',
+          duration: 5000,
+        }));
+        return;
+      }
+
+      // Get simulation complexity for progress estimation
+      const complexity = getSimulationComplexity(elements);
+      console.log('Simulation complexity:', complexity);
+
+      // Default frequency (300 MHz)
+      const frequency = 300e6;
+
+      try {
+        // Build multi-antenna request
+        const request = buildMultiAntennaRequest(elements, frequency);
+
+        dispatch(addNotification({
+          id: Date.now(),
+          message: `Running simulation: ${readyCount} element(s), ${complexity.totalEdges} edge(s) at ${(frequency / 1e6).toFixed(0)} MHz...`,
           severity: 'info',
           duration: 3000,
         }));
 
-        await dispatch(runSimulation({ mesh: element.mesh, frequency, source })).unwrap();
+        // Run multi-antenna simulation
+        await dispatch(runMultiAntennaSimulation(request)).unwrap();
 
         dispatch(addNotification({
           id: Date.now(),
-          message: 'Simulation completed successfully!',
+          message: `Simulation completed successfully! ${readyCount} antenna(s) solved.`,
           severity: 'success',
           duration: 5000,
         }));

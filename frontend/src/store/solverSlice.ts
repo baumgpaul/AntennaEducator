@@ -6,7 +6,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from './store';
 import type { SolverRequest, SolverResult, Mesh, Source } from '@/types/models';
-import { solveSingle, solveAsync, getJobStatus, cancelJob } from '@/api/solver';
+import type { MultiAntennaRequest, MultiAntennaSolutionResponse } from '@/types/api';
+import { solveSingle, solveAsync, getJobStatus, cancelJob, solveMultiAntenna } from '@/api/solver';
 
 // ============================================================================
 // Types
@@ -28,6 +29,9 @@ interface SolverState {
   results: SolverResult | null;
   currentDistribution: number[] | null; // Magnitude of branch currents for visualization
   
+  // Multi-antenna results
+  multiAntennaResults: MultiAntennaSolutionResponse | null;
+  
   // History
   resultsHistory: Array<{
     timestamp: string;
@@ -44,6 +48,7 @@ const initialState: SolverState = {
   currentRequest: null,
   results: null,
   currentDistribution: null,
+  multiAntennaResults: null,
   resultsHistory: [],
 };
 
@@ -175,6 +180,44 @@ export const cancelSimulation = createAsyncThunk<void, void, { state: RootState 
   }
 );
 
+/**
+ * Run multi-antenna simulation
+ * This is the preferred method for all simulations (single or multiple elements)
+ */
+export const runMultiAntennaSimulation = createAsyncThunk<
+  MultiAntennaSolutionResponse,
+  MultiAntennaRequest,
+  { state: RootState }
+>('solver/runMultiAntennaSimulation', async (request, { rejectWithValue }) => {
+  try {
+    console.log('Running multi-antenna simulation:', {
+      frequency: request.frequency,
+      antennaCount: request.antennas.length,
+      totalNodes: request.antennas.reduce((sum, ant) => sum + ant.nodes.length, 0),
+      totalEdges: request.antennas.reduce((sum, ant) => sum + ant.edges.length, 0),
+    });
+    
+    console.log('Full request payload:', JSON.stringify(request, null, 2));
+
+    const result = await solveMultiAntenna(request);
+
+    console.log('Multi-antenna simulation complete:', {
+      converged: result.converged,
+      antennas: result.antenna_solutions.length,
+      solveTime: result.solve_time,
+    });
+
+    return result;
+  } catch (error: any) {
+    console.error('Multi-antenna simulation failed:', error);
+    console.error('Error response:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    
+    const errorMessage = error.response?.data?.detail || error.message || 'Multi-antenna simulation failed';
+    return rejectWithValue(errorMessage);
+  }
+});
+
 // ============================================================================
 // Slice
 // ============================================================================
@@ -197,6 +240,7 @@ const solverSlice = createSlice({
     clearResults: (state) => {
       state.results = null;
       state.currentDistribution = null;
+      state.multiAntennaResults = null;
       state.error = null;
       state.progress = 0;
       state.status = 'idle';
@@ -296,6 +340,96 @@ const solverSlice = createSlice({
       state.status = 'cancelled';
       state.progress = 0;
       state.jobId = null;
+    });
+
+    // ========================================================================
+    // Run Multi-Antenna Simulation
+    // ========================================================================
+    builder.addCase(runMultiAntennaSimulation.pending, (state) => {
+      state.status = 'preparing';
+      state.progress = 0;
+      state.error = null;
+      state.multiAntennaResults = null;
+    });
+
+    builder.addCase(runMultiAntennaSimulation.fulfilled, (state, action) => {
+      state.status = 'completed';
+      state.progress = 100;
+      state.multiAntennaResults = action.payload;
+      
+      // For backward compatibility: if single antenna, also populate results field
+      if (action.payload.antenna_solutions.length === 1) {
+        const solution = action.payload.antenna_solutions[0];
+        
+        // Parse complex numbers from backend format
+        const parseComplexArray = (arr: any[]) =>
+          arr.map((val) => {
+            if (typeof val === 'object' && 'real' in val && 'imag' in val) {
+              return { real: val.real, imag: val.imag };
+            }
+            return { real: val, imag: 0 };
+          });
+
+        state.results = {
+          project_id: 'default',
+          frequency: action.payload.frequency,
+          omega: action.payload.frequency * 2 * Math.PI,
+          converged: action.payload.converged,
+          branch_currents: parseComplexArray(solution.branch_currents),
+          node_voltages: parseComplexArray(solution.node_voltages),
+          appended_voltages: parseComplexArray(solution.appended_voltages),
+          input_impedance: solution.input_impedance 
+            ? (typeof solution.input_impedance === 'object' && 'real' in solution.input_impedance
+                ? solution.input_impedance as any
+                : { real: solution.input_impedance as number, imag: 0 })
+            : { real: 0, imag: 0 },
+          input_current: { real: 0, imag: 0 }, // Not provided by multi-antenna API
+          reflection_coefficient: { real: 0, imag: 0 },
+          return_loss: 0,
+          input_power: 0,
+          reflected_power: 0,
+          accepted_power: 0,
+          power_dissipated: 0,
+          solve_time: action.payload.solve_time,
+        } as SolverResult;
+
+        // Calculate current distribution for visualization
+        state.currentDistribution = parseComplexArray(solution.branch_currents).map((current) => {
+          const real = current.real || 0;
+          const imag = current.imag || 0;
+          return Math.sqrt(real * real + imag * imag);
+        });
+      } else {
+        // Multiple antennas: combine all branch currents for visualization
+        const allCurrents: number[] = [];
+        for (const solution of action.payload.antenna_solutions) {
+          const parseComplexArray = (arr: any[]) =>
+            arr.map((val) => {
+              if (typeof val === 'object' && 'real' in val && 'imag' in val) {
+                return { real: val.real, imag: val.imag };
+              }
+              return { real: val, imag: 0 };
+            });
+
+          const currents = parseComplexArray(solution.branch_currents).map((current) => {
+            const real = current.real || 0;
+            const imag = current.imag || 0;
+            return Math.sqrt(real * real + imag * imag);
+          });
+
+          allCurrents.push(...currents);
+        }
+        state.currentDistribution = allCurrents;
+      }
+
+      console.log('Multi-antenna results stored, distribution length:', state.currentDistribution?.length);
+    });
+
+    builder.addCase(runMultiAntennaSimulation.rejected, (state, action) => {
+      state.status = 'failed';
+      state.error = action.payload as string || 'Multi-antenna simulation failed';
+      state.progress = 0;
+      console.error('Multi-antenna simulation rejected:', state.error);
     });
   },
 });

@@ -213,14 +213,16 @@ function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption, solve
               </Box>
               <ButtonGroup variant="outlined" size="small">
                 <Tooltip title={isSimulationRunning ? 'Simulation running...' : 'Run solver'}>
-                  <Button
-                    startIcon={isSimulationRunning ? <HourglassEmpty /> : <PlayArrow />}
-                    onClick={() => onAnalysisAction?.('run-solver')}
-                    color="primary"
-                    disabled={isSimulationRunning}
-                  >
-                    {isSimulationRunning ? `${solverProgress}%` : 'Solve'}
-                  </Button>
+                  <span>
+                    <Button
+                      startIcon={isSimulationRunning ? <HourglassEmpty /> : <PlayArrow />}
+                      onClick={() => onAnalysisAction?.('run-solver')}
+                      color="primary"
+                      disabled={isSimulationRunning}
+                    >
+                      {isSimulationRunning ? `${solverProgress}%` : 'Solve'}
+                    </Button>
+                  </span>
                 </Tooltip>
                 <Tooltip title="Solver configuration">
                   <Button startIcon={<Settings />} onClick={() => onAnalysisAction?.('solver-settings')}>
