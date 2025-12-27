@@ -23,6 +23,11 @@ describe('multiAntennaBuilder', () => {
     locked: false,
     position: [0, 0, 0],
     rotation: [0, 0, 0],
+    config: {
+      length: 0.5,
+      wire_radius: 0.001,
+      segments: 1,
+    },
     mesh: {
       nodes: [
         [0, 0, 0],

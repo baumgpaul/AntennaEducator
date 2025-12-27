@@ -40,6 +40,13 @@ export interface Mesh {
   nodes: Vector3D[] // List of [x, y, z] coordinates
   edges: [number, number][] // List of [start_idx, end_idx] (0-based)
   radii: number[] // Wire radius for each edge
+  metadata?: {
+    total_length?: number
+    num_segments?: number
+    [key: string]: any
+  }
+  vertices?: Vector3D[] // Alternative to nodes for some legacy uses
+  faces?: any[] // For future 3D surface support
 }
 
 // ============================================================================
@@ -50,7 +57,7 @@ export type SourceType = 'voltage' | 'current'
 
 export interface Source {
   type: SourceType
-  amplitude: ComplexNumber
+  amplitude: ComplexNumber | string | number // Support complex, string format ("1+0j"), or number
   node_start: number // 1-based index
   node_end: number // 1-based index
   position?: string | number // 'center', 'base', or segment index

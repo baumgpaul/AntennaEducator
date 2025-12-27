@@ -24,7 +24,6 @@ import {
   ExpandMore,
   ColorLens,
   TrendingUp,
-  Stop,
   CheckCircle,
   Error as ErrorIcon,
   HourglassEmpty,

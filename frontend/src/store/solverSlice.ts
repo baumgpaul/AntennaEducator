@@ -80,7 +80,9 @@ export const runSimulation = createAsyncThunk<
       source_node_start: source.node_start,
       source_node_end: source.node_end,
       source_type: source.type,
-      source_amplitude: source.amplitude,
+      source_amplitude: typeof source.amplitude === 'object' && 'real' in source.amplitude 
+        ? source.amplitude 
+        : { real: typeof source.amplitude === 'number' ? source.amplitude : parseFloat(source.amplitude as string), imag: 0 },
     };
 
     console.log('Running simulation:', { frequency, sourceNodes: [source.node_start, source.node_end] });
@@ -121,7 +123,9 @@ export const runAsyncSimulation = createAsyncThunk<
       source_node_start: source.node_start,
       source_node_end: source.node_end,
       source_type: source.type,
-      source_amplitude: source.amplitude,
+      source_amplitude: typeof source.amplitude === 'object' && 'real' in source.amplitude 
+        ? source.amplitude 
+        : { real: typeof source.amplitude === 'number' ? source.amplitude : parseFloat(source.amplitude as string), imag: 0 },
     };
 
     console.log('Starting async simulation:', { frequency });

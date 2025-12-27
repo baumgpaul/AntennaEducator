@@ -7,7 +7,6 @@ import { postprocessorClient, handleApiResponse } from './client'
 import type {
   FieldComputationRequest,
   FieldComputationResult,
-  RadiationPatternRequest,
   RadiationPatternResult,
 } from '@/types/models'
 

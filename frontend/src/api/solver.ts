@@ -17,7 +17,6 @@ import type {
 
 // Export helper functions
 export {
-  convertToMultiAntennaRequest,
   parseComplex,
   complexMagnitude,
   complexPhase,

@@ -127,6 +127,8 @@ export const generateDipoleMesh = async (formData: {
     source: {
       type: 'voltage',
       amplitude: { real: 1.0, imag: 0.0 },
+      node_start: 1,
+      node_end: 2,
       position: 'center',
     },
   };

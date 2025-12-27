@@ -11,8 +11,12 @@ import designReducer, {
 import type { AntennaElement } from '@/types/models';
 import { describe, it, expect, beforeEach } from 'vitest';
 
+type TestRootState = {
+  design: ReturnType<typeof designReducer>;
+};
+
 describe('designSlice', () => {
-  let store: ReturnType<typeof configureStore>;
+  let store: ReturnType<typeof configureStore<TestRootState>>;
 
   // Mock antenna element for testing
   const mockElement: AntennaElement = {
@@ -21,15 +25,15 @@ describe('designSlice', () => {
     name: 'Test Dipole',
     config: {
       length: 0.5,
-      radius: 0.01,
+      wire_radius: 0.01,
       segments: 20,
     },
     position: [0, 0, 0],
     rotation: [0, 0, 0],
     mesh: {
-      vertices: [[0, 0, 0], [0, 0, 0.5]],
+      nodes: [[0, 0, 0], [0, 0, 0.5]],
       edges: [[0, 1]],
-      faces: [],
+      radii: [0.01],
     },
     visible: true,
     locked: false,
@@ -92,7 +96,7 @@ describe('designSlice', () => {
     const state = store.getState().design;
 
     expect(state.elements[0].name).toBe('Updated Dipole');
-    expect(state.elements[0].config.length).toBe(0.75);
+    expect((state.elements[0].config as any).length).toBe(0.75);
     expect(state.elements[0].id).toBe('test-dipole-1'); // ID should not change
   });
 

@@ -19,7 +19,7 @@ import {
   setElementLocked,
 } from '@/store/designSlice';
 import { addNotification } from '@/store/uiSlice';
-import { runSimulation, runMultiAntennaSimulation, clearResults } from '@/store/solverSlice';
+import { runMultiAntennaSimulation } from '@/store/solverSlice';
 import {
   buildMultiAntennaRequest,
   countSimulationReadyElements,
