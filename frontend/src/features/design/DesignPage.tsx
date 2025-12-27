@@ -36,6 +36,7 @@ import { LoopDialog } from './LoopDialog';
 import { HelixDialog } from './HelixDialog';
 import { RodDialog } from './RodDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
+import { SourceDialog } from './SourceDialog';
 import { addLumpedElementToMesh } from '@/api/preprocessor';
 
 
@@ -74,6 +75,7 @@ function DesignPage() {
   const [helixDialogOpen, setHelixDialogOpen] = useState(false);
   const [rodDialogOpen, setRodDialogOpen] = useState(false);
   const [lumpedDialogOpen, setLumpedDialogOpen] = useState(false);
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
 
   const handleAntennaTypeSelect = (type: string) => {
     console.log('Antenna type selected:', type);
@@ -94,6 +96,9 @@ function DesignPage() {
         break;
       case 'lumped-element':
         setLumpedDialogOpen(true);
+        break;
+      case 'voltage-source':
+        setSourceDialogOpen(true);
         break;
       default:
         console.log('Unknown antenna type:', type);
@@ -194,6 +199,27 @@ function DesignPage() {
       dispatch(addNotification({
         id: Date.now(),
         message: error || 'Failed to add lumped element',
+        severity: 'error',
+        duration: 5000,
+      }));
+      throw error;
+    }
+  };
+
+  const handleAddSource = async (data: any) => {
+    try {
+      // TODO: Implement source addition to mesh
+      dispatch(addNotification({
+        id: Date.now(),
+        message: 'Source will be added - feature in development',
+        severity: 'info',
+        duration: 5000,
+      }));
+      console.log('Adding source:', data);
+    } catch (error: any) {
+      dispatch(addNotification({
+        id: Date.now(),
+        message: error || 'Failed to add source',
         severity: 'error',
         duration: 5000,
       }));
@@ -505,6 +531,15 @@ function DesignPage() {
         onAdd={handleAddLumpedElement}
         loading={false}
         maxNodeIndex={mesh?.nodes ? mesh.nodes.length - 1 : 0}
+        elements={elements}
+      />
+      <SourceDialog
+        open={sourceDialogOpen}
+        onClose={() => setSourceDialogOpen(false)}
+        onAdd={handleAddSource}
+        loading={false}
+        maxNodeIndex={mesh?.nodes ? mesh.nodes.length - 1 : 0}
+        elements={elements}
       />
     </Box>
   );
