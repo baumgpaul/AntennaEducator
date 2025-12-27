@@ -15,38 +15,35 @@ import {
   InputLabel,
   FormHelperText,
   Typography,
+  Paper,
 } from '@mui/material';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { AntennaElement } from '@/types/models';
 
 // Zod discriminated union schema for different element types
 const lumpedElementSchema = z.discriminatedUnion('element_type', [
   z.object({
+    antennaId: z.string().min(1, 'Must select an antenna'),
     element_type: z.literal('R'),
     resistance: z.number().positive('Resistance must be positive'),
-    node1: z.number().int().min(0, 'Node must be non-negative'),
-    node2: z.number().int().min(0, 'Node must be non-negative'),
+    node1: z.number().int('Node must be an integer'),
+    node2: z.number().int('Node must be an integer'),
   }),
   z.object({
+    antennaId: z.string().min(1, 'Must select an antenna'),
     element_type: z.literal('L'),
     inductance: z.number().positive('Inductance must be positive'),
-    node1: z.number().int().min(0, 'Node must be non-negative'),
-    node2: z.number().int().min(0, 'Node must be non-negative'),
+    node1: z.number().int('Node must be an integer'),
+    node2: z.number().int('Node must be an integer'),
   }),
   z.object({
+    antennaId: z.string().min(1, 'Must select an antenna'),
     element_type: z.literal('C'),
     capacitance_inv: z.number().positive('Capacitance inverse must be positive'),
-    node1: z.number().int().min(0, 'Node must be non-negative'),
-    node2: z.number().int().min(0, 'Node must be non-negative'),
-  }),
-  z.object({
-    element_type: z.literal('RLC'),
-    resistance: z.number().positive('Resistance must be positive'),
-    inductance: z.number().positive('Inductance must be positive'),
-    capacitance_inv: z.number().positive('Capacitance inverse must be positive'),
-    node1: z.number().int().min(0, 'Node must be non-negative'),
-    node2: z.number().int().min(0, 'Node must be non-negative'),
+    node1: z.number().int('Node must be an integer'),
+    node2: z.number().int('Node must be an integer'),
   }),
 ]).refine(
   (data) => data.node1 !== data.node2,
@@ -64,6 +61,7 @@ interface LumpedElementDialogProps {
   onAdd: (data: LumpedElementFormData) => Promise<void>;
   loading?: boolean;
   maxNodeIndex?: number;
+  elements: AntennaElement[];
 }
 
 export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({ 
@@ -72,6 +70,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
   onAdd, 
   loading = false,
   maxNodeIndex = 0,
+  elements,
 }) => {
   const [adding, setAdding] = useState(false);
 
@@ -84,6 +83,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
   } = useForm<LumpedElementFormData>({
     resolver: zodResolver(lumpedElementSchema),
     defaultValues: {
+      antennaId: elements[0]?.id || '',
       element_type: 'R',
       resistance: 50,
       node1: 0,
@@ -92,11 +92,14 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
   });
 
   const elementType = watch('element_type');
+  const selectedAntennaId = watch('antennaId');
+  const selectedAntenna = elements.find(el => el.id === selectedAntennaId);
 
   // Reset form fields when element type changes
   useEffect(() => {
     if (elementType === 'R') {
       reset({
+        antennaId: selectedAntennaId || elements[0]?.id || '',
         element_type: 'R',
         resistance: 50,
         node1: 0,
@@ -104,6 +107,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
       });
     } else if (elementType === 'L') {
       reset({
+        antennaId: selectedAntennaId || elements[0]?.id || '',
         element_type: 'L',
         inductance: 1e-9,
         node1: 0,
@@ -111,16 +115,8 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
       });
     } else if (elementType === 'C') {
       reset({
+        antennaId: selectedAntennaId || elements[0]?.id || '',
         element_type: 'C',
-        capacitance_inv: 1e9,
-        node1: 0,
-        node2: 1,
-      });
-    } else if (elementType === 'RLC') {
-      reset({
-        element_type: 'RLC',
-        resistance: 50,
-        inductance: 1e-9,
         capacitance_inv: 1e9,
         node1: 0,
         node2: 1,
@@ -154,6 +150,50 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
       <DialogContent>
         <form id="lumped-element-form" onSubmit={handleSubmit(handleFormSubmit)}>
           <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* Antenna Display */}
+            {selectedAntenna && (
+              <Grid item xs={12}>
+                <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Antenna
+                  </Typography>
+                  <Typography variant="h6">
+                    {selectedAntenna.name}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    {selectedAntenna.type}
+                  </Typography>
+                </Paper>
+              </Grid>
+            )}
+
+            {/* Antenna Selection */}
+            <Grid item xs={12}>
+              <Controller
+                name="antennaId"
+                control={control}
+                render={({ field }) => (
+                  <FormControl fullWidth error={!!errors.antennaId}>
+                    <InputLabel>Antenna</InputLabel>
+                    <Select
+                      {...field}
+                      label="Antenna"
+                      disabled={loading || elements.length === 0}
+                    >
+                      {elements.map((antenna) => (
+                        <MenuItem key={antenna.id} value={antenna.id}>
+                          {antenna.name} ({antenna.type})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {errors.antennaId && (
+                      <FormHelperText>{errors.antennaId.message}</FormHelperText>
+                    )}
+                  </FormControl>
+                )}
+              />
+            </Grid>
+
             {/* Element Type */}
             <Grid item xs={12}>
               <FormControl fullWidth error={!!errors.element_type}>
@@ -166,7 +206,6 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                       <MenuItem value="R">Resistor (R)</MenuItem>
                       <MenuItem value="L">Inductor (L)</MenuItem>
                       <MenuItem value="C">Capacitor (C)</MenuItem>
-                      <MenuItem value="RLC">RLC Series</MenuItem>
                     </Select>
                   )}
                 />
@@ -177,7 +216,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
             </Grid>
 
             {/* Conditional Fields Based on Element Type */}
-            {(elementType === 'R' || elementType === 'RLC') && (
+            {(elementType === 'R') && (
               <Grid item xs={12}>
                 <Controller
                   name="resistance"
@@ -198,7 +237,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
               </Grid>
             )}
 
-            {(elementType === 'L' || elementType === 'RLC') && (
+            {(elementType === 'L') && (
               <Grid item xs={12}>
                 <Controller
                   name="inductance"
@@ -219,7 +258,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
               </Grid>
             )}
 
-            {(elementType === 'C' || elementType === 'RLC') && (
+            {(elementType === 'C') && (
               <Grid item xs={12}>
                 <Controller
                   name="capacitance_inv"
@@ -254,12 +293,22 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                   <TextField
                     {...field}
                     label="Node 1"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     fullWidth
                     error={!!errors.node1}
-                    helperText={errors.node1?.message || `Max: ${maxNodeIndex}`}
-                    inputProps={{ step: 1, min: 0, max: maxNodeIndex }}
-                    onChange={(e) => field.onChange(parseInt(e.target.value))}
+                    helperText={errors.node1?.message || 'Integer: positive (mesh), 0 (GND), negative (appended)'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || val === '-') {
+                        field.onChange(val);
+                      } else {
+                        const num = parseInt(val);
+                        if (!isNaN(num)) {
+                          field.onChange(num);
+                        }
+                      }
+                    }}
                   />
                 )}
               />
@@ -272,12 +321,22 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                   <TextField
                     {...field}
                     label="Node 2"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     fullWidth
                     error={!!errors.node2}
-                    helperText={errors.node2?.message || `Max: ${maxNodeIndex}`}
-                    inputProps={{ step: 1, min: 0, max: maxNodeIndex }}
-                    onChange={(e) => field.onChange(parseInt(e.target.value))}
+                    helperText={errors.node2?.message || 'Integer: positive (mesh), 0 (GND), negative (appended)'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || val === '-') {
+                        field.onChange(val);
+                      } else {
+                        const num = parseInt(val);
+                        if (!isNaN(num)) {
+                          field.onChange(num);
+                        }
+                      }
+                    }}
                   />
                 )}
               />
@@ -286,17 +345,15 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
             {/* Info Alert */}
             <Grid item xs={12}>
               <Alert severity="info">
-                <strong>Lumped Elements:</strong>
+                <strong>Lumped Elements:</strong> Add discrete components between mesh nodes.
                 <br />
-                Add discrete components between mesh nodes.
+                <strong>Node Indexing:</strong> Positive (mesh nodes), 0 (ground), Negative (appended network)
                 <br />
-                • <strong>Resistor:</strong> Loading, matching networks
+                <strong>Resistor:</strong> Loading, matching networks
                 <br />
-                • <strong>Inductor:</strong> Inductive loading
+                <strong>Inductor:</strong> Inductive loading
                 <br />
-                • <strong>Capacitor:</strong> Capacitive loading
-                <br />
-                • <strong>RLC:</strong> Resonant circuits
+                <strong>Capacitor:</strong> Capacitive loading
               </Alert>
             </Grid>
 
