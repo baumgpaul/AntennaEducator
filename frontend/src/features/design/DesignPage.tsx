@@ -40,6 +40,7 @@ import { HelixDialog } from './HelixDialog';
 import { RodDialog } from './RodDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
+import ResultsPanel from './ResultsPanel';
 import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 
 
@@ -65,7 +66,8 @@ function DesignPage() {
   const { 
     status: solverStatus, 
     progress: solverProgress,
-    currentDistribution 
+    currentDistribution,
+    results,
   } = useAppSelector(
     (state) => state.solver
   );
@@ -73,6 +75,7 @@ function DesignPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showResultsPanel, setShowResultsPanel] = useState(false);
   const [dipoleDialogOpen, setDipoleDialogOpen] = useState(false);
   const [loopDialogOpen, setLoopDialogOpen] = useState(false);
   const [helixDialogOpen, setHelixDialogOpen] = useState(false);
@@ -379,6 +382,9 @@ function DesignPage() {
           severity: 'success',
           duration: 5000,
         }));
+
+        // Auto-open results panel on successful simulation
+        setShowResultsPanel(true);
       } catch (error: any) {
         dispatch(addNotification({
           id: Date.now(),
@@ -388,7 +394,7 @@ function DesignPage() {
         }));
       }
     } else if (action === 'view-results') {
-      console.log('View results');
+      setShowResultsPanel(!showResultsPanel);
     } else if (action === 'generate-mesh') {
       dispatch(addNotification({
         id: Date.now(),
@@ -515,6 +521,15 @@ function DesignPage() {
             solverProgress={solverProgress}
           />
         }
+        bottomPanel={
+          <ResultsPanel
+            onClose={() => setShowResultsPanel(false)}
+            impedance={results?.input_impedance}
+            currentDistribution={currentDistribution || undefined}
+            farFieldData={null}
+          />
+        }
+        showResultsPanel={showResultsPanel}
       />
       <ViewControls
         onZoomIn={handleZoomIn}

@@ -454,7 +454,25 @@ const designSlice = createSlice({
         // Auto-assign color
         const color = getNextElementColor(state.elements);
         
-        // Create AntennaElement from response
+        // Auto-create voltage source across the gap
+        // For a dipole: nodes 1 to (total/2 + 1) spans the gap
+        const numNodes = action.payload.mesh?.nodes?.length || 0;
+        const gapEndNode = Math.ceil(numNodes / 2) + 1; // Node at start of second arm
+        
+        const autoSource: Source = {
+          type: 'voltage',
+          amplitude: { real: 1, imag: 0 },
+          node_start: 1, // First node of first arm
+          node_end: gapEndNode, // First node of second arm
+          series_R: 0,
+          series_L: 0,
+          series_C_inv: 0,
+          tag: 'Auto-generated feed',
+        };
+        
+        console.log(`Auto-creating voltage source across gap: 1 → ${gapEndNode} (total nodes: ${numNodes})`);
+        
+        // Create AntennaElement from response (use ONLY the auto-source, ignore backend sources)
         const element: AntennaElement = {
           id: `dipole_${Date.now()}`,
           type: 'dipole',
@@ -463,7 +481,7 @@ const designSlice = createSlice({
           position,
           rotation,
           mesh: action.payload.mesh,
-          sources: action.payload.element?.sources || [],
+          sources: [autoSource], // Only auto-source, no backend sources
           lumped_elements: action.payload.element?.lumped_elements || [],
           visible: true,
           locked: false,

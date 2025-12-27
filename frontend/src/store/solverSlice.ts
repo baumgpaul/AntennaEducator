@@ -10,6 +10,45 @@ import type { MultiAntennaRequest, MultiAntennaSolutionResponse } from '@/types/
 import { solveSingle, solveAsync, getJobStatus, cancelJob, solveMultiAntenna } from '@/api/solver';
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Parse complex number from various formats:
+ * - String: "a+bj" or "a-bj" (Python format)
+ * - Object: {real: a, imag: b}
+ * - Array: [a, b]
+ * - Number: a (imag = 0)
+ */
+function parseComplex(val: any): { real: number; imag: number } {
+  if (typeof val === 'string') {
+    // Python format: "a+bj" or "a-bj"
+    const match = val.match(/^([+-]?[\d.e+-]+)([+-][\d.e+-]+)j$/);
+    if (match) {
+      return { real: parseFloat(match[1]), imag: parseFloat(match[2]) };
+    }
+    return { real: 0, imag: 0 };
+  }
+  if (typeof val === 'object' && val !== null && 'real' in val && 'imag' in val) {
+    return { real: val.real, imag: val.imag };
+  }
+  if (Array.isArray(val) && val.length >= 2) {
+    return { real: val[0], imag: val[1] };
+  }
+  if (typeof val === 'number') {
+    return { real: val, imag: 0 };
+  }
+  return { real: 0, imag: 0 };
+}
+
+/**
+ * Parse array of complex numbers
+ */
+function parseComplexArray(arr: any[]): Array<{ real: number; imag: number }> {
+  return arr.map(parseComplex);
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -269,11 +308,27 @@ const solverSlice = createSlice({
       state.progress = 100;
       state.results = action.payload;
       
+      console.log('Solver response received:', {
+        frequency: action.payload.frequency,
+        input_impedance: action.payload.input_impedance,
+        branch_currents_length: action.payload.branch_currents?.length,
+        branch_currents_sample: action.payload.branch_currents?.slice(0, 3),
+        input_current: action.payload.input_current
+      });
+      
       // Calculate current magnitude for visualization
       state.currentDistribution = action.payload.branch_currents.map((current) => {
-        const real = current.real || current[0];
-        const imag = current.imag || current[1];
-        return Math.sqrt(real * real + imag * imag);
+        const parsed = parseComplex(current);
+        const magnitude = Math.sqrt(parsed.real * parsed.real + parsed.imag * parsed.imag);
+        return magnitude;
+      });
+
+      console.log('Current distribution computed:', {
+        length: state.currentDistribution?.length,
+        sample: state.currentDistribution?.slice(0, 5),
+        min: Math.min(...state.currentDistribution.filter(c => isFinite(c))),
+        max: Math.max(...state.currentDistribution.filter(c => isFinite(c))),
+        hasNaN: state.currentDistribution.some(c => !isFinite(c))
       });
 
       // Add to history
@@ -362,17 +417,62 @@ const solverSlice = createSlice({
       state.multiAntennaResults = action.payload;
       
       // For backward compatibility: if single antenna, also populate results field
+      console.log('Multi-antenna solver response:', {
+        converged: action.payload.converged,
+        num_solutions: action.payload.antenna_solutions.length,
+        frequency: action.payload.frequency,
+        first_solution: action.payload.antenna_solutions[0]
+      });
+
       if (action.payload.antenna_solutions.length === 1) {
         const solution = action.payload.antenna_solutions[0];
         
-        // Parse complex numbers from backend format
-        const parseComplexArray = (arr: any[]) =>
-          arr.map((val) => {
-            if (typeof val === 'object' && 'real' in val && 'imag' in val) {
-              return { real: val.real, imag: val.imag };
-            }
-            return { real: val, imag: 0 };
-          });
+        console.log('Single antenna solution:', {
+          input_impedance: solution.input_impedance,
+          branch_currents_length: solution.branch_currents?.length,
+          branch_currents_sample: solution.branch_currents?.slice(0, 3),
+          voltage_source_currents_length: solution.voltage_source_currents?.length,
+          voltage_source_currents: solution.voltage_source_currents,
+          has_current_source_currents: !!solution.current_source_currents,
+          has_load_currents: !!solution.load_currents
+        });
+
+        // Calculate input impedance from voltage source currents if not provided
+        let inputImpedance = parseComplex(solution.input_impedance);
+        
+        console.log('Parsed input_impedance from backend:', inputImpedance);
+        
+        if ((!solution.input_impedance || (inputImpedance.real === 0 && inputImpedance.imag === 0)) 
+            && solution.voltage_source_currents && solution.voltage_source_currents.length > 0) {
+          console.log('Backend impedance is null/zero, calculating from voltage_source_currents...');
+          
+          // Sum all voltage source currents (for split sources)
+          const sourceCurrents = parseComplexArray(solution.voltage_source_currents);
+          console.log('Parsed voltage source currents:', sourceCurrents);
+          
+          const totalSourceCurrent = sourceCurrents.reduce((sum, current) => ({
+            real: sum.real + current.real,
+            imag: sum.imag + current.imag
+          }), { real: 0, imag: 0 });
+          
+          console.log('Total source current (sum):', totalSourceCurrent);
+          
+          // Z = V / I, assuming V = 1V (normalized)
+          const I_mag_sq = totalSourceCurrent.real ** 2 + totalSourceCurrent.imag ** 2;
+          console.log('|I|^2:', I_mag_sq);
+          
+          if (I_mag_sq > 1e-20) {
+            // Z = V / I = 1 / I for normalized voltage
+            // 1 / (a + jb) = (a - jb) / (a^2 + b^2)
+            inputImpedance = {
+              real: totalSourceCurrent.real / I_mag_sq,
+              imag: -totalSourceCurrent.imag / I_mag_sq
+            };
+            console.log('Calculated input impedance from source currents:', inputImpedance);
+          } else {
+            console.warn('Source current magnitude too small:', Math.sqrt(I_mag_sq));
+          }
+        }
 
         state.results = {
           project_id: 'default',
@@ -382,11 +482,7 @@ const solverSlice = createSlice({
           branch_currents: parseComplexArray(solution.branch_currents),
           node_voltages: parseComplexArray(solution.node_voltages),
           appended_voltages: parseComplexArray(solution.appended_voltages),
-          input_impedance: solution.input_impedance 
-            ? (typeof solution.input_impedance === 'object' && 'real' in solution.input_impedance
-                ? solution.input_impedance as any
-                : { real: solution.input_impedance as number, imag: 0 })
-            : { real: 0, imag: 0 },
+          input_impedance: inputImpedance,
           input_current: { real: 0, imag: 0 }, // Not provided by multi-antenna API
           reflection_coefficient: { real: 0, imag: 0 },
           return_loss: 0,
@@ -407,14 +503,6 @@ const solverSlice = createSlice({
         // Multiple antennas: combine all branch currents for visualization
         const allCurrents: number[] = [];
         for (const solution of action.payload.antenna_solutions) {
-          const parseComplexArray = (arr: any[]) =>
-            arr.map((val) => {
-              if (typeof val === 'object' && 'real' in val && 'imag' in val) {
-                return { real: val.real, imag: val.imag };
-              }
-              return { real: val, imag: 0 };
-            });
-
           const currents = parseComplexArray(solution.branch_currents).map((current) => {
             const real = current.real || 0;
             const imag = current.imag || 0;

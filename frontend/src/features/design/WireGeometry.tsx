@@ -57,7 +57,20 @@ function WireGeometry({
     console.log('WireGeometry: Computing segments', { 
       elementCount: elements?.length, 
       hasLegacyMesh: !!mesh,
-      elements: elements?.map(e => ({ id: e.id, visible: e.visible, meshDefined: !!e.mesh }))
+      elements: elements?.map(e => ({ id: e.id, visible: e.visible, meshDefined: !!e.mesh })),
+      currentDistribution: currentDistribution?.length
+    });
+    
+    // Find max current for normalization
+    const maxCurrent = currentDistribution && currentDistribution.length > 0
+      ? Math.max(...currentDistribution.map(c => Math.abs(c)).filter(c => isFinite(c)))
+      : 1;
+    
+    console.log('WireGeometry: Current normalization', { 
+      maxCurrent,
+      currentDistSample: currentDistribution?.slice(0, 5),
+      hasNaN: currentDistribution?.some(c => !isFinite(c)),
+      hasNegative: currentDistribution?.some(c => c < 0)
     });
     
     const result: Array<{
@@ -73,13 +86,15 @@ function WireGeometry({
 
     if (elements && elements.length > 0) {
       // Multi-element mode
+      let currentOffset = 0; // Track position in currentDistribution array
+      
       elements.forEach(element => {
         if (!element.visible || !element.mesh) return;
         
         const mesh = element.mesh;
         if (!mesh.edges || !mesh.nodes || !mesh.radii) return;
         
-        console.log(`WireGeometry: Element ${element.id} - nodes: ${mesh.nodes.length}, edges: ${mesh.edges.length}, radii: ${mesh.radii.length}`);
+        console.log(`WireGeometry: Element ${element.id} - nodes: ${mesh.nodes.length}, edges: ${mesh.edges.length}, radii: ${mesh.radii.length}, currentOffset: ${currentOffset}`);
         
         const segments = mesh.edges.map((edge, idx) => {
           // Backend uses 1-based indexing, convert to 0-based for JavaScript arrays
@@ -132,13 +147,20 @@ function WireGeometry({
             endVec.z + element.position[2]
           );
 
+          // Get current from currentDistribution array and normalize to 0-1
+          const rawCurrent = currentDistribution?.[currentOffset + idx] ?? 0;
+          const normalizedCurrent = maxCurrent > 0 ? Math.abs(rawCurrent) / maxCurrent : 0;
+
           return {
             start: startPos,
             end: endPos,
             radius,
-            current: 0, // Current distribution per element will be added later
+            current: normalizedCurrent,
           };
         }).filter(seg => seg !== null);
+
+        // Advance offset for next element
+        currentOffset += mesh.edges.length;
 
         if (segments.length > 0) {
           result.push({
@@ -171,7 +193,9 @@ function WireGeometry({
             return null;
           }
 
-          const current = currentDistribution?.[idx] ?? 0;
+          // Get current and normalize to 0-1
+          const rawCurrent = currentDistribution?.[idx] ?? 0;
+          const current = maxCurrent > 0 ? Math.abs(rawCurrent) / maxCurrent : 0;
 
           return {
             start: new THREE.Vector3(start[0], start[1], start[2]),

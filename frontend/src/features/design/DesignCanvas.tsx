@@ -5,6 +5,7 @@ import { useAppSelector } from '@/store/hooks';
 import Scene3D from './Scene3D';
 import WireGeometry from './WireGeometry';
 import ColorLegend from './ColorLegend';
+import ColorScaleLegend from './ColorScaleLegend';
 import type { Mesh, AntennaElement } from '@/types/models';
 
 interface DesignCanvasProps {
@@ -21,11 +22,14 @@ interface DesignCanvasProps {
   leftPanel?: React.ReactNode;
   rightPanel?: React.ReactNode;
   topToolbar?: React.ReactNode;
+  bottomPanel?: React.ReactNode;
+  showResultsPanel?: boolean;
 }
 
 /**
  * DesignCanvas - Main 3D design workspace with resizable panels
  * Layout: [Left Panel] | [3D Canvas] | [Right Panel]
+ *         [Bottom Results Panel] (optional)
  */
 function DesignCanvas({
   elements,
@@ -36,6 +40,8 @@ function DesignCanvas({
   leftPanel,
   rightPanel,
   topToolbar,
+  bottomPanel,
+  showResultsPanel = false,
 }: DesignCanvasProps) {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
@@ -76,12 +82,22 @@ function DesignCanvas({
       {/* Main Content Area - Pure Flexbox with plain divs */}
       <div style={{ 
         display: 'flex', 
+        flexDirection: 'column',
         flex: 1, 
         overflow: 'hidden',
         position: 'relative',
         margin: 0,
         padding: 0,
       }}>
+        {/* Top section with left panel, canvas, right panel */}
+        <div style={{
+          display: 'flex',
+          flex: showResultsPanel ? '1 1 60%' : 1,
+          overflow: 'hidden',
+          position: 'relative',
+          margin: 0,
+          padding: 0,
+        }}>
         {/* Left Panel (Tree View) */}
         {leftPanelOpen && (
           <div style={{
@@ -176,6 +192,16 @@ function DesignCanvas({
             <ColorLegend elements={elements} visible={true} />
           )}
 
+          {/* Current Distribution Legend - Show only in current-distribution mode */}
+          {visualizationMode === 'current-distribution' && currentDistribution && currentDistribution.length > 0 && (
+            <ColorScaleLegend
+              min={Math.min(...currentDistribution.filter(c => isFinite(c)))}
+              max={Math.max(...currentDistribution.filter(c => isFinite(c)))}
+              unit="A"
+              title="Current Magnitude"
+            />
+          )}
+
           {/* Center overlay for empty state */}
           {!elements?.length && !mesh && (
             <div style={{
@@ -258,6 +284,19 @@ function DesignCanvas({
                 <ChevronLeft />
               </IconButton>
             </Tooltip>
+          </div>
+        )}
+        </div>
+
+        {/* Bottom Results Panel */}
+        {showResultsPanel && bottomPanel && (
+          <div style={{
+            flex: '0 0 40%',
+            borderTop: '1px solid rgba(0, 0, 0, 0.12)',
+            overflow: 'hidden',
+            backgroundColor: 'var(--mui-palette-background-paper, #fff)',
+          }}>
+            {bottomPanel}
           </div>
         )}
       </div>

@@ -85,6 +85,7 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
     edgeCount: edges.length,
     radiiCount: radii.length,
     sources: element.sources?.length || 0,
+    sourcesDetails: element.sources,
     position: element.position,
   });
 
@@ -92,7 +93,9 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
   const voltage_sources: VoltageSourceInput[] = []
   const current_sources: CurrentSourceInput[] = []
 
-  if (element.sources) {
+  if (element.sources && element.sources.length > 0) {
+    console.log(`Processing ${element.sources.length} sources for ${element.name}`, element.sources);
+    
     // Check for balanced feed pattern: two voltage sources from node_start=0
     const centerTapSources = element.sources.filter(
       s => s.type === 'voltage' && s.node_start === 0 && s.node_end !== 0
@@ -148,9 +151,10 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
             amplitude = source.amplitude;
           }
           
-          // Skip sources with node_start=0 (invalid - should be part of balanced feed)
-          if (source.node_start === 0) {
-            console.warn(`Skipping source with node_start=0 (not part of balanced feed): ${element.name}`);
+          // Sources with node_start=0 are valid (ground reference)
+          // Only skip if BOTH nodes are 0
+          if (source.node_start === 0 && source.node_end === 0) {
+            console.warn(`Skipping invalid source with both nodes=0: ${element.name}`);
             continue;
           }
           
@@ -185,6 +189,8 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
         }
       }
     }
+  } else {
+    console.warn(`No sources found on element ${element.name}`);
   }
 
   // Convert lumped elements
