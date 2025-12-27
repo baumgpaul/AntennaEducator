@@ -61,7 +61,7 @@ The PEEC Antenna Simulator is a modern, cloud-native electromagnetic simulation 
 
 The backend implementation is fully functional with comprehensive testing coverage:
 
-### 🚀 Phase 2: Frontend Development - IN PROGRESS (85%)
+### 🚀 Phase 2: Frontend Development - IN PROGRESS (90%)
 
 The frontend React application is actively under development with core infrastructure complete and major features implemented:
 
@@ -88,6 +88,11 @@ The frontend React application is actively under development with core infrastru
 - ✅ Current distribution computation
 - ✅ Input impedance calculation
 - ✅ FastAPI REST interface with comprehensive documentation
+- ✅ **Critical bug fix** (December 27, 2025)
+  - Fixed voltage source current extraction: changed `I[:n_edges].copy()` to `I.copy()`
+  - Now returns complete branch current vector: [edges, voltage_sources, current_sources, loads]
+  - Comprehensive debug logging added throughout solver pipeline
+  - Validated with automated tests showing correct 2-branch current vector
 
 #### **Postprocessor Service**
 - ✅ Near-field computation (E-field, H-field)
@@ -106,9 +111,9 @@ The frontend React application is actively under development with core infrastru
 
 ---
 
-### 🚀 Phase 2: Frontend Development - IN PROGRESS (88%)
+### 🚀 Phase 2: Frontend Development - IN PROGRESS (90%)
 
-#### **✅ Completed (Tasks 1-11 + A1-A3) - 19 Feature Commits**
+#### **✅ Completed (Tasks 1-11 + A1-A4) - 22 Feature Commits**
 
 **Foundation & Infrastructure (Tasks 1-4)**
 - ✅ React 18 + TypeScript 5 + Vite 5 project setup
@@ -246,8 +251,8 @@ The frontend React application is actively under development with core infrastru
   - **⏳ TODO: Add distinct colors for multiple antenna elements**
   - **⏳ TODO: Add color management in element properties panel**
 
-**Backend Integration (Tasks A1-A3) - ✅ COMPLETED (December 26-27, 2025)**
-- ✅ **Task A1: Multi-Antenna Frontend API** (Commit dd2d186)
+**Backend Integration (Tasks A1-A4) - ✅ COMPLETED (December 26-27, 2025)**
+- ✅ **Task A1: Multi-Antenna Frontend API** (Commit 36db90f)
   - solveMultiAntenna() function in frontend/src/api/solver.ts
   - Helper functions: parseComplex(), formatComplex(), convertToMultiAntennaRequest()
   - TypeScript types for MultiAntennaRequest/Response
@@ -258,7 +263,7 @@ The frontend React application is actively under development with core infrastru
   - Validated: **2.17 dBi** directivity vs **2.15 dBi** gold standard = **0.9% error**
   - Full dipole test: 8 edges, 19×37 angular grid, excellent accuracy
   - Complex number handling: Union[complex, str, Dict] in Pydantic models
-- ✅ **Task A3: Lumped Elements & Sources UI** (5 commits, December 27, 2025)
+- ✅ **Task A3: Lumped Elements & Sources UI** (6 commits, December 27, 2025)
   - **SourceDialog Component** (frontend/src/features/design/SourceDialog.tsx)
     - Voltage/current source configuration with Zod validation
     - Antenna selection for multi-antenna designs
@@ -293,8 +298,64 @@ The frontend React application is actively under development with core infrastru
     - Zero: Ground reference node
     - Negative integers: Appended network nodes for lumped element circuits
     - Consistent across all three dialogs (Source, Load, R/L/C)
-  - **Status**: UI complete, ready for backend integration
-  - **Next**: Wire handleAddLumpedElement and handleAddSource to preprocessor API
+  - **Status**: ✅ UI and backend integration complete
+  - **Completed**: handleAddLumpedElement and handleAddSource wired to preprocessor API (Commit a8d2284)
+
+- ✅ **Task A4: Solver Bug Fix & Results Visualization** (3 commits, December 27, 2025)
+  - **Critical Solver Bug Fix** (Commit fcfb48a - backend/solver/solver.py)
+    - **Problem**: Voltage source currents were missing from branch_currents vector
+    - **Root Cause**: Line 427 stored only `I[:n_edges]` instead of full `I` vector
+    - **Solution**: Changed line 436 to `I.copy()` - stores complete branch current vector
+    - **Branch current vector structure**: [edge_currents, vsource_currents, isource_currents, load_currents]
+    - **Impact**: Fixed critical bug preventing voltage source current extraction for multi-antenna systems
+    - **Validation**: Test shows 2 branch currents returned (1 edge + 1 voltage source)
+    - **Voltage source current**: Matches input magnitude 3.990330e-03 A
+  - **Debug Logging Enhancement** (Commit fcfb48a)
+    - Added comprehensive logging throughout solver pipeline
+    - INFO level logging with formatted output
+    - Logs after system solve: Matrix sizes, I vector length, branch current counts
+    - Logs in distribute_solution(): Current counts per element, current statistics
+    - Added in backend/solver/main.py (lines 8-14) and solver.py (6 locations)
+  - **Test Utilities** (Commit 409f456)
+    - `check_services.ps1`: PowerShell script for health checking all 3 backend services
+    - Tests /health endpoints on ports 8001 (preprocessor), 8002 (solver), 8003 (postprocessor)
+    - Displays service metadata, uptime, Python version
+    - Provides startup instructions if services are down
+    - `test_voltage_source_current_fix.py`: Automated validation script
+    - Tests single dipole and multi-antenna solver endpoints
+    - Validates correct number of branch currents returned
+    - Parses complex numbers from JSON strings
+    - UTF-8 encoding support for PowerShell output
+    - All tests passing with ✅ status
+  - **Results Visualization Panel** (Commit e7f186f)
+    - `ResultsPanel.tsx` (302 lines): Collapsible bottom panel for simulation results
+    - Auto-opens after successful solve with smooth transition animation
+    - Displays input impedance in standard format: "73.2 + j42.5 Ω"
+    - Shows current statistics: min, max, mean current magnitudes
+    - Expand/collapse button with smooth height transitions
+    - Material-UI Card with dividers and proper spacing
+    - Grid layout for impedance (R, X) and current stats
+    - Toggle from ribbon menu "View Results" button
+  - **Color Scale Legend** (Commit e7f186f)
+    - `ColorScaleLegend.tsx` (111 lines): Visual indicator for current magnitude
+    - Blue → Green → Red color gradient (low to high current)
+    - Min/max labels showing current range
+    - Positioned bottom-left of canvas with absolute positioning
+    - Smooth fade-in animation on mount
+    - Gradient implemented with CSS linear-gradient
+    - Typography components for clear labeling
+  - **Redux State Updates** (Commit e7f186f)
+    - Added `results` field to solver slice: impedance, current statistics
+    - Added `currentDistribution` field: array of current magnitudes per mesh segment
+    - Enhanced `runSimulation` thunk to store results and current data
+    - State properly typed with TypeScript interfaces
+  - **Bottom Panel Integration** (Commit e7f186f)
+    - DesignCanvas.tsx updated with bottom panel layout
+    - Results panel height: 200px when expanded, 0px when collapsed
+    - Smooth transitions with CSS transitions on height
+    - No overlap with left/right panels
+    - Proper z-index layering
+  - **Status**: ✅ Solver bug fixed, test utilities validated, results visualization complete
 
 - ✅ **DesignCanvas Layout** (`frontend/src/features/design/DesignCanvas.tsx`)
   - Split panel layout with resizable sections
@@ -393,16 +454,21 @@ The frontend React application is actively under development with core infrastru
 - 🔘 **Floating view controls (zoom, grid, fullscreen)**
 - 🎯 **Element selection with hover effects**
 - 📊 **Hierarchical mesh tree view**
+- 📈 **Results panel with impedance display**
+- 🔬 **Current distribution visualization on mesh**
+- 📊 **Color scale legend for current magnitude**
+- ✅ **Voltage source current bug fix validated**
 
 **File Statistics:**
-- **Total Files:** 93+ TypeScript/React files
-- **Lines of Code:** ~11,800+ lines of production code
-- **Components:** 45+ React components (including 3D design components)
+- **Total Files:** 95+ TypeScript/React files
+- **Lines of Code:** ~12,500+ lines of production code
+- **Components:** 47+ React components (including ResultsPanel, ColorScaleLegend)
 - **API Methods:** 40+ typed API functions (including multi-antenna and far-field)
 - **Redux Slices:** 4 slices with 20+ async thunks
 - **Dialogs:** 9 form dialogs (Auth, Projects, Antennas, Sources, Loads, Lumped Elements)
-- **Commits:** 19 feature commits with detailed messages
-- **Status:** Backend integration complete for solver, far-field postprocessor, and element configuration UI
+- **Test Scripts:** 2 dev tools (service health check, voltage source test)
+- **Commits:** 22 feature commits with detailed messages
+- **Status:** Solver bug fixed, results panel complete, backend integration validated
 
 #### **⏳ In Progress / Planned (Tasks 12-15)**
 
@@ -539,12 +605,15 @@ The frontend React application is actively under development with core infrastru
 - ⏳ Progress monitoring
 - ⏳ Results retrieval
 
-**Results Visualization (Task 14)**
-- ⏳ Current distribution visualization
+**Results Visualization (Task 14) - ⏳ IN PROGRESS**
+- ✅ Current distribution visualization (color-mapped on 3D mesh)
+- ✅ Impedance display (resistance + reactance)
+- ✅ Results panel with collapsible interface
+- ✅ Color scale legend for current magnitude
 - ⏳ Radiation pattern plots (2D/3D)
-- ⏳ Impedance plots
+- ⏳ Smith chart for impedance
 - ⏳ Near-field visualization
-- ⏳ Export capabilities
+- ⏳ Export capabilities (CSV, images, reports)
 
 **Testing & Polish (Task 15)**
 - ⏳ Unit tests for components
@@ -554,15 +623,15 @@ The frontend React application is actively under development with core infrastru
 - ⏳ Performance optimization
 
 **Summary:**
-- **Phase:** Phase 2 Frontend Development - 88% Complete
-- **Commits:** 19 feature commits completed
-- **Files Created:** 93+ TypeScript/React files
-- **Lines of Code:** ~11,800+ lines of production code
+- **Phase:** Phase 2 Frontend Development - 90% Complete
+- **Commits:** 22 feature commits completed (3 new: solver fix, test utilities, results panel)
+- **Files Created:** 95+ TypeScript/React files
+- **Lines of Code:** ~12,500+ lines of production code
 - **Services Running:** 3 backend services (preprocessor, solver, postprocessor) + 1 frontend dev server
-- **Recent:** ✅ Task A3 - Lumped Elements & Sources UI (December 27, 2025)
-- **Status:** All element configuration dialogs complete with antenna selection
-- **Next Milestone:** Backend integration for lumped elements and sources (preprocessor API)
-- **Estimated Time:** 2-3 hours for backend API integration
+- **Recent:** ✅ Solver voltage source bug fix + Results visualization panel (December 27, 2025)
+- **Status:** Results panel with impedance display and current visualization complete
+- **Next Milestone:** Radiation pattern visualization and far-field integration
+- **Estimated Time:** 3-4 hours for pattern plots
 
 #### **Testing & Validation**
 - ✅ Comprehensive unit tests (pytest)
@@ -571,6 +640,9 @@ The frontend React application is actively under development with core infrastru
 - ✅ Half-wave dipole validation (impedance, radiation pattern)
 - ✅ Skin effect validation
 - ✅ Test coverage >85%
+- ✅ **Development tools** (December 27, 2025)
+  - `dev_tools/check_services.ps1`: Health check for all 3 backend services
+  - `dev_tools/test_voltage_source_current_fix.py`: Automated voltage source current validation
 
 #### **Documentation**
 - ✅ API documentation (FastAPI auto-generated)
