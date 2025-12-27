@@ -610,10 +610,16 @@ The frontend React application is actively under development with core infrastru
 - ✅ Impedance display (resistance + reactance)
 - ✅ Results panel with collapsible interface
 - ✅ Color scale legend for current magnitude
-- ⏳ Radiation pattern plots (2D/3D)
-- ⏳ Smith chart for impedance
-- ⏳ Near-field visualization
-- ⏳ Export capabilities (CSV, images, reports)
+- ⏳ **Radiation pattern plots (2D/3D) - NEXT PRIORITY**
+  - 2D polar plots (E-plane, H-plane, custom cuts)
+  - 3D radiation pattern visualization (sphere with color mapping)
+  - Integration with far-field postprocessor API
+- ⏳ Near-field visualization (slice planes, field arrows)
+- ⏳ Export capabilities
+  - CSV format for numerical data
+  - ParaView format (.vtu) for 3D field visualization
+  - PNG/SVG for plots and screenshots
+- 📋 Smith chart for impedance (deferred to later phase)
 
 **Testing & Polish (Task 15)**
 - ⏳ Unit tests for components
