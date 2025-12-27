@@ -348,9 +348,35 @@ const designSlice = createSlice({
     removeSource: (state, action: PayloadAction<number>) => {
       state.sources.splice(action.payload, 1)
     },
+
+    // Add source to specific element
+    addSourceToElement: (state, action: PayloadAction<{ elementId: string; source: Source }>) => {
+      const index = state.elements.findIndex(el => el.id === action.payload.elementId)
+      if (index >= 0) {
+        if (!state.elements[index].sources) {
+          state.elements[index].sources = []
+        }
+        state.elements[index].sources!.push(action.payload.source)
+      }
+      // Also add to global array for backward compatibility
+      state.sources.push(action.payload.source)
+    },
     
     addLumpedElement: (state, action: PayloadAction<LumpedElement>) => {
       state.lumpedElements.push(action.payload)
+    },
+
+    // Add lumped element to specific element
+    addLumpedElementToElement: (state, action: PayloadAction<{ elementId: string; lumpedElement: LumpedElement }>) => {
+      const index = state.elements.findIndex(el => el.id === action.payload.elementId)
+      if (index >= 0) {
+        if (!state.elements[index].lumped_elements) {
+          state.elements[index].lumped_elements = []
+        }
+        state.elements[index].lumped_elements!.push(action.payload.lumpedElement)
+      }
+      // Also add to global array for backward compatibility
+      state.lumpedElements.push(action.payload.lumpedElement)
     },
     
     updateLumpedElement: (
@@ -623,9 +649,11 @@ export const {
   setMesh,
   clearMesh,
   addSource,
+  addSourceToElement,
   updateSource,
   removeSource,
   addLumpedElement,
+  addLumpedElementToElement,
   updateLumpedElement,
   removeLumpedElement,
   solverStart,
