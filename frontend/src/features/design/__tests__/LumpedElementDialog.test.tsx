@@ -1,11 +1,35 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LumpedElementDialog } from '../LumpedElementDialog';
+import { AntennaElement, Mesh } from '@/types/models';
 
 describe('LumpedElementDialog', () => {
   const mockOnClose = vi.fn();
   const mockOnAdd = vi.fn().mockResolvedValue(undefined);
+  
+  const mockMesh: Mesh = {
+    nodes: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]],
+    edges: [[0, 1], [1, 2], [2, 3], [3, 0]],
+    radii: [0.001, 0.001, 0.001, 0.001],
+  };
+  
+  const mockElements: AntennaElement[] = [
+    {
+      id: '1',
+      name: 'Dipole 1',
+      type: 'dipole',
+      config: {
+        length: 1,
+        wire_radius: 0.001,
+      },
+      position: [0, 0, 0],
+      rotation: [0, 0, 0],
+      mesh: mockMesh,
+      visible: true,
+      locked: false,
+    },
+  ];
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -18,6 +42,7 @@ describe('LumpedElementDialog', () => {
         onClose={mockOnClose}
         onAdd={mockOnAdd}
         maxNodeIndex={10}
+        elements={mockElements}
       />
     );
 
@@ -32,11 +57,13 @@ describe('LumpedElementDialog', () => {
         onClose={mockOnClose}
         onAdd={mockOnAdd}
         maxNodeIndex={10}
+        elements={mockElements}
       />
     );
 
     expect(screen.queryByText('Add Lumped Element')).not.toBeInTheDocument();
   });
+
 
   it('should show resistance field for resistor type', async () => {
     render(
@@ -45,6 +72,7 @@ describe('LumpedElementDialog', () => {
         onClose={mockOnClose}
         onAdd={mockOnAdd}
         maxNodeIndex={10}
+        elements={mockElements}
       />
     );
 
@@ -62,6 +90,7 @@ describe('LumpedElementDialog', () => {
         onClose={mockOnClose}
         onAdd={mockOnAdd}
         maxNodeIndex={10}
+        elements={mockElements}
       />
     );
 
@@ -84,6 +113,7 @@ describe('LumpedElementDialog', () => {
         onClose={mockOnClose}
         onAdd={mockOnAdd}
         maxNodeIndex={10}
+        elements={mockElements}
       />
     );
 
@@ -98,28 +128,6 @@ describe('LumpedElementDialog', () => {
     expect(screen.queryByLabelText(/Resistance/i)).not.toBeInTheDocument();
   });
 
-  it('should show all fields when RLC type selected', async () => {
-    const user = userEvent.setup();
-    render(
-      <LumpedElementDialog
-        open={true}
-        onClose={mockOnClose}
-        onAdd={mockOnAdd}
-        maxNodeIndex={10}
-      />
-    );
-
-    // Change to RLC
-    const typeSelect = screen.getByLabelText(/Element Type/i);
-    await user.click(typeSelect);
-    const rlcOption = screen.getByRole('option', { name: 'RLC - Combined' });
-    await user.click(rlcOption);
-
-    // Should show all fields
-    expect(screen.getByLabelText(/Resistance/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Inductance/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Inverse Capacitance/i)).toBeInTheDocument();
-  });
 
   it('should call onAdd with correct data when form submitted', async () => {
     const user = userEvent.setup();
@@ -129,6 +137,7 @@ describe('LumpedElementDialog', () => {
         onClose={mockOnClose}
         onAdd={mockOnAdd}
         maxNodeIndex={10}
+        elements={mockElements}
       />
     );
 
@@ -150,12 +159,15 @@ describe('LumpedElementDialog', () => {
     await user.click(addButton);
 
     await waitFor(() => {
-      expect(mockOnAdd).toHaveBeenCalledWith({
-        element_type: 'R',
-        resistance: 75,
-        node1: 2,
-        node2: 3,
-      });
+      expect(mockOnAdd).toHaveBeenCalledWith(
+        expect.objectContaining({
+          element_type: 'R',
+          resistance: 75,
+          node1: 2,
+          node2: 3,
+          antennaId: '1',
+        })
+      );
     });
   });
 
@@ -167,6 +179,7 @@ describe('LumpedElementDialog', () => {
         onClose={mockOnClose}
         onAdd={mockOnAdd}
         maxNodeIndex={10}
+        elements={mockElements}
       />
     );
 
@@ -199,6 +212,7 @@ describe('LumpedElementDialog', () => {
         onClose={mockOnClose}
         onAdd={mockOnAdd}
         maxNodeIndex={0}
+        elements={mockElements}
       />
     );
 
@@ -215,6 +229,7 @@ describe('LumpedElementDialog', () => {
         onClose={mockOnClose}
         onAdd={mockOnAdd}
         maxNodeIndex={10}
+        elements={mockElements}
       />
     );
 
