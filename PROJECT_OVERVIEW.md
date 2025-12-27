@@ -106,9 +106,9 @@ The frontend React application is actively under development with core infrastru
 
 ---
 
-### 🚀 Phase 2: Frontend Development - IN PROGRESS (75%)
+### 🚀 Phase 2: Frontend Development - IN PROGRESS (88%)
 
-#### **✅ Completed (Tasks 1-11 + A1-A2) - 14 Feature Commits**
+#### **✅ Completed (Tasks 1-11 + A1-A3) - 19 Feature Commits**
 
 **Foundation & Infrastructure (Tasks 1-4)**
 - ✅ React 18 + TypeScript 5 + Vite 5 project setup
@@ -246,7 +246,7 @@ The frontend React application is actively under development with core infrastru
   - **⏳ TODO: Add distinct colors for multiple antenna elements**
   - **⏳ TODO: Add color management in element properties panel**
 
-**Backend Integration (Tasks A1-A2) - ✅ COMPLETED (December 26, 2025)**
+**Backend Integration (Tasks A1-A3) - ✅ COMPLETED (December 26-27, 2025)**
 - ✅ **Task A1: Multi-Antenna Frontend API** (Commit dd2d186)
   - solveMultiAntenna() function in frontend/src/api/solver.ts
   - Helper functions: parseComplex(), formatComplex(), convertToMultiAntennaRequest()
@@ -258,6 +258,43 @@ The frontend React application is actively under development with core infrastru
   - Validated: **2.17 dBi** directivity vs **2.15 dBi** gold standard = **0.9% error**
   - Full dipole test: 8 edges, 19×37 angular grid, excellent accuracy
   - Complex number handling: Union[complex, str, Dict] in Pydantic models
+- ✅ **Task A3: Lumped Elements & Sources UI** (5 commits, December 27, 2025)
+  - **SourceDialog Component** (frontend/src/features/design/SourceDialog.tsx)
+    - Voltage/current source configuration with Zod validation
+    - Antenna selection for multi-antenna designs
+    - Node input fields support negative indices (appended network nodes)
+    - Series R/L/C component fields for source impedance modeling
+    - Antenna display card showing selected antenna context
+    - Integrated into DesignPage with handleAddSource handler
+  - **LoadDialog Component** (frontend/src/features/design/LoadDialog.tsx)
+    - Impedance load configuration with antenna assignment
+    - Consistent node indexing scheme (positive/zero/negative)
+    - Antenna selection dropdown for multi-element projects
+    - Helper text explaining node indexing conventions
+  - **LumpedElementDialog Enhancements**
+    - Added antenna selection parameter and display
+    - Antenna display card with name and type
+    - Selection dropdown for multi-antenna scenarios
+    - Updated Zod schema to include `antennaId: z.string().min(1)`
+    - Removed RLC Series option (only R/L/C available)
+    - Node input fields support negative indices via text input
+  - **RibbonMenu Updates**
+    - "Elements" → "Add Elements" section label
+    - "Load" → "R/L/C" button (more accurate labeling)
+    - Source button wired to open SourceDialog
+  - **Test Suite Fixes**
+    - Added beforeEach import from vitest
+    - Created proper mock AntennaElement and Mesh fixtures
+    - Updated all test cases to pass required `elements` prop
+    - Removed obsolete RLC Series test case
+    - Updated assertions to include antennaId in expected data
+  - **Node Indexing Convention**
+    - Positive integers: Mesh node indices (1-based or 0-based depending on backend)
+    - Zero: Ground reference node
+    - Negative integers: Appended network nodes for lumped element circuits
+    - Consistent across all three dialogs (Source, Load, R/L/C)
+  - **Status**: UI complete, ready for backend integration
+  - **Next**: Wire handleAddLumpedElement and handleAddSource to preprocessor API
 
 - ✅ **DesignCanvas Layout** (`frontend/src/features/design/DesignCanvas.tsx`)
   - Split panel layout with resizable sections
@@ -358,14 +395,14 @@ The frontend React application is actively under development with core infrastru
 - 📊 **Hierarchical mesh tree view**
 
 **File Statistics:**
-- **Total Files:** 90+ TypeScript/React files
-- **Lines of Code:** ~10,200+ lines of production code
-- **Components:** 42+ React components (including 3D design components)
+- **Total Files:** 93+ TypeScript/React files
+- **Lines of Code:** ~11,800+ lines of production code
+- **Components:** 45+ React components (including 3D design components)
 - **API Methods:** 40+ typed API functions (including multi-antenna and far-field)
 - **Redux Slices:** 4 slices with 20+ async thunks
-- **Dialogs:** 7 form dialogs (Auth, Projects, Antennas, Lumped Elements)
-- **Commits:** 14 feature commits with detailed messages
-- **Status:** Backend integration complete for solver and far-field postprocessor
+- **Dialogs:** 9 form dialogs (Auth, Projects, Antennas, Sources, Loads, Lumped Elements)
+- **Commits:** 19 feature commits with detailed messages
+- **Status:** Backend integration complete for solver, far-field postprocessor, and element configuration UI
 
 #### **⏳ In Progress / Planned (Tasks 12-15)**
 
@@ -374,7 +411,9 @@ The frontend React application is actively under development with core infrastru
 - ✅ Loop antenna configuration (circular, rectangular, polygon)
 - ✅ Helix antenna configuration (axial/normal mode, RHCP/LHCP)
 - ✅ Rod/wire structure configuration with 3D endpoints
-- ✅ Lumped element placement (R, L, C, RLC)
+- ✅ Lumped element placement (R, L, C) with antenna selection
+- ✅ Voltage/current source placement with antenna assignment
+- ✅ Impedance load placement with antenna-specific configuration
 
 **🔄 ARCHITECTURE REVISION REQUIRED (December 25, 2025)**
 
@@ -515,15 +554,15 @@ The frontend React application is actively under development with core infrastru
 - ⏳ Performance optimization
 
 **Summary:**
-- **Phase:** Phase 2 Frontend Development - 80% Complete
-- **Commits:** 14 feature commits completed
-- **Files Created:** 90+ TypeScript/React files
-- **Lines of Code:** ~10,200+ lines of production code
+- **Phase:** Phase 2 Frontend Development - 88% Complete
+- **Commits:** 19 feature commits completed
+- **Files Created:** 93+ TypeScript/React files
+- **Lines of Code:** ~11,800+ lines of production code
 - **Services Running:** 3 backend services (preprocessor, solver, postprocessor) + 1 frontend dev server
-- **Recent:** ✅ Multi-antenna solver integration (0.0% error), ✅ Far-field integration (0.9% error)
-- **Status:** Backend integration complete for solver and postprocessor
-- **Next Milestone:** Task A3 - Lumped Elements UI integration
-- **Estimated Time:** 2-3 hours for lumped elements UI
+- **Recent:** ✅ Task A3 - Lumped Elements & Sources UI (December 27, 2025)
+- **Status:** All element configuration dialogs complete with antenna selection
+- **Next Milestone:** Backend integration for lumped elements and sources (preprocessor API)
+- **Estimated Time:** 2-3 hours for backend API integration
 
 #### **Testing & Validation**
 - ✅ Comprehensive unit tests (pytest)

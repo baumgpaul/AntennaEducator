@@ -10,6 +10,8 @@ import type {
   HelixConfig,
   RodConfig,
   PreprocessorResponse,
+  LumpedElement,
+  Source,
 } from '@/types/models'
 
 // ============================================================================
@@ -73,9 +75,23 @@ export const validateGeometry = async (mesh: any): Promise<{ valid: boolean; err
 
 /**
  * Add lumped element to existing mesh
+ * NOTE: This endpoint does not exist in the current backend.
+ * Lumped elements should be added when creating the antenna via source/lumped_elements fields.
+ * This function is kept for future extensibility.
  */
 export const addLumpedElement = async (element: any): Promise<PreprocessorResponse> => {
   const response = await preprocessorClient.post('/lumped-element', element)
+  return handleApiResponse(response)
+}
+
+/**
+ * Add source to existing mesh
+ * NOTE: This endpoint does not exist in the current backend.
+ * Sources should be added when creating the antenna via source field.
+ * This function is kept for future extensibility.
+ */
+export const addSource = async (source: any): Promise<PreprocessorResponse> => {
+  const response = await preprocessorClient.post('/source', source)
   return handleApiResponse(response)
 }
 
@@ -245,14 +261,20 @@ export async function generateRodMesh(formData: any): Promise<PreprocessorRespon
 }
 
 // Wrapper function for lumped element dialog
-export async function addLumpedElementToMesh(formData: any): Promise<any> {
-  // Convert dialog data to LumpedElement shape (frontend state uses R/L/C_inv fields)
-  const base = {
+export async function addLumpedElementToMesh(formData: any): Promise<LumpedElement> {
+  // Convert dialog data to LumpedElement shape
+  // Since backend doesn't have a separate endpoint for adding lumped elements,
+  // we just return the converted data structure to be stored in Redux
+  // and included in the next antenna creation/solver call
+  
+  const base: LumpedElement = {
+    type: 'rlc',
     node_start: formData.node1,
     node_end: formData.node2,
     R: 0,
     L: 0,
     C_inv: 0,
+    tag: formData.antennaId ? `Element on ${formData.antennaId}` : undefined,
   }
 
   if (formData.element_type === 'R') {
@@ -267,13 +289,35 @@ export async function addLumpedElementToMesh(formData: any): Promise<any> {
     return { ...base, type: 'capacitor', C_inv: formData.capacitance_inv }
   }
 
+  // RLC combined (should not happen with current UI, but kept for safety)
   return {
     ...base,
     type: 'rlc',
-    R: formData.resistance,
-    L: formData.inductance,
-    C_inv: formData.capacitance_inv,
+    R: formData.resistance || 0,
+    L: formData.inductance || 0,
+    C_inv: formData.capacitance_inv || 0,
   }
+}
+
+// Wrapper function for source dialog
+export async function addSourceToMesh(formData: any): Promise<Source> {
+  // Convert dialog data to Source shape
+  // Since backend doesn't have a separate endpoint for adding sources,
+  // we just return the converted data structure to be stored in Redux
+  // and included in the next solver call
+  
+  const source: Source = {
+    type: formData.type, // 'voltage' or 'current'
+    amplitude: { real: formData.value, imag: 0 }, // Assuming real amplitude from UI
+    node_start: formData.node1,
+    node_end: formData.node2,
+    series_R: formData.seriesR || 0,
+    series_L: formData.seriesL || 0,
+    series_C_inv: formData.seriesC > 0 ? 1 / formData.seriesC : 0, // Convert C to C_inv
+    tag: formData.antennaId ? `Source on ${formData.antennaId}` : undefined,
+  }
+
+  return source
 }
 
 // Export all functions as a single object (kept at bottom for clarity)
@@ -290,6 +334,7 @@ const preprocessorApi = {
   generateHelixMesh,
   generateRodMesh,
   addLumpedElementToMesh,
+  addSourceToMesh,
 }
 
 export default preprocessorApi

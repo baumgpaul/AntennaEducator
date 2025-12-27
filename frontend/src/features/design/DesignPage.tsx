@@ -8,6 +8,9 @@ import {
   generateHelix, 
   generateRod, 
   addLumpedElement,
+  addLumpedElementToElement,
+  addSource,
+  addSourceToElement,
   setSelectedElement,
   setElementColor,
   setElementPosition,
@@ -37,7 +40,7 @@ import { HelixDialog } from './HelixDialog';
 import { RodDialog } from './RodDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
-import { addLumpedElementToMesh } from '@/api/preprocessor';
+import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 
 
 /**
@@ -188,7 +191,18 @@ function DesignPage() {
   const handleAddLumpedElement = async (data: any) => {
     try {
       const element = await addLumpedElementToMesh(data);
-      dispatch(addLumpedElement(element));
+      
+      // Check if antennaId is provided (for multi-antenna mode)
+      if (data.antennaId) {
+        dispatch(addLumpedElementToElement({ 
+          elementId: data.antennaId, 
+          lumpedElement: element 
+        }));
+      } else {
+        // Fallback to global array for backward compatibility
+        dispatch(addLumpedElement(element));
+      }
+      
       dispatch(addNotification({
         id: Date.now(),
         message: 'Lumped element added to mesh',
@@ -208,14 +222,25 @@ function DesignPage() {
 
   const handleAddSource = async (data: any) => {
     try {
-      // TODO: Implement source addition to mesh
+      const source = await addSourceToMesh(data);
+      
+      // Check if antennaId is provided (for multi-antenna mode)
+      if (data.antennaId) {
+        dispatch(addSourceToElement({ 
+          elementId: data.antennaId, 
+          source 
+        }));
+      } else {
+        // Fallback to global array for backward compatibility
+        dispatch(addSource(source));
+      }
+      
       dispatch(addNotification({
         id: Date.now(),
-        message: 'Source will be added - feature in development',
-        severity: 'info',
+        message: `${data.type === 'voltage' ? 'Voltage' : 'Current'} source added successfully`,
+        severity: 'success',
         duration: 5000,
       }));
-      console.log('Adding source:', data);
     } catch (error: any) {
       dispatch(addNotification({
         id: Date.now(),
@@ -226,7 +251,6 @@ function DesignPage() {
       throw error;
     }
   };
-
   // Element selection handler
   const handleElementSelect = (elementId: string) => {
     console.log('Element selected:', elementId);
