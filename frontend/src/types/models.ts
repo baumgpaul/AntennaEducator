@@ -273,10 +273,10 @@ export interface RadiationPatternResult {
 // ============================================================================
 
 export interface Project {
-  id: string
+  id: string | number  // Backend uses integer IDs, mock API uses string IDs
   name: string
   description?: string
-  user_id?: string
+  user_id?: string | number
   created_at: string
   updated_at: string
 }

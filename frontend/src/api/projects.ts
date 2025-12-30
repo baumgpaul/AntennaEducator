@@ -1,9 +1,9 @@
-import apiClient from './client';
+import { projectsClient } from './client';
 import type { Project } from '@/types/models';
 import * as mockApi from './mockProjects';
 
 // Toggle between real API and mock API for testing
-const USE_MOCK_API = true; // Set to false when backend is ready
+const USE_MOCK_API = false; // Real Projects API is now working!
 
 /**
  * Projects API - CRUD operations for projects
@@ -24,16 +24,16 @@ export interface UpdateProjectRequest {
  */
 export async function getProjects(): Promise<Project[]> {
   if (USE_MOCK_API) return mockApi.getProjects();
-  const response = await apiClient.get<Project[]>('/projects');
+  const response = await projectsClient.get<Project[]>('/api/v1/projects');
   return response.data;
 }
 
 /**
  * Get a single project by ID
  */
-export async function getProject(id: string): Promise<Project> {
-  if (USE_MOCK_API) return mockApi.getProject(id);
-  const response = await apiClient.get<Project>(`/projects/${id}`);
+export async function getProject(id: string | number): Promise<Project> {
+  if (USE_MOCK_API) return mockApi.getProject(String(id));
+  const response = await projectsClient.get<Project>(`/api/v1/projects/${id}`);
   return response.data;
 }
 
@@ -42,32 +42,33 @@ export async function getProject(id: string): Promise<Project> {
  */
 export async function createProject(data: CreateProjectRequest): Promise<Project> {
   if (USE_MOCK_API) return mockApi.createProject(data);
-  const response = await apiClient.post<Project>('/projects', data);
+  const response = await projectsClient.post<Project>('/api/v1/projects', data);
   return response.data;
 }
 
 /**
  * Update an existing project
  */
-export async function updateProject(id: string, data: UpdateProjectRequest): Promise<Project> {
-  if (USE_MOCK_API) return mockApi.updateProject(id, data);
-  const response = await apiClient.patch<Project>(`/projects/${id}`, data);
+export async function updateProject(id: string | number, data: UpdateProjectRequest): Promise<Project> {
+  if (USE_MOCK_API) return mockApi.updateProject(String(id), data);
+  const response = await projectsClient.put<Project>(`/api/v1/projects/${id}`, data);
   return response.data;
 }
 
 /**
  * Delete a project
  */
-export async function deleteProject(id: string): Promise<void> {
-  if (USE_MOCK_API) return mockApi.deleteProject(id);
-  await apiClient.delete(`/projects/${id}`);
+export async function deleteProject(id: string | number): Promise<void> {
+  if (USE_MOCK_API) return mockApi.deleteProject(String(id));
+  await projectsClient.delete(`/api/v1/projects/${id}`);
 }
 
 /**
  * Duplicate a project
+ * Note: Backend endpoint may need to be implemented if not available
  */
-export async function duplicateProject(id: string): Promise<Project> {
-  if (USE_MOCK_API) return mockApi.duplicateProject(id);
-  const response = await apiClient.post<Project>(`/projects/${id}/duplicate`);
+export async function duplicateProject(id: string | number): Promise<Project> {
+  if (USE_MOCK_API) return mockApi.duplicateProject(String(id));
+  const response = await projectsClient.post<Project>(`/api/v1/projects/${id}/duplicate`);
   return response.data;
 }

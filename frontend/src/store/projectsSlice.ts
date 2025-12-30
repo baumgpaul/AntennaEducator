@@ -9,17 +9,23 @@ import * as projectsApi from '@/api/projects'
 import type { CreateProjectRequest, UpdateProjectRequest } from '@/api/projects'
 
 interface ProjectsState {
+  // `items` is the canonical list; `projects` is kept for compatibility with tests/UI
   items: Project[]
+  projects: Project[]
+  // `currentProject` is the selected project; `selectedProject` mirrors it for compatibility
   currentProject: Project | null
+  selectedProject: Project | null
   simulations: Simulation[]
   loading: boolean
   error: string | null
-  selectedProjectId: string | null
+  selectedProjectId: string | number | null
 }
 
 const initialState: ProjectsState = {
   items: [],
+  projects: [],
   currentProject: null,
+  selectedProject: null,
   simulations: [],
   loading: false,
   error: null,
@@ -53,7 +59,7 @@ export const createProject = createAsyncThunk(
 
 export const updateProject = createAsyncThunk(
   'projects/updateProject',
-  async ({ id, data }: { id: string; data: UpdateProjectRequest }) => {
+  async ({ id, data }: { id: string | number; data: UpdateProjectRequest }) => {
     const project = await projectsApi.updateProject(id, data)
     return project
   }
@@ -61,7 +67,7 @@ export const updateProject = createAsyncThunk(
 
 export const deleteProject = createAsyncThunk(
   'projects/deleteProject',
-  async (id: string) => {
+  async (id: string | number) => {
     await projectsApi.deleteProject(id)
     return id
   }
@@ -69,7 +75,7 @@ export const deleteProject = createAsyncThunk(
 
 export const duplicateProject = createAsyncThunk(
   'projects/duplicateProject',
-  async (id: string) => {
+  async (id: string | number) => {
     const project = await projectsApi.duplicateProject(id)
     return project
   }
@@ -79,15 +85,42 @@ const projectsSlice = createSlice({
   name: 'projects',
   initialState,
   reducers: {
+    // Explicit setters for compatibility with tests/UI
+    setProjects: (state, action: PayloadAction<Project[]>) => {
+      state.items = action.payload
+      state.projects = action.payload
+    },
+
+    setSelectedProject: (state, action: PayloadAction<Project | null>) => {
+      state.selectedProject = action.payload
+      state.currentProject = action.payload
+      state.selectedProjectId = action.payload ? action.payload.id : null
+    },
+
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload
+    },
+
+    setError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload
+    },
+
+    clearError: (state) => {
+      state.error = null
+    },
+
     // Select project
-    selectProject: (state, action: PayloadAction<string>) => {
+    selectProject: (state, action: PayloadAction<string | number>) => {
       state.selectedProjectId = action.payload
-      state.currentProject = state.items.find((p) => p.id === action.payload) || null
+      const found = state.items.find((p) => p.id === action.payload) || null
+      state.currentProject = found
+      state.selectedProject = found
     },
     
     // Clear current project
     clearCurrentProject: (state) => {
       state.currentProject = null
+      state.selectedProject = null
       state.selectedProjectId = null
       state.simulations = []
     },
@@ -122,6 +155,7 @@ const projectsSlice = createSlice({
       })
       .addCase(fetchProjects.fulfilled, (state, action) => {
         state.items = action.payload
+        state.projects = action.payload
         state.loading = false
       })
       .addCase(fetchProjects.rejected, (state, action) => {
@@ -137,6 +171,7 @@ const projectsSlice = createSlice({
       })
       .addCase(fetchProject.fulfilled, (state, action) => {
         state.currentProject = action.payload
+        state.selectedProject = action.payload
         state.selectedProjectId = action.payload.id
         state.loading = false
       })
@@ -153,7 +188,9 @@ const projectsSlice = createSlice({
       })
       .addCase(createProject.fulfilled, (state, action) => {
         state.items.push(action.payload)
+        state.projects.push(action.payload)
         state.currentProject = action.payload
+        state.selectedProject = action.payload
         state.selectedProjectId = action.payload.id
         state.loading = false
       })
@@ -173,8 +210,15 @@ const projectsSlice = createSlice({
         if (index !== -1) {
           state.items[index] = action.payload
         }
+        const idxProjects = state.projects.findIndex((p) => p.id === action.payload.id)
+        if (idxProjects !== -1) {
+          state.projects[idxProjects] = action.payload
+        }
         if (state.currentProject?.id === action.payload.id) {
           state.currentProject = action.payload
+        }
+        if (state.selectedProject?.id === action.payload.id) {
+          state.selectedProject = action.payload
         }
         state.loading = false
       })
@@ -191,8 +235,10 @@ const projectsSlice = createSlice({
       })
       .addCase(deleteProject.fulfilled, (state, action) => {
         state.items = state.items.filter((p) => p.id !== action.payload)
+        state.projects = state.projects.filter((p) => p.id !== action.payload)
         if (state.currentProject?.id === action.payload) {
           state.currentProject = null
+          state.selectedProject = null
           state.selectedProjectId = null
         }
         state.loading = false
@@ -210,6 +256,7 @@ const projectsSlice = createSlice({
       })
       .addCase(duplicateProject.fulfilled, (state, action) => {
         state.items.push(action.payload)
+        state.projects.push(action.payload)
         state.loading = false
       })
       .addCase(duplicateProject.rejected, (state, action) => {
@@ -220,6 +267,11 @@ const projectsSlice = createSlice({
 })
 
 export const {
+  setProjects,
+  setSelectedProject,
+  setLoading,
+  setError,
+  clearError,
   selectProject,
   clearCurrentProject,
   setSimulations,
