@@ -222,10 +222,24 @@ const designSlice = createSlice({
     },
 
     removeElement: (state, action: PayloadAction<string>) => {
-      state.elements = state.elements.filter(el => el.id !== action.payload)
+      console.log('[removeElement] Removing element:', action.payload);
+      console.log('[removeElement] Elements before:', state.elements.map(e => ({ id: e.id, name: e.name })));
+      
+      state.elements = state.elements.filter(el => el.id !== action.payload);
+      
+      console.log('[removeElement] Elements after:', state.elements.map(e => ({ id: e.id, name: e.name })));
+      
       // Clear selection if removed element was selected
       if (state.selectedElementId === action.payload) {
-        state.selectedElementId = null
+        state.selectedElementId = null;
+      }
+      
+      // Clear legacy mesh if no elements remain (prevents ghost geometry)
+      if (state.elements.length === 0) {
+        state.mesh = null;
+        state.antennaType = null;
+        state.antennaConfig = null;
+        console.log('[removeElement] Cleared legacy mesh since no elements remain');
       }
     },
 
