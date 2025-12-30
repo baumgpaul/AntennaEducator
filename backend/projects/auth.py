@@ -1,22 +1,37 @@
 """Authentication utilities - JWT token handling and password hashing."""
 
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, HTTPAuthorizationCredentials as OptionalHTTPAuth
 from sqlalchemy.orm import Session
 import os
+import logging
+from dotenv import load_dotenv
 
-from database import get_db
-from models import User
-from schemas import TokenData
+# Load environment variables FIRST
+load_dotenv()
+
+from backend.projects.database import get_db
+from backend.projects.models import User
+from backend.projects.schemas import TokenData
+
+logger = logging.getLogger(__name__)
 
 # Configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
+DISABLE_AUTH = os.getenv("DISABLE_AUTH", "false").lower() == "true"
+
+# Log warning if auth is disabled
+if DISABLE_AUTH:
+    logger.warning("\n" + "="*80)
+    logger.warning("WARNING: AUTHENTICATION DISABLED - DEVELOPMENT MODE")
+    logger.warning("This should NEVER be enabled in production!")
+    logger.warning("="*80 + "\n")
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -91,23 +106,28 @@ def decode_access_token(token: str) -> TokenData:
         raise credentials_exception
 
 
-async def get_current_user(
+# Dev mode: Create a separate dependency that doesn't require auth
+async def get_current_user_dev(db: Session = Depends(get_db)) -> User:
+    """Get current user in development mode (no auth required)."""
+    test_user = db.query(User).filter(User.email == "dev@test.com").first()
+    if not test_user:
+        test_user = User(
+            email="dev@test.com",
+            password_hash=get_password_hash("devpassword123")
+        )
+        db.add(test_user)
+        db.commit()
+        db.refresh(test_user)
+        logger.info("Created test user: dev@test.com")
+    return test_user
+
+
+# Production mode: Normal auth
+async def get_current_user_prod(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
-    """
-    Dependency to get the current authenticated user.
-    
-    Args:
-        credentials: HTTP Bearer token from request header
-        db: Database session
-        
-    Returns:
-        User object
-        
-    Raises:
-        HTTPException: If authentication fails
-    """
+    """Get current user in production mode (auth required)."""
     token = credentials.credentials
     token_data = decode_access_token(token)
     
@@ -119,3 +139,7 @@ async def get_current_user(
         )
     
     return user
+
+
+# Select the appropriate dependency based on DISABLE_AUTH
+get_current_user = get_current_user_dev if DISABLE_AUTH else get_current_user_prod

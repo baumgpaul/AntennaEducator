@@ -6,6 +6,11 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import timedelta
 import logging
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -18,15 +23,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from database import engine, get_db, Base
-from models import User, Project, ProjectElement, Result
-from schemas import (
+# DEBUG: Log environment state
+logger.info("="*80)
+logger.info("ENVIRONMENT DEBUG INFO")
+logger.info(f"Current working directory: {os.getcwd()}")
+logger.info(f"DISABLE_AUTH env var: {os.getenv('DISABLE_AUTH', 'NOT SET')}")
+logger.info(f".env file exists: {os.path.exists('.env')}")
+if os.path.exists('.env'):
+    with open('.env', 'r') as f:
+        logger.info(f".env contents preview: {f.readline().strip()}")
+logger.info("="*80)
+
+from backend.projects.database import engine, get_db, Base
+from backend.projects.models import User, Project, ProjectElement, Result
+from backend.projects.schemas import (
     UserCreate, UserLogin, UserResponse, Token,
     ProjectCreate, ProjectUpdate, ProjectResponse, ProjectListResponse,
     ProjectElementCreate, ProjectElementResponse,
     ResultCreate, ResultResponse
 )
-from auth import (
+from backend.projects.auth import (
     get_password_hash, verify_password, create_access_token,
     get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
 )
@@ -218,6 +234,38 @@ async def delete_project(
     db.commit()
     
     return None
+
+
+@app.post("/api/v1/projects/{project_id}/duplicate", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+async def duplicate_project(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Duplicate a project."""
+    # Find original project
+    original_project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.user_id == current_user.id
+    ).first()
+    
+    if not original_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+    
+    # Create duplicate
+    duplicate = Project(
+        user_id=current_user.id,
+        name=f"{original_project.name} (Copy)",
+        description=original_project.description
+    )
+    db.add(duplicate)
+    db.commit()
+    db.refresh(duplicate)
+    
+    return duplicate
 
 
 # Project elements endpoints
