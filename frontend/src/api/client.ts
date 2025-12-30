@@ -79,7 +79,17 @@ const createApiClient = (baseURL: string): AxiosInstance => {
   // Request interceptor - add auth token if available
   instance.interceptors.request.use(
     (config) => {
-      const token = localStorage.getItem('auth_token')
+      // Development mode: use stub token if auth is disabled
+      const authEnabled = import.meta.env.VITE_ENABLE_AUTH === 'true'
+      
+      let token = localStorage.getItem('auth_token')
+      
+      // If auth is disabled and no token exists, use dev stub
+      if (!authEnabled && !token) {
+        token = 'dev_stub_token_' + Date.now()
+        console.log('[DEV] Using stub JWT token (auth disabled)')
+      }
+      
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
@@ -105,6 +115,13 @@ const createApiClient = (baseURL: string): AxiosInstance => {
 
       // Handle 401 Unauthorized - attempt token refresh
       if (error.response?.status === 401 && !originalRequest._retry) {
+        // In dev mode with auth disabled, skip token refresh
+        const authEnabled = import.meta.env.VITE_ENABLE_AUTH === 'true'
+        if (!authEnabled) {
+          console.warn('[DEV] Got 401, but auth is disabled - ignoring')
+          return Promise.reject(apiError)
+        }
+        
         // Skip refresh for login/register/refresh endpoints
         const isAuthEndpoint = originalRequest.url?.includes('/api/auth/')
         if (isAuthEndpoint) {
