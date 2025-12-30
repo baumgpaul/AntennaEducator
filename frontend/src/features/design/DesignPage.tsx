@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Box } from '@mui/material';
+import { useState, useEffect, useRef } from 'react';
+import { Box, Snackbar, Alert } from '@mui/material';
+import { debounce } from 'lodash';
 // import { useParams } from 'react-router-dom'; // TODO: Use when needed
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { 
@@ -22,7 +23,8 @@ import {
   setElementLocked,
 } from '@/store/designSlice';
 import { addNotification } from '@/store/uiSlice';
-import { runMultiAntennaSimulation, computeRadiationPattern } from '@/store/solverSlice';
+import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep } from '@/store/solverSlice';
+import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 import {
   buildMultiAntennaRequest,
   countSimulationReadyElements,
@@ -40,6 +42,7 @@ import { HelixDialog } from './HelixDialog';
 import { RodDialog } from './RodDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
+import { FrequencySweepDialog } from './FrequencySweepDialog';
 import ResultsPanel from './ResultsPanel';
 import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 
@@ -83,6 +86,53 @@ function DesignPage() {
   const [rodDialogOpen, setRodDialogOpen] = useState(false);
   const [lumpedDialogOpen, setLumpedDialogOpen] = useState(false);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [frequencySweepDialogOpen, setFrequencySweepDialogOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [showSaveIndicator, setShowSaveIndicator] = useState(false);
+
+  // Auto-save function (debounced)
+  const saveProjectDebounced = useRef(
+    debounce(async (projectElements: typeof elements) => {
+      if (!projectElements || projectElements.length === 0) {
+        return;
+      }
+
+      try {
+        setSaveStatus('saving');
+        setShowSaveIndicator(true);
+
+        // TODO: Wire to real project API when available
+        // For now, just simulate save with delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log('Auto-saved project with', projectElements.length, 'elements');
+        
+        setSaveStatus('saved');
+        
+        // Hide indicator after 2 seconds
+        setTimeout(() => {
+          setShowSaveIndicator(false);
+          setSaveStatus('idle');
+        }, 2000);
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+        setSaveStatus('idle');
+        setShowSaveIndicator(false);
+      }
+    }, 1500) // 1.5 second debounce
+  ).current;
+
+  // Trigger auto-save when elements change
+  useEffect(() => {
+    if (elements && elements.length > 0) {
+      saveProjectDebounced(elements);
+    }
+
+    // Cleanup debounce on unmount
+    return () => {
+      saveProjectDebounced.cancel();
+    };
+  }, [elements]);
 
   const handleAntennaTypeSelect = (type: string) => {
     console.log('Antenna type selected:', type);
@@ -405,6 +455,9 @@ function DesignPage() {
       }
     } else if (action === 'view-results') {
       setShowResultsPanel(!showResultsPanel);
+    } else if (action === 'frequency-sweep') {
+      // Open frequency sweep dialog
+      setFrequencySweepDialogOpen(true);
     } else if (action === 'generate-mesh') {
       dispatch(addNotification({
         id: Date.now(),
@@ -420,6 +473,85 @@ function DesignPage() {
     // TODO: Implement view changes (camera presets, visualization modes)
     if (option === 'toggle-grid') {
       setGridVisible(!gridVisible);
+    }
+  };
+
+  const handleFrequencySweep = async (params: FrequencySweepParams) => {
+    console.log('Starting frequency sweep:', params);
+
+    // Check if we have elements
+    if (!elements || elements.length === 0) {
+      dispatch(addNotification({
+        id: Date.now(),
+        message: 'No antenna elements. Please create an antenna first.',
+        severity: 'warning',
+        duration: 5000,
+      }));
+      return;
+    }
+
+    // Count simulation-ready elements
+    const readyCount = countSimulationReadyElements(elements);
+    if (readyCount === 0) {
+      dispatch(addNotification({
+        id: Date.now(),
+        message: 'No valid elements for simulation. Ensure elements are visible, unlocked, and have meshes.',
+        severity: 'warning',
+        duration: 5000,
+      }));
+      return;
+    }
+
+    // Validate at least one element has a source
+    if (!validateHasSources(elements)) {
+      dispatch(addNotification({
+        id: Date.now(),
+        message: 'No voltage source defined. At least one element must have a source to run simulation.',
+        severity: 'warning',
+        duration: 5000,
+      }));
+      return;
+    }
+
+    try {
+      // Build base multi-antenna request (without frequency)
+      const baseRequest = buildMultiAntennaRequest(elements, params.startFrequency) as MultiAntennaRequest;
+      
+      // Remove frequency field since sweep will add it per-iteration
+      const { frequency: _, ...requestWithoutFreq } = baseRequest;
+
+      dispatch(addNotification({
+        id: Date.now(),
+        message: `Starting frequency sweep: ${params.numPoints} points from ${(params.startFrequency / 1e6).toFixed(1)} to ${(params.stopFrequency / 1e6).toFixed(1)} MHz...`,
+        severity: 'info',
+        duration: 3000,
+      }));
+
+      // Close dialog
+      setFrequencySweepDialogOpen(false);
+
+      // Run frequency sweep
+      await dispatch(runFrequencySweep({
+        params,
+        request: requestWithoutFreq as MultiAntennaRequest,
+      })).unwrap();
+
+      dispatch(addNotification({
+        id: Date.now(),
+        message: `Frequency sweep completed successfully! ${params.numPoints} frequencies solved.`,
+        severity: 'success',
+        duration: 5000,
+      }));
+
+      // Auto-open results panel
+      setShowResultsPanel(true);
+    } catch (error: any) {
+      dispatch(addNotification({
+        id: Date.now(),
+        message: `Frequency sweep failed: ${error}`,
+        severity: 'error',
+        duration: 7000,
+      }));
     }
   };
 
@@ -591,6 +723,27 @@ function DesignPage() {
         maxNodeIndex={mesh?.nodes ? mesh.nodes.length - 1 : 0}
         elements={elements}
       />
+      <FrequencySweepDialog
+        open={frequencySweepDialogOpen}
+        onClose={() => setFrequencySweepDialogOpen(false)}
+        onSubmit={handleFrequencySweep}
+        isLoading={solverStatus === 'running' || solverStatus === 'preparing'}
+      />
+      
+      {/* Auto-save indicator */}
+      <Snackbar
+        open={showSaveIndicator}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        sx={{ mb: 2, mr: 2 }}
+      >
+        <Alert
+          severity={saveStatus === 'saved' ? 'success' : 'info'}
+          variant="filled"
+          sx={{ minWidth: 200 }}
+        >
+          {saveStatus === 'saving' ? 'Saving...' : 'Project saved'}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

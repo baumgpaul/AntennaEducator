@@ -6,7 +6,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from './store';
 import type { SolverRequest, SolverResult, Mesh, Source } from '@/types/models';
-import type { MultiAntennaRequest, MultiAntennaSolutionResponse } from '@/types/api';
+import type { MultiAntennaRequest, MultiAntennaSolutionResponse, FrequencySweepParams, FrequencySweepResult } from '@/types/api';
 import { solveSingle, solveAsync, getJobStatus, cancelJob, solveMultiAntenna } from '@/api/solver';
 import { computeFarField } from '@/api/postprocessor';
 
@@ -87,6 +87,10 @@ interface SolverState {
   // Multi-antenna results
   multiAntennaResults: MultiAntennaSolutionResponse | null;
   
+  // Frequency sweep results
+  frequencySweep: FrequencySweepResult | null;
+  sweepInProgress: boolean;
+  
   // History
   resultsHistory: Array<{
     timestamp: string;
@@ -105,6 +109,8 @@ const initialState: SolverState = {
   currentDistribution: null,
   radiationPattern: null,
   multiAntennaResults: null,
+  frequencySweep: null,
+  sweepInProgress: false,
   resultsHistory: [],
 };
 
@@ -275,6 +281,117 @@ export const runMultiAntennaSimulation = createAsyncThunk<
     
     const errorMessage = error.response?.data?.detail || error.message || 'Multi-antenna simulation failed';
     return rejectWithValue(errorMessage);
+  }
+});
+
+/**
+ * Run frequency sweep simulation
+ * Executes solver at multiple frequencies and stores results
+ */
+export const runFrequencySweep = createAsyncThunk<
+  FrequencySweepResult,
+  {
+    params: FrequencySweepParams;
+    request: MultiAntennaRequest; // Base request with mesh, sources, etc.
+  },
+  { state: RootState }
+>('solver/runFrequencySweep', async ({ params, request }, { dispatch, rejectWithValue }) => {
+  try {
+    const { startFrequency, stopFrequency, numPoints, spacing } = params;
+
+    console.log('Starting frequency sweep:', {
+      start: startFrequency / 1e6 + ' MHz',
+      stop: stopFrequency / 1e6 + ' MHz',
+      points: numPoints,
+      spacing,
+    });
+
+    // Generate frequency array
+    const frequencies: number[] = [];
+    if (spacing === 'linear') {
+      const step = (stopFrequency - startFrequency) / (numPoints - 1);
+      for (let i = 0; i < numPoints; i++) {
+        frequencies.push(startFrequency + i * step);
+      }
+    } else {
+      // Logarithmic spacing
+      const logStart = Math.log10(startFrequency);
+      const logStop = Math.log10(stopFrequency);
+      const logStep = (logStop - logStart) / (numPoints - 1);
+      for (let i = 0; i < numPoints; i++) {
+        frequencies.push(Math.pow(10, logStart + i * logStep));
+      }
+    }
+
+    console.log('Generated frequencies:', frequencies.map(f => (f / 1e6).toFixed(2) + ' MHz'));
+
+    // Run simulations for each frequency
+    const results: MultiAntennaSolutionResponse[] = [];
+    const currentDistributions: Array<{
+      frequency: number;
+      currents: number[][];
+    }> = [];
+
+    for (let i = 0; i < frequencies.length; i++) {
+      const frequency = frequencies[i];
+      
+      // Update progress
+      dispatch(setProgress(Math.round((i / frequencies.length) * 100)));
+
+      console.log(`Solving frequency ${i + 1}/${frequencies.length}: ${(frequency / 1e6).toFixed(2)} MHz`);
+
+      // Create request for this frequency
+      const freqRequest: MultiAntennaRequest = {
+        ...request,
+        frequency,
+      };
+
+      // Call solver
+      const result = await solveMultiAntenna(freqRequest);
+      results.push(result);
+
+      // Extract current magnitudes per antenna
+      const antennaCurrents: number[][] = result.antenna_solutions.map((solution) => {
+        return parseComplexArray(solution.branch_currents).map((current) => {
+          const real = current.real || 0;
+          const imag = current.imag || 0;
+          return Math.sqrt(real * real + imag * imag);
+        });
+      });
+
+      currentDistributions.push({
+        frequency,
+        currents: antennaCurrents,
+      });
+
+      console.log(`Frequency ${(frequency / 1e6).toFixed(2)} MHz solved:`, {
+        converged: result.converged,
+        numAntennas: result.antenna_solutions.length,
+        solveTime: result.solve_time + 's',
+      });
+    }
+
+    // Reset progress
+    dispatch(setProgress(100));
+
+    const sweepResult: FrequencySweepResult = {
+      frequencies,
+      results,
+      completedCount: results.length,
+      totalCount: numPoints,
+      isComplete: true,
+      currentDistributions,
+    };
+
+    console.log('Frequency sweep complete:', {
+      numFrequencies: frequencies.length,
+      allConverged: results.every(r => r.converged),
+    });
+
+    return sweepResult;
+  } catch (error: any) {
+    console.error('Frequency sweep failed:', error);
+    return rejectWithValue(error.message || 'Frequency sweep failed');
   }
 });
 
@@ -634,6 +751,37 @@ const solverSlice = createSlice({
       console.error('Radiation pattern computation failed:', action.payload);
       state.radiationPattern = null;
     });
+
+    // ========================================================================
+    // Frequency Sweep
+    // ========================================================================
+    builder.addCase(runFrequencySweep.pending, (state) => {
+      state.sweepInProgress = true;
+      state.status = 'running';
+      state.progress = 0;
+      state.error = null;
+      state.frequencySweep = null;
+      console.log('Frequency sweep started...');
+    });
+
+    builder.addCase(runFrequencySweep.fulfilled, (state, action) => {
+      state.sweepInProgress = false;
+      state.status = 'completed';
+      state.progress = 100;
+      state.frequencySweep = action.payload;
+      console.log('Frequency sweep completed:', {
+        numFrequencies: action.payload.frequencies.length,
+        allConverged: action.payload.results.every(r => r.converged),
+      });
+    });
+
+    builder.addCase(runFrequencySweep.rejected, (state, action) => {
+      state.sweepInProgress = false;
+      state.status = 'failed';
+      state.error = action.payload as string || 'Frequency sweep failed';
+      state.progress = 0;
+      console.error('Frequency sweep rejected:', state.error);
+    });
   },
 });
 
@@ -650,5 +798,8 @@ export const selectSolverError = (state: RootState) => state.solver.error;
 export const selectSolverResults = (state: RootState) => state.solver.results;
 export const selectCurrentDistribution = (state: RootState) => state.solver.currentDistribution;
 export const selectResultsHistory = (state: RootState) => state.solver.resultsHistory;
+export const selectFrequencySweep = (state: RootState) => state.solver.frequencySweep;
+export const selectSweepInProgress = (state: RootState) => state.solver.sweepInProgress;
+export const selectRadiationPattern = (state: RootState) => state.solver.radiationPattern;
 
 export default solverSlice.reducer;

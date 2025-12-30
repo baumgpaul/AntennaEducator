@@ -143,3 +143,28 @@ export interface PostprocessorAPI {
 export type RequestInterceptor = (config: any) => any | Promise<any>
 export type ResponseInterceptor = (response: any) => any | Promise<any>
 export type ErrorInterceptor = (error: ApiError) => Promise<ApiError>
+
+// ============================================================================
+// Frequency Sweep Types
+// ============================================================================
+
+export type FrequencySpacing = 'linear' | 'logarithmic'
+
+export interface FrequencySweepParams {
+  startFrequency: number  // [Hz]
+  stopFrequency: number   // [Hz]
+  numPoints: number       // Number of frequency points
+  spacing: FrequencySpacing
+}
+
+export interface FrequencySweepResult {
+  frequencies: number[]  // Array of frequencies [Hz]
+  results: MultiAntennaSolutionResponse[]  // Solver results per frequency
+  completedCount: number  // Number of completed simulations
+  totalCount: number      // Total simulations to run
+  isComplete: boolean     // All simulations finished
+  currentDistributions: Array<{  // Current magnitudes per frequency
+    frequency: number
+    currents: number[][]  // [antenna_idx][edge_idx] -> |I|
+  }>
+}

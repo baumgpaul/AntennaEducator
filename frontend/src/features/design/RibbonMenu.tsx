@@ -223,6 +223,15 @@ function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption, solve
                     </Button>
                   </span>
                 </Tooltip>
+                <Tooltip title="Run frequency sweep">
+                  <Button
+                    startIcon={<TrendingUp />}
+                    onClick={() => onAnalysisAction?.('frequency-sweep')}
+                    disabled={isSimulationRunning}
+                  >
+                    Sweep
+                  </Button>
+                </Tooltip>
                 <Tooltip title="Solver configuration">
                   <Button startIcon={<Settings />} onClick={() => onAnalysisAction?.('solver-settings')}>
                     Configure
