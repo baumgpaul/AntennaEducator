@@ -16,8 +16,12 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     
     # CORS settings
-    cors_origins: List[str] = ["*"]
-    cors_credentials: bool = True
+    cors_origins: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8000",
+    ]
+    cors_credentials: bool = False
     cors_methods: List[str] = ["*"]
     cors_headers: List[str] = ["*"]
     
