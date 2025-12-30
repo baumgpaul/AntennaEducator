@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Box, Snackbar, Alert } from '@mui/material';
 import { debounce } from 'lodash';
-// import { useParams } from 'react-router-dom'; // TODO: Use when needed
+import { useParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { 
   generateDipole, 
@@ -21,7 +21,9 @@ import {
   duplicateElement,
   setElementVisibility,
   setElementLocked,
+  loadDesign,
 } from '@/store/designSlice';
+import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification } from '@/store/uiSlice';
 import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep } from '@/store/solverSlice';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
@@ -52,7 +54,7 @@ import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
  * Main workspace for creating and editing antenna geometries
  */
 function DesignPage() {
-  // const { projectId } = useParams(); // TODO: Use projectId when needed
+  const { projectId } = useParams<{ projectId: string }>();
   const dispatch = useAppDispatch();
   const { 
     elements, 
@@ -87,23 +89,74 @@ function DesignPage() {
   const [lumpedDialogOpen, setLumpedDialogOpen] = useState(false);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [frequencySweepDialogOpen, setFrequencySweepDialogOpen] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const previousElementCountRef = useRef<number>(0);
+  const [triggerSave, setTriggerSave] = useState(0);
 
-  // Auto-save function (debounced)
+  // Get current project from Redux to detect when it loads
+  const currentProject = useAppSelector((state) => state.projects.currentProject);
+
+  // Load project on mount if projectId exists
+  useEffect(() => {
+    if (projectId) {
+      dispatch(fetchProject(projectId));
+    }
+  }, [projectId, dispatch]);
+
+  // Parse and restore design elements from project description
+  useEffect(() => {
+    if (!currentProject) return;
+
+    // If project has JSON description, parse and restore elements
+    if (currentProject.description && currentProject.description.startsWith('[')) {
+      try {
+        const designElements = JSON.parse(currentProject.description);
+        console.log('Restored design elements from project:', designElements);
+        // Dispatch action to load elements into design state
+        if (Array.isArray(designElements) && designElements.length > 0) {
+          dispatch(loadDesign({ elements: designElements }));
+        } else {
+          // Empty array in description - clear design
+          dispatch(loadDesign({ elements: [] }));
+        }
+      } catch (error) {
+        console.error('Failed to parse design elements from project description:', error);
+        // On parse error, clear design to prevent showing old elements
+        dispatch(loadDesign({ elements: [] }));
+      }
+    } else {
+      // No description or non-JSON description - this is an empty project, clear design
+      console.log('Empty project loaded, clearing design state');
+      dispatch(loadDesign({ elements: [] }));
+    }
+  }, [currentProject?.id, dispatch]); // Only re-run when project ID changes
+
+  // Auto-save function with retry logic (debounced)
   const saveProjectDebounced = useRef(
-    debounce(async (projectElements: typeof elements) => {
-      if (!projectElements || projectElements.length === 0) {
+    debounce(async (projectElements: typeof elements, retryCount = 0) => {
+      if (!projectElements || projectElements.length === 0 || !projectId) {
         return;
       }
+
+      const MAX_RETRIES = 3;
+      const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff
 
       try {
         setSaveStatus('saving');
         setShowSaveIndicator(true);
+        setSaveError(null);
 
-        // TODO: Wire to real project API when available
-        // For now, just simulate save with delay
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Save project elements to backend
+        await dispatch(updateProject({
+          id: projectId,
+          data: {
+            // Store elements as JSON in description field (temporary)
+            // TODO: Create proper elements API endpoint
+            description: JSON.stringify(projectElements),
+          },
+        })).unwrap();
         
         console.log('Auto-saved project with', projectElements.length, 'elements');
         
@@ -115,24 +168,65 @@ function DesignPage() {
           setSaveStatus('idle');
         }, 2000);
       } catch (error) {
-        console.error('Auto-save failed:', error);
-        setSaveStatus('idle');
-        setShowSaveIndicator(false);
+        console.error(`Auto-save failed (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, error);
+        
+        if (retryCount < MAX_RETRIES) {
+          // Retry after delay
+          const delay = RETRY_DELAYS[retryCount];
+          setSaveStatus('saving');
+          setSaveError(`Retrying in ${delay / 1000}s...`);
+          
+          setTimeout(() => {
+            saveProjectDebounced(projectElements, retryCount + 1);
+          }, delay);
+        } else {
+          // All retries failed
+          setSaveStatus('error');
+          setSaveError('Failed to save changes. Please check your connection.');
+          
+          // Keep error visible longer
+          setTimeout(() => {
+            setShowSaveIndicator(false);
+            setSaveStatus('idle');
+            setSaveError(null);
+          }, 5000);
+        }
       }
     }, 1500) // 1.5 second debounce
   ).current;
 
-  // Trigger auto-save when elements change
+  // Auto-save when elements change due to property updates
   useEffect(() => {
-    if (elements && elements.length > 0) {
+    if (triggerSave > 0 && projectId && elements.length > 0) {
+      console.log('Triggering auto-save after property change, elements:', elements);
       saveProjectDebounced(elements);
+    }
+  }, [triggerSave, projectId, elements, saveProjectDebounced]);
+
+  // Auto-save on element addition only (not on every property change)
+  useEffect(() => {
+    // Only save if new elements were added (count increased)
+    if (elements && elements.length > previousElementCountRef.current) {
+      console.log(`New element(s) added: ${previousElementCountRef.current} -> ${elements.length}, saving...`);
+      previousElementCountRef.current = elements.length;
+      saveProjectDebounced(elements);
+    } else if (elements && elements.length < previousElementCountRef.current) {
+      // Update count if elements were removed
+      previousElementCountRef.current = elements.length;
     }
 
     // Cleanup debounce on unmount
     return () => {
       saveProjectDebounced.cancel();
     };
-  }, [elements]);
+  }, [elements?.length]); // Only depend on length, not full array
+
+  // Reset element count when opening a different project
+  useEffect(() => {
+    if (currentProject?.id) {
+      previousElementCountRef.current = elements.length;
+    }
+  }, [currentProject?.id]);
 
   const handleAntennaTypeSelect = (type: string) => {
     console.log('Antenna type selected:', type);
@@ -308,6 +402,8 @@ function DesignPage() {
   // Element selection handler
   const handleElementSelect = (elementId: string) => {
     console.log('Element selected:', elementId);
+    console.log('Current elements:', elements);
+    console.log('Found element:', elements?.find(el => el.id === elementId));
     dispatch(setSelectedElement(elementId));
   };
 
@@ -315,18 +411,24 @@ function DesignPage() {
   const handleColorChange = (elementId: string, color: string) => {
     console.log('Color changed:', elementId, color);
     dispatch(setElementColor({ id: elementId, color }));
+    // Trigger auto-save after state update
+    setTriggerSave(prev => prev + 1);
   };
 
   // Position change handler
   const handlePositionChange = (elementId: string, position: [number, number, number]) => {
     console.log('Position changed:', elementId, position);
     dispatch(setElementPosition({ id: elementId, position }));
+    // Trigger auto-save after state update
+    setTriggerSave(prev => prev + 1);
   };
 
   // Rotation change handler
   const handleRotationChange = (elementId: string, rotation: [number, number, number]) => {
     console.log('Rotation changed:', elementId, rotation);
     dispatch(setElementRotation({ id: elementId, rotation }));
+    // Trigger auto-save after state update
+    setTriggerSave(prev => prev + 1);
   };
 
   // Element management handlers
@@ -608,11 +710,15 @@ function DesignPage() {
         }
         rightPanel={
           <PropertiesPanel
-            antennaElement={
-              selectedElementId
+            antennaElement={(() => {
+              const found = selectedElementId
                 ? elements?.find(el => el.id === selectedElementId)
-                : undefined
-            }
+                : undefined;
+              console.log('PropertiesPanel - selectedElementId:', selectedElementId);
+              console.log('PropertiesPanel - elements:', elements);
+              console.log('PropertiesPanel - found element:', found);
+              return found;
+            })()}
             onColorChange={handleColorChange}
             onPositionChange={handlePositionChange}
             onRotationChange={handleRotationChange}
@@ -737,11 +843,13 @@ function DesignPage() {
         sx={{ mb: 2, mr: 2 }}
       >
         <Alert
-          severity={saveStatus === 'saved' ? 'success' : 'info'}
+          severity={saveStatus === 'saved' ? 'success' : saveStatus === 'error' ? 'error' : 'info'}
           variant="filled"
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: 250 }}
         >
-          {saveStatus === 'saving' ? 'Saving...' : 'Project saved'}
+          {saveStatus === 'saving' && 'Saving...'}
+          {saveStatus === 'saved' && '✓ Project saved'}
+          {saveStatus === 'error' && saveError && saveError}
         </Alert>
       </Snackbar>
     </Box>

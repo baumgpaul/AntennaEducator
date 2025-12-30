@@ -344,6 +344,18 @@ function TreeViewPanel({
         >
           <AccordionSummary
             expandIcon={<ExpandMore />}
+            onClick={(e) => {
+              // Only select if not clicking on expand icon or action buttons
+              const target = e.target as HTMLElement;
+              if (!target.closest('button') && !target.closest('.MuiAccordionSummary-expandIconWrapper')) {
+                console.log('AccordionSummary clicked:', node.type, node.id);
+                if (node.type === 'element') {
+                  onElementSelect?.(node.id);
+                } else {
+                  onSelectNode?.(node.id);
+                }
+              }
+            }}
             sx={{
               minHeight: 40,
               pl: level * 2,
@@ -468,9 +480,12 @@ function TreeViewPanel({
         <ListItemButton
           selected={isSelected}
           onClick={() => {
+            console.log('TreeView clicked:', node.type, node.id, node);
             if (node.type === 'element') {
+              console.log('Calling onElementSelect with:', node.id);
               onElementSelect?.(node.id);
             } else {
+              console.log('Calling onSelectNode with:', node.id);
               onSelectNode?.(node.id);
             }
           }}
