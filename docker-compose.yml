@@ -27,6 +27,7 @@ services:
       - preprocessor
       - solver
       - postprocessor
+      - projects
     networks:
       - antenna-network
     restart: unless-stopped
@@ -95,6 +96,28 @@ services:
       - antenna-network
     restart: unless-stopped
 
+  # Projects Service - Project management and persistence
+  projects:
+    build:
+      context: ./backend/projects
+      dockerfile: Dockerfile
+    ports:
+      - "8010:8010"
+    environment:
+      - DATABASE_URL=postgresql://antenna:antenna123@postgres:5432/antenna_db
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=antenna-data
+      - MINIO_SECURE=false
+      - JWT_SECRET_KEY=your-secret-key-change-in-production-use-openssl-rand-hex-32
+    depends_on:
+      - postgres
+      - minio
+    networks:
+      - antenna-network
+    restart: unless-stopped
+
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
@@ -148,8 +171,10 @@ services:
       mc alias set myminio http://minio:9000 minioadmin minioadmin;
       mc mb myminio/antenna-geometries --ignore-existing;
       mc mb myminio/antenna-results --ignore-existing;
+      mc mb myminio/antenna-data --ignore-existing;
       mc anonymous set download myminio/antenna-geometries;
       mc anonymous set download myminio/antenna-results;
+      mc anonymous set download myminio/antenna-data;
       exit 0;
       "
     networks:
