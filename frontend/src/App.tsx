@@ -8,6 +8,7 @@ import ResultsPage from './features/results/ResultsPage';
 import { LoginPage, RegisterPage, ProtectedRoute } from './features/auth';
 import NotFoundPage from './features/common/NotFoundPage';
 import { NotificationManager, SessionManager } from './components/common';
+import ErrorBoundary from './components/ErrorBoundary';
 
 /**
  * Main App component with routing configuration
@@ -30,10 +31,10 @@ function App() {
         {/* Protected routes with main layout */}
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/design" element={<DesignPage />} />
-          <Route path="/project/:projectId/design" element={<DesignPage />} />
-          <Route path="/project/:projectId/results" element={<ResultsPage />} />
+          <Route path="/projects" element={<ErrorBoundary><ProjectsPage /></ErrorBoundary>} />
+          <Route path="/design" element={<ErrorBoundary><DesignPage /></ErrorBoundary>} />
+          <Route path="/project/:projectId/design" element={<ErrorBoundary><DesignPage /></ErrorBoundary>} />
+          <Route path="/project/:projectId/results" element={<ErrorBoundary><ResultsPage /></ErrorBoundary>} />
         </Route>
         
         {/* 404 catch-all */}
