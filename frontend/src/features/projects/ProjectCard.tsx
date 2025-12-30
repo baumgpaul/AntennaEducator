@@ -101,7 +101,7 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProp
           </IconButton>
         </div>
 
-        {project.description && (
+        {project.description && !project.description.startsWith('[') && (
           <Typography
             variant="body2"
             color="text.secondary"

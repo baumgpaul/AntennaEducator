@@ -157,7 +157,7 @@ function Sidebar() {
                   >
                     <ListItemText
                       primary={project.name}
-                      secondary={project.description}
+                      secondary={!project.description?.startsWith('[') ? project.description : undefined}
                       primaryTypographyProps={{ variant: 'body2' }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />

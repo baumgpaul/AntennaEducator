@@ -11,16 +11,19 @@ import {
   FormControl,
   InputLabel,
   Fab,
+  Skeleton,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { fetchProjects, deleteProject, duplicateProject } from '@/store/projectsSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
-import { LoadingSpinner, ErrorDisplay } from '@/components/common';
 import ProjectCard from './ProjectCard';
 import NewProjectDialog from './NewProjectDialog';
 import EditProjectDialog from './EditProjectDialog';
@@ -38,18 +41,65 @@ function ProjectsPage() {
   const [sortBy, setSortBy] = useState<'updated' | 'created' | 'name'>('updated');
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   // Fetch projects on mount
   useEffect(() => {
     dispatch(fetchProjects());
   }, [dispatch]);
 
+  // Infinite scroll setup
+  const loadMore = useCallback(() => {
+    if (!loading && hasMore) {
+      setPage((prev) => prev + 1);
+      // In future: dispatch(fetchProjects({ page: page + 1 }));
+      // For now, we load all at once, so disable infinite scroll
+      setHasMore(false);
+    }
+  }, [loading, hasMore]);
+
+  useEffect(() => {
+    const options = {
+      root: null,
+      rootMargin: '100px',
+      threshold: 0.1,
+    };
+
+    observerRef.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        loadMore();
+      }
+    }, options);
+
+    if (loadMoreRef.current) {
+      observerRef.current.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [loadMore]);
+
+  const handleRetry = () => {
+    dispatch(fetchProjects());
+  };
+
   // Filter and sort projects
   const filteredProjects = projects
-    .filter((project) =>
-      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    .filter((project) => {
+      const query = searchQuery.toLowerCase();
+      const nameMatch = project.name.toLowerCase().includes(query);
+      // Only search description if it's not JSON (doesn't start with '[')
+      const descriptionMatch = project.description && 
+        !project.description.startsWith('[') &&
+        project.description.toLowerCase().includes(query);
+      return nameMatch || descriptionMatch;
+    })
     .sort((a, b) => {
       switch (sortBy) {
         case 'name':
@@ -92,21 +142,17 @@ function ProjectsPage() {
     }
   };
 
-  if (loading && projects.length === 0) {
-    return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <LoadingSpinner message="Loading projects..." />
-      </Container>
-    );
-  }
-
-  if (error && projects.length === 0) {
-    return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <ErrorDisplay error={error} />
-      </Container>
-    );
-  }
+  // Skeleton loader component
+  const ProjectSkeleton = () => (
+    <Grid item xs={12} sm={6} md={4} data-testid="skeleton-project-card">
+      <Box sx={{ p: 2 }}>
+        <Skeleton variant="rectangular" height={140} sx={{ mb: 2, borderRadius: 1 }} />
+        <Skeleton variant="text" sx={{ fontSize: '1.5rem' }} />
+        <Skeleton variant="text" />
+        <Skeleton variant="text" width="60%" />
+      </Box>
+    </Grid>
+  );
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -158,8 +204,35 @@ function ProjectsPage() {
         </Button>
       </Box>
 
+      {/* Error Alert */}
+      {error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 3 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              startIcon={<RefreshIcon />}
+              onClick={handleRetry}
+            >
+              Retry
+            </Button>
+          }
+        >
+          <AlertTitle>Failed to load projects</AlertTitle>
+          {formatErrorMessage(error)}
+        </Alert>
+      )}
+
       {/* Projects Grid */}
-      {filteredProjects.length === 0 ? (
+      {loading && projects.length === 0 ? (
+        <Grid container spacing={3}>
+          {[...Array(6)].map((_, i) => (
+            <ProjectSkeleton key={i} />
+          ))}
+        </Grid>
+      ) : filteredProjects.length === 0 ? (
         <Box
           sx={{
             textAlign: 'center',
@@ -199,6 +272,13 @@ function ProjectsPage() {
             </Grid>
           ))}
         </Grid>
+      )}
+
+      {/* Infinite scroll trigger */}
+      {filteredProjects.length > 0 && hasMore && (
+        <Box ref={loadMoreRef} sx={{ py: 4, textAlign: 'center' }}>
+          {loading && <Skeleton variant="text" width={200} sx={{ mx: 'auto' }} />}
+        </Box>
       )}
 
       {/* Floating Action Button for mobile */}
