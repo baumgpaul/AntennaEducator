@@ -60,7 +60,11 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",  # Frontend dev server
+        "http://localhost:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -189,6 +193,8 @@ async def update_project(
     db: Session = Depends(get_db)
 ):
     """Update a project."""
+    logger.debug(f"Updating project {project_id} with data: {project_data}")
+    
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.user_id == current_user.id

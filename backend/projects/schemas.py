@@ -90,7 +90,7 @@ class ResultResponse(ResultBase):
 class ProjectBase(BaseModel):
     """Base schema for projects."""
     name: str = Field(..., min_length=3, max_length=100)
-    description: Optional[str] = Field(None, max_length=500)
+    description: Optional[str] = Field(None, max_length=50000)  # Allow large JSON strings for elements
 
 
 class ProjectCreate(ProjectBase):
@@ -101,7 +101,7 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     """Schema for updating a project."""
     name: Optional[str] = Field(None, min_length=3, max_length=100)
-    description: Optional[str] = Field(None, max_length=500)
+    description: Optional[str] = Field(None, max_length=50000)  # Allow large JSON strings for elements
 
 
 class ProjectResponse(ProjectBase):
