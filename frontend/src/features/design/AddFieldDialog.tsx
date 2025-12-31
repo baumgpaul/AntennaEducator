@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -50,12 +50,21 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   const [activeStep, setActiveStep] = useState(0);
   const [regionType, setRegionType] = useState<'2D' | '3D'>('2D');
   const [shape, setShape] = useState<'plane' | 'circle' | 'sphere' | 'cube'>('plane');
-  const [center, setCenter] = useState({ x: 0, y: 0, z: 50 });
-  const [dimensions, setDimensions] = useState({ width: 100, height: 100, radius: 150 });
+  const [center, setCenter] = useState({ x: 0, y: 0, z: 0 });
+  const [dimensions, setDimensions] = useState({ width: 1, height: 1, radius: 1.5 });
   const [normalPreset, setNormalPreset] = useState<'XY' | 'YZ' | 'XZ'>('XY');
   const [sampling, setSampling] = useState({ x: 20, y: 20, radial: 10, angular: 20 });
   const [fieldTypes, setFieldTypes] = useState({ E: true, H: false, poynting: false });
   const [farField, setFarField] = useState(false);
+
+  // Reset shape when region type changes
+  useEffect(() => {
+    if (regionType === '2D') {
+      setShape('plane');
+    } else {
+      setShape('sphere');
+    }
+  }, [regionType]);
 
   const handleNext = () => {
     setActiveStep((prevStep) => prevStep + 1);
@@ -110,8 +119,8 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
     setActiveStep(0);
     setRegionType('2D');
     setShape('plane');
-    setCenter({ x: 0, y: 0, z: 50 });
-    setDimensions({ width: 100, height: 100, radius: 150 });
+    setCenter({ x: 0, y: 0, z: 0 });
+    setDimensions({ width: 1, height: 1, radius: 1.5 });
     setNormalPreset('XY');
     setSampling({ x: 20, y: 20, radial: 10, angular: 20 });
     setFieldTypes({ E: true, H: false, poynting: false });
@@ -139,7 +148,10 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
           <Grid container spacing={2}>
             <Grid item xs={6}>
               <Card variant="outlined" sx={{ bgcolor: regionType === '2D' ? 'action.selected' : 'background.paper' }}>
-                <CardActionArea onClick={() => setRegionType('2D')}>
+                <CardActionArea onClick={() => {
+                  setRegionType('2D');
+                  setTimeout(() => handleNext(), 100);
+                }}>
                   <CardContent sx={{ textAlign: 'center', py: 4 }}>
                     <PanoramaFishEye sx={{ fontSize: 60, mb: 2 }} />
                     <Typography variant="h6">2D Region</Typography>
@@ -152,7 +164,10 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
             </Grid>
             <Grid item xs={6}>
               <Card variant="outlined" sx={{ bgcolor: regionType === '3D' ? 'action.selected' : 'background.paper' }}>
-                <CardActionArea onClick={() => setRegionType('3D')}>
+                <CardActionArea onClick={() => {
+                  setRegionType('3D');
+                  setTimeout(() => handleNext(), 100);
+                }}>
                   <CardContent sx={{ textAlign: 'center', py: 4 }}>
                     <ViewInAr sx={{ fontSize: 60, mb: 2 }} />
                     <Typography variant="h6">3D Region</Typography>
@@ -169,27 +184,47 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
       case 1:
         // Step 2: Shape Selection
         return (
-          <FormControl fullWidth>
-            <InputLabel id="shape-label">Shape</InputLabel>
-            <Select
-              labelId="shape-label"
-              value={shape}
-              label="Shape"
-              onChange={(e) => setShape(e.target.value as any)}
-            >
-              {regionType === '2D' ? (
-                <>
-                  <MenuItem value="plane">Rectangular Plane</MenuItem>
-                  <MenuItem value="circle">Circle</MenuItem>
-                </>
-              ) : (
-                <>
-                  <MenuItem value="sphere">Sphere</MenuItem>
-                  <MenuItem value="cube">Cube</MenuItem>
-                </>
-              )}
-            </Select>
-          </FormControl>
+          <Box sx={{ width: '100%' }}>
+            <FormControl fullWidth>
+              <InputLabel id="shape-label">Shape</InputLabel>
+              <Select
+                labelId="shape-label"
+                id="shape-select"
+                name="field-shape"
+                value={shape}
+                label="Shape"
+                onChange={(e) => setShape(e.target.value as any)}
+              >
+                {/* 2D options */}
+                <MenuItem 
+                  value="plane"
+                  sx={{ display: regionType === '2D' ? 'block' : 'none' }}
+                >
+                  Rectangular Plane
+                </MenuItem>
+                <MenuItem 
+                  value="circle"
+                  sx={{ display: regionType === '2D' ? 'block' : 'none' }}
+                >
+                  Circle
+                </MenuItem>
+                
+                {/* 3D options */}
+                <MenuItem 
+                  value="sphere"
+                  sx={{ display: regionType === '3D' ? 'block' : 'none' }}
+                >
+                  Sphere
+                </MenuItem>
+                <MenuItem 
+                  value="cube"
+                  sx={{ display: regionType === '3D' ? 'block' : 'none' }}
+                >
+                  Cube
+                </MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
         );
 
       case 2:
@@ -204,7 +239,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
             <Grid item xs={4}>
               <TextField
                 fullWidth
-                label="X (mm)"
+                label="X (m)"
                 type="number"
                 value={center.x}
                 onChange={(e) => setCenter({ ...center, x: parseFloat(e.target.value) || 0 })}
@@ -213,7 +248,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
             <Grid item xs={4}>
               <TextField
                 fullWidth
-                label="Y (mm)"
+                label="Y (m)"
                 type="number"
                 value={center.y}
                 onChange={(e) => setCenter({ ...center, y: parseFloat(e.target.value) || 0 })}
@@ -222,7 +257,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
             <Grid item xs={4}>
               <TextField
                 fullWidth
-                label="Z (mm)"
+                label="Z (m)"
                 type="number"
                 value={center.z}
                 onChange={(e) => setCenter({ ...center, z: parseFloat(e.target.value) || 0 })}
@@ -240,7 +275,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 <Grid item xs={6}>
                   <TextField
                     fullWidth
-                    label="Width (mm)"
+                    label="Width (m)"
                     type="number"
                     value={dimensions.width}
                     onChange={(e) => setDimensions({ ...dimensions, width: parseFloat(e.target.value) || 0 })}
@@ -249,7 +284,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 <Grid item xs={6}>
                   <TextField
                     fullWidth
-                    label="Height (mm)"
+                    label="Height (m)"
                     type="number"
                     value={dimensions.height}
                     onChange={(e) => setDimensions({ ...dimensions, height: parseFloat(e.target.value) || 0 })}
@@ -275,7 +310,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Radius (mm)"
+                  label="Radius (m)"
                   type="number"
                   value={dimensions.radius}
                   onChange={(e) => setDimensions({ ...dimensions, radius: parseFloat(e.target.value) || 0 })}
@@ -287,7 +322,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 <Grid item xs={4}>
                   <TextField
                     fullWidth
-                    label="Lx (mm)"
+                    label="Lx (m)"
                     type="number"
                     value={dimensions.width}
                     onChange={(e) => setDimensions({ ...dimensions, width: parseFloat(e.target.value) || 0 })}
@@ -296,7 +331,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 <Grid item xs={4}>
                   <TextField
                     fullWidth
-                    label="Ly (mm)"
+                    label="Ly (m)"
                     type="number"
                     value={dimensions.height}
                     onChange={(e) => setDimensions({ ...dimensions, height: parseFloat(e.target.value) || 0 })}
@@ -305,7 +340,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 <Grid item xs={4}>
                   <TextField
                     fullWidth
-                    label="Lz (mm)"
+                    label="Lz (m)"
                     type="number"
                     value={dimensions.radius}
                     onChange={(e) => setDimensions({ ...dimensions, radius: parseFloat(e.target.value) || 0 })}

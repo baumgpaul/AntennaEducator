@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
@@ -9,9 +10,14 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TreeViewPanel from './TreeViewPanel';
 import Scene3D from './Scene3D';
 import WireGeometry from './WireGeometry';
+import { FieldRegionVisualization } from './FieldRegionVisualization';
+import { SolverPropertiesPanel } from './SolverPropertiesPanel';
 import { FrequencyInputDialog } from './FrequencyInputDialog';
 import { AddFieldDialog } from './AddFieldDialog';
 import type { AntennaElement } from '@/types/models';
+import type { AppDispatch, RootState } from '@/store/store';
+import { addFieldRegion, deleteFieldRegion, updateFieldRegion } from '@/store/solverSlice';
+import type { FieldDefinition } from '@/types/fieldDefinitions';
 
 /**
  * SolverTab - New 3-panel layout for solver workflow
@@ -25,12 +31,44 @@ interface SolverTabProps {
   elements: AntennaElement[];
   selectedElementId: string | null;
   onElementSelect: (id: string) => void;
+  onElementVisibilityToggle: (elementId: string, visible: boolean) => void;
   solverStatus?: 'idle' | 'preparing' | 'running' | 'completed' | 'error' | 'postprocessing-ready';
 }
 
-export function SolverTab({ elements, selectedElementId, onElementSelect, solverStatus = 'idle' }: SolverTabProps) {
+export function SolverTab({ elements, selectedElementId, onElementSelect, onElementVisibilityToggle, solverStatus = 'idle' }: SolverTabProps) {
+  const dispatch = useDispatch<AppDispatch>();
+  
+  // Redux state
+  const requestedFields = useSelector((state: RootState) => state.solver.requestedFields);
+  
+  // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
   const [addFieldDialogOpen, setAddFieldDialogOpen] = useState(false);
+  const [selectedFieldId, setSelectedFieldId] = useState<string | undefined>(undefined);
+  
+  // Field region visualization state
+  const [fieldRegionsVisible, setFieldRegionsVisible] = useState(true);
+  const [fieldRegionOpacity, setFieldRegionOpacity] = useState(0.3);
+
+  // Wrapped handlers with logging
+  const handleFieldRegionsVisibleChange = (visible: boolean) => {
+    console.log('[SolverTab] Field regions visible changed:', visible);
+    setFieldRegionsVisible(visible);
+  };
+
+  const handleFieldRegionOpacityChange = (opacity: number) => {
+    console.log('[SolverTab] Field region opacity changed:', opacity);
+    setFieldRegionOpacity(opacity);
+  };
+
+  // Debug: Log state
+  console.log('[SolverTab] State:', {
+    elementsCount: elements.length,
+    fieldsCount: requestedFields.length,
+    fieldsVisible: fieldRegionsVisible,
+    selectedFieldId
+  });
+  console.log('[SolverTab] Requested fields:', requestedFields);
 
   const handleSolveSingle = () => {
     setFrequencyDialogOpen(true);
@@ -61,10 +99,22 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, solver
     setFrequencyDialogOpen(false);
   };
 
-  const handleFieldAdd = (fieldDefinition: any) => {
-    // TODO: Add field to requested quantities (T4.B3)
-    console.log('Add field:', fieldDefinition);
+  const handleFieldAdd = (fieldDefinition: FieldDefinition) => {
+    // Add field to Redux store
+    dispatch(addFieldRegion(fieldDefinition));
     setAddFieldDialogOpen(false);
+  };
+
+  const handleFieldVisibilityToggle = (fieldId: string, visible: boolean) => {
+    dispatch(updateFieldRegion({ id: fieldId, updates: { visible } }));
+  };
+
+  const handleFieldDelete = (fieldId: string) => {
+    dispatch(deleteFieldRegion(fieldId));
+  };
+
+  const handleFieldRename = (fieldId: string, newName: string) => {
+    dispatch(updateFieldRegion({ id: fieldId, updates: { name: newName } }));
   };
 
   return (
@@ -198,7 +248,14 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, solver
           onElementDuplicate={() => {}}
           onElementRename={() => {}}
           onElementLock={() => {}}
-          onElementVisibilityToggle={() => {}}
+          onElementVisibilityToggle={onElementVisibilityToggle}
+          mode="solver"
+          fieldRegions={requestedFields}
+          onFieldSelect={setSelectedFieldId}
+          selectedFieldId={selectedFieldId}
+          onFieldVisibilityToggle={handleFieldVisibilityToggle}
+          onFieldDelete={handleFieldDelete}
+          onFieldRename={handleFieldRename}
         />
       </Box>
 
@@ -214,14 +271,20 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, solver
       >
         <Scene3D elements={elements}>
           {/* Render antenna elements */}
-          {elements.map((element) => (
-            <WireGeometry
-              key={element.id}
-              element={element}
-              isSelected={element.id === selectedElementId}
-              onClick={() => onElementSelect(element.id)}
-            />
-          ))}
+          <WireGeometry
+            elements={elements}
+            selectedElementId={selectedElementId}
+            onElementSelect={onElementSelect}
+            showNodes={false}
+          />
+          
+          {/* Render field regions */}
+          <FieldRegionVisualization
+            fieldDefinitions={requestedFields}
+            selectedFieldId={selectedFieldId}
+            opacity={fieldRegionOpacity}
+            visible={fieldRegionsVisible}
+          />
         </Scene3D>
       </Box>
 
@@ -234,13 +297,15 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, solver
           borderColor: 'divider',
           overflow: 'auto',
           backgroundColor: 'background.paper',
-          p: 2,
         }}
       >
-        {/* Placeholder for SolverPropertiesPanel - will be created in T4.B3 */}
-        <Box sx={{ color: 'text.secondary', textAlign: 'center', mt: 4 }}>
-          Select a field region in the tree view to edit its properties
-        </Box>
+        <SolverPropertiesPanel
+          selectedFieldId={selectedFieldId}
+          fieldRegionsVisible={fieldRegionsVisible}
+          fieldRegionOpacity={fieldRegionOpacity}
+          onFieldRegionsVisibleChange={handleFieldRegionsVisibleChange}
+          onFieldRegionOpacityChange={handleFieldRegionOpacityChange}
+        />
       </Box>
       </Box>
 
@@ -254,7 +319,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, solver
       <AddFieldDialog
         open={addFieldDialogOpen}
         onClose={() => setAddFieldDialogOpen(false)}
-        onAdd={handleFieldAdd}
+        onCreate={handleFieldAdd}
       />
     </Box>
   );

@@ -17,6 +17,8 @@ const Point3DSchema = z.object({
 
 const FieldDefinition2DSchema = z.object({
   id: z.string(),
+  name: z.string().optional(),
+  visible: z.boolean().optional().default(true),
   type: z.literal('2D'),
   shape: z.enum(['plane', 'circle']),
   centerPoint: z.tuple([z.number(), z.number(), z.number()]),
@@ -39,6 +41,8 @@ const FieldDefinition2DSchema = z.object({
 
 const FieldDefinition3DSchema = z.object({
   id: z.string(),
+  name: z.string().optional(),
+  visible: z.boolean().optional().default(true),
   type: z.literal('3D'),
   shape: z.enum(['sphere', 'cube']),
   centerPoint: z.tuple([z.number(), z.number(), z.number()]),

@@ -40,6 +40,7 @@ import {
   Edit,
   Lock,
   LockOpen,
+  GridOn,
 } from '@mui/icons-material';
 import { DEFAULT_ELEMENT_COLOR } from '@/utils/colors';
 import type { Mesh, Source, LumpedElement, AntennaElement } from '@/types/models';
@@ -64,6 +65,17 @@ interface TreeViewPanelProps {
   onElementLock?: (elementId: string, locked: boolean) => void;
   onElementVisibilityToggle?: (elementId: string, visible: boolean) => void;
   
+  // Mode control
+  mode?: 'designer' | 'solver'; // designer: full edit controls, solver: view-only
+  
+  // Field regions (solver mode only)
+  fieldRegions?: Array<{ id: string; name?: string; type: string; shape: string; visible?: boolean }>;
+  onFieldSelect?: (fieldId: string) => void;
+  selectedFieldId?: string;
+  onFieldVisibilityToggle?: (fieldId: string, visible: boolean) => void;
+  onFieldDelete?: (fieldId: string) => void;
+  onFieldRename?: (fieldId: string, newName: string) => void;
+  
   // Single mesh support (backward compatibility)
   mesh?: Mesh;
   sources?: Source[];
@@ -87,6 +99,13 @@ function TreeViewPanel({
   onElementRename,
   onElementLock,
   onElementVisibilityToggle,
+  mode = 'designer',
+  fieldRegions,
+  onFieldSelect,
+  selectedFieldId,
+  onFieldVisibilityToggle,
+  onFieldDelete,
+  onFieldRename,
   mesh,
   sources = [],
   lumpedElements = [],
@@ -101,10 +120,22 @@ function TreeViewPanel({
     elementId: string;
   } | null>(null);
   
+  // Field context menu state
+  const [fieldContextMenu, setFieldContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    fieldId: string;
+  } | null>(null);
+  
   // Rename dialog state
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingElementId, setRenamingElementId] = useState<string | null>(null);
   const [newElementName, setNewElementName] = useState('');
+  
+  // Field rename dialog state
+  const [fieldRenameDialogOpen, setFieldRenameDialogOpen] = useState(false);
+  const [renamingFieldId, setRenamingFieldId] = useState<string | null>(null);
+  const [newFieldName, setNewFieldName] = useState('');
   // Build tree data from elements or single mesh
   const treeData = useMemo<TreeNode[]>(() => {
     console.log('[TreeViewPanel] Building tree from elements:', elements?.map(e => ({ id: e.id, name: e.name })));
@@ -405,8 +436,8 @@ function TreeViewPanel({
                   )}
                 </IconButton>
               </Tooltip>
-              {/* Element lock button */}
-              {node.type === 'element' && element && (
+              {/* Element lock button - only in designer mode */}
+              {mode === 'designer' && node.type === 'element' && element && (
                 <Tooltip title={element.locked ? 'Unlock' : 'Lock'}>
                   <IconButton
                     size="small"
@@ -424,8 +455,8 @@ function TreeViewPanel({
                   </IconButton>
                 </Tooltip>
               )}
-              {/* Element context menu */}
-              {node.type === 'element' && (
+              {/* Element context menu - only in designer mode */}
+              {mode === 'designer' && node.type === 'element' && (
                 <Tooltip title="More actions">
                   <IconButton
                     size="small"
@@ -556,6 +587,97 @@ function TreeViewPanel({
             {treeData.map((node) => renderTreeNode(node, 0))}
           </List>
         )}
+        
+        {/* Requested Quantities Section (Solver Mode) */}
+        {mode === 'solver' && fieldRegions && fieldRegions.length > 0 && (
+          <>
+            <Box
+              sx={{
+                px: 2,
+                py: 1,
+                borderTop: 1,
+                borderBottom: 1,
+                borderColor: 'divider',
+                bgcolor: 'background.default',
+                mt: 1,
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                Requested Quantities
+              </Typography>
+            </Box>
+            <List disablePadding>
+              {fieldRegions.map((field) => {
+                const fieldVisible = field.visible ?? true;
+                return (
+                  <ListItem
+                    key={field.id}
+                    disablePadding
+                    secondaryAction={
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        {/* Visibility toggle */}
+                        <Tooltip title={fieldVisible ? 'Hide' : 'Show'}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onFieldVisibilityToggle?.(field.id, !fieldVisible);
+                            }}
+                            sx={{ p: 0.5 }}
+                          >
+                            {fieldVisible ? (
+                              <Visibility fontSize="small" />
+                            ) : (
+                              <VisibilityOff fontSize="small" />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                        {/* Context menu */}
+                        <Tooltip title="More actions">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFieldContextMenu({
+                                mouseX: e.clientX - 2,
+                                mouseY: e.clientY - 4,
+                                fieldId: field.id,
+                              });
+                            }}
+                            sx={{ p: 0.5 }}
+                          >
+                            <MoreVert fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    }
+                  >
+                    <ListItemButton
+                      selected={field.id === selectedFieldId}
+                      onClick={() => onFieldSelect?.(field.id)}
+                      sx={{ pl: 3 }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        <GridOn fontSize="small" sx={{ color: 'info.main' }} />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={field.name || `${field.type} ${field.shape}`}
+                        primaryTypographyProps={{
+                          variant: 'body2',
+                          sx: { fontWeight: field.id === selectedFieldId ? 600 : 400 },
+                        }}
+                        secondary={`${field.type} - ${field.shape}`}
+                        secondaryTypographyProps={{
+                          variant: 'caption',
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
+            </List>
+          </>
+        )}
       </Box>
 
       {/* Footer Stats */}
@@ -646,6 +768,81 @@ function TreeViewPanel({
         <DialogActions>
           <Button onClick={() => setRenameDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleRenameConfirm} variant="contained" disabled={!newElementName.trim()}>
+            Rename
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Context Menu for Field Actions */}
+      <Menu
+        open={fieldContextMenu !== null}
+        onClose={() => setFieldContextMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          fieldContextMenu ? { top: fieldContextMenu.mouseY, left: fieldContextMenu.mouseX } : undefined
+        }
+      >
+        <MenuItem
+          onClick={() => {
+            if (fieldContextMenu) {
+              const field = fieldRegions?.find(f => f.id === fieldContextMenu.fieldId);
+              setRenamingFieldId(fieldContextMenu.fieldId);
+              setNewFieldName(field?.name || `${field?.type} ${field?.shape}`);
+              setFieldRenameDialogOpen(true);
+              setFieldContextMenu(null);
+            }
+          }}
+          sx={{ gap: 1 }}
+        >
+          <Edit fontSize="small" />
+          Rename
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (fieldContextMenu) {
+              onFieldDelete?.(fieldContextMenu.fieldId);
+              setFieldContextMenu(null);
+            }
+          }}
+          sx={{ gap: 1, color: 'error.main' }}
+        >
+          <Delete fontSize="small" />
+          Delete
+        </MenuItem>
+      </Menu>
+
+      {/* Rename Field Dialog */}
+      <Dialog open={fieldRenameDialogOpen} onClose={() => setFieldRenameDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Rename Field Region</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Field Name"
+            value={newFieldName}
+            onChange={(e) => setNewFieldName(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && newFieldName.trim() && renamingFieldId) {
+                onFieldRename?.(renamingFieldId, newFieldName.trim());
+                setFieldRenameDialogOpen(false);
+                setRenamingFieldId(null);
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFieldRenameDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              if (newFieldName.trim() && renamingFieldId) {
+                onFieldRename?.(renamingFieldId, newFieldName.trim());
+                setFieldRenameDialogOpen(false);
+                setRenamingFieldId(null);
+              }
+            }}
+            variant="contained"
+            disabled={!newFieldName.trim()}
+          >
             Rename
           </Button>
         </DialogActions>

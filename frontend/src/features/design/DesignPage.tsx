@@ -823,6 +823,7 @@ function DesignPage() {
           elements={elements}
           selectedElementId={selectedElementId}
           onElementSelect={handleElementSelect}
+          onElementVisibilityToggle={handleElementVisibilityToggle}
           solverStatus={solverStatus}
         />
       )}
