@@ -8,7 +8,6 @@ import {
   TextField,
   Grid,
   InputAdornment,
-  FormHelperText,
   Box,
   Typography,
   Divider,
@@ -18,13 +17,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PositionControl } from '@/components/PositionControl';
 
-// Validation schema
+// Validation schema - frequency removed, will be set during Solve phase
 const dipoleSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50, 'Name too long'),
   length: z.number().positive('Length must be positive').max(100, 'Length too large'),
   radius: z.number().positive('Radius must be positive').max(1, 'Radius too large'),
   gap: z.number().nonnegative('Gap must be non-negative').max(1, 'Gap too large'),
-  frequency: z.number().positive('Frequency must be positive').max(100e9, 'Frequency too high'),
   segments: z.number().int('Must be integer').min(5, 'Minimum 5 segments').max(1000, 'Maximum 1000 segments'),
   feedType: z.enum(['gap', 'balanced']),
   position: z.object({
@@ -62,7 +60,6 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
       length: 0.143, // ~λ/2 at 1 GHz
       radius: 0.001, // 1mm
       gap: 0.001, // 1mm gap
-      frequency: 1e9, // 1 GHz
       segments: 21,
       feedType: 'gap',
       position: {
@@ -97,12 +94,6 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  // Calculate wavelength for reference
-  const calculateWavelength = (freq: number) => {
-    const c = 299792458; // Speed of light (m/s)
-    return c / freq;
   };
 
   return (
@@ -238,42 +229,6 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
                   />
                 )}
               />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Divider>
-                <Typography variant="caption" color="text.secondary">
-                  Operating Frequency
-                </Typography>
-              </Divider>
-            </Grid>
-
-            {/* Frequency */}
-            <Grid item xs={12}>
-              <Controller
-                name="frequency"
-                control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    value={value / 1e9} // Display in GHz
-                    onChange={(e) => onChange((parseFloat(e.target.value) || 0) * 1e9)}
-                    label="Design Frequency"
-                    type="number"
-                    fullWidth
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">GHz</InputAdornment>,
-                    }}
-                    error={!!errors.frequency}
-                    helperText={errors.frequency?.message}
-                    disabled={isGenerating}
-                    inputProps={{ step: 0.1 }}
-                  />
-                )}
-              />
-              <FormHelperText>
-                Wavelength: {(calculateWavelength(control._formValues.frequency || 1e9) * 1000).toFixed(2)} mm
-              </FormHelperText>
             </Grid>
 
             {/* Position and Orientation Controls */}
