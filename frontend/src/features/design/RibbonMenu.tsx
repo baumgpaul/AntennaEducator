@@ -40,20 +40,15 @@ interface RibbonMenuProps {
 }
 
 /**
- * RibbonMenu - Top toolbar with categorized actions
- * Similar to Microsoft Office ribbon interface
+ * RibbonMenu - Top toolbar with antenna and element creation actions
+ * Simplified for Designer tab - focused on geometry creation only
  */
 function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption, solverStatus = 'idle', solverProgress = 0 }: RibbonMenuProps) {
   const dispatch = useAppDispatch();
   const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
-  const [currentTab, setCurrentTab] = useState(0);
   const [antennaMenuAnchor, setAntennaMenuAnchor] = useState<null | HTMLElement>(null);
 
   const isSimulationRunning = solverStatus === 'preparing' || solverStatus === 'running';
-
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setCurrentTab(newValue);
-  };
 
   const handleAntennaMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAntennaMenuAnchor(event.currentTarget);
@@ -74,24 +69,8 @@ function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption, solve
 
   return (
     <Paper elevation={0} sx={{ borderRadius: 0, borderBottom: '1px solid', borderColor: 'divider' }}>
-      <Tabs
-        value={currentTab}
-        onChange={handleTabChange}
-        sx={{
-          minHeight: 40,
-          bgcolor: 'background.default',
-          '& .MuiTab-root': { minHeight: 40, textTransform: 'none' },
-        }}
-      >
-        <Tab label="Antenna" />
-        <Tab label="Analysis" />
-        <Tab label="View" />
-      </Tabs>
-
       <Box sx={{ p: 1.5, minHeight: 80, bgcolor: 'background.paper' }}>
-        {/* Antenna Tab */}
-        {currentTab === 0 && (
-          <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+        <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
             {/* Antenna Types Section */}
             <Box>
               <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
@@ -179,213 +158,9 @@ function RibbonMenu({ onAntennaTypeSelect, onAnalysisAction, onViewOption, solve
               </ButtonGroup>
             </Box>
           </Box>
-        )}
-
-        {/* Analysis Tab */}
-        {currentTab === 1 && (
-          <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
-            {/* Mesh Section */}
-            <Box>
-              <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                Mesh
-              </Box>
-              <ButtonGroup variant="outlined" size="small">
-                <Tooltip title="Generate mesh">
-                  <Button onClick={() => onAnalysisAction?.('generate-mesh')}>
-                    Generate Mesh
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Mesh settings">
-                  <Button startIcon={<Settings />} onClick={() => onAnalysisAction?.('mesh-settings')}>
-                    Settings
-                  </Button>
-                </Tooltip>
-              </ButtonGroup>
-            </Box>
-
-            <Divider orientation="vertical" flexItem />
-
-            {/* Simulation Section */}
-            <Box>
-              <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                Simulation
-              </Box>
-              <ButtonGroup variant="outlined" size="small">
-                <Tooltip title={isSimulationRunning ? 'Simulation running...' : 'Run solver'}>
-                  <span>
-                    <Button
-                      startIcon={isSimulationRunning ? <HourglassEmpty /> : <PlayArrow />}
-                      onClick={() => onAnalysisAction?.('run-solver')}
-                      color="primary"
-                      disabled={isSimulationRunning}
-                    >
-                      {isSimulationRunning ? `${solverProgress}%` : 'Solve'}
-                    </Button>
-                  </span>
-                </Tooltip>
-                <Tooltip title="Run frequency sweep">
-                  <Button
-                    startIcon={<TrendingUp />}
-                    onClick={() => onAnalysisAction?.('frequency-sweep')}
-                    disabled={isSimulationRunning}
-                  >
-                    Sweep
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Solver configuration">
-                  <Button startIcon={<Settings />} onClick={() => onAnalysisAction?.('solver-settings')}>
-                    Configure
-                  </Button>
-                </Tooltip>
-              </ButtonGroup>
-              {/* Status indicator */}
-              {solverStatus !== 'idle' && (
-                <Box sx={{ mt: 0.5, fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  {solverStatus === 'completed' && (
-                    <>
-                      <CheckCircle sx={{ fontSize: '0.9rem', color: 'success.main' }} />
-                      <span style={{ color: 'var(--mui-palette-success-main)' }}>Complete</span>
-                    </>
-                  )}
-                  {solverStatus === 'failed' && (
-                    <>
-                      <ErrorIcon sx={{ fontSize: '0.9rem', color: 'error.main' }} />
-                      <span style={{ color: 'var(--mui-palette-error-main)' }}>Failed</span>
-                    </>
-                  )}
-                  {solverStatus === 'running' && (
-                    <>
-                      <HourglassEmpty sx={{ fontSize: '0.9rem', color: 'info.main' }} />
-                      <span style={{ color: 'var(--mui-palette-info-main)' }}>Running...</span>
-                    </>
-                  )}
-                  {solverStatus === 'preparing' && (
-                    <>
-                      <HourglassEmpty sx={{ fontSize: '0.9rem', color: 'info.main' }} />
-                      <span style={{ color: 'var(--mui-palette-info-main)' }}>Preparing...</span>
-                    </>
-                  )}
-                </Box>
-              )}
-            </Box>
-
-            <Divider orientation="vertical" flexItem />
-
-            {/* Results Section */}
-            <Box>
-              <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                Results
-              </Box>
-              <ButtonGroup variant="outlined" size="small">
-                <Tooltip title="View results">
-                  <Button
-                    startIcon={<Assessment />}
-                    onClick={() => onAnalysisAction?.('view-results')}
-                  >
-                    View
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Export results">
-                  <Button onClick={() => onAnalysisAction?.('export-results')}>
-                    Export
-                  </Button>
-                </Tooltip>
-              </ButtonGroup>
-            </Box>
-          </Box>
-        )}
-
-        {/* View Tab */}
-        {currentTab === 2 && (
-          <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
-            {/* Display Options Section */}
-            <Box>
-              <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                Display
-              </Box>
-              <ButtonGroup variant="outlined" size="small">
-                <Tooltip title="Show/hide grid">
-                  <Button onClick={() => onViewOption?.('toggle-grid')}>
-                    Grid
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Show/hide axes">
-                  <Button onClick={() => onViewOption?.('toggle-axes')}>
-                    Axes
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Show/hide nodes">
-                  <Button onClick={() => onViewOption?.('toggle-nodes')}>
-                    Nodes
-                  </Button>
-                </Tooltip>
-              </ButtonGroup>
-            </Box>
-
-            <Divider orientation="vertical" flexItem />
-
-            {/* View Presets Section */}
-            <Box>
-              <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                View Presets
-              </Box>
-              <ButtonGroup variant="outlined" size="small">
-                <Tooltip title="Top view">
-                  <Button onClick={() => onViewOption?.('view-top')}>
-                    Top
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Front view">
-                  <Button onClick={() => onViewOption?.('view-front')}>
-                    Front
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Side view">
-                  <Button onClick={() => onViewOption?.('view-side')}>
-                    Side
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Isometric view">
-                  <Button onClick={() => onViewOption?.('view-iso')}>
-                    Iso
-                  </Button>
-                </Tooltip>
-              </ButtonGroup>
-            </Box>
-
-            <Divider orientation="vertical" flexItem />
-
-            {/* Visualization Section */}
-            <Box>
-              <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                Visualization
-              </Box>
-              <ButtonGroup variant="outlined" size="small">
-                <Tooltip title={
-                  visualizationMode === 'element-colors' 
-                    ? 'Switch to current distribution' 
-                    : 'Switch to element colors'
-                }>
-                  <Button
-                    startIcon={visualizationMode === 'element-colors' ? <ColorLens /> : <TrendingUp />}
-                    onClick={handleToggleVisualizationMode}
-                    variant={visualizationMode === 'element-colors' ? 'contained' : 'outlined'}
-                  >
-                    {visualizationMode === 'element-colors' ? 'Colors' : 'Current'}
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Field visualization">
-                  <Button onClick={() => onViewOption?.('show-field')}>
-                    Fields
-                  </Button>
-                </Tooltip>
-              </ButtonGroup>
-            </Box>
-          </Box>
-        )}
-      </Box>
-    </Paper>
-  );
-}
+        </Box>
+      </Paper>
+    );
+  }
 
 export default RibbonMenu;

@@ -7,6 +7,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from './store';
 import type { SolverRequest, SolverResult, Mesh, Source } from '@/types/models';
 import type { MultiAntennaRequest, MultiAntennaSolutionResponse, FrequencySweepParams, FrequencySweepResult } from '@/types/api';
+import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { solveSingle, solveAsync, getJobStatus, cancelJob, solveMultiAntenna } from '@/api/solver';
 import { computeFarField } from '@/api/postprocessor';
 
@@ -54,6 +55,7 @@ function parseComplexArray(arr: any[]): Array<{ real: number; imag: number }> {
 // ============================================================================
 
 export type SimulationStatus = 'idle' | 'preparing' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type SolverWorkflowState = 'idle' | 'solved' | 'postprocessing-ready';
 
 interface SolverState {
   // Current simulation
@@ -97,6 +99,12 @@ interface SolverState {
     frequency: number;
     result: SolverResult;
   }>;
+  
+  // Field definitions and postprocessing
+  requestedFields: FieldDefinition[];
+  directivityRequested: boolean;
+  solverState: SolverWorkflowState;
+  currentFrequency: number | null; // MHz - set after single frequency solve
 }
 
 const initialState: SolverState = {
@@ -112,6 +120,10 @@ const initialState: SolverState = {
   frequencySweep: null,
   sweepInProgress: false,
   resultsHistory: [],
+  requestedFields: [],
+  directivityRequested: false,
+  solverState: 'idle',
+  currentFrequency: null,
 };
 
 // ============================================================================
@@ -500,6 +512,43 @@ const solverSlice = createSlice({
 
     // Reset solver state
     resetSolver: () => initialState,
+    
+    // Field definition management
+    addFieldRegion: (state, action: PayloadAction<FieldDefinition>) => {
+      state.requestedFields.push(action.payload);
+    },
+    
+    deleteFieldRegion: (state, action: PayloadAction<string>) => {
+      state.requestedFields = state.requestedFields.filter(
+        field => field.id !== action.payload
+      );
+    },
+    
+    updateFieldRegion: (state, action: PayloadAction<{ id: string; updates: Partial<FieldDefinition> }>) => {
+      const index = state.requestedFields.findIndex(f => f.id === action.payload.id);
+      if (index !== -1) {
+        state.requestedFields[index] = {
+          ...state.requestedFields[index],
+          ...action.payload.updates,
+        } as FieldDefinition;
+      }
+    },
+    
+    clearFieldRegions: (state) => {
+      state.requestedFields = [];
+    },
+    
+    setDirectivityRequested: (state, action: PayloadAction<boolean>) => {
+      state.directivityRequested = action.payload;
+    },
+    
+    setSolverState: (state, action: PayloadAction<SolverWorkflowState>) => {
+      state.solverState = action.payload;
+    },
+    
+    setCurrentFrequency: (state, action: PayloadAction<number | null>) => {
+      state.currentFrequency = action.payload;
+    },
   },
   extraReducers: (builder) => {
     // ========================================================================
@@ -789,7 +838,19 @@ const solverSlice = createSlice({
 // Exports
 // ============================================================================
 
-export const { setJobId, setProgress, clearResults, resetSolver } = solverSlice.actions;
+export const { 
+  setJobId, 
+  setProgress, 
+  clearResults, 
+  resetSolver,
+  addFieldRegion,
+  deleteFieldRegion,
+  updateFieldRegion,
+  clearFieldRegions,
+  setDirectivityRequested,
+  setSolverState,
+  setCurrentFrequency,
+} = solverSlice.actions;
 
 // Selectors
 export const selectSolverStatus = (state: RootState) => state.solver.status;
@@ -801,5 +862,11 @@ export const selectResultsHistory = (state: RootState) => state.solver.resultsHi
 export const selectFrequencySweep = (state: RootState) => state.solver.frequencySweep;
 export const selectSweepInProgress = (state: RootState) => state.solver.sweepInProgress;
 export const selectRadiationPattern = (state: RootState) => state.solver.radiationPattern;
+
+// Field and postprocessing selectors
+export const selectRequestedFields = (state: RootState) => state.solver.requestedFields;
+export const selectDirectivityRequested = (state: RootState) => state.solver.directivityRequested;
+export const selectSolverState = (state: RootState) => state.solver.solverState;
+export const selectCurrentFrequency = (state: RootState) => state.solver.currentFrequency;
 
 export default solverSlice.reducer;

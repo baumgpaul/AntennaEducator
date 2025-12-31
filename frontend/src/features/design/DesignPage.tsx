@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Box, Snackbar, Alert } from '@mui/material';
+import { Box, Snackbar, Alert, Tabs, Tab, Typography } from '@mui/material';
 import { debounce } from 'lodash';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -46,6 +46,7 @@ import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
 import { FrequencySweepDialog } from './FrequencySweepDialog';
 import ResultsPanel from './ResultsPanel';
+import { SolverTab } from './SolverTab';
 import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 
 
@@ -95,6 +96,7 @@ function DesignPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const previousElementCountRef = useRef<number>(0);
   const [triggerSave, setTriggerSave] = useState(0);
+  const [currentTab, setCurrentTab] = useState<'designer' | 'solver' | 'postprocessing'>('designer');
 
   // Get current project from Redux to detect when it loads
   const currentProject = useAppSelector((state) => state.projects.currentProject);
@@ -701,6 +703,21 @@ function DesignPage() {
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Tab Navigation */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', backgroundColor: 'background.paper' }}>
+        <Tabs
+          value={currentTab}
+          onChange={(_, newValue) => setCurrentTab(newValue)}
+          aria-label="design workspace tabs"
+        >
+          <Tab label="Designer" value="designer" />
+          <Tab label="Solver" value="solver" />
+          <Tab label="Postprocessing" value="postprocessing" />
+        </Tabs>
+      </Box>
+
+      {/* Tab Content */}
+      {currentTab === 'designer' && (
       <DesignCanvas
         elements={elements}
         selectedElementId={selectedElementId}
@@ -798,6 +815,27 @@ function DesignPage() {
         }
         showResultsPanel={showResultsPanel}
       />
+      )}
+
+      {/* Solver Tab */}
+      {currentTab === 'solver' && (
+        <SolverTab
+          elements={elements}
+          selectedElementId={selectedElementId}
+          onElementSelect={handleElementSelect}
+          solverStatus={solverStatus}
+        />
+      )}
+
+      {/* Postprocessing Tab (placeholder) */}
+      {currentTab === 'postprocessing' && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <Typography variant="h6" color="text.secondary">
+            Postprocessing tab - Coming in Task Group T4.B7
+          </Typography>
+        </Box>
+      )}
+
       <ViewControls
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
