@@ -28,7 +28,6 @@ const helixSchema = z.object({
   helix_mode: z.enum(['axial', 'normal']),
   polarization: z.enum(['RHCP', 'LHCP']),
   wire_radius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
-  frequency: z.number().positive('Frequency must be positive').max(10, 'Frequency too high (max 10 GHz)'),
   segments_per_turn: z.number().int().min(8, 'Min 8 segments per turn').max(50, 'Max 50 segments per turn'),
   position: z.object({
     x: z.number(),
@@ -69,7 +68,6 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
       helix_mode: 'axial',
       polarization: 'RHCP',
       wire_radius: 0.001,
-      frequency: 1.0,
       segments_per_turn: 16,
       position: {
         x: 0,
@@ -84,13 +82,8 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
     },
   });
 
-  const frequency = watch('frequency');
   const diameter = watch('diameter');
   const turns = watch('turns');
-
-  // Calculate wavelength
-  const c = 299792458; // Speed of light m/s
-  const wavelength = c / (frequency * 1e9);
 
   // Calculate helix length
   const pitch = watch('pitch');
@@ -242,26 +235,6 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
               />
             </Grid>
 
-            {/* Frequency */}
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name="frequency"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Frequency (GHz)"
-                    type="number"
-                    fullWidth
-                    error={!!errors.frequency}
-                    helperText={errors.frequency?.message}
-                    inputProps={{ step: 0.1 }}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                  />
-                )}
-              />
-            </Grid>
-
             {/* Segments per Turn */}
             <Grid item xs={12} sm={6}>
               <Controller
@@ -282,12 +255,10 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
               />
             </Grid>
 
-            {/* Wavelength Display */}
+            {/* Calculated Parameters Display */}
             <Grid item xs={12}>
               <Alert severity="info">
                 <strong>Calculated Parameters:</strong>
-                <br />
-                Wavelength λ = {wavelength.toFixed(4)} m ({(wavelength * 100).toFixed(2)} cm)
                 <br />
                 Helix Length = {helixLength.toFixed(4)} m ({(helixLength * 100).toFixed(2)} cm)
                 <br />

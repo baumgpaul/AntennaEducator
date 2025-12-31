@@ -46,7 +46,6 @@ const loopSchema = z.discriminatedUnion('loopType', [
     loopType: z.literal('circular'),
     radius: z.number().positive('Radius must be positive').max(10, 'Radius too large'),
     wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
-    frequency: z.number().positive('Frequency must be positive').max(100e9, 'Frequency too high'),
     segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
     ...positionOrientationSchema,
   }),
@@ -57,7 +56,6 @@ const loopSchema = z.discriminatedUnion('loopType', [
     width: z.number().positive('Width must be positive').max(10, 'Width too large'),
     height: z.number().positive('Height must be positive').max(10, 'Height too large'),
     wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
-    frequency: z.number().positive('Frequency must be positive').max(100e9, 'Frequency too high'),
     segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
     ...positionOrientationSchema,
   }),
@@ -68,7 +66,6 @@ const loopSchema = z.discriminatedUnion('loopType', [
     sides: z.number().int('Must be integer').min(3, 'Minimum 3 sides').max(20, 'Maximum 20 sides'),
     circumradius: z.number().positive('Radius must be positive').max(10, 'Radius too large'),
     wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
-    frequency: z.number().positive('Frequency must be positive').max(100e9, 'Frequency too high'),
     segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
     ...positionOrientationSchema,
   }),
@@ -98,7 +95,6 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
       loopType: 'circular',
       radius: 0.048, // ~λ/10 at 1 GHz
       wireRadius: 0.001, // 1mm
-      frequency: 1e9, // 1 GHz
       segments: 32,
       position: {
         x: 0,
@@ -114,11 +110,6 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
   });
 
   const loopType = watch('loopType');
-  const frequency = watch('frequency');
-
-  // Calculate wavelength for reference
-  const wavelength = frequency > 0 ? (3e8 / frequency) : 0;
-  const wavelengthMm = wavelength * 1000;
 
   const handleClose = () => {
     if (!isGenerating) {
@@ -149,7 +140,6 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
         loopType: 'circular',
         radius: 0.048,
         wireRadius: watch('wireRadius'),
-        frequency: watch('frequency'),
         segments: watch('segments'),
       });
     } else if (loopType === 'rectangular') {
@@ -159,7 +149,6 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
         width: 0.08,
         height: 0.06,
         wireRadius: watch('wireRadius'),
-        frequency: watch('frequency'),
         segments: watch('segments'),
       });
     } else if (loopType === 'polygon') {
@@ -169,7 +158,6 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
         sides: 6,
         circumradius: 0.048,
         wireRadius: watch('wireRadius'),
-        frequency: watch('frequency'),
         segments: watch('segments'),
       });
     }
@@ -245,7 +233,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                       type="number"
                       fullWidth
                       error={!!(errors as any).radius}
-                      helperText={(errors as any).radius?.message || `Typical: λ/10 ≈ ${(wavelength / 10).toFixed(4)} m`}
+                      helperText={(errors as any).radius?.message}
                       InputProps={{
                         endAdornment: <InputAdornment position="end">m</InputAdornment>,
                         inputProps: { step: 0.001, min: 0 },
@@ -378,31 +366,6 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                     InputProps={{
                       endAdornment: <InputAdornment position="end">m</InputAdornment>,
                       inputProps: { step: 0.0001, min: 0 },
-                    }}
-                    disabled={isGenerating}
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* Frequency */}
-            <Grid item xs={6}>
-              <Controller
-                name="frequency"
-                control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    value={value || ''}
-                    onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-                    label="Frequency"
-                    type="number"
-                    fullWidth
-                    error={!!errors.frequency}
-                    helperText={errors.frequency?.message || `λ = ${wavelengthMm.toFixed(1)} mm`}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">Hz</InputAdornment>,
-                      inputProps: { step: 1e6, min: 0 },
                     }}
                     disabled={isGenerating}
                   />
