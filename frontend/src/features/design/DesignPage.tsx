@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Box, Snackbar, Alert } from '@mui/material';
 import { debounce } from 'lodash';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { 
   generateDipole, 
@@ -55,6 +55,7 @@ import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
  */
 function DesignPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { 
     elements, 
@@ -547,6 +548,13 @@ function DesignPage() {
 
         // Auto-open results panel on successful simulation
         setShowResultsPanel(true);
+
+        // Navigate to results page after a short delay
+        setTimeout(() => {
+          if (projectId) {
+            navigate(`/project/${projectId}/results`);
+          }
+        }, 1500);
       } catch (error: any) {
         dispatch(addNotification({
           id: Date.now(),
@@ -556,7 +564,17 @@ function DesignPage() {
         }));
       }
     } else if (action === 'view-results') {
-      setShowResultsPanel(!showResultsPanel);
+      // Navigate to dedicated results page
+      if (projectId && results) {
+        navigate(`/project/${projectId}/results`);
+      } else {
+        dispatch(addNotification({
+          id: Date.now(),
+          message: 'No results available. Run a simulation first.',
+          severity: 'info',
+          duration: 4000,
+        }));
+      }
     } else if (action === 'frequency-sweep') {
       // Open frequency sweep dialog
       setFrequencySweepDialogOpen(true);

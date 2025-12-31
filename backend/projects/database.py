@@ -10,9 +10,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Get database URL from environment variable
+# Default to SQLite for development if no DATABASE_URL is set and no PostgreSQL is available
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://antenna:antenna@localhost:5432/antenna_db"
+    "sqlite:///./projects.db"  # Use SQLite by default for development
 )
 
 # Create SQLAlchemy engine (don't connect yet)

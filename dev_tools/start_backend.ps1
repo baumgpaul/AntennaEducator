@@ -35,12 +35,33 @@ $jobs += Start-Job -ScriptBlock {
     cd $using:PWD
     $env:DISABLE_AUTH = "true"
     & .\.venv\Scripts\python.exe -m uvicorn backend.projects.main:app --port 8010 --reload
+} -ErrorAction SilentlyContinue
+
+Start-Sleep -Seconds 8
+
+# Check if services are actually running
+Write-Host "`nVerifying services..." -ForegroundColor Cyan
+$running = 0
+$failed = 0
+
+foreach ($job in $jobs) {
+    if ($job.State -eq "Running") {
+        $running++
+    } else {
+        $failed++
+        Write-Host "⚠️  Service failed to start: $($job.Name)" -ForegroundColor Red
+        # Get the error output
+        $jobOutput = Receive-Job -Job $job -Keep 2>&1
+        if ($jobOutput) {
+            Write-Host "Error: $jobOutput" -ForegroundColor Red
+        }
+    }
 }
 
-Start-Sleep -Seconds 5
-
-
-Write-Host "`n✅ Services should be running!" -ForegroundColor Green
+Write-Host "`n✅ Services should be running! ($running/4 started)" -ForegroundColor Green
+if ($failed -gt 0) {
+    Write-Host "⚠️  $failed service(s) failed to start. Check errors above." -ForegroundColor Yellow
+}
 Write-Host "`nTest with: .\dev_tools\test_backend_quick.ps1" -ForegroundColor Cyan
 Write-Host "`nAPI Docs:" -ForegroundColor Cyan
 Write-Host "  http://localhost:8001/api/v1/docs   (Preprocessor)" -ForegroundColor White
