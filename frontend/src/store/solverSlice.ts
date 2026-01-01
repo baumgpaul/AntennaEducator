@@ -9,7 +9,8 @@ import type { SolverRequest, SolverResult, Mesh, Source } from '@/types/models';
 import type { MultiAntennaRequest, MultiAntennaSolutionResponse, FrequencySweepParams, FrequencySweepResult } from '@/types/api';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { solveSingle, solveAsync, getJobStatus, cancelJob, solveMultiAntenna } from '@/api/solver';
-import { computeFarField } from '@/api/postprocessor';
+import { computeFarField, computeNearField } from '@/api/postprocessor';
+import { generateObservationPoints } from '@/utils/fieldGeneration';
 
 // ============================================================================
 // Helper Functions
@@ -574,18 +575,49 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     if (requestedFields.length > 0) {
       console.log('Computing', requestedFields.length, 'field regions...');
       
-      // TODO: Implement field computation
-      // For now, just mark them as computed
-      // In a real implementation, we would:
-      // 1. Call postprocessor API for each field region
-      // 2. Store large field data in S3/MinIO
-      // 3. Return S3 URLs for download
+      // Get mesh data
+      const element = elements[0];
+      if (!element.mesh) {
+        return rejectWithValue('No mesh data available for field computation');
+      }
+
+      const mesh = element.mesh;
       
-      response.fields = requestedFields.map(field => ({
-        fieldId: field.id,
-        computed: true,
-        dataUrl: undefined, // Would be S3 URL in real implementation
-      }));
+      // Compute fields for each requested region
+      const fieldResults = [];
+      
+      for (const field of requestedFields) {
+        console.log(`Computing field region: ${field.id} (${field.type} ${field.shape})`);
+        
+        // Generate observation points based on field definition
+        const observation_points = generateObservationPoints(field);
+        console.log(`  Generated ${observation_points.length} observation points`);
+        
+        // Call postprocessor API
+        const fieldRequest = {
+          frequencies: [results.frequency],
+          branch_currents: [results.branch_currents],
+          nodes: mesh.nodes,
+          edges: mesh.edges,
+          radii: mesh.radii,
+          observation_points,
+        };
+        
+        const fieldData = await computeNearField(fieldRequest);
+        console.log(`  Field computation complete: ${fieldData.num_points} points computed`);
+        
+        fieldResults.push({
+          fieldId: field.id,
+          computed: true,
+          num_points: fieldData.num_points,
+          E_magnitudes: fieldData.E_magnitudes,
+          H_magnitudes: fieldData.H_magnitudes,
+          // Note: Full field vectors stored in fieldData but not included in summary
+          // In production, would upload large arrays to S3/MinIO and return URL
+        });
+      }
+      
+      response.fields = fieldResults;
     }
 
     // Update workflow state

@@ -13,7 +13,7 @@ from .models import (
     RadiationPatternResponse,
     AntennaParametersRequest
 )
-from .field import compute_far_field, compute_directivity_from_pattern
+from .field import compute_far_field, compute_near_field as compute_near_field_impl, compute_directivity_from_pattern
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -78,16 +78,92 @@ async def compute_near_field(request: FieldRequest):
     - Field magnitudes and directions
     """
     try:
-        # TODO: Implement actual near-field computation
-        # For now, return a placeholder response
+        print(f"Received near-field request")
+        print(f"  Frequencies: {request.frequencies}")
+        print(f"  Nodes: {len(request.nodes)}")
+        print(f"  Edges: {len(request.edges)}")
+        print(f"  Observation points: {len(request.observation_points)}")
+        
+        # Convert inputs to numpy arrays
+        frequencies = np.array(request.frequencies)
+        nodes = np.array(request.nodes)
+        edges = np.array(request.edges)
+        observation_points = np.array(request.observation_points)
+        
+        # Handle branch_currents which can be complex numbers in different formats
+        branch_currents_list = []
+        for freq_currents in request.branch_currents:
+            currents = []
+            for c in freq_currents:
+                if isinstance(c, (list, tuple)) and len(c) == 2:
+                    currents.append(complex(c[0], c[1]))
+                elif isinstance(c, str):
+                    c_clean = c.replace(' ', '').replace('i', 'j')
+                    currents.append(complex(c_clean))
+                elif isinstance(c, dict) and 'real' in c and 'imag' in c:
+                    currents.append(complex(c['real'], c['imag']))
+                else:
+                    currents.append(complex(c))
+            branch_currents_list.append(currents)
+        branch_currents = np.array(branch_currents_list, dtype=complex)
+        
+        # Ensure branch_currents is 2D
+        if branch_currents.ndim == 1:
+            branch_currents = branch_currents.reshape(1, -1)
+        
+        print(f"  Parsed branch currents: {branch_currents.shape}")
+        
+        # Compute near-field
+        E_field, H_field = compute_near_field_impl(
+            frequencies=frequencies,
+            branch_currents=branch_currents,
+            nodes=nodes,
+            edges=edges,
+            observation_points=observation_points
+        )
+        
+        print(f"  Near-field computation complete: E_field shape={E_field.shape}, H_field shape={H_field.shape}")
+        
+        # Extract first frequency results (shape: n_points x 3)
+        E_vectors = E_field[0]  # (n_points, 3) complex
+        H_vectors = H_field[0]  # (n_points, 3) complex
+        
+        # Compute magnitudes
+        E_magnitudes = np.linalg.norm(E_vectors, axis=1).tolist()
+        H_magnitudes = np.linalg.norm(H_vectors, axis=1).tolist()
+        
+        # Convert to list format for JSON (separate real and imaginary parts)
+        E_field_json = []
+        H_field_json = []
+        
+        for i in range(len(observation_points)):
+            E_field_json.append({
+                'x': {'real': float(E_vectors[i, 0].real), 'imag': float(E_vectors[i, 0].imag)},
+                'y': {'real': float(E_vectors[i, 1].real), 'imag': float(E_vectors[i, 1].imag)},
+                'z': {'real': float(E_vectors[i, 2].real), 'imag': float(E_vectors[i, 2].imag)},
+                'magnitude': float(E_magnitudes[i])
+            })
+            H_field_json.append({
+                'x': {'real': float(H_vectors[i, 0].real), 'imag': float(H_vectors[i, 0].imag)},
+                'y': {'real': float(H_vectors[i, 1].real), 'imag': float(H_vectors[i, 1].imag)},
+                'z': {'real': float(H_vectors[i, 2].real), 'imag': float(H_vectors[i, 2].imag)},
+                'magnitude': float(H_magnitudes[i])
+            })
+        
         return {
             "status": "success",
-            "message": "Near-field computation endpoint - implementation pending",
-            "frequencies": request.frequencies,
-            "num_observation_points": len(request.observation_points),
+            "frequency": float(frequencies[0]),
+            "num_points": len(observation_points),
+            "E_field": E_field_json,
+            "H_field": H_field_json,
+            "E_magnitudes": E_magnitudes,
+            "H_magnitudes": H_magnitudes,
             "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
+        print(f"Near-field computation error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Near-field computation failed: {str(e)}")
 
 

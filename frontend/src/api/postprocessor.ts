@@ -34,6 +34,42 @@ export const computeFields = async (
 }
 
 /**
+ * Compute near-field at observation points
+ * @param request Near-field computation request with geometry, currents, and observation points
+ * @returns E and H field vectors and magnitudes at each point
+ */
+export const computeNearField = async (request: {
+  frequencies: number[]
+  branch_currents: Array<Array<number | string | { real: number; imag: number }>>
+  nodes: number[][]
+  edges: number[][]
+  radii: number[]
+  observation_points: number[][]
+}): Promise<{
+  status: string
+  frequency: number
+  num_points: number
+  E_field: Array<{
+    x: { real: number; imag: number }
+    y: { real: number; imag: number }
+    z: { real: number; imag: number }
+    magnitude: number
+  }>
+  H_field: Array<{
+    x: { real: number; imag: number }
+    y: { real: number; imag: number }
+    z: { real: number; imag: number }
+    magnitude: number
+  }>
+  E_magnitudes: number[]
+  H_magnitudes: number[]
+  timestamp: string
+}> => {
+  const response = await postprocessorClient.post('/api/v1/fields/near', request)
+  return handleApiResponse(response)
+}
+
+/**
  * Compute fields on a grid (for visualization)
  */
 export const computeFieldGrid = async (request: {
