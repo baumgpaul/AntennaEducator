@@ -16,7 +16,7 @@ import { FrequencyInputDialog } from './FrequencyInputDialog';
 import { AddFieldDialog } from './AddFieldDialog';
 import type { AntennaElement } from '@/types/models';
 import type { AppDispatch, RootState } from '@/store/store';
-import { addFieldRegion, deleteFieldRegion, updateFieldRegion } from '@/store/solverSlice';
+import { addFieldRegion, deleteFieldRegion, updateFieldRegion, setDirectivityRequested, setSolverState } from '@/store/solverSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 
 /**
@@ -40,6 +40,8 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   
   // Redux state
   const requestedFields = useSelector((state: RootState) => state.solver.requestedFields);
+  const directivityRequested = useSelector((state: RootState) => state.solver.directivityRequested);
+  const solverWorkflowState = useSelector((state: RootState) => state.solver.solverState);
   
   // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
@@ -74,8 +76,10 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   };
 
   const handleAddDirectivity = () => {
-    // TODO: Add directivity to requested quantities (T4.B3)
-    console.log('Add Directivity clicked');
+    if (!directivityRequested) {
+      dispatch(setDirectivityRequested(true));
+    }
+    setSelectedFieldId('directivity');
   };
 
   const handleAddField = () => {
@@ -83,8 +87,9 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   };
 
   const handleComputePostprocessing = () => {
-    // TODO: Run postprocessor (T4.B3)
-    console.log('Compute Postprocessing clicked');
+    if (solverWorkflowState === 'solved') {
+      dispatch(setSolverState('postprocessing-ready'));
+    }
   };
 
   const handleFrequencySolve = (frequency: number, unit: 'MHz' | 'GHz') => {
@@ -110,6 +115,19 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const handleFieldRename = (fieldId: string, newName: string) => {
     dispatch(updateFieldRegion({ id: fieldId, updates: { name: newName } }));
   };
+
+  const handleDirectivityDelete = () => {
+    dispatch(setDirectivityRequested(false));
+    if (selectedFieldId === 'directivity') {
+      setSelectedFieldId(undefined);
+    }
+  };
+
+  const handleDirectivitySelect = () => {
+    setSelectedFieldId('directivity');
+  };
+
+  const canComputePostprocessing = solverWorkflowState === 'solved';
 
   return (
     <Box
@@ -141,7 +159,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
               Solve Control
             </Typography>
-            {solverStatus === 'completed' && (
+            {(solverStatus === 'completed' || solverWorkflowState === 'solved') && (
               <Chip
                 icon={<CheckCircleIcon />}
                 label="Solved"
@@ -149,7 +167,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                 sx={{ height: 20, fontSize: '0.65rem', color: 'grey.400', bgcolor: 'grey.800' }}
               />
             )}
-            {solverStatus === 'postprocessing-ready' && (
+            {(solverStatus === 'postprocessing-ready' || solverWorkflowState === 'postprocessing-ready') && (
               <Chip
                 icon={<CheckCircleIcon />}
                 label="Ready"
@@ -209,6 +227,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             variant="outlined"
             startIcon={<CalculateIcon />}
             onClick={handleComputePostprocessing}
+            disabled={!canComputePostprocessing}
           >
             Compute Postprocessing
           </Button>
@@ -250,6 +269,9 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           onFieldVisibilityToggle={handleFieldVisibilityToggle}
           onFieldDelete={handleFieldDelete}
           onFieldRename={handleFieldRename}
+          directivityRequested={directivityRequested}
+          onDirectivityDelete={handleDirectivityDelete}
+          onDirectivitySelect={handleDirectivitySelect}
         />
       </Box>
 
