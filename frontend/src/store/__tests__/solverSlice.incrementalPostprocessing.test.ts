@@ -110,8 +110,9 @@ describe('Incremental Postprocessing Workflow', () => {
       centerPoint: [0, 0, 50],
       dimensions: { width: 100, height: 100 },
       normalPreset: 'XY',
-      pointsPerDimension: 5,
+      sampling: { x: 5, y: 5 },
       farField: false,
+      fieldTypes: ['E'],
     }));
 
     store.dispatch(addFieldRegion({
@@ -121,8 +122,9 @@ describe('Incremental Postprocessing Workflow', () => {
       centerPoint: [0, 0, 100],
       dimensions: { width: 100, height: 100 },
       normalPreset: 'XY',
-      pointsPerDimension: 5,
+      sampling: { x: 5, y: 5 },
       farField: false,
+      fieldTypes: ['E'],
     }));
 
     // Run postprocessing
@@ -146,8 +148,9 @@ describe('Incremental Postprocessing Workflow', () => {
       centerPoint: [0, 0, 50],
       dimensions: { width: 100, height: 100 },
       normalPreset: 'XY',
-      pointsPerDimension: 5,
+      sampling: { x: 5, y: 5 },
       farField: false,
+      fieldTypes: ['E'],
     }));
 
     await store.dispatch(computePostprocessingWorkflow());
@@ -165,8 +168,9 @@ describe('Incremental Postprocessing Workflow', () => {
       centerPoint: [0, 0, 100],
       dimensions: { width: 100, height: 100 },
       normalPreset: 'XY',
-      pointsPerDimension: 5,
+      sampling: { x: 5, y: 5 },
       farField: false,
+      fieldTypes: ['E'],
     }));
 
     // Run postprocessing again
@@ -212,8 +216,9 @@ describe('Incremental Postprocessing Workflow', () => {
       centerPoint: [0, 0, 50],
       dimensions: { width: 100, height: 100 },
       normalPreset: 'XY',
-      pointsPerDimension: 5,
+      sampling: { x: 5, y: 5 },
       farField: false,
+      fieldTypes: ['E'],
     }));
 
     await store.dispatch(computePostprocessingWorkflow());
@@ -233,8 +238,9 @@ describe('Incremental Postprocessing Workflow', () => {
       centerPoint: [0, 0, 50],
       dimensions: { width: 100, height: 100 },
       normalPreset: 'XY',
-      pointsPerDimension: 5,
+      sampling: { x: 5, y: 5 },
       farField: false,
+      fieldTypes: ['E'],
     }));
 
     await store.dispatch(computePostprocessingWorkflow());
@@ -277,8 +283,9 @@ describe('Incremental Postprocessing Workflow', () => {
       centerPoint: [0, 0, 50],
       dimensions: { width: 100, height: 100 },
       normalPreset: 'XY',
-      pointsPerDimension: 5,
+      sampling: { x: 5, y: 5 },
       farField: false,
+      fieldTypes: ['E'],
     }));
 
     store.dispatch(addFieldRegion({
@@ -288,8 +295,9 @@ describe('Incremental Postprocessing Workflow', () => {
       centerPoint: [0, 0, 100],
       dimensions: { width: 100, height: 100 },
       normalPreset: 'XY',
-      pointsPerDimension: 5,
+      sampling: { x: 5, y: 5 },
       farField: false,
+      fieldTypes: ['E'],
     }));
 
     await store.dispatch(computePostprocessingWorkflow());
@@ -324,8 +332,9 @@ describe('Incremental Postprocessing Workflow', () => {
       centerPoint: [0, 0, 50],
       dimensions: { width: 100, height: 100 },
       normalPreset: 'XY',
-      pointsPerDimension: 5,
+      sampling: { x: 5, y: 5 },
       farField: false,
+      fieldTypes: ['E'],
     }));
 
     // Should be able to run postprocessing
@@ -335,3 +344,4 @@ describe('Incremental Postprocessing Workflow', () => {
     expect(state.fieldResults['field-new']?.computed).toBe(true);
   });
 });
+

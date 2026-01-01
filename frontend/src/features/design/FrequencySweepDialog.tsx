@@ -88,9 +88,9 @@ export const FrequencySweepDialog: React.FC<FrequencySweepDialogProps> = ({
   const stopFreq = watch('stopFrequency')
   const numPoints = watch('numPoints')
 
-  // Reset form when dialog is closed
+  // Reset form when dialog opens (not when it closes)
   useEffect(() => {
-    if (!open) {
+    if (open) {
       reset()
     }
   }, [open, reset])
