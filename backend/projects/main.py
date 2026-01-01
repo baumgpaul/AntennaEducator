@@ -57,14 +57,10 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# CORS middleware
+# CORS middleware - MUST be added FIRST (added first = executed last, which is correct)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",  # Frontend dev server
-        "http://localhost:5173"
-    ],
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -145,7 +141,8 @@ async def create_project(
     db_project = Project(
         user_id=current_user.id,
         name=project_data.name,
-        description=project_data.description
+        description=project_data.description,
+        requested_fields=project_data.requested_fields
     )
     db.add(db_project)
     db.commit()
@@ -211,6 +208,8 @@ async def update_project(
         project.name = project_data.name
     if project_data.description is not None:
         project.description = project_data.description
+    if project_data.requested_fields is not None:
+        project.requested_fields = project_data.requested_fields
     
     db.commit()
     db.refresh(project)
