@@ -41,6 +41,7 @@ import {
   Lock,
   LockOpen,
   GridOn,
+  CheckCircle,
 } from '@mui/icons-material';
 import { DEFAULT_ELEMENT_COLOR } from '@/utils/colors';
 import type { Mesh, Source, LumpedElement, AntennaElement } from '@/types/models';
@@ -75,6 +76,9 @@ interface TreeViewPanelProps {
   onFieldVisibilityToggle?: (fieldId: string, visible: boolean) => void;
   onFieldDelete?: (fieldId: string) => void;
   onFieldRename?: (fieldId: string, newName: string) => void;
+  directivityRequested?: boolean;
+  onDirectivitySelect?: () => void;
+  onDirectivityDelete?: () => void;
   
   // Single mesh support (backward compatibility)
   mesh?: Mesh;
@@ -106,6 +110,9 @@ function TreeViewPanel({
   onFieldVisibilityToggle,
   onFieldDelete,
   onFieldRename,
+  directivityRequested = false,
+  onDirectivitySelect,
+  onDirectivityDelete,
   mesh,
   sources = [],
   lumpedElements = [],
@@ -587,9 +594,9 @@ function TreeViewPanel({
             {treeData.map((node) => renderTreeNode(node, 0))}
           </List>
         )}
-        
+
         {/* Requested Quantities Section (Solver Mode) */}
-        {mode === 'solver' && fieldRegions && fieldRegions.length > 0 && (
+        {mode === 'solver' && (
           <>
             <Box
               sx={{
@@ -607,7 +614,61 @@ function TreeViewPanel({
               </Typography>
             </Box>
             <List disablePadding>
-              {fieldRegions.map((field) => {
+              <ListItem disablePadding data-testid="currents-item">
+                <ListItemButton disabled sx={{ pl: 3, opacity: 0.8 }}>
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <CheckCircle fontSize="small" color="success" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Currents & Voltages"
+                    secondary="Always included"
+                    secondaryTypographyProps={{ variant: 'caption' }}
+                  />
+                  <Lock fontSize="small" color="disabled" />
+                </ListItemButton>
+              </ListItem>
+
+              {directivityRequested && (
+                <ListItem
+                  disablePadding
+                  data-testid="directivity-item"
+                  secondaryAction={
+                    <Tooltip title="Remove directivity">
+                      <IconButton
+                        size="small"
+                        aria-label="Delete directivity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDirectivityDelete?.();
+                        }}
+                        sx={{ p: 0.5 }}
+                      >
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  }
+                >
+                  <ListItemButton
+                    selected={selectedFieldId === 'directivity'}
+                    onClick={() => {
+                      onDirectivitySelect?.();
+                      onFieldSelect?.('directivity');
+                    }}
+                    sx={{ pl: 3 }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <Radio fontSize="small" color="secondary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Directivity"
+                      secondary="Far-field pattern"
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              )}
+
+              {fieldRegions?.map((field) => {
                 const fieldVisible = field.visible ?? true;
                 return (
                   <ListItem
@@ -675,6 +736,12 @@ function TreeViewPanel({
                   </ListItem>
                 );
               })}
+
+              {(!fieldRegions || fieldRegions.length === 0) && !directivityRequested && (
+                <Box sx={{ px: 3, py: 2, color: 'text.secondary' }}>
+                  <Typography variant="body2">No additional fields requested yet</Typography>
+                </Box>
+              )}
             </List>
           </>
         )}
