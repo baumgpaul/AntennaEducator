@@ -82,7 +82,7 @@ describe('DesignPage Results Navigation', () => {
           requestedFields: [],
           directivityRequested: false,
           directivitySettings: { theta_points: 19, phi_points: 37 },
-          solverState: 'idle',
+          solverState: 'solved',
           currentFrequency: null,
           fieldResults: null,
           postprocessingStatus: 'idle',
@@ -106,6 +106,7 @@ describe('DesignPage Results Navigation', () => {
 
       // Just check that it renders successfully with results
       expect(screen.getByRole('tab', { name: /Designer/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Postprocessing/i })).not.toHaveAttribute('aria-disabled', 'true');
     });
 
     it('should render without errors when no results exist', () => {
@@ -165,6 +166,7 @@ describe('DesignPage Results Navigation', () => {
 
       // Just check that it renders successfully without results
       expect(screen.getByRole('tab', { name: /Solver/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Postprocessing/i })).toHaveAttribute('aria-disabled', 'true');
     });
   });
 

@@ -25,7 +25,7 @@ import {
 } from '@/store/designSlice';
 import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification } from '@/store/uiSlice';
-import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, setFieldDefinitions } from '@/store/solverSlice';
+import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectSolverState, setFieldDefinitions } from '@/store/solverSlice';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 import {
   buildMultiAntennaRequest,
@@ -47,6 +47,7 @@ import { SourceDialog } from './SourceDialog';
 import { FrequencySweepDialog } from './FrequencySweepDialog';
 import ResultsPanel from './ResultsPanel';
 import { SolverTab } from './SolverTab';
+import PostprocessingTab from './PostprocessingTab';
 import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 
 
@@ -81,6 +82,7 @@ function DesignPage() {
   );
   
   const requestedFields = useAppSelector(selectRequestedFields);
+  const solverWorkflowState = useAppSelector(selectSolverState);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
@@ -99,6 +101,13 @@ function DesignPage() {
   const previousElementCountRef = useRef<number>(0);
   const [triggerSave, setTriggerSave] = useState(0);
   const [currentTab, setCurrentTab] = useState<'designer' | 'solver' | 'postprocessing'>('designer');
+
+  const handleTabChange = (_: unknown, newValue: 'designer' | 'solver' | 'postprocessing') => {
+    if (newValue === 'postprocessing' && solverWorkflowState === 'idle') {
+      return;
+    }
+    setCurrentTab(newValue);
+  };
 
   // Get current project from Redux to detect when it loads
   const currentProject = useAppSelector((state) => state.projects.currentProject);
@@ -727,12 +736,12 @@ function DesignPage() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', backgroundColor: 'background.paper' }}>
         <Tabs
           value={currentTab}
-          onChange={(_, newValue) => setCurrentTab(newValue)}
+          onChange={handleTabChange}
           aria-label="design workspace tabs"
         >
           <Tab label="Designer" value="designer" />
           <Tab label="Solver" value="solver" />
-          <Tab label="Postprocessing" value="postprocessing" />
+          <Tab label="Postprocessing" value="postprocessing" disabled={solverWorkflowState === 'idle'} />
         </Tabs>
       </Box>
 
@@ -850,11 +859,7 @@ function DesignPage() {
 
       {/* Postprocessing Tab (placeholder) */}
       {currentTab === 'postprocessing' && (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-          <Typography variant="h6" color="text.secondary">
-            Postprocessing tab - Coming in Task Group T4.B7
-          </Typography>
-        </Box>
+        <PostprocessingTab solverState={solverWorkflowState} />
       )}
 
       <ViewControls
