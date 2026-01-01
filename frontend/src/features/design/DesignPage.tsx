@@ -85,6 +85,8 @@ function DesignPage() {
   const directivityRequested = useAppSelector(selectDirectivityRequested);
   const solverWorkflowState = useAppSelector(selectSolverState);
   const fieldResults = useAppSelector((state) => state.solver.fieldResults);
+  const currentFrequency = useAppSelector((state) => state.solver.currentFrequency);
+  const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
@@ -867,6 +869,8 @@ function DesignPage() {
           requestedFields={requestedFields}
           directivityRequested={directivityRequested}
           fieldResults={fieldResults}
+          currentFrequency={currentFrequency}
+          frequencySweep={frequencySweep}
         />
       )}
 

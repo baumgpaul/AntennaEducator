@@ -17,16 +17,23 @@ import {
   MenuItem,
   Slider,
   SelectChangeEvent,
+  IconButton,
+  Chip,
 } from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import type { SolverWorkflowState } from '@/store/solverSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
+import type { FrequencySweepResult } from '@/types/api';
+import Scene3D from './Scene3D';
+import FieldVisualization from './FieldVisualization';
+import type { ColorMapType } from '@/utils/colorMaps';
 
 type VisualizationMode = 'magnitude' | 'vectorial' | 'component' | 'phase';
-type ColorMap = 'jet' | 'turbo' | 'viridis' | 'plasma' | 'twilight';
 type Component = 'x' | 'y' | 'z';
 type ComplexPart = 'magnitude' | 'real' | 'imaginary';
 
@@ -36,6 +43,8 @@ interface PostprocessingTabProps {
   requestedFields: FieldDefinition[];
   directivityRequested: boolean;
   fieldResults: Record<string, { computed: boolean; num_points: number }> | null;
+  currentFrequency: number | null; // MHz - current single frequency
+  frequencySweep: FrequencySweepResult | null; // Sweep data if available
 }
 
 function PostprocessingTab({
@@ -44,18 +53,55 @@ function PostprocessingTab({
   requestedFields,
   directivityRequested,
   fieldResults,
+  currentFrequency,
+  frequencySweep,
 }: PostprocessingTabProps) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('magnitude');
-  const [colorMap, setColorMap] = useState<ColorMap>('jet');
+  const [colorMap, setColorMap] = useState<ColorMapType>('jet');
   const [opacity, setOpacity] = useState<number>(80);
   const [selectedComponent, setSelectedComponent] = useState<Component>('x');
   const [complexPart, setComplexPart] = useState<ComplexPart>('magnitude');
+  const [selectedFrequencyIndex, setSelectedFrequencyIndex] = useState<number>(0);
+
+  // Debug logging
+  console.log('[PostprocessingTab] Props:', { 
+    currentFrequency, 
+    frequencySweep: frequencySweep ? {
+      numFrequencies: frequencySweep.frequencies?.length,
+      frequencies: frequencySweep.frequencies
+    } : null 
+  });
+
+  // Determine if we're in sweep mode
+  const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
+  const availableFrequencies = isSweepMode ? frequencySweep!.frequencies : (currentFrequency ? [currentFrequency * 1e6] : []); // MHz to Hz
+  
+  console.log('[PostprocessingTab] Frequency state:', { 
+    isSweepMode, 
+    availableFrequenciesCount: availableFrequencies.length,
+    selectedFrequencyIndex 
+  });
+  
+  // TODO: displayFrequency will be used to fetch field data at the selected frequency
+  // const displayFrequency = availableFrequencies[selectedFrequencyIndex] || currentFrequency;
 
   const statusMessage =
     solverState === 'postprocessing-ready'
-      ? 'Postprocessing results ready. Visualization coming soon.'
-      : 'Solver results available (voltages/currents). Visualization coming soon.';
+      ? 'Postprocessing results ready. Select a field to visualize.'
+      : 'Solver results available (voltages/currents). Select a field to visualize.';
+
+  const handlePreviousFrequency = () => {
+    if (selectedFrequencyIndex > 0) {
+      setSelectedFrequencyIndex(selectedFrequencyIndex - 1);
+    }
+  };
+
+  const handleNextFrequency = () => {
+    if (selectedFrequencyIndex < availableFrequencies.length - 1) {
+      setSelectedFrequencyIndex(selectedFrequencyIndex + 1);
+    }
+  };
 
   const handleSelectItem = (itemId: string) => {
     setSelectedItem(itemId);
@@ -221,7 +267,7 @@ function PostprocessingTab({
         </List>
       </Box>
 
-      {/* MIDDLE PANEL - 3D Visualization Placeholder */}
+      {/* MIDDLE PANEL - 3D Visualization */}
       <Box
         sx={{
           flex: 1,
@@ -229,11 +275,31 @@ function PostprocessingTab({
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#1a1a1a',
+          position: 'relative',
         }}
       >
-        <Typography variant="h6" color="text.secondary" textAlign="center">
-          {statusMessage}
-        </Typography>
+        {!selectedItem || selectedItem === 'currents' || selectedItem === 'voltages' || selectedItem === 'directivity' ? (
+          <Typography variant="h6" color="text.secondary" textAlign="center">
+            {statusMessage}
+          </Typography>
+        ) : (
+          <Scene3D elements={elements} showScale showAxisLabels>
+            {/* Render selected field */}
+            {requestedFields
+              .filter(f => f.id === selectedItem && (fieldResults?.[f.id]?.computed ?? false))
+              .map(field => (
+                <FieldVisualization
+                  key={field.id}
+                  field={field}
+                  visualizationMode={visualizationMode}
+                  colorMap={colorMap}
+                  opacity={opacity}
+                  selectedComponent={selectedComponent}
+                  complexPart={complexPart}
+                />
+              ))}
+          </Scene3D>
+        )}
       </Box>
 
       {/* RIGHT PANEL - Properties Panel */}
@@ -254,6 +320,55 @@ function PostprocessingTab({
           </Box>
         ) : (
           <Box sx={{ p: 2 }}>
+            {/* Frequency Selector - shown at top for all items */}
+            {isSweepMode && availableFrequencies.length > 1 && (
+              <Box sx={{ mb: 3, pb: 2, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                  Frequency
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <IconButton 
+                    size="small" 
+                    onClick={handlePreviousFrequency}
+                    disabled={selectedFrequencyIndex === 0}
+                  >
+                    <ChevronLeftIcon />
+                  </IconButton>
+                  <Chip 
+                    label={`${(availableFrequencies[selectedFrequencyIndex] / 1e6).toFixed(1)} MHz`}
+                    color="primary"
+                    variant="outlined"
+                    sx={{ flex: 1, fontWeight: 600 }}
+                  />
+                  <IconButton 
+                    size="small" 
+                    onClick={handleNextFrequency}
+                    disabled={selectedFrequencyIndex === availableFrequencies.length - 1}
+                  >
+                    <ChevronRightIcon />
+                  </IconButton>
+                </Box>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, textAlign: 'center' }}>
+                  {selectedFrequencyIndex + 1} of {availableFrequencies.length}
+                </Typography>
+              </Box>
+            )}
+
+            {/* Single Frequency Display - shown at top for all items */}
+            {!isSweepMode && currentFrequency && (
+              <Box sx={{ mb: 3, pb: 2, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                  Frequency
+                </Typography>
+                <Chip 
+                  label={`${currentFrequency.toFixed(1)} MHz`}
+                  color="primary"
+                  variant="outlined"
+                  sx={{ width: '100%', fontWeight: 600 }}
+                />
+              </Box>
+            )}
+
             {selectedItem === 'currents' && (
               <>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
@@ -401,8 +516,8 @@ function PostprocessingTab({
                           <Select
                             value={colorMap}
                             label="Color Map"
-                            onChange={(e: SelectChangeEvent<ColorMap>) => 
-                              setColorMap(e.target.value as ColorMap)
+                            onChange={(e: SelectChangeEvent<ColorMapType>) => 
+                              setColorMap(e.target.value as ColorMapType)
                             }
                           >
                             <MenuItem value="jet">Jet</MenuItem>

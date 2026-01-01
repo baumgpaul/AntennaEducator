@@ -44,6 +44,8 @@ describe('PostprocessingTab', () => {
         requestedFields={requestedFields}
         directivityRequested
         fieldResults={fieldResults}
+        currentFrequency={300}
+        frequencySweep={null}
       />
     );
 
@@ -73,6 +75,8 @@ describe('PostprocessingTab', () => {
         requestedFields={[]}
         directivityRequested={false}
         fieldResults={null}
+        currentFrequency={null}
+        frequencySweep={null}
       />
     );
 
@@ -91,6 +95,8 @@ describe('PostprocessingTab', () => {
         requestedFields={requestedFields}
         directivityRequested={false}
         fieldResults={fieldResults}
+        currentFrequency={300}
+        frequencySweep={null}
       />
     );
 
@@ -107,6 +113,8 @@ describe('PostprocessingTab', () => {
         requestedFields={[]}
         directivityRequested={false}
         fieldResults={{}}
+        currentFrequency={300}
+        frequencySweep={null}
       />
     );
     
@@ -125,6 +133,8 @@ describe('PostprocessingTab', () => {
         requestedFields={[]}
         directivityRequested={false}
         fieldResults={[]}
+        currentFrequency={300}
+        frequencySweep={null}
       />
     );
     
@@ -143,6 +153,8 @@ describe('PostprocessingTab', () => {
         requestedFields={[]}
         directivityRequested={true}
         fieldResults={{}}
+        currentFrequency={300}
+        frequencySweep={null}
       />
     );
     
@@ -176,6 +188,8 @@ describe('PostprocessingTab', () => {
         requestedFields={[field]}
         directivityRequested={false}
         fieldResults={{ field1: { computed: true, num_points: 25 } }}
+        currentFrequency={300}
+        frequencySweep={null}
       />
     );
     
@@ -210,6 +224,8 @@ describe('PostprocessingTab', () => {
         requestedFields={[field]}
         directivityRequested={false}
         fieldResults={{ field1: { computed: true, num_points: 25 } }}
+        currentFrequency={300}
+        frequencySweep={null}
       />
     );
     
@@ -249,6 +265,8 @@ describe('PostprocessingTab', () => {
         requestedFields={[field]}
         directivityRequested={false}
         fieldResults={{ field1: { computed: false, num_points: 0 } }}
+        currentFrequency={300}
+        frequencySweep={null}
       />
     );
     
@@ -283,6 +301,8 @@ describe('PostprocessingTab', () => {
         requestedFields={[field]}
         directivityRequested={false}
         fieldResults={{ field1: { computed: true, num_points: 25 } }}
+        currentFrequency={300}
+        frequencySweep={null}
       />
     );
     
@@ -326,6 +346,8 @@ describe('PostprocessingTab', () => {
         requestedFields={[field]}
         directivityRequested={false}
         fieldResults={{ field1: { computed: true, num_points: 25 } }}
+        currentFrequency={300}
+        frequencySweep={null}
       />
     );
     

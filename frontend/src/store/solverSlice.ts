@@ -554,16 +554,54 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 >('solver/computePostprocessingWorkflow', async (_, { getState, rejectWithValue, dispatch }) => {
   try {
     const state = getState();
-    const { results, directivityRequested, requestedFields } = state.solver;
+    const { results, directivityRequested, requestedFields, frequencySweep, currentFrequency } = state.solver;
     const { elements } = state.design;
 
-    if (!results) {
+    // Check for either single solve results or sweep results
+    const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
+    const hasResults = results || (isSweepMode && frequencySweep.results && frequencySweep.results.length > 0);
+    
+    console.log('Postprocessing workflow - state check:', {
+      hasFrequencySweep: !!frequencySweep,
+      hasFrequencies: !!(frequencySweep?.frequencies),
+      frequenciesLength: frequencySweep?.frequencies?.length,
+      hasResults: !!results,
+      hasSweepResults: !!(frequencySweep?.results),
+      sweepResultsLength: frequencySweep?.results?.length,
+      isSweepMode,
+      hasResults,
+    });
+    
+    if (!hasResults) {
       return rejectWithValue('No solver results available. Run solver first.');
     }
 
     if (!elements || elements.length === 0) {
       return rejectWithValue('No antenna elements in design');
     }
+
+    // Determine frequencies and get a reference result for mesh data
+    const frequencies = isSweepMode ? frequencySweep!.frequencies : (currentFrequency ? [currentFrequency * 1e6] : [results!.frequency]);
+    const referenceResult = isSweepMode && frequencySweep?.results?.length ? frequencySweep.results[0] : results!;
+    
+    if (!referenceResult) {
+      return rejectWithValue('No reference result available for postprocessing');
+    }
+    
+    // For sweep mode, branch_currents are in antenna_solutions, not at top level
+    const referenceBranchCurrents = isSweepMode && referenceResult.antenna_solutions?.length 
+      ? referenceResult.antenna_solutions[0].branch_currents 
+      : (referenceResult as any).branch_currents;
+    
+    console.log('Postprocessing workflow - frequency mode:', {
+      isSweepMode,
+      numFrequencies: frequencies.length,
+      frequencies: frequencies.slice(0, 3), // Show first 3
+      hasReferenceResult: !!referenceResult,
+      hasAntennaSolutions: !!(referenceResult.antenna_solutions),
+      numAntennaSolutions: referenceResult.antenna_solutions?.length,
+      hasBranchCurrents: !!referenceBranchCurrents,
+    });
 
     const response: {
       directivity?: any;
@@ -663,18 +701,47 @@ export const computePostprocessingWorkflow = createAsyncThunk<
         }
         
         console.log('Field computation request data:', {
-          frequency: results.frequency,
-          branch_currents_length: results.branch_currents.length,
+          numFrequencies: frequencies.length,
+          firstFrequency: frequencies[0],
+          branch_currents_length: referenceBranchCurrents?.length,
           nodes_length: mesh.nodes.length,
           edges_length: mesh.edges.length,
           radii_length: radii.length,
           observation_points_length: observation_points.length,
         });
         
+        // Prepare branch currents for all frequencies
+        let branch_currents_array;
+        if (isSweepMode && frequencySweep && frequencySweep.results && frequencySweep.results.length > 0) {
+          // For sweep: get branch currents from each frequency's antenna_solutions
+          // MultiAntennaSolutionResponse has antenna_solutions[], we use first antenna for now
+          branch_currents_array = frequencySweep.results.map(result => {
+            if (result.antenna_solutions && result.antenna_solutions.length > 0) {
+              return result.antenna_solutions[0].branch_currents;
+            }
+            return [];
+          });
+          console.log(`Using sweep mode: ${branch_currents_array.length} frequencies, first array length: ${branch_currents_array[0]?.length}`);
+        } else if (results && results.branch_currents) {
+          // For single frequency: use current results
+          branch_currents_array = [results.branch_currents];
+          console.log(`Using single frequency mode, branch_currents length: ${results.branch_currents.length}`);
+        } else {
+          console.error('No branch currents available:', { 
+            isSweepMode, 
+            hasFrequencySweep: !!frequencySweep,
+            hasSweepResults: !!(frequencySweep?.results),
+            hasResults: !!results,
+            hasBranchCurrents: !!(results?.branch_currents),
+            firstSweepResultHasAntennaSolutions: !!(frequencySweep?.results?.[0]?.antenna_solutions)
+          });
+          return rejectWithValue('No branch currents available for field computation');
+        }
+        
         // Call postprocessor API
         const fieldRequest = {
-          frequencies: [results.frequency],
-          branch_currents: [results.branch_currents],
+          frequencies: frequencies,
+          branch_currents: branch_currents_array,
           nodes: mesh.nodes,
           edges: mesh.edges,
           radii: radii,
@@ -682,7 +749,8 @@ export const computePostprocessingWorkflow = createAsyncThunk<
         };
         
         console.log('Calling computeNearField with request:', {
-          ...fieldRequest,
+          num_frequencies: fieldRequest.frequencies.length,
+          num_branch_current_sets: fieldRequest.branch_currents.length,
           branch_currents: `[${fieldRequest.branch_currents.length} frequencies]`,
           nodes: `[${fieldRequest.nodes.length} nodes]`,
         });
@@ -760,10 +828,14 @@ export const computeRadiationPattern = createAsyncThunk<
 >('solver/computeRadiationPattern', async (_, { getState, rejectWithValue }) => {
   try {
     const state = getState();
-    const { results } = state.solver;
+    const { results, frequencySweep, currentFrequency } = state.solver;
     const { elements } = state.design;
 
-    if (!results || !elements || elements.length === 0) {
+    // Check for either single solve results or sweep results
+    const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
+    const hasResults = results || (isSweepMode && frequencySweep.results && frequencySweep.results.length > 0);
+    
+    if (!hasResults || !elements || elements.length === 0) {
       return rejectWithValue('No solver results or mesh data available');
     }
 
@@ -778,10 +850,17 @@ export const computeRadiationPattern = createAsyncThunk<
     // Get directivity discretization settings
     const { directivitySettings } = state.solver;
 
+    // Determine frequencies and branch currents
+    const frequencies = isSweepMode ? frequencySweep.frequencies : (currentFrequency ? [currentFrequency * 1e6] : [results!.frequency]);
+    // For sweep, extract branch_currents from antenna_solutions[0] in each result
+    const branch_currents_array = isSweepMode 
+      ? frequencySweep.results.map(r => r.antenna_solutions?.[0]?.branch_currents || [])
+      : [results!.branch_currents];
+
     // Prepare request for far-field computation
     const request = {
-      frequencies: [results.frequency],
-      branch_currents: [results.branch_currents],
+      frequencies: frequencies,
+      branch_currents: branch_currents_array,
       nodes: mesh.nodes,
       edges: mesh.edges,
       radii: mesh.radii,
@@ -790,10 +869,13 @@ export const computeRadiationPattern = createAsyncThunk<
     };
 
     console.log('Computing far-field radiation pattern:', {
-      frequency: results.frequency,
+      isSweepMode,
+      numFrequencies: frequencies.length,
+      firstFrequency: frequencies[0],
       nodes: mesh.nodes.length,
       edges: mesh.edges.length,
-      branch_currents: results.branch_currents.length,
+      branch_currents_arrays: branch_currents_array.length,
+      first_array_length: branch_currents_array[0]?.length,
     });
 
     const pattern = await computeFarField(request);
@@ -1185,6 +1267,7 @@ const solverSlice = createSlice({
       state.status = 'completed';
       state.progress = 100;
       state.frequencySweep = action.payload;
+      state.solverState = 'solved'; // Enable postprocessing after sweep
       console.log('Frequency sweep completed:', {
         numFrequencies: action.payload.frequencies.length,
         allConverged: action.payload.results.every(r => r.converged),
