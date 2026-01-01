@@ -91,6 +91,7 @@ class ProjectBase(BaseModel):
     """Base schema for projects."""
     name: str = Field(..., min_length=3, max_length=100)
     description: Optional[str] = Field(None, max_length=50000)  # Allow large JSON strings for elements
+    requested_fields: Optional[List[Any]] = Field(None, description="Field definitions for solver (JSON array)")
 
 
 class ProjectCreate(ProjectBase):
@@ -102,6 +103,7 @@ class ProjectUpdate(BaseModel):
     """Schema for updating a project."""
     name: Optional[str] = Field(None, min_length=3, max_length=100)
     description: Optional[str] = Field(None, max_length=50000)  # Allow large JSON strings for elements
+    requested_fields: Optional[List[Any]] = Field(None, description="Field definitions for solver (JSON array)")
 
 
 class ProjectResponse(ProjectBase):
