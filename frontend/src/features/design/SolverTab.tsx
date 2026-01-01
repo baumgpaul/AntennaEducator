@@ -48,17 +48,11 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   
   // Field region visualization state
   const [fieldRegionsVisible, setFieldRegionsVisible] = useState(true);
-  const [fieldRegionOpacity, setFieldRegionOpacity] = useState(0.3);
 
   // Wrapped handlers with logging
   const handleFieldRegionsVisibleChange = (visible: boolean) => {
     console.log('[SolverTab] Field regions visible changed:', visible);
     setFieldRegionsVisible(visible);
-  };
-
-  const handleFieldRegionOpacityChange = (opacity: number) => {
-    console.log('[SolverTab] Field region opacity changed:', opacity);
-    setFieldRegionOpacity(opacity);
   };
 
   // Debug: Log state
@@ -282,7 +276,6 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           <FieldRegionVisualization
             fieldDefinitions={requestedFields}
             selectedFieldId={selectedFieldId}
-            opacity={fieldRegionOpacity}
             visible={fieldRegionsVisible}
           />
         </Scene3D>
@@ -302,9 +295,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         <SolverPropertiesPanel
           selectedFieldId={selectedFieldId}
           fieldRegionsVisible={fieldRegionsVisible}
-          fieldRegionOpacity={fieldRegionOpacity}
           onFieldRegionsVisibleChange={handleFieldRegionsVisibleChange}
-          onFieldRegionOpacityChange={handleFieldRegionOpacityChange}
         />
       </Box>
       </Box>

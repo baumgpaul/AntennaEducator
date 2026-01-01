@@ -29,7 +29,6 @@ const FIELD_COLORS = [
 interface FieldRegionVisualizationProps {
   fieldDefinitions: FieldDefinition[];
   selectedFieldId?: string;
-  opacity: number; // 0-1
   visible?: boolean;
 }
 
@@ -365,13 +364,11 @@ function CubeRegion({
 export function FieldRegionVisualization({
   fieldDefinitions,
   selectedFieldId,
-  opacity,
   visible = true,
 }: FieldRegionVisualizationProps) {
   console.log('[FieldRegionVisualization] Rendering with:', {
     fieldCount: fieldDefinitions.length,
     visible,
-    opacity,
     selectedFieldId,
     fields: fieldDefinitions
   });
@@ -392,6 +389,7 @@ export function FieldRegionVisualization({
         
         const color = getFieldColor(index);
         const isSelected = field.id === selectedFieldId;
+        const regionOpacity = field.opacity ?? 0.3;
         
         console.log('[FieldRegionVisualization] Rendering field:', {
           index,
@@ -411,7 +409,7 @@ export function FieldRegionVisualization({
                 key={field.id}
                 field={field}
                 color={color}
-                opacity={opacity}
+                opacity={regionOpacity}
                 isSelected={isSelected}
               />
             );
@@ -421,7 +419,7 @@ export function FieldRegionVisualization({
                 key={field.id}
                 field={field}
                 color={color}
-                opacity={opacity}
+                opacity={regionOpacity}
                 isSelected={isSelected}
               />
             );
@@ -433,7 +431,7 @@ export function FieldRegionVisualization({
                 key={field.id}
                 field={field}
                 color={color}
-                opacity={opacity}
+                opacity={regionOpacity}
                 isSelected={isSelected}
               />
             );
@@ -443,7 +441,7 @@ export function FieldRegionVisualization({
                 key={field.id}
                 field={field}
                 color={color}
-                opacity={opacity}
+                opacity={regionOpacity}
                 isSelected={isSelected}
               />
             );

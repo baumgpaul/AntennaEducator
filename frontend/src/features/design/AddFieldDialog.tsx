@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -50,12 +50,21 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   const [activeStep, setActiveStep] = useState(0);
   const [regionType, setRegionType] = useState<'2D' | '3D'>('2D');
   const [shape, setShape] = useState<'plane' | 'circle' | 'sphere' | 'cube'>('plane');
-  const [center, setCenter] = useState({ x: 0, y: 0, z: 0 });
-  const [dimensions, setDimensions] = useState({ width: 1, height: 1, radius: 1.5 });
+  const [center, setCenter] = useState({ x: 0, y: 0, z: 50 });
+  const [dimensions, setDimensions] = useState({ width: 100, height: 100, radius: 50 });
   const [normalPreset, setNormalPreset] = useState<'XY' | 'YZ' | 'XZ'>('XY');
   const [sampling, setSampling] = useState({ x: 20, y: 20, radial: 10, angular: 20 });
   const [fieldTypes, setFieldTypes] = useState({ E: true, H: false, poynting: false });
   const [farField, setFarField] = useState(false);
+  const nameCounterRef = useRef(1);
+  const [fieldName, setFieldName] = useState('E-field 2D plane 1');
+
+  const generateDefaultName = () => {
+    const typeLabel = regionType === '2D' ? '2D' : '3D';
+    const shapeLabel = shape;
+    const selectedLabel = fieldTypes.E && !fieldTypes.H && !fieldTypes.poynting ? 'E-field' : 'Field';
+    return `${selectedLabel} ${typeLabel} ${shapeLabel} ${nameCounterRef.current}`;
+  };
 
   // Reset shape when region type changes
   useEffect(() => {
@@ -65,6 +74,12 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
       setShape('sphere');
     }
   }, [regionType]);
+
+  // Refresh default name when key attributes change
+  useEffect(() => {
+    setFieldName(generateDefaultName());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regionType, shape, fieldTypes]);
 
   const handleNext = () => {
     setActiveStep((prevStep) => prevStep + 1);
@@ -82,10 +97,12 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
 
     const fieldDefinition: any = {
       id: `field-${Date.now()}`,
+      name: fieldName.trim() || generateDefaultName(),
       type: regionType,
       shape,
       centerPoint: [center.x, center.y, center.z],
       farField,
+      opacity: 0.3,
       fieldTypes: selectedFields,
     };
 
@@ -119,12 +136,14 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
     setActiveStep(0);
     setRegionType('2D');
     setShape('plane');
-    setCenter({ x: 0, y: 0, z: 0 });
-    setDimensions({ width: 1, height: 1, radius: 1.5 });
+    setCenter({ x: 0, y: 0, z: 50 });
+    setDimensions({ width: 100, height: 100, radius: 50 });
     setNormalPreset('XY');
     setSampling({ x: 20, y: 20, radial: 10, angular: 20 });
     setFieldTypes({ E: true, H: false, poynting: false });
     setFarField(false);
+    nameCounterRef.current += 1;
+    setFieldName(`E-field 2D plane ${nameCounterRef.current}`);
   };
 
   const handleClose = () => {
@@ -239,7 +258,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
             <Grid item xs={4}>
               <TextField
                 fullWidth
-                label="X (m)"
+                label="X (mm)"
                 type="number"
                 value={center.x}
                 onChange={(e) => setCenter({ ...center, x: parseFloat(e.target.value) || 0 })}
@@ -248,7 +267,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
             <Grid item xs={4}>
               <TextField
                 fullWidth
-                label="Y (m)"
+                label="Y (mm)"
                 type="number"
                 value={center.y}
                 onChange={(e) => setCenter({ ...center, y: parseFloat(e.target.value) || 0 })}
@@ -257,7 +276,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
             <Grid item xs={4}>
               <TextField
                 fullWidth
-                label="Z (m)"
+                label="Z (mm)"
                 type="number"
                 value={center.z}
                 onChange={(e) => setCenter({ ...center, z: parseFloat(e.target.value) || 0 })}
@@ -275,7 +294,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 <Grid item xs={6}>
                   <TextField
                     fullWidth
-                    label="Width (m)"
+                    label="Width (mm)"
                     type="number"
                     value={dimensions.width}
                     onChange={(e) => setDimensions({ ...dimensions, width: parseFloat(e.target.value) || 0 })}
@@ -284,7 +303,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 <Grid item xs={6}>
                   <TextField
                     fullWidth
-                    label="Height (m)"
+                    label="Height (mm)"
                     type="number"
                     value={dimensions.height}
                     onChange={(e) => setDimensions({ ...dimensions, height: parseFloat(e.target.value) || 0 })}
@@ -310,7 +329,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Radius (m)"
+                  label="Radius (mm)"
                   type="number"
                   value={dimensions.radius}
                   onChange={(e) => setDimensions({ ...dimensions, radius: parseFloat(e.target.value) || 0 })}
@@ -322,7 +341,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 <Grid item xs={4}>
                   <TextField
                     fullWidth
-                    label="Lx (m)"
+                    label="Lx (mm)"
                     type="number"
                     value={dimensions.width}
                     onChange={(e) => setDimensions({ ...dimensions, width: parseFloat(e.target.value) || 0 })}
@@ -331,7 +350,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 <Grid item xs={4}>
                   <TextField
                     fullWidth
-                    label="Ly (m)"
+                    label="Ly (mm)"
                     type="number"
                     value={dimensions.height}
                     onChange={(e) => setDimensions({ ...dimensions, height: parseFloat(e.target.value) || 0 })}
@@ -340,7 +359,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 <Grid item xs={4}>
                   <TextField
                     fullWidth
-                    label="Lz (m)"
+                    label="Lz (mm)"
                     type="number"
                     value={dimensions.radius}
                     onChange={(e) => setDimensions({ ...dimensions, radius: parseFloat(e.target.value) || 0 })}
@@ -441,18 +460,28 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
       case 4:
         // Step 5: Near/Far Field
         return (
-          <FormControl component="fieldset">
-            <FormLabel component="legend">Field Computation</FormLabel>
-            <RadioGroup value={farField ? 'far' : 'near'} onChange={(e) => setFarField(e.target.value === 'far')}>
-              <FormControlLabel value="near" control={<Radio />} label="Near field (default)" />
-              <FormControlLabel value="far" control={<Radio />} label="Far field" />
-            </RadioGroup>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              {farField
-                ? 'Far field: Computed at large distances from the antenna'
-                : 'Near field: Computed in the region close to the antenna'}
-            </Typography>
-          </FormControl>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Field Name"
+              fullWidth
+              value={fieldName}
+              onChange={(e) => setFieldName(e.target.value)}
+              helperText="Shown in the tree view and properties"
+              InputLabelProps={{ shrink: true }}
+            />
+            <FormControl component="fieldset">
+              <FormLabel component="legend">Field Computation</FormLabel>
+              <RadioGroup value={farField ? 'far' : 'near'} onChange={(e) => setFarField(e.target.value === 'far')}>
+                <FormControlLabel value="near" control={<Radio />} label="Near field (default)" />
+                <FormControlLabel value="far" control={<Radio />} label="Far field" />
+              </RadioGroup>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                {farField
+                  ? 'Far field: Computed at large distances from the antenna'
+                  : 'Near field: Computed in the region close to the antenna'}
+              </Typography>
+            </FormControl>
+          </Box>
         );
 
       default:
