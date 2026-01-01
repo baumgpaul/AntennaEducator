@@ -10,7 +10,7 @@ class FieldRequest(BaseModel):
     
     # Solver results
     frequencies: List[float] = Field(..., description="Frequencies [Hz]")
-    branch_currents: List[List[complex]] = Field(..., description="Branch currents [A] for each frequency")
+    branch_currents: List[List[Union[complex, str, Dict[str, float]]]] = Field(..., description="Branch currents [A] for each frequency - accepts complex, string '1+2j', or dict {'real': 1, 'imag': 2}")
     
     # Geometry (from preprocessor)
     nodes: List[List[float]] = Field(..., description="Node coordinates [[x,y,z], ...]")
