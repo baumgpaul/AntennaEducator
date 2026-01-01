@@ -65,8 +65,32 @@ export const computeNearField = async (request: {
   H_magnitudes: number[]
   timestamp: string
 }> => {
-  const response = await postprocessorClient.post('/api/v1/fields/near', request)
-  return handleApiResponse(response)
+  console.log('[computeNearField] Sending request to backend:', {
+    frequencies: request.frequencies,
+    branch_currents_outer_length: request.branch_currents.length,
+    branch_currents_inner_length: request.branch_currents[0]?.length,
+    branch_currents_sample: JSON.stringify(request.branch_currents[0]?.slice(0, 2)),
+    nodes_length: request.nodes.length,
+    edges_length: request.edges.length,
+    radii_length: request.radii.length,
+    observation_points_length: request.observation_points.length,
+  });
+  
+  try {
+    const response = await postprocessorClient.post('/api/v1/fields/near', request)
+    return handleApiResponse(response)
+  } catch (error: any) {
+    console.error('[computeNearField] Full error object:', error);
+    console.error('[computeNearField] API Error details:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      detail: error.response?.data?.detail,
+      headers: error.response?.headers,
+    });
+    throw error;
+  }
 }
 
 /**
