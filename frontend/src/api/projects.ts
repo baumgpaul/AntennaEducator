@@ -12,11 +12,13 @@ const USE_MOCK_API = false; // Real Projects API is now working!
 export interface CreateProjectRequest {
   name: string;
   description?: string;
+  requested_fields?: any[];  // Field definitions for solver
 }
 
 export interface UpdateProjectRequest {
   name?: string;
   description?: string;
+  requested_fields?: any[];  // Field definitions for solver
 }
 
 /**

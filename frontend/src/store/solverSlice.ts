@@ -538,6 +538,10 @@ const solverSlice = createSlice({
       state.requestedFields = [];
     },
     
+    setFieldDefinitions: (state, action: PayloadAction<FieldDefinition[]>) => {
+      state.requestedFields = action.payload;
+    },
+    
     setDirectivityRequested: (state, action: PayloadAction<boolean>) => {
       state.directivityRequested = action.payload;
     },
@@ -847,6 +851,7 @@ export const {
   deleteFieldRegion,
   updateFieldRegion,
   clearFieldRegions,
+  setFieldDefinitions,
   setDirectivityRequested,
   setSolverState,
   setCurrentFrequency,

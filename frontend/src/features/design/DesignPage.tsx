@@ -25,7 +25,7 @@ import {
 } from '@/store/designSlice';
 import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification } from '@/store/uiSlice';
-import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep } from '@/store/solverSlice';
+import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, setFieldDefinitions } from '@/store/solverSlice';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 import {
   buildMultiAntennaRequest,
@@ -80,6 +80,8 @@ function DesignPage() {
     (state) => state.solver
   );
   
+  const requestedFields = useAppSelector(selectRequestedFields);
+  
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -112,6 +114,15 @@ function DesignPage() {
   useEffect(() => {
     if (!currentProject) return;
 
+    // Load requested fields from project
+    if (currentProject.requested_fields && Array.isArray(currentProject.requested_fields)) {
+      console.log('Loading requested fields from project:', currentProject.requested_fields);
+      dispatch(setFieldDefinitions(currentProject.requested_fields));
+    } else {
+      // No requested fields - clear any existing ones
+      dispatch(setFieldDefinitions([]));
+    }
+
     // If project has JSON description, parse and restore elements
     if (currentProject.description && currentProject.description.startsWith('[')) {
       try {
@@ -138,8 +149,8 @@ function DesignPage() {
 
   // Auto-save function with retry logic (debounced)
   const saveProjectDebounced = useRef(
-    debounce(async (projectElements: typeof elements, retryCount = 0) => {
-      if (!projectElements || projectElements.length === 0 || !projectId) {
+    debounce(async (projectElements: typeof elements, fields: any[], retryCount = 0) => {
+      if (!projectId) {
         return;
       }
 
@@ -151,17 +162,18 @@ function DesignPage() {
         setShowSaveIndicator(true);
         setSaveError(null);
 
-        // Save project elements to backend
+        // Save project elements and requested fields to backend
         await dispatch(updateProject({
           id: projectId,
           data: {
-            // Store elements as JSON in description field (temporary)
-            // TODO: Create proper elements API endpoint
+            // Store elements as JSON in description field
             description: JSON.stringify(projectElements),
+            // Store requested fields in dedicated column
+            requested_fields: fields,
           },
         })).unwrap();
         
-        console.log('Auto-saved project with', projectElements.length, 'elements');
+        console.log('Auto-saved project with', projectElements.length, 'elements and', fields.length, 'fields');
         
         setSaveStatus('saved');
         
@@ -180,7 +192,7 @@ function DesignPage() {
           setSaveError(`Retrying in ${delay / 1000}s...`);
           
           setTimeout(() => {
-            saveProjectDebounced(projectElements, retryCount + 1);
+            saveProjectDebounced(projectElements, fields, retryCount + 1);
           }, delay);
         } else {
           // All retries failed
@@ -202,9 +214,9 @@ function DesignPage() {
   useEffect(() => {
     if (triggerSave > 0 && projectId && elements.length > 0) {
       console.log('Triggering auto-save after property change, elements:', elements);
-      saveProjectDebounced(elements);
+      saveProjectDebounced(elements, requestedFields);
     }
-  }, [triggerSave, projectId, elements, saveProjectDebounced]);
+  }, [triggerSave, projectId, elements, requestedFields, saveProjectDebounced]);
 
   // Auto-save on element addition only (not on every property change)
   useEffect(() => {
@@ -212,7 +224,7 @@ function DesignPage() {
     if (elements && elements.length > previousElementCountRef.current) {
       console.log(`New element(s) added: ${previousElementCountRef.current} -> ${elements.length}, saving...`);
       previousElementCountRef.current = elements.length;
-      saveProjectDebounced(elements);
+      saveProjectDebounced(elements, requestedFields);
     } else if (elements && elements.length < previousElementCountRef.current) {
       // Update count if elements were removed
       previousElementCountRef.current = elements.length;
@@ -223,6 +235,14 @@ function DesignPage() {
       saveProjectDebounced.cancel();
     };
   }, [elements?.length]); // Only depend on length, not full array
+
+  // Auto-save when requested fields change
+  useEffect(() => {
+    if (projectId && (elements.length > 0 || requestedFields.length > 0)) {
+      console.log('Requested fields changed, saving...');
+      saveProjectDebounced(elements, requestedFields);
+    }
+  }, [requestedFields, projectId, elements, saveProjectDebounced]);
 
   // Reset element count when opening a different project
   useEffect(() => {

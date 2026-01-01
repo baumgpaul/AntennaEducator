@@ -276,6 +276,7 @@ export interface Project {
   id: string | number  // Backend uses integer IDs, mock API uses string IDs
   name: string
   description?: string
+  requested_fields?: any[]  // Field definitions for solver (JSON array)
   user_id?: string | number
   created_at: string
   updated_at: string
