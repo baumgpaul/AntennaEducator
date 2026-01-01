@@ -104,8 +104,12 @@ interface SolverState {
   // Field definitions and postprocessing
   requestedFields: FieldDefinition[];
   directivityRequested: boolean;
+  directivitySettings: { theta_points: number; phi_points: number };
   solverState: SolverWorkflowState;
   currentFrequency: number | null; // MHz - set after single frequency solve
+  fieldResults: Record<string, { computed: boolean; num_points: number }> | null; // Track which fields have been computed
+  postprocessingStatus: 'idle' | 'running' | 'completed' | 'failed'; // Separate status for postprocessing
+  postprocessingProgress: { completed: number; total: number } | null; // Track field computation progress
 }
 
 const initialState: SolverState = {
@@ -123,8 +127,12 @@ const initialState: SolverState = {
   resultsHistory: [],
   requestedFields: [],
   directivityRequested: false,
+  directivitySettings: { theta_points: 19, phi_points: 37 },
   solverState: 'idle',
   currentFrequency: null,
+  fieldResults: null,
+  postprocessingStatus: 'idle',
+  postprocessingProgress: null,
 };
 
 // ============================================================================
@@ -563,17 +571,59 @@ export const computePostprocessingWorkflow = createAsyncThunk<
       message: string;
     } = { message: 'Postprocessing complete' };
 
+    // Check what needs computing (incremental computation)
+    const existingFieldResults = getState().solver.fieldResults || {};
+    const fieldsToCompute = requestedFields.filter(field => !existingFieldResults[field.id]?.computed);
+    const directivityNeedsComputing = directivityRequested && !existingFieldResults['directivity']?.computed;
+    
+    console.log('Postprocessing check:', {
+      totalFieldsRequested: requestedFields.length,
+      fieldsAlreadyComputed: requestedFields.length - fieldsToCompute.length,
+      fieldsToCompute: fieldsToCompute.length,
+      directivityRequested,
+      directivityAlreadyComputed: existingFieldResults['directivity']?.computed,
+      directivityNeedsComputing,
+    });
+    
+    if (fieldsToCompute.length === 0 && !directivityNeedsComputing) {
+      console.log('All requested fields already computed, nothing to do');
+      return {
+        message: 'All fields already computed',
+        fields: Object.entries(existingFieldResults).map(([fieldId, result]) => ({
+          fieldId,
+          computed: result.computed,
+          num_points: result.num_points,
+          E_magnitudes: [],
+          H_magnitudes: [],
+        })),
+      };
+    }
+
+    // Initialize progress tracking for all work to be done
+    const totalWork = fieldsToCompute.length + (directivityNeedsComputing ? 1 : 0);
+    let completedWork = 0;
+    dispatch(updatePostprocessingProgress({ completed: 0, total: totalWork }));
+
     // Compute directivity if requested
-    if (directivityRequested) {
+    if (directivityNeedsComputing) {
       console.log('Computing directivity...');
       const pattern = await dispatch(computeRadiationPattern()).unwrap();
       response.directivity = pattern;
       console.log('Directivity computed:', pattern.directivity, 'dBi');
+      
+      // Mark as completed
+      completedWork++;
+      dispatch(updateFieldResult({
+        fieldId: 'directivity',
+        computed: true,
+        num_points: 0, // Will be updated when implemented
+      }));
+      dispatch(updatePostprocessingProgress({ completed: completedWork, total: totalWork }));
     }
 
     // Compute requested field regions
-    if (requestedFields.length > 0) {
-      console.log('Computing', requestedFields.length, 'field regions...');
+    if (fieldsToCompute.length > 0) {
+      console.log(`Computing ${fieldsToCompute.length} new fields (${requestedFields.length - fieldsToCompute.length} already computed)`);
       
       // Get mesh data
       const element = elements[0];
@@ -583,15 +633,43 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 
       const mesh = element.mesh;
       
+      // Ensure radii exists - if not, create from element edges or use default
+      let radii = mesh.radii;
+      if (!radii || radii.length === 0) {
+        console.warn('Mesh missing radii, using default 0.001m for all edges');
+        radii = mesh.edges.map(() => 0.001); // Default 1mm radius
+      }
+      
+      console.log('Mesh data for field computation:', {
+        nodes: mesh.nodes.length,
+        edges: mesh.edges.length,
+        radii: radii.length,
+      });
+      
       // Compute fields for each requested region
       const fieldResults = [];
       
-      for (const field of requestedFields) {
+      for (const field of fieldsToCompute) {
         console.log(`Computing field region: ${field.id} (${field.type} ${field.shape})`);
         
         // Generate observation points based on field definition
         const observation_points = generateObservationPoints(field);
         console.log(`  Generated ${observation_points.length} observation points`);
+        
+        // Validate mesh data
+        if (!radii || radii.length === 0) {
+          console.error('Missing radii after fallback:', { radii, mesh });
+          return rejectWithValue('Unable to determine edge radii for field computation');
+        }
+        
+        console.log('Field computation request data:', {
+          frequency: results.frequency,
+          branch_currents_length: results.branch_currents.length,
+          nodes_length: mesh.nodes.length,
+          edges_length: mesh.edges.length,
+          radii_length: radii.length,
+          observation_points_length: observation_points.length,
+        });
         
         // Call postprocessor API
         const fieldRequest = {
@@ -599,12 +677,33 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           branch_currents: [results.branch_currents],
           nodes: mesh.nodes,
           edges: mesh.edges,
-          radii: mesh.radii,
+          radii: radii,
           observation_points,
         };
         
+        console.log('Calling computeNearField with request:', {
+          ...fieldRequest,
+          branch_currents: `[${fieldRequest.branch_currents.length} frequencies]`,
+          nodes: `[${fieldRequest.nodes.length} nodes]`,
+        });
+        
+        // Debug: Log first few branch currents to check format
+        console.log('Sample branch_currents:', {
+          first_frequency_length: fieldRequest.branch_currents[0]?.length,
+          first_3_currents: fieldRequest.branch_currents[0]?.slice(0, 3),
+        });
+        
         const fieldData = await computeNearField(fieldRequest);
         console.log(`  Field computation complete: ${fieldData.num_points} points computed`);
+        
+        // Update field result immediately
+        completedWork++;
+        dispatch(updateFieldResult({
+          fieldId: field.id,
+          computed: true,
+          num_points: fieldData.num_points,
+        }));
+        dispatch(updatePostprocessingProgress({ completed: completedWork, total: totalWork }));
         
         fieldResults.push({
           fieldId: field.id,
@@ -627,6 +726,12 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     return response;
   } catch (error: any) {
     console.error('Postprocessing workflow failed:', error);
+    
+    // Log detailed validation errors from FastAPI
+    if (error.response?.data?.detail) {
+      console.error('Backend validation errors:', JSON.stringify(error.response.data.detail, null, 2));
+    }
+    
     return rejectWithValue(error.message || 'Postprocessing failed');
   }
 });
@@ -670,6 +775,9 @@ export const computeRadiationPattern = createAsyncThunk<
 
     const mesh = element.mesh;
 
+    // Get directivity discretization settings
+    const { directivitySettings } = state.solver;
+
     // Prepare request for far-field computation
     const request = {
       frequencies: [results.frequency],
@@ -677,8 +785,8 @@ export const computeRadiationPattern = createAsyncThunk<
       nodes: mesh.nodes,
       edges: mesh.edges,
       radii: mesh.radii,
-      theta_points: 19,
-      phi_points: 37,
+      theta_points: directivitySettings.theta_points,
+      phi_points: directivitySettings.phi_points,
     };
 
     console.log('Computing far-field radiation pattern:', {
@@ -746,6 +854,10 @@ const solverSlice = createSlice({
       state.requestedFields = state.requestedFields.filter(
         field => field.id !== action.payload
       );
+      // Remove field result when field is deleted
+      if (state.fieldResults && state.fieldResults[action.payload]) {
+        delete state.fieldResults[action.payload];
+      }
     },
     
     updateFieldRegion: (state, action: PayloadAction<{ id: string; updates: Partial<FieldDefinition> }>) => {
@@ -770,13 +882,36 @@ const solverSlice = createSlice({
       state.directivityRequested = action.payload;
     },
     
+    setDirectivitySettings: (state, action: PayloadAction<{ theta_points: number; phi_points: number }>) => {
+      state.directivitySettings = action.payload;
+    },
+    
     setSolverState: (state, action: PayloadAction<SolverWorkflowState>) => {
       state.solverState = action.payload;
     },
     
-    setCurrentFrequency: (state, action: PayloadAction<number | null>) => {
+    setCurrentFrequency: (state, action: PayloadAction<number>) => {
       state.currentFrequency = action.payload;
     },
+    
+  updateFieldResult: (state, action: PayloadAction<{ fieldId: string; computed: boolean; num_points: number }>) => {
+    if (!state.fieldResults) {
+      state.fieldResults = {};
+    }
+    state.fieldResults[action.payload.fieldId] = {
+      computed: action.payload.computed,
+      num_points: action.payload.num_points,
+    };
+  },
+  updatePostprocessingProgress: (state, action: PayloadAction<{ completed: number; total: number }>) => {
+    state.postprocessingProgress = action.payload;
+  },
+  
+  cancelPostprocessing: (state) => {
+    state.postprocessingStatus = 'idle';
+    state.postprocessingProgress = null;
+    state.progress = 0;
+  },
   },
   extraReducers: (builder) => {
     // ========================================================================
@@ -901,6 +1036,10 @@ const solverSlice = createSlice({
       state.status = 'completed';
       state.progress = 100;
       state.multiAntennaResults = action.payload;
+      
+      // Clear field results when new solution is computed (fields need recomputing)
+      state.fieldResults = null;
+      state.postprocessingStatus = 'idle';
       
       // For backward compatibility: if single antenna, also populate results field
       console.log('Multi-antenna solver response:', {
@@ -1092,22 +1231,39 @@ const solverSlice = createSlice({
     // Compute Postprocessing Workflow
     // ========================================================================
     builder.addCase(computePostprocessingWorkflow.pending, (state) => {
-      state.status = 'running';
+      state.postprocessingStatus = 'running';
       state.progress = 50; // Arbitrary progress indicator
       state.error = null;
+      state.postprocessingProgress = { completed: 0, total: 0 };
       console.log('Compute postprocessing workflow started...');
     });
 
     builder.addCase(computePostprocessingWorkflow.fulfilled, (state, action) => {
-      state.status = 'completed';
+      state.postprocessingStatus = 'completed';
       state.progress = 100;
+      state.postprocessingProgress = null; // Clear progress indicator
+      
+      // Store field computation results (already updated incrementally, but ensure final state)
+      if (action.payload.fields) {
+        if (!state.fieldResults) {
+          state.fieldResults = {};
+        }
+        for (const field of action.payload.fields) {
+          state.fieldResults[field.fieldId] = {
+            computed: field.computed,
+            num_points: field.num_points,
+          };
+        }
+      }
+      
       console.log('Compute postprocessing workflow completed:', action.payload.message);
     });
 
     builder.addCase(computePostprocessingWorkflow.rejected, (state, action) => {
-      state.status = 'failed';
+      state.postprocessingStatus = 'failed';
       state.error = action.payload as string || 'Postprocessing workflow failed';
       state.progress = 0;
+      state.postprocessingProgress = null;
       console.error('Compute postprocessing workflow rejected:', state.error);
     });
   },
@@ -1128,8 +1284,12 @@ export const {
   clearFieldRegions,
   setFieldDefinitions,
   setDirectivityRequested,
+  setDirectivitySettings,
   setSolverState,
   setCurrentFrequency,
+  updateFieldResult,
+  updatePostprocessingProgress,
+  cancelPostprocessing,
 } = solverSlice.actions;
 
 // Selectors
@@ -1146,6 +1306,7 @@ export const selectRadiationPattern = (state: RootState) => state.solver.radiati
 // Field and postprocessing selectors
 export const selectRequestedFields = (state: RootState) => state.solver.requestedFields;
 export const selectDirectivityRequested = (state: RootState) => state.solver.directivityRequested;
+export const selectDirectivitySettings = (state: RootState) => state.solver.directivitySettings;
 export const selectSolverState = (state: RootState) => state.solver.solverState;
 export const selectCurrentFrequency = (state: RootState) => state.solver.currentFrequency;
 
