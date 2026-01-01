@@ -118,12 +118,12 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
             {/* Helix Mode */}
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth error={!!errors.helix_mode}>
-                <InputLabel>Helix Mode</InputLabel>
+                <InputLabel id="helix-mode-label">Helix Mode</InputLabel>
                 <Controller
                   name="helix_mode"
                   control={control}
                   render={({ field }) => (
-                    <Select {...field} label="Helix Mode">
+                    <Select {...field} labelId="helix-mode-label" label="Helix Mode">
                       <MenuItem value="axial">Axial Mode</MenuItem>
                       <MenuItem value="normal">Normal Mode</MenuItem>
                     </Select>
@@ -138,12 +138,12 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
             {/* Polarization */}
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth error={!!errors.polarization}>
-                <InputLabel>Polarization</InputLabel>
+                <InputLabel id="polarization-label">Polarization</InputLabel>
                 <Controller
                   name="polarization"
                   control={control}
                   render={({ field }) => (
-                    <Select {...field} label="Polarization">
+                    <Select {...field} labelId="polarization-label" label="Polarization">
                       <MenuItem value="RHCP">Right-Hand (RHCP)</MenuItem>
                       <MenuItem value="LHCP">Left-Hand (LHCP)</MenuItem>
                     </Select>

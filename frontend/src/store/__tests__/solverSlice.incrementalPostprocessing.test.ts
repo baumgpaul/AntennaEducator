@@ -15,6 +15,19 @@ vi.mock('@/api/postprocessor', () => ({
     E_magnitudes: [2.0, 1.5, 1.8],
     H_magnitudes: [0.0008, 0.0006, 0.0007],
   }),
+  computeFarField: vi.fn().mockResolvedValue({
+    frequency: 300,
+    theta_angles: [0, 10, 20],
+    phi_angles: [0, 10, 20],
+    E_theta_mag: [1.0, 0.9, 0.8],
+    E_phi_mag: [0.5, 0.4, 0.3],
+    E_total_mag: [1.1, 1.0, 0.9],
+    pattern_db: [0, -1, -2],
+    directivity: 2.5,
+    gain: 2.0,
+    efficiency: 0.8,
+    max_direction: [0, 0],
+  }),
 }));
 
 vi.mock('@/api/solver', () => ({

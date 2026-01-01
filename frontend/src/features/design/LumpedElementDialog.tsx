@@ -197,25 +197,39 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
             {/* Element Type */}
             <Grid item xs={12}>
               <FormControl fullWidth error={!!errors.element_type}>
-                <InputLabel>Element Type</InputLabel>
-                <Controller
-                  name="element_type"
-                  control={control}
-                  render={({ field }) => (
-                    <Select {...field} label="Element Type">
-                      <MenuItem value="R">Resistor (R)</MenuItem>
-                      <MenuItem value="L">Inductor (L)</MenuItem>
-                      <MenuItem value="C">Capacitor (C)</MenuItem>
-                    </Select>
-                  )}
-                />
+                <InputLabel id="element-type-label">Element Type</InputLabel>
+                <Select
+                  labelId="element-type-label"
+                  id="element-type-select"
+                  label="Element Type"
+                  value={elementType}
+                  onChange={(e) => {
+                    const value = e.target.value as 'R' | 'L' | 'C';
+                    reset({
+                      antennaId: selectedAntennaId || elements[0]?.id || '',
+                      element_type: value,
+                      ...(value === 'R'
+                        ? { resistance: 50 }
+                        : value === 'L'
+                        ? { inductance: 1e-9 }
+                        : { capacitance_inv: 1e9 }),
+                      node1: 0,
+                      node2: 1,
+                    });
+                  }}
+                  disabled={loading || adding}
+                >
+                  <MenuItem value="R">R - Resistor</MenuItem>
+                  <MenuItem value="L">L - Inductor</MenuItem>
+                  <MenuItem value="C">C - Capacitor</MenuItem>
+                </Select>
                 {errors.element_type && (
                   <FormHelperText>{errors.element_type.message}</FormHelperText>
                 )}
               </FormControl>
             </Grid>
 
-            {/* Conditional Fields Based on Element Type */}
+            {/* Element-specific fields */}
             {(elementType === 'R') && (
               <Grid item xs={12}>
                 <Controller

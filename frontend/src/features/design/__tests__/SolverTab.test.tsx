@@ -83,6 +83,7 @@ describe('SolverTab', () => {
       solver: {
         requestedFields: [],
         directivityRequested: false,
+        directivitySettings: { theta_points: 19, phi_points: 37 },
         solverState: 'idle',
       },
     };

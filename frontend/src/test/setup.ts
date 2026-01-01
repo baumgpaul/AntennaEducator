@@ -40,3 +40,25 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   unobserve: vi.fn(),
   disconnect: vi.fn(),
 })) as any;
+
+// Mock ResizeObserver for react-three-fiber tests
+global.ResizeObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+})) as any;
+
+// Mock mui-color-input to avoid ESM import issues
+vi.mock('mui-color-input', () => ({
+  MuiColorInput: vi.fn(({ value, onChange, label, ...props }) => {
+    const React = require('react');
+    return React.createElement('input', {
+      'data-testid': 'color-input',
+      type: 'text',
+      value: value || '',
+      onChange: (e: any) => onChange?.(e.target.value, { hex: e.target.value }),
+      placeholder: label,
+      ...props,
+    });
+  }),
+}));

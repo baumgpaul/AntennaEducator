@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -87,6 +87,13 @@ export const FrequencySweepDialog: React.FC<FrequencySweepDialogProps> = ({
   const startFreq = watch('startFrequency')
   const stopFreq = watch('stopFrequency')
   const numPoints = watch('numPoints')
+
+  // Reset form when dialog is closed
+  useEffect(() => {
+    if (!open) {
+      reset()
+    }
+  }, [open, reset])
 
   const handleFormSubmit = (data: FrequencySweepFormData) => {
     onSubmit({

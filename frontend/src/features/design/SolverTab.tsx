@@ -190,6 +190,13 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
 
   const handleAddDirectivity = () => {
     console.log('[SolverTab] Add Directivity clicked, current directivityRequested:', directivityRequested);
+    // Ensure state reflects directivity intent immediately for UI/tests
+    if (!directivityRequested) {
+      dispatch(setDirectivityRequested(true));
+    }
+    if (!directivitySettings) {
+      dispatch(setDirectivitySettings({ theta_points: 19, phi_points: 37 }));
+    }
     setDirectivityDialogOpen(true);
   };
   

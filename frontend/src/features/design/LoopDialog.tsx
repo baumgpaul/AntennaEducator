@@ -134,6 +134,9 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
 
   // Reset shape-specific fields when loop type changes
   useEffect(() => {
+    const position = watch('position');
+    const orientation = watch('orientation');
+
     if (loopType === 'circular') {
       reset({
         name: watch('name'),
@@ -141,6 +144,8 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
         radius: 0.048,
         wireRadius: watch('wireRadius'),
         segments: watch('segments'),
+        position,
+        orientation,
       });
     } else if (loopType === 'rectangular') {
       reset({
@@ -150,6 +155,8 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
         height: 0.06,
         wireRadius: watch('wireRadius'),
         segments: watch('segments'),
+        position,
+        orientation,
       });
     } else if (loopType === 'polygon') {
       reset({
@@ -159,6 +166,8 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
         circumradius: 0.048,
         wireRadius: watch('wireRadius'),
         segments: watch('segments'),
+        position,
+        orientation,
       });
     }
   }, [loopType]);
@@ -172,7 +181,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
         </Typography>
       </DialogTitle>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <DialogContent dividers>
           <Grid container spacing={3}>
             {/* Name */}
@@ -200,8 +209,14 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                 control={control}
                 render={({ field }) => (
                   <FormControl fullWidth error={!!errors.loopType}>
-                    <InputLabel>Loop Shape</InputLabel>
-                    <Select {...field} label="Loop Shape" disabled={isGenerating}>
+                    <InputLabel id="loop-shape-label">Loop Shape</InputLabel>
+                    <Select
+                      {...field}
+                      labelId="loop-shape-label"
+                      id="loop-shape-select"
+                      label="Loop Shape"
+                      disabled={isGenerating}
+                    >
                       <MenuItem value="circular">Circular</MenuItem>
                       <MenuItem value="rectangular">Rectangular</MenuItem>
                       <MenuItem value="polygon">Regular Polygon</MenuItem>

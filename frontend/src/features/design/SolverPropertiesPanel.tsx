@@ -112,14 +112,25 @@ export function SolverPropertiesPanel({
 
       {/* Field Properties Editor */}
       {isDirectivitySelected ? (
-        <DirectivitySettingsEditor 
-          settings={directivitySettings} 
-          onUpdate={(newSettings) => {
-            dispatch(setDirectivitySettings(newSettings));
-            // Clear computed status to force recomputation
-            dispatch(updateFieldResult({ fieldId: 'directivity', computed: false, num_points: 0 }));
-          }}
-        />
+        directivitySettings ? (
+          <DirectivitySettingsEditor 
+            settings={directivitySettings} 
+            onUpdate={(newSettings) => {
+              dispatch(setDirectivitySettings(newSettings));
+              // Clear computed status to force recomputation
+              dispatch(updateFieldResult({ fieldId: 'directivity', computed: false, num_points: 0 }));
+            }}
+          />
+        ) : (
+          <Paper variant="outlined" sx={{ p: 3, mt: 2 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              <strong>Directivity</strong>
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Directivity will be computed in the far field when you click "Compute Postprocessing Result"
+            </Typography>
+          </Paper>
+        )
       ) : selectedField ? (
         <FieldPropertiesEditor 
           field={selectedField} 
@@ -783,7 +794,7 @@ function DirectivitySettingsEditor({ settings, onUpdate }: DirectivitySettingsEd
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-        Directivity Settings
+        Directivity
       </Typography>
       
       <Divider sx={{ my: 1.5 }} />

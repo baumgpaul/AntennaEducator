@@ -93,10 +93,11 @@ describe('DesignPage - Autosave', () => {
         frequencySweepResults: [],
       },
       ui: {
-        loading: false,
-        error: null,
+        theme: { mode: 'light' as const },
+        layout: { sidebarOpen: true, propertiesPanelOpen: true },
+        visualization: { mode: 'element-colors' as const },
         notifications: [],
-        theme: 'light',
+        modals: {},
       },
     };
 
@@ -159,10 +160,11 @@ describe('DesignPage - Autosave', () => {
         frequencySweepResults: [],
       },
       ui: {
-        loading: false,
-        error: null,
+        theme: { mode: 'light' as const },
+        layout: { sidebarOpen: true, propertiesPanelOpen: true },
+        visualization: { mode: 'element-colors' as const },
         notifications: [],
-        theme: 'light',
+        modals: {},
       },
     };
 
@@ -228,10 +230,11 @@ describe('DesignPage - Autosave', () => {
         frequencySweepResults: [],
       },
       ui: {
-        loading: false,
-        error: null,
+        theme: { mode: 'light' as const },
+        layout: { sidebarOpen: true, propertiesPanelOpen: true },
+        visualization: { mode: 'element-colors' as const },
         notifications: [],
-        theme: 'light',
+        modals: {},
       },
     };
 
@@ -297,10 +300,11 @@ describe('DesignPage - Autosave', () => {
         frequencySweepResults: [],
       },
       ui: {
-        loading: false,
-        error: null,
+        theme: { mode: 'light' as const },
+        layout: { sidebarOpen: true, propertiesPanelOpen: true },
+        visualization: { mode: 'element-colors' as const },
         notifications: [],
-        theme: 'light',
+        modals: {},
       },
     };
 
@@ -353,10 +357,11 @@ describe('DesignPage - Autosave', () => {
         frequencySweepResults: [],
       },
       ui: {
-        loading: false,
-        error: null,
+        theme: { mode: 'light' as const },
+        layout: { sidebarOpen: true, propertiesPanelOpen: true },
+        visualization: { mode: 'element-colors' as const },
         notifications: [],
-        theme: 'light',
+        modals: {},
       },
     };
 
@@ -371,3 +376,4 @@ describe('DesignPage - Autosave', () => {
     expect(savedAlert).not.toBeInTheDocument();
   });
 });
+

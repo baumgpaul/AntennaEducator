@@ -77,7 +77,7 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       await user.click(solveButton);
 
       await waitFor(() => {
-        expect(mockOnSolve).toHaveBeenCalledWith(500);
+        expect(mockOnSolve).toHaveBeenCalledWith(500, 'MHz');
       });
     });
 
@@ -105,8 +105,8 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       await user.click(solveButton);
 
       await waitFor(() => {
-        // 2.4 GHz = 2400 MHz
-        expect(mockOnSolve).toHaveBeenCalledWith(2400);
+        // Component passes value and unit, not converted value
+        expect(mockOnSolve).toHaveBeenCalledWith(2.4, 'GHz');
       });
     });
 
@@ -182,7 +182,7 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       await user.click(solveButton);
 
       await waitFor(() => {
-        expect(mockOnSolve).toHaveBeenCalledWith(0.1);
+        expect(mockOnSolve).toHaveBeenCalledWith(0.1, 'MHz');
       });
     });
 
@@ -210,7 +210,7 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       await user.click(solveButton);
 
       await waitFor(() => {
-        expect(mockOnSolve).toHaveBeenCalledWith(1000000); // 1000 GHz = 1000000 MHz
+        expect(mockOnSolve).toHaveBeenCalledWith(1000, 'GHz');
       });
     });
   });
@@ -250,7 +250,7 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       await user.click(solveButton);
 
       await waitFor(() => {
-        expect(mockOnSolve).toHaveBeenCalledWith(915);
+        expect(mockOnSolve).toHaveBeenCalledWith(915, 'MHz');
       });
     });
 

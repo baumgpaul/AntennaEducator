@@ -100,7 +100,8 @@ export function FrequencyInputDialog({
       // Call solve function with frequency and unit
       await onSolve(frequency, unit);
 
-      // Dialog will be closed by parent component on success
+      // Close dialog on success
+      onClose();
       
       // Reset state
       setError(null);

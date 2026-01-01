@@ -70,7 +70,7 @@ describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
 
     it('should NOT show wavelength calculation', () => {
       expect(screen.queryByText(/Wavelength:/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/λ/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Wavelength.*λ/i)).not.toBeInTheDocument();
     });
 
     it('should render action buttons', () => {

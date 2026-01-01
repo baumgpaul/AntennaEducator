@@ -8,7 +8,7 @@ import solverReducer from '@/store/solverSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 
 // Helper to create a mock store with field data
-const createMockStore = (fields: FieldDefinition[] = []) => {
+const createMockStore = (fields: FieldDefinition[] = [], directivityRequested = false) => {
   return configureStore({
     reducer: {
       solver: solverReducer,
@@ -28,7 +28,8 @@ const createMockStore = (fields: FieldDefinition[] = []) => {
         sweepInProgress: false,
         resultsHistory: [],
         requestedFields: fields,
-        directivityRequested: false,
+        directivityRequested,
+        directivitySettings: { theta_points: 19, phi_points: 37 },
         solverState: 'idle',
         currentFrequency: null,
       },
@@ -133,7 +134,7 @@ describe('SolverPropertiesPanel', () => {
   });
 
   it('shows directivity message when selected', () => {
-    const store = createMockStore();
+    const store = createMockStore([], true);
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -145,7 +146,7 @@ describe('SolverPropertiesPanel', () => {
     );
 
     expect(screen.getByText('Directivity')).toBeInTheDocument();
-    expect(screen.getByText(/far field/i)).toBeInTheDocument();
+    expect(screen.getByText(/angular discretization/i)).toBeInTheDocument();
   });
 
   it('shows field properties editor when field is selected', () => {
