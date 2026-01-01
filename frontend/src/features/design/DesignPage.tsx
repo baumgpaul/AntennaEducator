@@ -25,7 +25,7 @@ import {
 } from '@/store/designSlice';
 import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification } from '@/store/uiSlice';
-import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectSolverState, setFieldDefinitions } from '@/store/solverSlice';
+import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions } from '@/store/solverSlice';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 import {
   buildMultiAntennaRequest,
@@ -82,7 +82,9 @@ function DesignPage() {
   );
   
   const requestedFields = useAppSelector(selectRequestedFields);
+  const directivityRequested = useAppSelector(selectDirectivityRequested);
   const solverWorkflowState = useAppSelector(selectSolverState);
+  const fieldResults = useAppSelector((state) => state.solver.fieldResults);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
@@ -859,7 +861,13 @@ function DesignPage() {
 
       {/* Postprocessing Tab (placeholder) */}
       {currentTab === 'postprocessing' && (
-        <PostprocessingTab solverState={solverWorkflowState} />
+        <PostprocessingTab
+          solverState={solverWorkflowState}
+          elements={elements}
+          requestedFields={requestedFields}
+          directivityRequested={directivityRequested}
+          fieldResults={fieldResults}
+        />
       )}
 
       <ViewControls
