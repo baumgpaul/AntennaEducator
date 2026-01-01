@@ -50,6 +50,7 @@ export function SolverPropertiesPanel({
 }: SolverPropertiesPanelProps) {
   const dispatch = useDispatch();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const isDirectivitySelected = selectedFieldId === 'directivity';
   
   // Get selected field from Redux
   const selectedField = useSelector((state: RootState) => 
@@ -107,7 +108,16 @@ export function SolverPropertiesPanel({
       </Paper>
 
       {/* Field Properties Editor */}
-      {selectedField ? (
+      {isDirectivitySelected ? (
+        <Box sx={{ color: 'text.secondary', textAlign: 'center', mt: 4 }}>
+          <Typography variant="body2" gutterBottom>
+            Directivity
+          </Typography>
+          <Typography variant="body2">
+            Directivity will be computed in the far field when you run postprocessing.
+          </Typography>
+        </Box>
+      ) : selectedField ? (
         <FieldPropertiesEditor 
           field={selectedField} 
           onUpdate={handleFieldUpdate}
