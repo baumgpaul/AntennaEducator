@@ -2,7 +2,7 @@
 
 import pytest
 from jose import jwt
-from auth import SECRET_KEY, ALGORITHM
+from backend.projects.auth import SECRET_KEY, ALGORITHM
 
 
 class TestUserRegistration:
@@ -139,7 +139,7 @@ class TestGetCurrentUser:
         """Test getting current user with expired token fails."""
         # Create an expired token
         from datetime import datetime, timedelta
-        from auth import create_access_token
+        from backend.projects.auth import create_access_token
         
         expired_token = create_access_token(
             data={"sub": str(test_user.id), "email": test_user.email},  # Convert to string
@@ -165,7 +165,7 @@ class TestPasswordSecurity:
     
     def test_password_verification(self, test_user):
         """Test password verification function."""
-        from auth import verify_password
+        from backend.projects.auth import verify_password
         
         # Correct password should verify
         assert verify_password("testpass123", test_user.password_hash)

@@ -108,7 +108,7 @@ class TestListResults:
     
     def test_list_results_multiple(self, client, auth_headers, test_project, db_session):
         """Test listing multiple results."""
-        from models import Result
+        from backend.projects.models import Result
         
         # Create multiple results
         frequencies = [50e6, 100e6, 150e6]

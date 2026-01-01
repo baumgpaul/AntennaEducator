@@ -72,7 +72,7 @@ class TestCreateProject:
             headers=auth_headers,
             json={
                 "name": "Valid Name",
-                "description": "x" * 501  # More than 500 characters
+                "description": "x" * 50001  # More than 50000 characters (new limit for JSON storage)
             }
         )
         assert response.status_code == 422
@@ -100,7 +100,7 @@ class TestListProjects:
     def test_list_projects_only_own(self, client, auth_headers, auth_headers2, test_project, test_user2, db_session):
         """Test that users only see their own projects."""
         # Create project for user 2
-        from models import Project
+        from backend.projects.models import Project
         project2 = Project(
             user_id=test_user2.id,
             name="User 2's Project",

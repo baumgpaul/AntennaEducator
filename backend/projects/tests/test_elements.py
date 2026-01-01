@@ -173,7 +173,7 @@ class TestDeleteElement:
     
     def test_delete_one_of_many_elements(self, client, auth_headers, test_project, db_session):
         """Test deleting one element leaves others intact."""
-        from models import ProjectElement
+        from backend.projects.models import ProjectElement
         
         # Create multiple elements
         elements = []

@@ -8,10 +8,10 @@ import json
 class TestStorageModule:
     """Test storage module functions."""
     
-    @patch('storage.minio_client')
+    @patch('backend.projects.storage.minio_client')
     def test_ensure_bucket_exists_creates_bucket(self, mock_client):
         """Test bucket creation when it doesn't exist."""
-        from storage import ensure_bucket_exists
+        from backend.projects.storage import ensure_bucket_exists
         
         mock_client.bucket_exists.return_value = False
         ensure_bucket_exists()
@@ -19,10 +19,10 @@ class TestStorageModule:
         mock_client.bucket_exists.assert_called_once()
         mock_client.make_bucket.assert_called_once()
     
-    @patch('storage.minio_client')
+    @patch('backend.projects.storage.minio_client')
     def test_ensure_bucket_exists_skips_if_exists(self, mock_client):
         """Test bucket creation skipped when bucket exists."""
-        from storage import ensure_bucket_exists
+        from backend.projects.storage import ensure_bucket_exists
         
         mock_client.bucket_exists.return_value = True
         ensure_bucket_exists()
@@ -30,10 +30,10 @@ class TestStorageModule:
         mock_client.bucket_exists.assert_called_once()
         mock_client.make_bucket.assert_not_called()
     
-    @patch('storage.minio_client')
+    @patch('backend.projects.storage.minio_client')
     def test_upload_json_success(self, mock_client):
         """Test successful JSON upload."""
-        from storage import upload_json
+        from backend.projects.storage import upload_json
         
         mock_client.bucket_exists.return_value = True
         
@@ -50,10 +50,10 @@ class TestStorageModule:
         assert call_args[0][1] == key
         assert call_args[1]["content_type"] == "application/json"
     
-    @patch('storage.minio_client')
+    @patch('backend.projects.storage.minio_client')
     def test_download_json_success(self, mock_client):
         """Test successful JSON download."""
-        from storage import download_json
+        from backend.projects.storage import download_json
         
         test_data = {"downloaded": True, "value": 123}
         mock_response = Mock()
@@ -65,10 +65,10 @@ class TestStorageModule:
         assert result == test_data
         mock_client.get_object.assert_called_once()
     
-    @patch('storage.minio_client')
+    @patch('backend.projects.storage.minio_client')
     def test_download_json_not_found(self, mock_client):
         """Test download returns None when object not found."""
-        from storage import download_json
+        from backend.projects.storage import download_json
         from minio.error import S3Error
         
         # Create S3Error with 'code' attribute
@@ -88,20 +88,20 @@ class TestStorageModule:
         
         assert result is None
     
-    @patch('storage.minio_client')
+    @patch('backend.projects.storage.minio_client')
     def test_delete_object_success(self, mock_client):
         """Test successful object deletion."""
-        from storage import delete_object
+        from backend.projects.storage import delete_object
         
         result = delete_object("test/file.json")
         
         assert result is True
         mock_client.remove_object.assert_called_once()
     
-    @patch('storage.minio_client')
+    @patch('backend.projects.storage.minio_client')
     def test_delete_object_not_found(self, mock_client):
         """Test delete returns False when object not found."""
-        from storage import delete_object
+        from backend.projects.storage import delete_object
         from minio.error import S3Error
         
         # Create S3Error with 'code' attribute
@@ -121,10 +121,10 @@ class TestStorageModule:
         
         assert result is False
     
-    @patch('storage.minio_client')
+    @patch('backend.projects.storage.minio_client')
     def test_get_presigned_url(self, mock_client):
         """Test presigned URL generation."""
-        from storage import get_presigned_url
+        from backend.projects.storage import get_presigned_url
         
         expected_url = "http://minio:9000/bucket/key?signature=abc123"
         mock_client.presigned_get_object.return_value = expected_url

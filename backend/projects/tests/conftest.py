@@ -8,15 +8,22 @@ import sys
 import os
 
 # Set test database URL before importing anything
-os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+# Use a file-based SQLite database that can be shared across connections
+os.environ["DATABASE_URL"] = "sqlite:///./test_projects.db"
 
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Disable the DISABLE_AUTH flag for tests - we want to test real authentication
+os.environ["DISABLE_AUTH"] = "false"
 
-from database import Base, get_db, engine
-from main import app
-from models import User, Project, ProjectElement, Result
-from auth import get_password_hash
+# Add backend directory to path for consistent imports
+backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
+
+# Use fully qualified imports to avoid duplicate class registries
+from backend.projects.database import Base, get_db, engine
+from backend.projects.main import app
+from backend.projects.models import User, Project, ProjectElement, Result
+from backend.projects.auth import get_password_hash
 
 # Test database session
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -25,7 +32,10 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 @pytest.fixture(scope="function")
 def db_session():
     """Create a fresh database session for each test."""
-    # Create tables
+    # Drop all tables if they exist (clean slate)
+    Base.metadata.drop_all(bind=engine)
+    
+    # Create tables fresh
     Base.metadata.create_all(bind=engine)
     
     # Create session
@@ -35,7 +45,7 @@ def db_session():
         yield session
     finally:
         session.close()
-        # Drop all tables after test
+        # Clean up after test
         Base.metadata.drop_all(bind=engine)
 
 
