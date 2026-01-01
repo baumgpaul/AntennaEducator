@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Box,
   Typography,
@@ -6,6 +7,8 @@ import {
   ListItemButton,
   ListItemText,
   ListItemIcon,
+  Paper,
+  Divider,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
@@ -29,10 +32,16 @@ function PostprocessingTab({
   directivityRequested,
   fieldResults,
 }: PostprocessingTabProps) {
+  const [selectedItem, setSelectedItem] = useState<string | null>(null);
+
   const statusMessage =
     solverState === 'postprocessing-ready'
       ? 'Postprocessing results ready. Visualization coming soon.'
       : 'Solver results available (voltages/currents). Visualization coming soon.';
+
+  const handleSelectItem = (itemId: string) => {
+    setSelectedItem(itemId);
+  };
 
   return (
     <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
@@ -100,7 +109,11 @@ function PostprocessingTab({
         <List disablePadding data-testid="outputs-list">
           {/* Currents - Always present */}
           <ListItem disablePadding>
-            <ListItemButton disabled sx={{ pl: 3, opacity: 0.8 }}>
+            <ListItemButton
+              selected={selectedItem === 'currents'}
+              onClick={() => handleSelectItem('currents')}
+              sx={{ pl: 3 }}
+            >
               <ListItemIcon sx={{ minWidth: 36 }}>
                 <CheckCircleIcon fontSize="small" color="success" />
               </ListItemIcon>
@@ -114,7 +127,11 @@ function PostprocessingTab({
 
           {/* Voltages - Always present */}
           <ListItem disablePadding>
-            <ListItemButton disabled sx={{ pl: 3, opacity: 0.8 }}>
+            <ListItemButton
+              selected={selectedItem === 'voltages'}
+              onClick={() => handleSelectItem('voltages')}
+              sx={{ pl: 3 }}
+            >
               <ListItemIcon sx={{ minWidth: 36 }}>
                 <CheckCircleIcon fontSize="small" color="success" />
               </ListItemIcon>
@@ -129,7 +146,11 @@ function PostprocessingTab({
           {/* Directivity - If requested */}
           {directivityRequested && (
             <ListItem disablePadding>
-              <ListItemButton sx={{ pl: 3 }}>
+              <ListItemButton
+                selected={selectedItem === 'directivity'}
+                onClick={() => handleSelectItem('directivity')}
+                sx={{ pl: 3 }}
+              >
                 <ListItemIcon sx={{ minWidth: 36 }}>
                   <RadioButtonUncheckedIcon fontSize="small" color="secondary" />
                 </ListItemIcon>
@@ -154,7 +175,11 @@ function PostprocessingTab({
 
             return (
               <ListItem key={field.id} disablePadding>
-                <ListItemButton sx={{ pl: 3 }}>
+                <ListItemButton
+                  selected={selectedItem === field.id}
+                  onClick={() => handleSelectItem(field.id)}
+                  sx={{ pl: 3 }}
+                >
                   <ListItemIcon sx={{ minWidth: 36 }}>
                     {isComputed ? (
                       <CheckCircleIcon fontSize="small" sx={{ color: 'success.main' }} />
@@ -193,23 +218,103 @@ function PostprocessingTab({
         </Typography>
       </Box>
 
-      {/* RIGHT PANEL - Visualization Settings Placeholder */}
+      {/* RIGHT PANEL - Properties Panel */}
       <Box
         sx={{
           width: 300,
           borderLeft: 1,
           borderColor: 'divider',
-          p: 2,
           overflowY: 'auto',
           backgroundColor: 'background.paper',
         }}
       >
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-          Visualization Settings
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Controls for display modes, color maps, and export will be added in Day 5 tasks.
-        </Typography>
+        {!selectedItem ? (
+          <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
+            <Typography variant="body2">
+              Select an output to view details
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ p: 2 }}>
+            {selectedItem === 'currents' && (
+              <>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+                  Branch Currents
+                </Typography>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  Computed current distribution on antenna edges.
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="caption" color="text.secondary">
+                  Visualization controls will be added in Day 5.
+                </Typography>
+              </>
+            )}
+            {selectedItem === 'voltages' && (
+              <>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+                  Node Voltages
+                </Typography>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  Computed potential at antenna nodes.
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="caption" color="text.secondary">
+                  Visualization controls will be added in Day 5.
+                </Typography>
+              </>
+            )}
+            {selectedItem === 'directivity' && (
+              <>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+                  Directivity Pattern
+                </Typography>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  Far-field radiation pattern showing antenna directivity.
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="caption" color="text.secondary">
+                  2D polar plots and 3D visualization coming in Day 5.
+                </Typography>
+              </>
+            )}
+            {requestedFields.find(f => f.id === selectedItem) && (() => {
+              const field = requestedFields.find(f => f.id === selectedItem)!;
+              const isComputed = fieldResults?.[field.id]?.computed ?? false;
+              const numPoints = fieldResults?.[field.id]?.num_points;
+              return (
+                <>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+                    {field.name || 'Field Region'}
+                  </Typography>
+                  <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      Type
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      {field.type} Region - {field.shape}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                      Center
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      ({field.centerPoint[0]}, {field.centerPoint[1]}, {field.centerPoint[2]}) mm
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                      Status
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      {isComputed ? `Computed (${numPoints} points)` : 'Pending computation'}
+                    </Typography>
+                  </Paper>
+                  <Typography variant="caption" color="text.secondary">
+                    Field visualization and export coming in Day 5.
+                  </Typography>
+                </>
+              );
+            })()}
+          </Box>
+        )}
       </Box>
     </Box>
   );

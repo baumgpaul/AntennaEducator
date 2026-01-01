@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import PostprocessingTab from '../PostprocessingTab';
 import type { AntennaElement } from '@/types/models';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
@@ -93,5 +93,88 @@ describe('PostprocessingTab', () => {
     // Field should show without point count when not computed
     expect(screen.getByText('Field f1')).toBeInTheDocument();
     expect(screen.getByText('3D sphere')).toBeInTheDocument();
+  });
+
+  it('selects currents and shows properties panel', () => {
+    render(
+      <PostprocessingTab
+        solverState="solved"
+        elements={[makeElement('wire1')]}
+        requestedFields={[]}
+        directivityRequested={false}
+        fieldResults={[]}
+      />
+    );
+    
+    const currentsItem = screen.getByRole('button', { name: /currents/i });
+    fireEvent.click(currentsItem);
+    
+    expect(screen.getByText('Branch Currents')).toBeInTheDocument();
+    expect(screen.getByText(/current distribution on antenna edges/i)).toBeInTheDocument();
+  });
+
+  it('selects voltages and shows properties panel', () => {
+    render(
+      <PostprocessingTab
+        solverState="solved"
+        elements={[makeElement('wire1')]}
+        requestedFields={[]}
+        directivityRequested={false}
+        fieldResults={[]}
+      />
+    );
+    
+    const voltagesItem = screen.getByRole('button', { name: /voltages/i });
+    fireEvent.click(voltagesItem);
+    
+    expect(screen.getByText('Node Voltages')).toBeInTheDocument();
+    expect(screen.getByText(/potential at antenna nodes/i)).toBeInTheDocument();
+  });
+
+  it('selects directivity and shows properties panel', () => {
+    render(
+      <PostprocessingTab
+        solverState="solved"
+        elements={[makeElement('wire1')]}
+        requestedFields={[]}
+        directivityRequested={true}
+        fieldResults={[]}
+      />
+    );
+    
+    const directivityItem = screen.getByRole('button', { name: /directivity/i });
+    fireEvent.click(directivityItem);
+    
+    expect(screen.getByText('Directivity Pattern')).toBeInTheDocument();
+    expect(screen.getByText(/2D polar plots and 3D visualization/i)).toBeInTheDocument();
+  });
+
+  it('selects field and shows properties panel with field details', () => {
+    const field: FieldDefinition = {
+      id: 'field1',
+      name: 'Field 1',
+      type: 'E',
+      shape: 'plane',
+      centerPoint: [1, 2, 3],
+      pointCount: 25,
+      parameters: {}
+    };
+    
+    render(
+      <PostprocessingTab
+        solverState="solved"
+        elements={[makeElement('wire1')]}
+        requestedFields={[field]}
+        directivityRequested={false}
+        fieldResults={{ field1: { computed: true, num_points: 25 } }}
+      />
+    );
+    
+    const fieldItem = screen.getByRole('button', { name: /field 1/i });
+    fireEvent.click(fieldItem);
+    
+    expect(screen.getByText(/E Region/i)).toBeInTheDocument();
+    expect(screen.getByText(/\(1, 2, 3\) mm/i)).toBeInTheDocument();
+    expect(screen.getByText(/Computed \(25 points\)/i)).toBeInTheDocument();
   });
 });
