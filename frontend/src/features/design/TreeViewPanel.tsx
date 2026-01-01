@@ -76,6 +76,7 @@ interface TreeViewPanelProps {
   onFieldVisibilityToggle?: (fieldId: string, visible: boolean) => void;
   onFieldDelete?: (fieldId: string) => void;
   onFieldRename?: (fieldId: string, newName: string) => void;
+  fieldResults?: Record<string, { computed: boolean; num_points: number }> | null; // Field computation status
   directivityRequested?: boolean;
   onDirectivitySelect?: () => void;
   onDirectivityDelete?: () => void;
@@ -110,6 +111,7 @@ function TreeViewPanel({
   onFieldVisibilityToggle,
   onFieldDelete,
   onFieldRename,
+  fieldResults,
   directivityRequested = false,
   onDirectivitySelect,
   onDirectivityDelete,
@@ -657,11 +659,15 @@ function TreeViewPanel({
                     sx={{ pl: 3 }}
                   >
                     <ListItemIcon sx={{ minWidth: 36 }}>
-                      <Radio fontSize="small" color="secondary" />
+                      {fieldResults?.['directivity']?.computed ? (
+                        <CheckCircle fontSize="small" sx={{ color: 'success.main' }} />
+                      ) : (
+                        <Radio fontSize="small" color="secondary" />
+                      )}
                     </ListItemIcon>
                     <ListItemText
                       primary="Directivity"
-                      secondary="Far-field pattern"
+                      secondary={fieldResults?.['directivity']?.computed ? "✓ Far-field pattern" : "Far-field pattern"}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />
                   </ListItemButton>
@@ -670,12 +676,21 @@ function TreeViewPanel({
 
               {fieldRegions?.map((field) => {
                 const fieldVisible = field.visible ?? true;
+                const isComputed = fieldResults?.[field.id]?.computed ?? false;
+                const numPoints = fieldResults?.[field.id]?.num_points;
+                
                 return (
                   <ListItem
                     key={field.id}
                     disablePadding
                     secondaryAction={
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        {/* Computed status indicator */}
+                        {isComputed && (
+                          <Tooltip title={`${numPoints} points computed`}>
+                            <CheckCircle fontSize="small" sx={{ color: 'success.main', mr: 0.5 }} />
+                          </Tooltip>
+                        )}
                         {/* Visibility toggle */}
                         <Tooltip title={fieldVisible ? 'Hide' : 'Show'}>
                           <IconButton
@@ -719,7 +734,7 @@ function TreeViewPanel({
                       sx={{ pl: 3 }}
                     >
                       <ListItemIcon sx={{ minWidth: 36 }}>
-                        <GridOn fontSize="small" sx={{ color: 'info.main' }} />
+                        <GridOn fontSize="small" sx={{ color: isComputed ? 'success.main' : 'info.main' }} />
                       </ListItemIcon>
                       <ListItemText
                         primary={field.name || `${field.type} ${field.shape}`}
@@ -727,9 +742,10 @@ function TreeViewPanel({
                           variant: 'body2',
                           sx: { fontWeight: field.id === selectedFieldId ? 600 : 400 },
                         }}
-                        secondary={`${field.type} - ${field.shape}`}
+                        secondary={`${field.type} - ${field.shape}${isComputed ? ' ✓' : ''}`}
                         secondaryTypographyProps={{
                           variant: 'caption',
+                          sx: { color: isComputed ? 'success.main' : 'text.secondary' },
                         }}
                       />
                     </ListItemButton>

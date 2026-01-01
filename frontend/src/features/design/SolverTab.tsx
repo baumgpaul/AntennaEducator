@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, Snackbar, Alert } from '@mui/material';
+import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, Snackbar, Alert, IconButton } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import StopIcon from '@mui/icons-material/Stop';
 import TreeViewPanel from './TreeViewPanel';
 import Scene3D from './Scene3D';
 import WireGeometry from './WireGeometry';
@@ -15,6 +16,7 @@ import { SolverPropertiesPanel } from './SolverPropertiesPanel';
 import { FrequencyInputDialog } from './FrequencyInputDialog';
 import { FrequencySweepDialog } from './FrequencySweepDialog';
 import { AddFieldDialog } from './AddFieldDialog';
+import DirectivitySettingsDialog from './DirectivitySettingsDialog';
 import type { AntennaElement } from '@/types/models';
 import type { AppDispatch, RootState } from '@/store/store';
 import { 
@@ -22,6 +24,7 @@ import {
   deleteFieldRegion, 
   updateFieldRegion, 
   setDirectivityRequested,
+  setDirectivitySettings,
   solveSingleFrequencyWorkflow,
   computePostprocessingWorkflow,
   runFrequencySweep,
@@ -30,6 +33,7 @@ import {
   selectSolverProgress,
   selectCurrentFrequency,
   selectFrequencySweep,
+  cancelPostprocessing,
 } from '@/store/solverSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
@@ -56,17 +60,22 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   // Redux state
   const requestedFields = useSelector((state: RootState) => state.solver.requestedFields);
   const directivityRequested = useSelector((state: RootState) => state.solver.directivityRequested);
+  const directivitySettings = useSelector((state: RootState) => state.solver.directivitySettings);
   const solverWorkflowState = useSelector((state: RootState) => state.solver.solverState);
   const simulationStatus = useSelector(selectSolverStatus);
   const simulationError = useSelector(selectSolverError);
   const solverProgress = useSelector(selectSolverProgress);
   const currentFrequency = useSelector(selectCurrentFrequency);
   const frequencySweep = useSelector(selectFrequencySweep);
+  const postprocessingStatus = useSelector((state: RootState) => state.solver.postprocessingStatus);
+  const fieldResults = useSelector((state: RootState) => state.solver.fieldResults);
+  const postprocessingProgress = useSelector((state: RootState) => state.solver.postprocessingProgress);
   
   // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
   const [sweepDialogOpen, setSweepDialogOpen] = useState(false);
   const [addFieldDialogOpen, setAddFieldDialogOpen] = useState(false);
+  const [directivityDialogOpen, setDirectivityDialogOpen] = useState(false);
   const [selectedFieldId, setSelectedFieldId] = useState<string | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -180,10 +189,19 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   };
 
   const handleAddDirectivity = () => {
+    console.log('[SolverTab] Add Directivity clicked, current directivityRequested:', directivityRequested);
+    setDirectivityDialogOpen(true);
+  };
+  
+  const handleDirectivityConfirm = (settings: { theta_points: number; phi_points: number }) => {
+    console.log('[SolverTab] Directivity settings confirmed:', settings);
+    dispatch(setDirectivitySettings(settings));
     if (!directivityRequested) {
       dispatch(setDirectivityRequested(true));
+      console.log('[SolverTab] Directivity requested set to true');
     }
     setSelectedFieldId('directivity');
+    setDirectivityDialogOpen(false);
   };
 
   const handleAddField = () => {
@@ -191,7 +209,9 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   };
 
   const handleComputePostprocessing = async () => {
-    if (solverWorkflowState === 'solved') {
+    // Allow postprocessing when solver has results (solved or postprocessing-ready)
+    if (solverWorkflowState === 'solved' || solverWorkflowState === 'postprocessing-ready') {
+      console.log('[SolverTab] Starting postprocessing workflow, state:', solverWorkflowState);
       try {
         await dispatch(computePostprocessingWorkflow()).unwrap();
         setSnackbarMessage('Postprocessing complete!');
@@ -202,7 +222,16 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         setSnackbarSeverity('error');
         setSnackbarOpen(true);
       }
+    } else {
+      console.warn('[SolverTab] Postprocessing blocked, state:', solverWorkflowState);
     }
+  };
+
+  const handleCancelPostprocessing = () => {
+    dispatch(cancelPostprocessing());
+    setSnackbarMessage('Postprocessing cancelled');
+    setSnackbarSeverity('info');
+    setSnackbarOpen(true);
   };
 
   const handleFrequencySolve = async (frequency: number, unit: 'MHz' | 'GHz') => {
@@ -250,7 +279,8 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
     setSelectedFieldId('directivity');
   };
 
-  const canComputePostprocessing = solverWorkflowState === 'solved';
+  // Allow postprocessing when solver has results (solved or postprocessing-ready)
+  const canComputePostprocessing = solverWorkflowState === 'solved' || solverWorkflowState === 'postprocessing-ready';
 
   return (
     <Box
@@ -298,14 +328,6 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                 sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
               />
             ) : null}
-            {(solverStatus === 'postprocessing-ready' || solverWorkflowState === 'postprocessing-ready') && (
-              <Chip
-                icon={<CheckCircleIcon />}
-                label="Ready"
-                size="small"
-                sx={{ height: 20, fontSize: '0.65rem', color: 'warning.main', bgcolor: 'warning.dark' }}
-              />
-            )}
             {simulationStatus === 'running' && (
               <Chip
                 icon={<CircularProgress size={12} />}
@@ -328,14 +350,14 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             <Button
               startIcon={simulationStatus === 'running' || simulationStatus === 'preparing' ? <CircularProgress size={16} /> : <PlayArrowIcon />}
               onClick={handleSolveSingle}
-              disabled={simulationStatus === 'running' || simulationStatus === 'preparing'}
+              disabled={simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
             >
               Solve Single
             </Button>
             <Button
               startIcon={<ShowChartIcon />}
               onClick={handleSweep}
-              disabled={simulationStatus === 'running' || simulationStatus === 'preparing'}
+              disabled={simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
             >
               Sweep
             </Button>
@@ -353,12 +375,14 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             <Button
               startIcon={<AddCircleOutlineIcon />}
               onClick={handleAddDirectivity}
+              disabled={simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
             >
               Add Directivity
             </Button>
             <Button
               startIcon={<GridOnIcon />}
               onClick={handleAddField}
+              disabled={simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
             >
               Add Field
             </Button>
@@ -369,18 +393,58 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
 
         {/* Group 3: Postprocessing */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5 }}>
-            Postprocessing
-          </Typography>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<CalculateIcon />}
-            onClick={handleComputePostprocessing}
-            disabled={!canComputePostprocessing || simulationStatus === 'running' || simulationStatus === 'preparing'}
-          >
-            Compute Postprocessing
-          </Button>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+              Postprocessing
+            </Typography>
+            {postprocessingStatus === 'completed' && fieldResults && (
+              <Chip
+                icon={<CheckCircleIcon />}
+                label="Ready"
+                size="small"
+                sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
+              />
+            )}
+            {postprocessingStatus === 'running' && (
+              <Chip
+                icon={<CircularProgress size={12} />}
+                label={postprocessingProgress ? `${postprocessingProgress.completed}/${postprocessingProgress.total} fields` : 'Computing...'}
+                size="small"
+                sx={{ height: 20, fontSize: '0.65rem', color: 'info.main' }}
+              />
+            )}
+            {postprocessingStatus === 'failed' && (
+              <Chip
+                label="Error"
+                size="small"
+                color="error"
+                sx={{ height: 20, fontSize: '0.65rem' }}
+              />
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={postprocessingStatus === 'running' ? <CircularProgress size={16} /> : <CalculateIcon />}
+              onClick={handleComputePostprocessing}
+              disabled={!canComputePostprocessing || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
+              sx={{ flex: 1 }}
+            >
+              Compute Postprocessing
+            </Button>
+            {postprocessingStatus === 'running' && (
+              <IconButton
+                size="small"
+                color="error"
+                onClick={handleCancelPostprocessing}
+                sx={{ border: '1px solid', borderColor: 'divider' }}
+                title="Stop postprocessing"
+              >
+                <StopIcon fontSize="small" />
+              </IconButton>
+            )}
+          </Box>
         </Box>
       </Paper>
 
@@ -419,6 +483,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           onFieldVisibilityToggle={handleFieldVisibilityToggle}
           onFieldDelete={handleFieldDelete}
           onFieldRename={handleFieldRename}
+          fieldResults={fieldResults}
           directivityRequested={directivityRequested}
           onDirectivityDelete={handleDirectivityDelete}
           onDirectivitySelect={handleDirectivitySelect}
@@ -491,6 +556,13 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         open={addFieldDialogOpen}
         onClose={() => setAddFieldDialogOpen(false)}
         onCreate={handleFieldAdd}
+      />
+      
+      <DirectivitySettingsDialog
+        open={directivityDialogOpen}
+        onClose={() => setDirectivityDialogOpen(false)}
+        onConfirm={handleDirectivityConfirm}
+        initialSettings={directivitySettings}
       />
 
       {/* FEEDBACK SNACKBAR */}

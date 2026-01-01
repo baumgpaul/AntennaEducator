@@ -25,7 +25,7 @@ import {
 import { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '@/store/store';
-import { updateFieldRegion, deleteFieldRegion } from '@/store/solverSlice';
+import { updateFieldRegion, deleteFieldRegion, setDirectivitySettings, updateFieldResult } from '@/store/solverSlice';
 import type { FieldDefinition, NormalPreset } from '@/types/fieldDefinitions';
 
 /**
@@ -56,6 +56,9 @@ export function SolverPropertiesPanel({
   const selectedField = useSelector((state: RootState) => 
     state.solver.requestedFields.find(f => f.id === selectedFieldId)
   );
+  
+  // Get directivity settings
+  const directivitySettings = useSelector((state: RootState) => state.solver.directivitySettings);
 
   // Update field property on blur (auto-save)
   const handleFieldUpdate = (updates: Partial<FieldDefinition>) => {
@@ -109,14 +112,14 @@ export function SolverPropertiesPanel({
 
       {/* Field Properties Editor */}
       {isDirectivitySelected ? (
-        <Box sx={{ color: 'text.secondary', textAlign: 'center', mt: 4 }}>
-          <Typography variant="body2" gutterBottom>
-            Directivity
-          </Typography>
-          <Typography variant="body2">
-            Directivity will be computed in the far field when you run postprocessing.
-          </Typography>
-        </Box>
+        <DirectivitySettingsEditor 
+          settings={directivitySettings} 
+          onUpdate={(newSettings) => {
+            dispatch(setDirectivitySettings(newSettings));
+            // Clear computed status to force recomputation
+            dispatch(updateFieldResult({ fieldId: 'directivity', computed: false, num_points: 0 }));
+          }}
+        />
       ) : selectedField ? (
         <FieldPropertiesEditor 
           field={selectedField} 
@@ -719,6 +722,114 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
       >
         Delete Field
       </Button>
+    </Paper>
+  );
+}
+
+/**
+ * DirectivitySettingsEditor - Editor for directivity discretization parameters
+ */
+interface DirectivitySettingsEditorProps {
+  settings: { theta_points: number; phi_points: number };
+  onUpdate: (settings: { theta_points: number; phi_points: number }) => void;
+}
+
+function DirectivitySettingsEditor({ settings, onUpdate }: DirectivitySettingsEditorProps) {
+  const [thetaPoints, setThetaPoints] = useState(settings.theta_points);
+  const [phiPoints, setPhiPoints] = useState(settings.phi_points);
+  const [thetaError, setThetaError] = useState<string | null>(null);
+  const [phiError, setPhiError] = useState<string | null>(null);
+
+  const validateAndUpdate = (newTheta: number, newPhi: number) => {
+    let valid = true;
+
+    if (newTheta < 5 || newTheta > 180) {
+      setThetaError('Must be between 5 and 180');
+      valid = false;
+    } else {
+      setThetaError(null);
+    }
+
+    if (newPhi < 5 || newPhi > 360) {
+      setPhiError('Must be between 5 and 360');
+      valid = false;
+    } else {
+      setPhiError(null);
+    }
+
+    if (valid) {
+      onUpdate({ theta_points: newTheta, phi_points: newPhi });
+    }
+  };
+
+  const handleThetaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(event.target.value, 10);
+    setThetaPoints(value);
+  };
+
+  const handleThetaBlur = () => {
+    validateAndUpdate(thetaPoints, phiPoints);
+  };
+
+  const handlePhiChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(event.target.value, 10);
+    setPhiPoints(value);
+  };
+
+  const handlePhiBlur = () => {
+    validateAndUpdate(thetaPoints, phiPoints);
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+        Directivity Settings
+      </Typography>
+      
+      <Divider sx={{ my: 1.5 }} />
+
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+        Configure the angular discretization for far-field radiation pattern computation.
+      </Typography>
+
+      {/* Theta Points */}
+      <TextField
+        fullWidth
+        label="Theta Points (Elevation)"
+        type="number"
+        value={thetaPoints}
+        onChange={handleThetaChange}
+        onBlur={handleThetaBlur}
+        error={!!thetaError}
+        helperText={thetaError || 'Number of points from 0° to 180°'}
+        inputProps={{ min: 5, max: 180, step: 1 }}
+        size="small"
+        sx={{ mb: 2 }}
+      />
+
+      {/* Phi Points */}
+      <TextField
+        fullWidth
+        label="Phi Points (Azimuth)"
+        type="number"
+        value={phiPoints}
+        onChange={handlePhiChange}
+        onBlur={handlePhiBlur}
+        error={!!phiError}
+        helperText={phiError || 'Number of points from 0° to 360°'}
+        inputProps={{ min: 5, max: 360, step: 1 }}
+        size="small"
+        sx={{ mb: 2 }}
+      />
+
+      {/* Info */}
+      <Box sx={{ bgcolor: 'info.lighter', p: 1.5, borderRadius: 1 }}>
+        <Typography variant="caption" color="text.secondary">
+          <strong>Total sample points:</strong> {thetaPoints * phiPoints}
+          <br />
+          <strong>Note:</strong> Changes will require recomputation of the directivity pattern.
+        </Typography>
+      </Box>
     </Paper>
   );
 }
