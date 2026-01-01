@@ -132,6 +132,22 @@ describe('SolverPropertiesPanel', () => {
     expect(screen.getByText('Select a field region in the tree view to edit its properties')).toBeInTheDocument();
   });
 
+  it('shows directivity message when selected', () => {
+    const store = createMockStore();
+    render(
+      <Provider store={store}>
+        <SolverPropertiesPanel
+          selectedFieldId="directivity"
+          fieldRegionsVisible={true}
+          onFieldRegionsVisibleChange={mockOnFieldRegionsVisibleChange}
+        />
+      </Provider>
+    );
+
+    expect(screen.getByText('Directivity')).toBeInTheDocument();
+    expect(screen.getByText(/far field/i)).toBeInTheDocument();
+  });
+
   it('shows field properties editor when field is selected', () => {
     const store = createMockStore([sampleField2DPlane]);
     render(

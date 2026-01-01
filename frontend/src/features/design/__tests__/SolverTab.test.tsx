@@ -1,15 +1,62 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { SolverTab } from '../SolverTab';
 import type { AntennaElement } from '@/types/models';
 
-// Mock the child components
-vi.mock('../TreeViewPanel', () => ({
-  default: () => <div data-testid="tree-view-panel">Tree View Panel</div>,
+const mockDispatch = vi.fn();
+let mockState: any;
+
+vi.mock('react-redux', () => ({
+  useDispatch: () => mockDispatch,
+  useSelector: (selector: any) => selector(mockState),
 }));
 
-vi.mock('../DesignCanvas', () => ({
-  default: () => <div data-testid="design-canvas">Design Canvas</div>,
+vi.mock('../TreeViewPanel', () => ({
+  default: (props: any) => <div data-testid="tree-view-panel" {...props} />,
+}));
+
+vi.mock('../Scene3D', () => ({
+  default: ({ children }: any) => <div data-testid="scene-3d">{children}</div>,
+}));
+
+vi.mock('../WireGeometry', () => ({
+  default: () => <div data-testid="wire-geometry" />,
+}));
+
+vi.mock('../FieldRegionVisualization', () => ({
+  FieldRegionVisualization: () => <div data-testid="field-region-visualization" />,
+}));
+
+vi.mock('../SolverPropertiesPanel', () => ({
+  SolverPropertiesPanel: () => <div data-testid="solver-properties-panel" />,
+}));
+
+vi.mock('../FrequencyInputDialog', () => ({
+  FrequencyInputDialog: ({ open }: any) => (open ? <div data-testid="frequency-dialog" /> : null),
+}));
+
+vi.mock('../AddFieldDialog', () => ({
+  AddFieldDialog: ({ open, onCreate }: any) =>
+    open ? (
+      <button
+        type="button"
+        data-testid="add-field-dialog"
+        onClick={() =>
+          onCreate({
+            id: 'field-1',
+            type: '2D',
+            shape: 'plane',
+            centerPoint: [0, 0, 0],
+            dimensions: { width: 1, height: 1 },
+            sampling: { x: 1, y: 1 },
+            farField: false,
+            fieldTypes: ['E'],
+          })
+        }
+      >
+        create
+      </button>
+    ) : null,
 }));
 
 describe('SolverTab', () => {
@@ -30,60 +77,74 @@ describe('SolverTab', () => {
     },
   ];
 
-  it('renders the 3-panel layout', () => {
+  beforeEach(() => {
+    mockDispatch.mockClear();
+    mockState = {
+      solver: {
+        requestedFields: [],
+        directivityRequested: false,
+        solverState: 'idle',
+      },
+    };
+  });
+
+  it('renders solver panels and controls', () => {
     render(
       <SolverTab
         elements={mockElements}
         selectedElementId={null}
         onElementSelect={() => {}}
+        onElementVisibilityToggle={() => {}}
       />
     );
 
-    // Check that all three panels are present
     expect(screen.getByTestId('tree-view-panel')).toBeInTheDocument();
-    expect(screen.getByTestId('design-canvas')).toBeInTheDocument();
-    expect(screen.getByText(/select a field region/i)).toBeInTheDocument();
+    expect(screen.getByTestId('scene-3d')).toBeInTheDocument();
+    expect(screen.getByTestId('solver-properties-panel')).toBeInTheDocument();
+    expect(screen.getByText('Solve Single')).toBeInTheDocument();
+    expect(screen.getByText('Add Directivity')).toBeInTheDocument();
   });
 
-  it('displays placeholder text in properties panel', () => {
+  it('disables postprocessing until solver is solved', () => {
+    const { rerender } = render(
+      <SolverTab
+        elements={mockElements}
+        selectedElementId={null}
+        onElementSelect={() => {}}
+        onElementVisibilityToggle={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Compute Postprocessing')).toBeDisabled();
+
+    mockState.solver.solverState = 'solved';
+
+    rerender(
+      <SolverTab
+        elements={mockElements}
+        selectedElementId={null}
+        onElementSelect={() => {}}
+        onElementVisibilityToggle={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Compute Postprocessing')).not.toBeDisabled();
+  });
+
+  it('dispatches directivity request when clicking Add Directivity', () => {
     render(
       <SolverTab
         elements={mockElements}
         selectedElementId={null}
         onElementSelect={() => {}}
+        onElementVisibilityToggle={() => {}}
       />
     );
 
-    expect(
-      screen.getByText(/select a field region in the tree view to edit its properties/i)
-    ).toBeInTheDocument();
-  });
+    fireEvent.click(screen.getByText('Add Directivity'));
 
-  it('passes elements to TreeViewPanel', () => {
-    render(
-      <SolverTab
-        elements={mockElements}
-        selectedElementId="1"
-        onElementSelect={() => {}}
-      />
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'solver/setDirectivityRequested', payload: true })
     );
-
-    // TreeViewPanel should be rendered
-    expect(screen.getByTestId('tree-view-panel')).toBeInTheDocument();
-  });
-
-  it('calls onElementSelect when element is selected', () => {
-    const mockOnSelect = vi.fn();
-    render(
-      <SolverTab
-        elements={mockElements}
-        selectedElementId={null}
-        onElementSelect={mockOnSelect}
-      />
-    );
-
-    // This test verifies the prop is passed correctly
-    // Actual selection behavior is tested in TreeViewPanel tests
-    expect(mockOnSelect).not.toHaveBeenCalled();
   });
 });

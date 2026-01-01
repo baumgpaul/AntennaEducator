@@ -18,6 +18,33 @@ import solverReducer, {
 } from './solverSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 
+const make2DField = (id: string, overrides: Partial<FieldDefinition> = {}): FieldDefinition => ({
+  id,
+  type: '2D',
+  shape: 'plane',
+  centerPoint: [0, 0, 50],
+  dimensions: { width: 100, height: 100 },
+  normalPreset: 'XY',
+  sampling: { x: 10, y: 10 },
+  farField: false,
+  fieldTypes: ['E'],
+  visible: true,
+  ...overrides,
+});
+
+const make3DField = (id: string, overrides: Partial<FieldDefinition> = {}): FieldDefinition => ({
+  id,
+  type: '3D',
+  shape: 'sphere',
+  centerPoint: [0, 0, 100],
+  sphereRadius: 50,
+  sampling: { radial: 5, angular: 20 },
+  farField: true,
+  fieldTypes: ['poynting'],
+  visible: true,
+  ...overrides,
+});
+
 describe('solverSlice - Field Definitions', () => {
   let initialState: ReturnType<typeof solverReducer>;
 
@@ -26,64 +53,27 @@ describe('solverSlice - Field Definitions', () => {
   });
 
   describe('addFieldRegion', () => {
-    it('should add a 2D field definition', () => {
-      const field: FieldDefinition = {
-        id: 'field-1',
-        regionType: '2D',
-        shape: 'plane',
-        fieldTypes: ['E-field'],
-        samplingX: 10,
-        samplingY: 10,
-        nearFar: 'near',
-      };
-
+    it('adds a 2D field definition', () => {
+      const field = make2DField('field-1');
       const state = solverReducer(initialState, addFieldRegion(field));
-      
       expect(state.requestedFields).toHaveLength(1);
       expect(state.requestedFields[0]).toEqual(field);
     });
 
-    it('should add a 3D field definition', () => {
-      const field: FieldDefinition = {
-        id: 'field-2',
-        regionType: '3D',
-        shape: 'sphere',
-        fieldTypes: ['E-field', 'Poynting'],
-        radialSampling: 5,
-        angularSampling: 20,
-        nearFar: 'far',
-      };
-
+    it('adds a 3D field definition', () => {
+      const field = make3DField('field-2');
       const state = solverReducer(initialState, addFieldRegion(field));
-      
       expect(state.requestedFields).toHaveLength(1);
       expect(state.requestedFields[0]).toEqual(field);
     });
 
-    it('should add multiple field definitions', () => {
-      const field1: FieldDefinition = {
-        id: 'field-1',
-        regionType: '2D',
-        shape: 'circle',
-        fieldTypes: ['E-field'],
-        samplingX: 15,
-        samplingY: 15,
-        nearFar: 'near',
-      };
-
-      const field2: FieldDefinition = {
-        id: 'field-2',
-        regionType: '3D',
-        shape: 'cube',
-        fieldTypes: ['H-field'],
-        radialSampling: 8,
-        angularSampling: 16,
-        nearFar: 'far',
-      };
+    it('adds multiple field definitions in order', () => {
+      const field1 = make2DField('field-1');
+      const field2 = make3DField('field-2');
 
       let state = solverReducer(initialState, addFieldRegion(field1));
       state = solverReducer(state, addFieldRegion(field2));
-      
+
       expect(state.requestedFields).toHaveLength(2);
       expect(state.requestedFields[0].id).toBe('field-1');
       expect(state.requestedFields[1].id).toBe('field-2');
@@ -91,209 +81,134 @@ describe('solverSlice - Field Definitions', () => {
   });
 
   describe('deleteFieldRegion', () => {
-    it('should delete a field by id', () => {
-      const field1: FieldDefinition = {
-        id: 'field-1',
-        regionType: '2D',
-        shape: 'plane',
-        fieldTypes: ['E-field'],
-        samplingX: 10,
-        samplingY: 10,
-        nearFar: 'near',
-      };
-
-      const field2: FieldDefinition = {
-        id: 'field-2',
-        regionType: '2D',
-        shape: 'circle',
-        fieldTypes: ['H-field'],
-        samplingX: 12,
-        samplingY: 12,
-        nearFar: 'far',
-      };
+    it('deletes a field by id', () => {
+      const field1 = make2DField('field-1');
+      const field2 = make2DField('field-2', { shape: 'circle', dimensions: { radius: 25 } });
 
       let state = solverReducer(initialState, addFieldRegion(field1));
       state = solverReducer(state, addFieldRegion(field2));
       state = solverReducer(state, deleteFieldRegion('field-1'));
-      
+
       expect(state.requestedFields).toHaveLength(1);
       expect(state.requestedFields[0].id).toBe('field-2');
     });
 
-    it('should handle deleting non-existent field', () => {
-      const field: FieldDefinition = {
-        id: 'field-1',
-        regionType: '2D',
-        shape: 'plane',
-        fieldTypes: ['E-field'],
-        samplingX: 10,
-        samplingY: 10,
-        nearFar: 'near',
-      };
+    it('ignores delete when field does not exist', () => {
+      const field = make2DField('field-1');
 
       let state = solverReducer(initialState, addFieldRegion(field));
       state = solverReducer(state, deleteFieldRegion('non-existent'));
-      
+
       expect(state.requestedFields).toHaveLength(1);
       expect(state.requestedFields[0].id).toBe('field-1');
     });
   });
 
   describe('updateFieldRegion', () => {
-    it('should update field properties', () => {
-      const field: FieldDefinition = {
-        id: 'field-1',
-        regionType: '2D',
-        shape: 'plane',
-        fieldTypes: ['E-field'],
-        samplingX: 10,
-        samplingY: 10,
-        nearFar: 'near',
-      };
+    it('updates field properties', () => {
+      const field = make2DField('field-1');
 
       let state = solverReducer(initialState, addFieldRegion(field));
-      state = solverReducer(state, updateFieldRegion({
-        id: 'field-1',
-        updates: { samplingX: 20, fieldTypes: ['E-field', 'H-field'] },
-      }));
-      
-      expect(state.requestedFields[0].samplingX).toBe(20);
-      expect(state.requestedFields[0].fieldTypes).toEqual(['E-field', 'H-field']);
+      state = solverReducer(
+        state,
+        updateFieldRegion({
+          id: 'field-1',
+          updates: { sampling: { x: 20, y: 30 }, fieldTypes: ['E', 'H'] },
+        })
+      );
+
+      expect(state.requestedFields[0].sampling).toEqual({ x: 20, y: 30 });
+      expect(state.requestedFields[0].fieldTypes).toEqual(['E', 'H']);
     });
 
-    it('should not update non-existent field', () => {
-      const field: FieldDefinition = {
-        id: 'field-1',
-        regionType: '2D',
-        shape: 'plane',
-        fieldTypes: ['E-field'],
-        samplingX: 10,
-        samplingY: 10,
-        nearFar: 'near',
-      };
+    it('does not update when field is missing', () => {
+      const field = make2DField('field-1');
 
       let state = solverReducer(initialState, addFieldRegion(field));
-      state = solverReducer(state, updateFieldRegion({
-        id: 'non-existent',
-        updates: { samplingX: 20 },
-      }));
-      
-      expect(state.requestedFields[0].samplingX).toBe(10);
+      state = solverReducer(
+        state,
+        updateFieldRegion({
+          id: 'non-existent',
+          updates: { sampling: { x: 99, y: 99 } },
+        })
+      );
+
+      expect(state.requestedFields[0].sampling).toEqual({ x: 10, y: 10 });
     });
   });
 
   describe('clearFieldRegions', () => {
-    it('should clear all field definitions', () => {
-      const field1: FieldDefinition = {
-        id: 'field-1',
-        regionType: '2D',
-        shape: 'plane',
-        fieldTypes: ['E-field'],
-        samplingX: 10,
-        samplingY: 10,
-        nearFar: 'near',
-      };
-
-      const field2: FieldDefinition = {
-        id: 'field-2',
-        regionType: '3D',
-        shape: 'sphere',
-        fieldTypes: ['Poynting'],
-        radialSampling: 5,
-        angularSampling: 20,
-        nearFar: 'far',
-      };
+    it('clears all field definitions', () => {
+      const field1 = make2DField('field-1');
+      const field2 = make3DField('field-2');
 
       let state = solverReducer(initialState, addFieldRegion(field1));
       state = solverReducer(state, addFieldRegion(field2));
       state = solverReducer(state, clearFieldRegions());
-      
+
       expect(state.requestedFields).toHaveLength(0);
     });
   });
 
   describe('setDirectivityRequested', () => {
-    it('should set directivity requested to true', () => {
-      const state = solverReducer(initialState, setDirectivityRequested(true));
-      expect(state.directivityRequested).toBe(true);
-    });
-
-    it('should set directivity requested to false', () => {
+    it('toggles directivity requested', () => {
       let state = solverReducer(initialState, setDirectivityRequested(true));
+      expect(state.directivityRequested).toBe(true);
+
       state = solverReducer(state, setDirectivityRequested(false));
       expect(state.directivityRequested).toBe(false);
     });
   });
 
   describe('setSolverState', () => {
-    it('should set solver state to solved', () => {
-      const state = solverReducer(initialState, setSolverState('solved'));
-      expect(state.solverState).toBe('solved');
-    });
-
-    it('should set solver state to postprocessing-ready', () => {
-      const state = solverReducer(initialState, setSolverState('postprocessing-ready'));
-      expect(state.solverState).toBe('postprocessing-ready');
-    });
-
-    it('should reset solver state to idle', () => {
+    it('updates solver workflow state', () => {
       let state = solverReducer(initialState, setSolverState('solved'));
+      expect(state.solverState).toBe('solved');
+
+      state = solverReducer(state, setSolverState('postprocessing-ready'));
+      expect(state.solverState).toBe('postprocessing-ready');
+
       state = solverReducer(state, setSolverState('idle'));
       expect(state.solverState).toBe('idle');
     });
   });
 
   describe('setCurrentFrequency', () => {
-    it('should set current frequency', () => {
-      const state = solverReducer(initialState, setCurrentFrequency(2450));
-      expect(state.currentFrequency).toBe(2450);
-    });
-
-    it('should clear current frequency', () => {
+    it('stores and clears current frequency', () => {
       let state = solverReducer(initialState, setCurrentFrequency(2450));
+      expect(state.currentFrequency).toBe(2450);
+
       state = solverReducer(state, setCurrentFrequency(null));
       expect(state.currentFrequency).toBeNull();
     });
   });
 
   describe('selectors', () => {
-    it('should select requested fields', () => {
-      const field: FieldDefinition = {
-        id: 'field-1',
-        regionType: '2D',
-        shape: 'plane',
-        fieldTypes: ['E-field'],
-        samplingX: 10,
-        samplingY: 10,
-        nearFar: 'near',
-      };
-
+    it('selects requested fields', () => {
+      const field = make2DField('field-1');
       const state = solverReducer(initialState, addFieldRegion(field));
       const mockRootState = { solver: state } as any;
-      
+
       const fields = selectRequestedFields(mockRootState);
       expect(fields).toHaveLength(1);
       expect(fields[0].id).toBe('field-1');
     });
 
-    it('should select directivity requested', () => {
+    it('selects directivity requested', () => {
       const state = solverReducer(initialState, setDirectivityRequested(true));
       const mockRootState = { solver: state } as any;
-      
       expect(selectDirectivityRequested(mockRootState)).toBe(true);
     });
 
-    it('should select solver state', () => {
+    it('selects solver state', () => {
       const state = solverReducer(initialState, setSolverState('solved'));
       const mockRootState = { solver: state } as any;
-      
       expect(selectSolverState(mockRootState)).toBe('solved');
     });
 
-    it('should select current frequency', () => {
+    it('selects current frequency', () => {
       const state = solverReducer(initialState, setCurrentFrequency(2450));
       const mockRootState = { solver: state } as any;
-      
       expect(selectCurrentFrequency(mockRootState)).toBe(2450);
     });
   });
