@@ -35,7 +35,7 @@ const frequencySchema = z.object({
 interface FrequencyInputDialogProps {
   open: boolean;
   onClose: () => void;
-  onSolve: (frequencyMHz: number) => Promise<void>;
+  onSolve: (frequency: number, unit: 'MHz' | 'GHz') => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -97,14 +97,10 @@ export function FrequencyInputDialog({
         return;
       }
 
-      // Convert to MHz
-      const frequencyInMHz = unit === 'GHz' ? frequency * 1000 : frequency;
+      // Call solve function with frequency and unit
+      await onSolve(frequency, unit);
 
-      // Call solve function
-      await onSolve(frequencyInMHz);
-
-      // Close dialog on success
-      onClose();
+      // Dialog will be closed by parent component on success
       
       // Reset state
       setError(null);

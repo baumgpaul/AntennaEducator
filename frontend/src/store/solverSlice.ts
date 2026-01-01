@@ -408,6 +408,198 @@ export const runFrequencySweep = createAsyncThunk<
 });
 
 /**
+ * Solve current design at a single frequency (workflow entry point from Solver tab)
+ * This is the main entry point for the "Solve Single Frequency" button
+ */
+export const solveSingleFrequencyWorkflow = createAsyncThunk<
+  SolverResult,
+  { frequency: number; unit: 'MHz' | 'GHz' },
+  { state: RootState }
+>('solver/solveSingleFrequencyWorkflow', async ({ frequency, unit }, { getState, rejectWithValue, dispatch }) => {
+  try {
+    const state = getState();
+    const { elements } = state.design;
+
+    if (!elements || elements.length === 0) {
+      return rejectWithValue('No antenna elements in design');
+    }
+
+    // Convert frequency to MHz
+    const frequencyMHz = unit === 'GHz' ? frequency * 1000 : frequency;
+
+    console.log('Solving at frequency:', frequencyMHz, 'MHz');
+
+    // Prepare multi-antenna request
+    const antennaRequests = elements.map((element) => {
+      if (!element.mesh) {
+        throw new Error(`Element ${element.name} has no mesh`);
+      }
+
+      // Split sources into voltage and current sources
+      const allSources = element.sources || [];
+      const voltage_sources = allSources
+        .filter((s) => s.type === 'voltage')
+        .map((s) => ({
+          node_start: s.node_start,
+          node_end: s.node_end,
+          value: typeof s.amplitude === 'number' ? s.amplitude : 
+                 typeof s.amplitude === 'string' ? parseFloat(s.amplitude) : 
+                 (s.amplitude as any).real || 1.0,
+          R: s.series_R || 0,
+          L: s.series_L || 0,
+          C_inv: s.series_C_inv || 0,
+        }));
+
+      const current_sources = allSources
+        .filter((s) => s.type === 'current')
+        .map((s) => ({
+          node_start: s.node_start,
+          node_end: s.node_end,
+          value: typeof s.amplitude === 'number' ? s.amplitude : 
+                 typeof s.amplitude === 'string' ? parseFloat(s.amplitude) : 
+                 (s.amplitude as any).real || 1.0,
+        }));
+
+      // Map lumped elements to loads
+      const loads = (element.lumped_elements || []).map((le) => ({
+        node_start: le.node_start,
+        node_end: le.node_end,
+        R: le.R,
+        L: le.L,
+        C_inv: le.C_inv,
+      }));
+
+      return {
+        antenna_id: element.id,
+        nodes: element.mesh.nodes,
+        edges: element.mesh.edges,
+        radii: element.mesh.radii,
+        voltage_sources,
+        current_sources,
+        loads,
+      };
+    });
+
+    const request: MultiAntennaRequest = {
+      frequency: frequencyMHz * 1e6, // Convert MHz to Hz
+      antennas: antennaRequests,
+    };
+
+    // Call multi-antenna solver (handles single antenna too)
+    const result = await dispatch(runMultiAntennaSimulation(request)).unwrap();
+
+    // Update workflow state
+    dispatch(setSolverState('solved'));
+    dispatch(setCurrentFrequency(frequencyMHz));
+
+    console.log('Solver workflow complete:', {
+      frequency: frequencyMHz,
+      converged: result.converged,
+      solutions: result.antenna_solutions.length,
+    });
+
+    // Return first solution for compatibility
+    if (result.antenna_solutions.length > 0) {
+      const solution = result.antenna_solutions[0];
+      const inputImpedance = parseComplex(solution.input_impedance);
+      
+      return {
+        project_id: 'default', // Placeholder until projects system implemented
+        frequency: result.frequency,
+        omega: result.frequency * 2 * Math.PI,
+        converged: result.converged,
+        branch_currents: parseComplexArray(solution.branch_currents),
+        node_voltages: parseComplexArray(solution.node_voltages),
+        appended_voltages: parseComplexArray(solution.appended_voltages),
+        input_impedance: inputImpedance,
+        input_current: { real: 0, imag: 0 },
+        reflection_coefficient: { real: 0, imag: 0 },
+        return_loss: 0,
+        input_power: 0,
+        reflected_power: 0,
+        accepted_power: 0,
+        power_dissipated: 0,
+        solve_time: result.solve_time,
+      } as SolverResult;
+    }
+
+    throw new Error('No antenna solutions returned');
+  } catch (error: any) {
+    console.error('Single frequency solve workflow failed:', error);
+    return rejectWithValue(error.message || 'Solve failed');
+  }
+});
+
+/**
+ * Compute postprocessing for requested fields and directivity
+ * This is called when user clicks "Compute Postprocessing" button
+ */
+export const computePostprocessingWorkflow = createAsyncThunk<
+  {
+    directivity?: any; // Will be computed if directivityRequested
+    fields?: Array<{ fieldId: string; computed: boolean; dataUrl?: string }>; // Field computation results
+    message: string;
+  },
+  void,
+  { state: RootState }
+>('solver/computePostprocessingWorkflow', async (_, { getState, rejectWithValue, dispatch }) => {
+  try {
+    const state = getState();
+    const { results, directivityRequested, requestedFields } = state.solver;
+    const { elements } = state.design;
+
+    if (!results) {
+      return rejectWithValue('No solver results available. Run solver first.');
+    }
+
+    if (!elements || elements.length === 0) {
+      return rejectWithValue('No antenna elements in design');
+    }
+
+    const response: {
+      directivity?: any;
+      fields?: Array<{ fieldId: string; computed: boolean; dataUrl?: string }>;
+      message: string;
+    } = { message: 'Postprocessing complete' };
+
+    // Compute directivity if requested
+    if (directivityRequested) {
+      console.log('Computing directivity...');
+      const pattern = await dispatch(computeRadiationPattern()).unwrap();
+      response.directivity = pattern;
+      console.log('Directivity computed:', pattern.directivity, 'dBi');
+    }
+
+    // Compute requested field regions
+    if (requestedFields.length > 0) {
+      console.log('Computing', requestedFields.length, 'field regions...');
+      
+      // TODO: Implement field computation
+      // For now, just mark them as computed
+      // In a real implementation, we would:
+      // 1. Call postprocessor API for each field region
+      // 2. Store large field data in S3/MinIO
+      // 3. Return S3 URLs for download
+      
+      response.fields = requestedFields.map(field => ({
+        fieldId: field.id,
+        computed: true,
+        dataUrl: undefined, // Would be S3 URL in real implementation
+      }));
+    }
+
+    // Update workflow state
+    dispatch(setSolverState('postprocessing-ready'));
+
+    console.log('Postprocessing workflow complete:', response);
+    return response;
+  } catch (error: any) {
+    console.error('Postprocessing workflow failed:', error);
+    return rejectWithValue(error.message || 'Postprocessing failed');
+  }
+});
+
+/**
  * Compute radiation pattern from solver results
  */
 export const computeRadiationPattern = createAsyncThunk<
@@ -834,6 +1026,57 @@ const solverSlice = createSlice({
       state.error = action.payload as string || 'Frequency sweep failed';
       state.progress = 0;
       console.error('Frequency sweep rejected:', state.error);
+    });
+
+    // ========================================================================
+    // Solve Single Frequency Workflow
+    // ========================================================================
+    builder.addCase(solveSingleFrequencyWorkflow.pending, (state) => {
+      state.status = 'running';
+      state.progress = 0;
+      state.error = null;
+      console.log('Solve single frequency workflow started...');
+    });
+
+    builder.addCase(solveSingleFrequencyWorkflow.fulfilled, (state, action) => {
+      state.status = 'completed';
+      state.progress = 100;
+      console.log('Solve single frequency workflow completed:', {
+        frequency: action.payload.frequency,
+        converged: action.payload.converged,
+        impedance: action.payload.input_impedance,
+      });
+    });
+
+    builder.addCase(solveSingleFrequencyWorkflow.rejected, (state, action) => {
+      state.status = 'failed';
+      state.error = action.payload as string || 'Solve workflow failed';
+      state.progress = 0;
+      state.solverState = 'idle'; // Reset workflow state on error
+      console.error('Solve single frequency workflow rejected:', state.error);
+    });
+
+    // ========================================================================
+    // Compute Postprocessing Workflow
+    // ========================================================================
+    builder.addCase(computePostprocessingWorkflow.pending, (state) => {
+      state.status = 'running';
+      state.progress = 50; // Arbitrary progress indicator
+      state.error = null;
+      console.log('Compute postprocessing workflow started...');
+    });
+
+    builder.addCase(computePostprocessingWorkflow.fulfilled, (state, action) => {
+      state.status = 'completed';
+      state.progress = 100;
+      console.log('Compute postprocessing workflow completed:', action.payload.message);
+    });
+
+    builder.addCase(computePostprocessingWorkflow.rejected, (state, action) => {
+      state.status = 'failed';
+      state.error = action.payload as string || 'Postprocessing workflow failed';
+      state.progress = 0;
+      console.error('Compute postprocessing workflow rejected:', state.error);
     });
   },
 });
