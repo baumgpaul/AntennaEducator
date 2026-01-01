@@ -9,6 +9,14 @@ import {
   ListItemIcon,
   Paper,
   Divider,
+  ToggleButtonGroup,
+  ToggleButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Slider,
+  SelectChangeEvent,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
@@ -16,6 +24,11 @@ import GridOnIcon from '@mui/icons-material/GridOn';
 import type { SolverWorkflowState } from '@/store/solverSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
+
+type VisualizationMode = 'magnitude' | 'vectorial' | 'component' | 'phase';
+type ColorMap = 'jet' | 'turbo' | 'viridis' | 'plasma' | 'twilight';
+type Component = 'x' | 'y' | 'z';
+type ComplexPart = 'magnitude' | 'real' | 'imaginary';
 
 interface PostprocessingTabProps {
   solverState: SolverWorkflowState;
@@ -33,6 +46,11 @@ function PostprocessingTab({
   fieldResults,
 }: PostprocessingTabProps) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('magnitude');
+  const [colorMap, setColorMap] = useState<ColorMap>('jet');
+  const [opacity, setOpacity] = useState<number>(80);
+  const [selectedComponent, setSelectedComponent] = useState<Component>('x');
+  const [complexPart, setComplexPart] = useState<ComplexPart>('magnitude');
 
   const statusMessage =
     solverState === 'postprocessing-ready'
@@ -307,9 +325,130 @@ function PostprocessingTab({
                       {isComputed ? `Computed (${numPoints} points)` : 'Pending computation'}
                     </Typography>
                   </Paper>
-                  <Typography variant="caption" color="text.secondary">
-                    Field visualization and export coming in Day 5.
-                  </Typography>
+
+                  {isComputed && (
+                    <>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+                        Visualization Settings
+                      </Typography>
+
+                      {/* Visualization Mode */}
+                      <Box sx={{ mb: 3 }}>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                          Display Mode
+                        </Typography>
+                        <ToggleButtonGroup
+                          value={visualizationMode}
+                          exclusive
+                          onChange={(_, newMode) => {
+                            if (newMode !== null) setVisualizationMode(newMode);
+                          }}
+                          size="small"
+                          fullWidth
+                        >
+                          <ToggleButton value="magnitude">Magnitude</ToggleButton>
+                          <ToggleButton value="vectorial">Vectorial</ToggleButton>
+                          <ToggleButton value="component">Component</ToggleButton>
+                          <ToggleButton value="phase">Phase</ToggleButton>
+                        </ToggleButtonGroup>
+                      </Box>
+
+                      {/* Component Selector (only for component mode) */}
+                      {visualizationMode === 'component' && (
+                        <Box sx={{ mb: 3 }}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Component</InputLabel>
+                            <Select
+                              value={selectedComponent}
+                              label="Component"
+                              onChange={(e: SelectChangeEvent<Component>) => 
+                                setSelectedComponent(e.target.value as Component)
+                              }
+                            >
+                              <MenuItem value="x">X Component</MenuItem>
+                              <MenuItem value="y">Y Component</MenuItem>
+                              <MenuItem value="z">Z Component</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Box>
+                      )}
+
+                      {/* Complex Value Part Selector (for component and phase modes) */}
+                      {(visualizationMode === 'component' || visualizationMode === 'phase') && (
+                        <Box sx={{ mb: 3 }}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Value</InputLabel>
+                            <Select
+                              value={complexPart}
+                              label="Value"
+                              onChange={(e: SelectChangeEvent<ComplexPart>) => 
+                                setComplexPart(e.target.value as ComplexPart)
+                              }
+                            >
+                              <MenuItem value="magnitude">Magnitude</MenuItem>
+                              <MenuItem value="real">Real Part</MenuItem>
+                              <MenuItem value="imaginary">Imaginary Part</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Box>
+                      )}
+
+                      {/* Color Map */}
+                      <Box sx={{ mb: 3 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Color Map</InputLabel>
+                          <Select
+                            value={colorMap}
+                            label="Color Map"
+                            onChange={(e: SelectChangeEvent<ColorMap>) => 
+                              setColorMap(e.target.value as ColorMap)
+                            }
+                          >
+                            <MenuItem value="jet">Jet</MenuItem>
+                            <MenuItem value="turbo">Turbo</MenuItem>
+                            <MenuItem value="viridis">Viridis</MenuItem>
+                            <MenuItem value="plasma">Plasma</MenuItem>
+                            <MenuItem value="twilight">Twilight</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Box>
+
+                      {/* Opacity Slider */}
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                          Opacity: {opacity}%
+                        </Typography>
+                        <Slider
+                          value={opacity}
+                          onChange={(_, newValue) => setOpacity(newValue as number)}
+                          min={0}
+                          max={100}
+                          step={5}
+                          marks={[
+                            { value: 0, label: '0%' },
+                            { value: 50, label: '50%' },
+                            { value: 100, label: '100%' },
+                          ]}
+                          valueLabelDisplay="auto"
+                          size="small"
+                        />
+                      </Box>
+
+                      <Typography variant="caption" color="text.secondary">
+                        3D visualization rendering coming soon.
+                      </Typography>
+                    </>
+                  )}
+
+                  {!isComputed && (
+                    <>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="caption" color="text.secondary">
+                        Visualization settings will be available after field computation.
+                      </Typography>
+                    </>
+                  )}
                 </>
               );
             })()}

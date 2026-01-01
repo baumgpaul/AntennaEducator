@@ -16,15 +16,19 @@ const makeElement = (id: string, name: string, type: AntennaElement['type']): An
   locked: false,
 });
 
-const makeField = (id: string, type: FieldDefinition['type'], shape: FieldDefinition['shape']): FieldDefinition => ({
+const makeField = (id: string, regionType: '2D' | '3D', shape: string): FieldDefinition => ({
   id,
   name: `Field ${id}`,
-  type,
+  type: regionType,
   shape: shape as any,
   centerPoint: [0, 0, 0],
-  sampling: type === '2D' ? { x: 1, y: 1 } : { radial: 1, angular: 1 },
+  sampling: regionType === '2D' ? { x: 5, y: 5 } : { radial: 5, angular: 10 },
   farField: false,
   fieldTypes: ['E'],
+  visible: true,
+  opacity: 80,
+  pointCount: 25,
+  parameters: {},
 });
 
 describe('PostprocessingTab', () => {
@@ -99,10 +103,10 @@ describe('PostprocessingTab', () => {
     render(
       <PostprocessingTab
         solverState="solved"
-        elements={[makeElement('wire1')]}
+        elements={[makeElement('1', 'Wire 1', 'dipole')]}
         requestedFields={[]}
         directivityRequested={false}
-        fieldResults={[]}
+        fieldResults={{}}
       />
     );
     
@@ -135,10 +139,10 @@ describe('PostprocessingTab', () => {
     render(
       <PostprocessingTab
         solverState="solved"
-        elements={[makeElement('wire1')]}
+        elements={[makeElement('1', 'Wire 1', 'dipole')]}
         requestedFields={[]}
         directivityRequested={true}
-        fieldResults={[]}
+        fieldResults={{}}
       />
     );
     
@@ -153,17 +157,22 @@ describe('PostprocessingTab', () => {
     const field: FieldDefinition = {
       id: 'field1',
       name: 'Field 1',
-      type: 'E',
+      type: '2D',
       shape: 'plane',
       centerPoint: [1, 2, 3],
       pointCount: 25,
-      parameters: {}
+      parameters: {},
+      sampling: { x: 5, y: 5 },
+      farField: false,
+      fieldTypes: ['E'],
+      visible: true,
+      opacity: 80,
     };
     
     render(
       <PostprocessingTab
         solverState="solved"
-        elements={[makeElement('wire1')]}
+        elements={[makeElement('1', 'Wire 1', 'dipole')]}
         requestedFields={[field]}
         directivityRequested={false}
         fieldResults={{ field1: { computed: true, num_points: 25 } }}
@@ -173,8 +182,163 @@ describe('PostprocessingTab', () => {
     const fieldItem = screen.getByRole('button', { name: /field 1/i });
     fireEvent.click(fieldItem);
     
-    expect(screen.getByText(/E Region/i)).toBeInTheDocument();
+    expect(screen.getByText(/2D Region/i)).toBeInTheDocument();
     expect(screen.getByText(/\(1, 2, 3\) mm/i)).toBeInTheDocument();
     expect(screen.getByText(/Computed \(25 points\)/i)).toBeInTheDocument();
   });
+
+  it('shows visualization controls for computed fields', () => {
+    const field: FieldDefinition = {
+      id: 'field1',
+      name: 'Field 1',
+      type: '2D',
+      shape: 'plane',
+      centerPoint: [0, 0, 50],
+      pointCount: 25,
+      parameters: {},
+      sampling: { x: 10, y: 10 },
+      farField: false,
+      fieldTypes: ['E'],
+      visible: true,
+      opacity: 80,
+    };
+    
+    render(
+      <PostprocessingTab
+        solverState="solved"
+        elements={[makeElement('1', 'Wire 1', 'dipole')]}
+        requestedFields={[field]}
+        directivityRequested={false}
+        fieldResults={{ field1: { computed: true, num_points: 25 } }}
+      />
+    );
+    
+    const fieldItem = screen.getByRole('button', { name: /field 1/i });
+    fireEvent.click(fieldItem);
+    
+    // Check visualization controls are present
+    expect(screen.getByText('Visualization Settings')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /magnitude/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /vectorial/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /component/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /phase/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/Color Map/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/opacity:/i)).toBeInTheDocument();
+  });
+
+  it('hides visualization controls for uncomputed fields', () => {
+    const field: FieldDefinition = {
+      id: 'field1',
+      name: 'Field 1',
+      type: '2D',
+      shape: 'plane',
+      centerPoint: [0, 0, 50],
+      pointCount: 25,
+      parameters: {},
+      sampling: { x: 10, y: 10 },
+      farField: false,
+      fieldTypes: ['E'],
+      visible: true,
+      opacity: 80,
+    };
+    
+    render(
+      <PostprocessingTab
+        solverState="solved"
+        elements={[makeElement('1', 'Wire 1', 'dipole')]}
+        requestedFields={[field]}
+        directivityRequested={false}
+        fieldResults={{ field1: { computed: false, num_points: 0 } }}
+      />
+    );
+    
+    const fieldItem = screen.getByRole('button', { name: /field 1/i });
+    fireEvent.click(fieldItem);
+    
+    // Visualization controls should not be present
+    expect(screen.queryByText('Visualization Settings')).not.toBeInTheDocument();
+    expect(screen.getByText(/visualization settings will be available after field computation/i)).toBeInTheDocument();
+  });
+
+  it('shows component selector when component mode is selected', () => {
+    const field: FieldDefinition = {
+      id: 'field1',
+      name: 'Field 1',
+      type: '2D',
+      shape: 'plane',
+      centerPoint: [0, 0, 50],
+      pointCount: 25,
+      parameters: {},
+      sampling: { x: 10, y: 10 },
+      farField: false,
+      fieldTypes: ['E'],
+      visible: true,
+      opacity: 80,
+    };
+    
+    render(
+      <PostprocessingTab
+        solverState="solved"
+        elements={[makeElement('1', 'Wire 1', 'dipole')]}
+        requestedFields={[field]}
+        directivityRequested={false}
+        fieldResults={{ field1: { computed: true, num_points: 25 } }}
+      />
+    );
+    
+    const fieldItem = screen.getByRole('button', { name: /field 1/i });
+    fireEvent.click(fieldItem);
+    
+    // Should have 1 combobox initially (Color Map only, magnitude mode is default)
+    expect(screen.getAllByRole('combobox')).toHaveLength(1);
+    
+    // Click component mode button
+    const componentButton = screen.getByRole('button', { name: 'Component' });
+    fireEvent.click(componentButton);
+    
+    // Component and complex value dropdowns should now be visible (3 comboboxes total)
+    expect(screen.getAllByRole('combobox')).toHaveLength(3);
+    // Check that both dropdown labels exist (will find multiple matches but that's ok)
+    expect(screen.getAllByText(/Component/).length).toBeGreaterThan(1);
+    expect(screen.getAllByText(/Value/).length).toBeGreaterThan(0);
+  });
+
+  it('shows complex value selector in phase mode', () => {
+    const field: FieldDefinition = {
+      id: 'field1',
+      name: 'Field 1',
+      type: '2D',
+      shape: 'plane',
+      centerPoint: [0, 0, 50],
+      pointCount: 25,
+      parameters: {},
+      sampling: { x: 10, y: 10 },
+      farField: false,
+      fieldTypes: ['E'],
+      visible: true,
+      opacity: 80,
+    };
+    
+    render(
+      <PostprocessingTab
+        solverState="solved"
+        elements={[makeElement('1', 'Wire 1', 'dipole')]}
+        requestedFields={[field]}
+        directivityRequested={false}
+        fieldResults={{ field1: { computed: true, num_points: 25 } }}
+      />
+    );
+    
+    const fieldItem = screen.getByRole('button', { name: /field 1/i });
+    fireEvent.click(fieldItem);
+    
+    // Click phase mode button
+    const phaseButton = screen.getByRole('button', { name: 'Phase' });
+    fireEvent.click(phaseButton);
+    
+    // Complex value dropdown should be visible (2 comboboxes: Color Map + Value)
+    expect(screen.getAllByRole('combobox')).toHaveLength(2);
+    expect(screen.getAllByText(/Value/).length).toBeGreaterThan(0);
+  });
 });
+
