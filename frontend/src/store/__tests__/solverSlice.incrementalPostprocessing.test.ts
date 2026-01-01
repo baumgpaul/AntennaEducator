@@ -304,9 +304,13 @@ describe('Incremental Postprocessing Workflow', () => {
 
     const state = store.getState().solver;
     
-    // Should track 3 items: 1 directivity + 2 fields
-    expect(state.postprocessingProgress?.total).toBe(3);
-    expect(state.postprocessingProgress?.completed).toBe(3);
+    // Progress should be cleared after completion
+    expect(state.postprocessingProgress).toBeNull();
+    // But all 3 items should be computed: 1 directivity + 2 fields
+    expect(state.postprocessingStatus).toBe('completed');
+    expect(state.fieldResults['directivity']?.computed).toBe(true);
+    expect(state.fieldResults['field-1']?.computed).toBe(true);
+    expect(state.fieldResults['field-2']?.computed).toBe(true);
   });
 
   it('allows postprocessing from postprocessing-ready state', async () => {

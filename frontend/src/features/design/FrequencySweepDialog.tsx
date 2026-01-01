@@ -136,6 +136,11 @@ export const FrequencySweepDialog: React.FC<FrequencySweepDialogProps> = ({
                 (field.value / 1e6).toString()
               );
 
+              // Sync display value when field value changes (e.g., on reset)
+              React.useEffect(() => {
+                setDisplayValue((field.value / 1e6).toString());
+              }, [field.value]);
+
               return (
                 <TextField
                   label="Start Frequency (MHz)"
@@ -176,6 +181,11 @@ export const FrequencySweepDialog: React.FC<FrequencySweepDialogProps> = ({
               const [displayValue, setDisplayValue] = React.useState(
                 (field.value / 1e6).toString()
               );
+
+              // Sync display value when field value changes (e.g., on reset)
+              React.useEffect(() => {
+                setDisplayValue((field.value / 1e6).toString());
+              }, [field.value]);
 
               return (
                 <TextField
