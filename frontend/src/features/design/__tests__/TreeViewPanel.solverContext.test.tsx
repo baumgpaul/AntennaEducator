@@ -15,7 +15,7 @@ const sampleField: MinimalField = {
   normalPreset: 'XY',
   sampling: { x: 20, y: 20 },
   farField: false,
-  fieldTypes: ['E'],
+  fieldType: 'E',
   visible: true,
 };
 

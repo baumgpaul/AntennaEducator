@@ -20,7 +20,7 @@ describe('FieldRegionVisualization', () => {
       y: 20,
     },
     farField: false,
-    fieldTypes: ['E'],
+    fieldType: 'E',
   };
 
   const mockSphereField: FieldDefinition = {
@@ -34,7 +34,7 @@ describe('FieldRegionVisualization', () => {
       angular: 20,
     },
     farField: false,
-    fieldTypes: ['poynting'],
+    fieldType: 'poynting',
   };
 
   it('renders without crashing when no fields provided', () => {

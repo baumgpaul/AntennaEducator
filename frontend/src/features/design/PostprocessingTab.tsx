@@ -2,11 +2,6 @@ import { useState } from 'react';
 import {
   Box,
   Typography,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  ListItemIcon,
   Paper,
   Divider,
   ToggleButtonGroup,
@@ -22,9 +17,6 @@ import {
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
-import GridOnIcon from '@mui/icons-material/GridOn';
 import type { SolverWorkflowState } from '@/store/solverSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
@@ -32,6 +24,19 @@ import type { FrequencySweepResult } from '@/types/api';
 import Scene3D from './Scene3D';
 import FieldVisualization from './FieldVisualization';
 import RibbonMenu from './RibbonMenu';
+import TreeViewPanel from './TreeViewPanel';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+  selectViewConfigurations,
+  selectSelectedViewId,
+  selectSelectedItemId,
+  selectView,
+  deleteViewConfiguration,
+  renameViewConfiguration,
+  selectItem,
+  removeItemFromView,
+  toggleItemVisibility,
+} from '@/store/postprocessingSlice';
 import type { ColorMapType } from '@/utils/colorMaps';
 
 type VisualizationMode = 'magnitude' | 'vectorial' | 'component' | 'phase';
@@ -59,13 +64,21 @@ function PostprocessingTab({
   solverState,
   elements,
   requestedFields,
-  directivityRequested,
   fieldResults,
   currentFrequency,
   frequencySweep,
   fieldData,
 }: PostprocessingTabProps) {
-  const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  
+  // Redux state for view configurations
+  const viewConfigurations = useAppSelector(selectViewConfigurations);
+  const selectedViewId = useAppSelector(selectSelectedViewId);
+  const selectedItemId = useAppSelector(selectSelectedItemId);
+  
+  // Backwards compatibility: map selectedItemId to selectedItem for existing code
+  const selectedItem = selectedItemId;
+  
   const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('magnitude');
   const [colorMap, setColorMap] = useState<ColorMapType>('jet');
   const [opacity, setOpacity] = useState<number>(80);
@@ -112,10 +125,6 @@ function PostprocessingTab({
     }
   };
 
-  const handleSelectItem = (itemId: string) => {
-    setSelectedItem(itemId);
-  };
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* RIBBON MENU */}
@@ -123,163 +132,22 @@ function PostprocessingTab({
       
       {/* MAIN CONTENT - 3 PANELS */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* LEFT PANEL - Structure & Solution Outputs */}
-        <Box
-          sx={{
-            width: 280,
-            borderRight: 1,
-            borderColor: 'divider',
-            overflowY: 'auto',
-            backgroundColor: 'background.paper',
+        {/* LEFT PANEL - TreeView with View Configurations */}
+        <TreeViewPanel
+          mode="postprocessing"
+          viewConfigurations={viewConfigurations}
+          selectedViewId={selectedViewId}
+          selectedItemId={selectedItemId}
+          onViewSelect={(viewId) => dispatch(selectView(viewId))}
+          onViewDelete={(viewId) => dispatch(deleteViewConfiguration(viewId))}
+          onViewRename={(viewId, newName) => dispatch(renameViewConfiguration({ viewId, name: newName }))}
+          onItemSelect={(viewId, itemId) => {
+            dispatch(selectView(viewId));
+            dispatch(selectItem(itemId));
           }}
-        >
-          {/* Structure Section */}
-        <Box
-          sx={{
-            px: 2,
-            py: 1,
-            borderBottom: 1,
-            borderColor: 'divider',
-            bgcolor: 'background.default',
-          }}
-        >
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Structure
-          </Typography>
-        </Box>
-        <List disablePadding data-testid="structure-list">
-          {elements.length === 0 ? (
-            <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
-              <Typography variant="body2">No antenna loaded</Typography>
-            </Box>
-          ) : (
-            elements.map((el) => (
-              <ListItem key={el.id} disablePadding>
-                <ListItemButton disabled sx={{ pl: 3, opacity: 0.7 }}>
-                  <ListItemText
-                    primary={el.name || 'Antenna'}
-                    secondary={el.type || 'Element'}
-                    primaryTypographyProps={{ variant: 'body2' }}
-                    secondaryTypographyProps={{ variant: 'caption' }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))
-          )}
-        </List>
-
-        {/* Solution Outputs Section */}
-        <Box
-          sx={{
-            px: 2,
-            py: 1,
-            borderTop: 1,
-            borderBottom: 1,
-            borderColor: 'divider',
-            bgcolor: 'background.default',
-            mt: 1,
-          }}
-        >
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Solution Outputs
-          </Typography>
-        </Box>
-        <List disablePadding data-testid="outputs-list">
-          {/* Currents - Always present */}
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={selectedItem === 'currents'}
-              onClick={() => handleSelectItem('currents')}
-              sx={{ pl: 3 }}
-            >
-              <ListItemIcon sx={{ minWidth: 36 }}>
-                <CheckCircleIcon fontSize="small" color="success" />
-              </ListItemIcon>
-              <ListItemText
-                primary="Currents"
-                secondary="Branch currents"
-                secondaryTypographyProps={{ variant: 'caption' }}
-              />
-            </ListItemButton>
-          </ListItem>
-
-          {/* Voltages - Always present */}
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={selectedItem === 'voltages'}
-              onClick={() => handleSelectItem('voltages')}
-              sx={{ pl: 3 }}
-            >
-              <ListItemIcon sx={{ minWidth: 36 }}>
-                <CheckCircleIcon fontSize="small" color="success" />
-              </ListItemIcon>
-              <ListItemText
-                primary="Voltages"
-                secondary="Node potentials"
-                secondaryTypographyProps={{ variant: 'caption' }}
-              />
-            </ListItemButton>
-          </ListItem>
-
-          {/* Directivity - If requested */}
-          {directivityRequested && (
-            <ListItem disablePadding>
-              <ListItemButton
-                selected={selectedItem === 'directivity'}
-                onClick={() => handleSelectItem('directivity')}
-                sx={{ pl: 3 }}
-              >
-                <ListItemIcon sx={{ minWidth: 36 }}>
-                  <RadioButtonUncheckedIcon fontSize="small" color="secondary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Directivity"
-                  secondary="Far-field pattern"
-                  secondaryTypographyProps={{ variant: 'caption' }}
-                />
-              </ListItemButton>
-            </ListItem>
-          )}
-
-          {/* Field Regions */}
-          {requestedFields.length === 0 && !directivityRequested && (
-            <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
-              <Typography variant="body2">No fields requested</Typography>
-            </Box>
-          )}
-          {requestedFields.map((field, idx) => {
-            const isComputed = fieldResults?.[field.id]?.computed ?? false;
-            const numPoints = fieldResults?.[field.id]?.num_points;
-
-            return (
-              <ListItem key={field.id} disablePadding>
-                <ListItemButton
-                  selected={selectedItem === field.id}
-                  onClick={() => handleSelectItem(field.id)}
-                  sx={{ pl: 3 }}
-                >
-                  <ListItemIcon sx={{ minWidth: 36 }}>
-                    {isComputed ? (
-                      <CheckCircleIcon fontSize="small" sx={{ color: 'success.main' }} />
-                    ) : (
-                      <GridOnIcon fontSize="small" color="info" />
-                    )}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={field.name || `Field ${idx + 1}`}
-                    secondary={`${field.type} ${field.shape}${isComputed ? ` · ${numPoints} pts` : ''}`}
-                    primaryTypographyProps={{ variant: 'body2' }}
-                    secondaryTypographyProps={{
-                      variant: 'caption',
-                      sx: { color: isComputed ? 'success.main' : 'text.secondary' },
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            );
-          })}
-        </List>
-      </Box>
+          onItemDelete={(viewId, itemId) => dispatch(removeItemFromView({ viewId, itemId }))}
+          onItemVisibilityToggle={(viewId, itemId) => dispatch(toggleItemVisibility({ viewId, itemId }))}
+        />
 
       {/* MIDDLE PANEL - 3D Visualization */}
       <Box

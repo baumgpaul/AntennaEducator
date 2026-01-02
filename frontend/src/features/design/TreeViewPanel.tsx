@@ -67,7 +67,7 @@ interface TreeViewPanelProps {
   onElementVisibilityToggle?: (elementId: string, visible: boolean) => void;
   
   // Mode control
-  mode?: 'designer' | 'solver'; // designer: full edit controls, solver: view-only
+  mode?: 'designer' | 'solver' | 'postprocessing'; // designer: full edit, solver: view-only, postprocessing: view configs
   
   // Field regions (solver mode only)
   fieldRegions?: Array<{ id: string; name?: string; type: string; shape: string; visible?: boolean }>;
@@ -80,6 +80,27 @@ interface TreeViewPanelProps {
   directivityRequested?: boolean;
   onDirectivitySelect?: () => void;
   onDirectivityDelete?: () => void;
+  
+  // Postprocessing mode (view configurations)
+  viewConfigurations?: Array<{
+    id: string;
+    name: string;
+    viewType: '3D' | 'Line';
+    items: Array<{
+      id: string;
+      type: string;
+      label?: string;
+      visible?: boolean;
+    }>;
+  }>;
+  selectedViewId?: string | null;
+  selectedItemId?: string | null;
+  onViewSelect?: (viewId: string) => void;
+  onViewDelete?: (viewId: string) => void;
+  onViewRename?: (viewId: string, newName: string) => void;
+  onItemSelect?: (viewId: string, itemId: string) => void;
+  onItemDelete?: (viewId: string, itemId: string) => void;
+  onItemVisibilityToggle?: (viewId: string, itemId: string) => void;
   
   // Single mesh support (backward compatibility)
   mesh?: Mesh;
@@ -115,6 +136,15 @@ function TreeViewPanel({
   directivityRequested = false,
   onDirectivitySelect,
   onDirectivityDelete,
+  viewConfigurations = [],
+  selectedViewId,
+  selectedItemId,
+  onViewSelect,
+  onViewDelete,
+  onViewRename,
+  onItemSelect,
+  onItemDelete,
+  onItemVisibilityToggle,
   mesh,
   sources = [],
   lumpedElements = [],
@@ -759,6 +789,137 @@ function TreeViewPanel({
                 </Box>
               )}
             </List>
+          </>
+        )}
+
+        {/* Postprocessing Mode - View Configurations */}
+        {mode === 'postprocessing' && (
+          <>
+            <Box
+              sx={{
+                px: 2,
+                py: 1,
+                borderTop: 1,
+                borderBottom: 1,
+                borderColor: 'divider',
+                bgcolor: 'background.default',
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                Result Views
+              </Typography>
+            </Box>
+            {viewConfigurations.length === 0 ? (
+              <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
+                <Typography variant="body2">No result views yet</Typography>
+                <Typography variant="caption">Click "Add View" to create one</Typography>
+              </Box>
+            ) : (
+              <List disablePadding>
+                {viewConfigurations.map((view) => (
+                  <Accordion
+                    key={view.id}
+                    disableGutters
+                    elevation={0}
+                    sx={{
+                      '&:before': { display: 'none' },
+                      bgcolor: view.id === selectedViewId ? 'action.selected' : 'transparent',
+                    }}
+                  >
+                    <AccordionSummary
+                      expandIcon={<ExpandMore />}
+                      onClick={() => onViewSelect?.(view.id)}
+                      sx={{
+                        minHeight: 48,
+                        '& .MuiAccordionSummary-content': {
+                          my: 0.5,
+                          alignItems: 'center',
+                          gap: 1,
+                        },
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: view.id === selectedViewId ? 600 : 400, flex: 1 }}>
+                        {view.name}
+                      </Typography>
+                      <Chip
+                        label={view.viewType}
+                        size="small"
+                        variant="outlined"
+                        color={view.viewType === '3D' ? 'primary' : 'secondary'}
+                        sx={{ height: 20, fontSize: '0.65rem' }}
+                      />
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ p: 0 }}>
+                      {view.items.length === 0 ? (
+                        <Box sx={{ px: 3, py: 2, color: 'text.secondary' }}>
+                          <Typography variant="caption">No items in this view</Typography>
+                        </Box>
+                      ) : (
+                        <List disablePadding>
+                          {view.items.map((item) => (
+                            <ListItem
+                              key={item.id}
+                              disablePadding
+                              secondaryAction={
+                                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                  <Tooltip title={item.visible === false ? 'Show' : 'Hide'}>
+                                    <IconButton
+                                      size="small"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onItemVisibilityToggle?.(view.id, item.id);
+                                      }}
+                                      sx={{ p: 0.5 }}
+                                    >
+                                      {item.visible === false ? (
+                                        <VisibilityOff fontSize="small" />
+                                      ) : (
+                                        <Visibility fontSize="small" />
+                                      )}
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Remove from view">
+                                    <IconButton
+                                      size="small"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onItemDelete?.(view.id, item.id);
+                                      }}
+                                      sx={{ p: 0.5 }}
+                                    >
+                                      <Delete fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </Box>
+                              }
+                            >
+                              <ListItemButton
+                                selected={item.id === selectedItemId}
+                                onClick={() => onItemSelect?.(view.id, item.id)}
+                                sx={{ pl: 5, pr: 10 }}
+                              >
+                                <ListItemText
+                                  primary={item.label || item.type}
+                                  primaryTypographyProps={{
+                                    variant: 'body2',
+                                    sx: {
+                                      fontWeight: item.id === selectedItemId ? 600 : 400,
+                                      opacity: item.visible === false ? 0.5 : 1,
+                                    },
+                                  }}
+                                  secondary={item.type}
+                                  secondaryTypographyProps={{ variant: 'caption' }}
+                                />
+                              </ListItemButton>
+                            </ListItem>
+                          ))}
+                        </List>
+                      )}
+                    </AccordionDetails>
+                  </Accordion>
+                ))}
+              </List>
+            )}
           </>
         )}
       </Box>

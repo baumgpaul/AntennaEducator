@@ -22,13 +22,11 @@ import {
   RadioGroup,
   FormControlLabel,
   FormLabel,
-  Checkbox,
-  FormGroup,
   Box,
 } from '@mui/material';
 import { ViewInAr, PanoramaFishEye } from '@mui/icons-material';
 
-const steps = ['Region Type', 'Shape', 'Parameters', 'Field Types', 'Field/Near Far'];
+const steps = ['Region Type', 'Shape', 'Parameters', 'Field Type', 'Field/Near Far'];
 
 interface AddFieldDialogProps {
   open: boolean;
@@ -43,7 +41,7 @@ interface AddFieldDialogProps {
  * 1. Select 2D or 3D region
  * 2. Select shape (plane/circle for 2D, sphere/cube for 3D)
  * 3. Define parameters (center point, dimensions, sampling)
- * 4. Select field types (E, H, Poynting)
+ * 4. Select field type (E, H, or Poynting) - single selection only
  * 5. Choose near or far field
  */
 export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps) {
@@ -54,7 +52,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   const [dimensions, setDimensions] = useState({ width: 100, height: 100, radius: 50 });
   const [normalPreset, setNormalPreset] = useState<'XY' | 'YZ' | 'XZ'>('XY');
   const [sampling, setSampling] = useState({ x: 20, y: 20, radial: 10, angular: 20 });
-  const [fieldTypes, setFieldTypes] = useState({ E: true, H: false, poynting: false });
+  const [fieldType, setFieldType] = useState<'E' | 'H' | 'poynting'>('E');
   const [farField, setFarField] = useState(false);
   const nameCounterRef = useRef(1);
   const [fieldName, setFieldName] = useState('E-field 2D plane 1');
@@ -62,7 +60,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   const generateDefaultName = () => {
     const typeLabel = regionType === '2D' ? '2D' : '3D';
     const shapeLabel = shape;
-    const selectedLabel = fieldTypes.E && !fieldTypes.H && !fieldTypes.poynting ? 'E-field' : 'Field';
+    const selectedLabel = fieldType === 'E' ? 'E-field' : fieldType === 'H' ? 'H-field' : 'Poynting';
     return `${selectedLabel} ${typeLabel} ${shapeLabel} ${nameCounterRef.current}`;
   };
 
@@ -79,7 +77,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   useEffect(() => {
     setFieldName(generateDefaultName());
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regionType, shape, fieldTypes]);
+  }, [regionType, shape, fieldType]);
 
   const handleNext = () => {
     setActiveStep((prevStep) => prevStep + 1);
@@ -90,11 +88,6 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   };
 
   const handleCreate = () => {
-    const selectedFields: ('E' | 'H' | 'poynting')[] = [];
-    if (fieldTypes.E) selectedFields.push('E');
-    if (fieldTypes.H) selectedFields.push('H');
-    if (fieldTypes.poynting) selectedFields.push('poynting');
-
     const fieldDefinition: any = {
       id: `field-${Date.now()}`,
       name: fieldName.trim() || generateDefaultName(),
@@ -103,7 +96,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
       centerPoint: [center.x, center.y, center.z],
       farField,
       opacity: 0.3,
-      fieldTypes: selectedFields,
+      fieldType,
     };
 
     if (regionType === '2D') {
@@ -140,7 +133,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
     setDimensions({ width: 100, height: 100, radius: 50 });
     setNormalPreset('XY');
     setSampling({ x: 20, y: 20, radial: 10, angular: 20 });
-    setFieldTypes({ E: true, H: false, poynting: false });
+    setFieldType('E');
     setFarField(false);
     nameCounterRef.current += 1;
     setFieldName(`E-field 2D plane ${nameCounterRef.current}`);
@@ -152,10 +145,6 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   };
 
   const isNextDisabled = () => {
-    if (activeStep === 3) {
-      // Must select at least one field type
-      return !fieldTypes.E && !fieldTypes.H && !fieldTypes.poynting;
-    }
     return false;
   };
 
@@ -421,39 +410,30 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
         );
 
       case 3:
-        // Step 4: Field Types
+        // Step 4: Field Type Selection
         return (
           <FormControl component="fieldset">
-            <FormLabel component="legend">Select Field Types (at least one)</FormLabel>
-            <FormGroup>
+            <FormLabel component="legend">Select Field Type</FormLabel>
+            <RadioGroup
+              value={fieldType}
+              onChange={(e) => setFieldType(e.target.value as 'E' | 'H' | 'poynting')}
+            >
               <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={fieldTypes.E}
-                    onChange={(e) => setFieldTypes({ ...fieldTypes, E: e.target.checked })}
-                  />
-                }
+                value="E"
+                control={<Radio />}
                 label="E-field (Electric field)"
               />
               <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={fieldTypes.H}
-                    onChange={(e) => setFieldTypes({ ...fieldTypes, H: e.target.checked })}
-                  />
-                }
+                value="H"
+                control={<Radio />}
                 label="H-field (Magnetic field)"
               />
               <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={fieldTypes.poynting}
-                    onChange={(e) => setFieldTypes({ ...fieldTypes, poynting: e.target.checked })}
-                  />
-                }
+                value="poynting"
+                control={<Radio />}
                 label="Poynting (Power flow)"
               />
-            </FormGroup>
+            </RadioGroup>
           </FormControl>
         );
 

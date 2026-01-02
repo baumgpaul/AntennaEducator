@@ -58,7 +58,7 @@ const makeTestField2D = (id: string): FieldDefinition2D => ({
   normalPreset: 'XY',
   sampling: { x: 5, y: 5 },
   farField: false,
-  fieldTypes: ['E'],
+  fieldType: 'E',
   visible: true,
   opacity: 30,
   parameters: {},
@@ -195,7 +195,7 @@ describe('Incremental Postprocessing Workflow', () => {
       normalPreset: 'XY',
       sampling: { x: 5, y: 5 },
       farField: false,
-      fieldTypes: ['E'],
+      fieldType: 'E',
     }));
 
     await store.dispatch(computePostprocessingWorkflow());

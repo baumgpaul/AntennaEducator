@@ -45,7 +45,7 @@ describe('AddFieldVisualizationDialog', () => {
               dimensions: { width: 100, height: 100 },
               sampling: { x: 20, y: 20 },
               farField: false,
-              fieldTypes: ['E'],
+              fieldType: 'E',
               opacity: 0.3,
             },
           ],

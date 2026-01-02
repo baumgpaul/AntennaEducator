@@ -48,7 +48,7 @@ const sampleField2DPlane: FieldDefinition = {
   normalPreset: 'XY',
   sampling: { x: 20, y: 20 },
   farField: false,
-  fieldTypes: ['E', 'H'],
+  fieldType: 'E',
   visible: true,
 };
 
@@ -63,7 +63,7 @@ const sampleField2DCircle: FieldDefinition = {
   normalPreset: 'XY',
   sampling: { x: 30, y: 30 },
   farField: true,
-  fieldTypes: ['poynting'],
+  fieldType: 'poynting',
   visible: true,
 };
 
@@ -76,7 +76,7 @@ const sampleField3DSphere: FieldDefinition = {
   sphereRadius: 200,
   sampling: { radial: 10, angular: 20 },
   farField: false,
-  fieldTypes: ['E', 'poynting'],
+  fieldType: 'E',
   visible: true,
 };
 
@@ -89,7 +89,7 @@ const sampleField3DCube: FieldDefinition = {
   cubeDimensions: { Lx: 100, Ly: 100, Lz: 100 },
   sampling: { radial: 15, angular: 25 },
   farField: true,
-  fieldTypes: ['H'],
+  fieldType: 'H',
   visible: true,
 };
 
@@ -505,20 +505,20 @@ describe('SolverPropertiesPanel', () => {
       </Provider>
     );
 
-    // Initial state: E and H are checked
-    const eCheckbox = screen.getByLabelText('E-field (Electric)');
-    const hCheckbox = screen.getByLabelText('H-field (Magnetic)');
-    const poyntingCheckbox = screen.getByLabelText('Poynting (S)');
+    // Initial state: E is selected (radio button)
+    const eRadio = screen.getByLabelText('E-field (Electric)');
+    const hRadio = screen.getByLabelText('H-field (Magnetic)');
+    const poyntingRadio = screen.getByLabelText('Poynting (S)');
 
-    expect(eCheckbox).toBeChecked();
-    expect(hCheckbox).toBeChecked();
-    expect(poyntingCheckbox).not.toBeChecked();
+    expect(eRadio).toBeChecked();
+    expect(hRadio).not.toBeChecked();
+    expect(poyntingRadio).not.toBeChecked();
 
-    // Toggle Poynting on
-    await user.click(poyntingCheckbox);
+    // Select Poynting (radio button - only one can be selected)
+    await user.click(poyntingRadio);
     
     const state = store.getState();
-    expect(state.solver.requestedFields[0].fieldTypes).toContain('poynting');
+    expect(state.solver.requestedFields[0].fieldType).toBe('poynting');
   });
 
   // ============================================================================
@@ -642,14 +642,14 @@ describe('SolverPropertiesPanel', () => {
       </Provider>
     );
 
-    // Verify initial field types exist and can be toggled
-    const poyntingCheckbox = screen.getByLabelText('Poynting (S)');
-    expect(poyntingCheckbox).not.toBeChecked();
+    // Verify initial field type and can be changed
+    const poyntingRadio = screen.getByLabelText('Poynting (S)');
+    expect(poyntingRadio).not.toBeChecked();
     
-    // Toggle Poynting on
-    await user.click(poyntingCheckbox);
+    // Select Poynting (radio button)
+    await user.click(poyntingRadio);
     
     const state = store.getState();
-    expect(state.solver.requestedFields[0].fieldTypes).toContain('poynting');
+    expect(state.solver.requestedFields[0].fieldType).toBe('poynting');
   });
 });

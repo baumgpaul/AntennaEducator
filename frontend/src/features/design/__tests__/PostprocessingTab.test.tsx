@@ -24,7 +24,7 @@ const makeField = (id: string, regionType: '2D' | '3D', shape: string): FieldDef
   centerPoint: [0, 0, 0],
   sampling: regionType === '2D' ? { x: 5, y: 5 } : { radial: 5, angular: 10 },
   farField: false,
-  fieldTypes: ['E'],
+  fieldType: 'E',
   visible: true,
   opacity: 80,
   parameters: {},
@@ -174,7 +174,7 @@ describe('PostprocessingTab', () => {
       parameters: {},
       sampling: { x: 5, y: 5 },
       farField: false,
-      fieldTypes: ['E'],
+      fieldType: 'E',
       visible: true,
       opacity: 80,
     };
@@ -210,7 +210,7 @@ describe('PostprocessingTab', () => {
       parameters: {},
       sampling: { x: 10, y: 10 },
       farField: false,
-      fieldTypes: ['E'],
+      fieldType: 'E',
       visible: true,
       opacity: 80,
     };
@@ -251,7 +251,7 @@ describe('PostprocessingTab', () => {
       parameters: {},
       sampling: { x: 10, y: 10 },
       farField: false,
-      fieldTypes: ['E'],
+      fieldType: 'E',
       visible: true,
       opacity: 80,
     };
@@ -287,7 +287,7 @@ describe('PostprocessingTab', () => {
       parameters: {},
       sampling: { x: 10, y: 10 },
       farField: false,
-      fieldTypes: ['E'],
+      fieldType: 'E',
       visible: true,
       opacity: 80,
     };
@@ -332,7 +332,7 @@ describe('PostprocessingTab', () => {
       parameters: {},
       sampling: { x: 10, y: 10 },
       farField: false,
-      fieldTypes: ['E'],
+      fieldType: 'E',
       visible: true,
       opacity: 80,
     };

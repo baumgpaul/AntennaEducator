@@ -27,7 +27,7 @@ const make2DField = (id: string, overrides: Partial<FieldDefinition> = {}): Fiel
   normalPreset: 'XY',
   sampling: { x: 10, y: 10 },
   farField: false,
-  fieldTypes: ['E'],
+  fieldType: 'E',
   visible: true,
   ...overrides,
 });
@@ -40,7 +40,7 @@ const make3DField = (id: string, overrides: Partial<FieldDefinition> = {}): Fiel
   sphereRadius: 50,
   sampling: { radial: 5, angular: 20 },
   farField: true,
-  fieldTypes: ['poynting'],
+  fieldType: 'poynting',
   visible: true,
   ...overrides,
 });
@@ -113,12 +113,12 @@ describe('solverSlice - Field Definitions', () => {
         state,
         updateFieldRegion({
           id: 'field-1',
-          updates: { sampling: { x: 20, y: 30 }, fieldTypes: ['E', 'H'] },
+          updates: { sampling: { x: 20, y: 30 }, fieldType: 'H' },
         })
       );
 
       expect(state.requestedFields[0].sampling).toEqual({ x: 20, y: 30 });
-      expect(state.requestedFields[0].fieldTypes).toEqual(['E', 'H']);
+      expect(state.requestedFields[0].fieldType).toBe('H');
     });
 
     it('does not update when field is missing', () => {

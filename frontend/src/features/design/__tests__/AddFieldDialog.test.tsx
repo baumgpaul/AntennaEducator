@@ -284,7 +284,7 @@ describe('AddFieldDialog - T4.B1.2', () => {
           shape: 'plane',
           centerPoint: [0, 0, 50],
           farField: false,
-          fieldTypes: ['E'],
+          fieldType: 'E',
         })
       );
     });

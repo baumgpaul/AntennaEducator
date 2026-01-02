@@ -37,7 +37,7 @@ const FieldDefinition2DSchema = z.object({
     y: z.number().int().positive(),
   }),
   farField: z.boolean(),
-  fieldTypes: z.array(z.enum(['E', 'H', 'poynting'])).min(1),
+  fieldType: z.enum(['E', 'H', 'poynting']),
 });
 
 const FieldDefinition3DSchema = z.object({
@@ -61,7 +61,7 @@ const FieldDefinition3DSchema = z.object({
     angular: z.number().int().positive(),
   }),
   farField: z.boolean(),
-  fieldTypes: z.array(z.enum(['E', 'H', 'poynting'])).min(1),
+  fieldType: z.enum(['E', 'H', 'poynting']),
 });
 
 export const FieldDefinitionSchema = z.union([FieldDefinition2DSchema, FieldDefinition3DSchema]);
@@ -99,8 +99,7 @@ export function validateFieldDefinition(field: unknown): { valid: boolean; error
  * Get human-readable name for a field definition
  */
 export function getFieldDisplayName(field: FieldDefinition, index: number): string {
-  const fieldTypeStr = field.fieldTypes.join(', ');
-  return `Field ${index + 1}: ${fieldTypeStr} (${field.type} ${field.shape})`;
+  return `Field ${index + 1}: ${field.fieldType} (${field.type} ${field.shape})`;
 }
 
 /**

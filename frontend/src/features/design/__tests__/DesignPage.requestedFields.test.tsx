@@ -31,7 +31,7 @@ const sampleFields: FieldDefinition[] = [
     normalPreset: 'XY',
     sampling: { x: 20, y: 20 },
     farField: false,
-    fieldTypes: ['E'],
+    fieldType: 'E',
     visible: true,
     name: 'E-field plane',
   },
@@ -43,7 +43,7 @@ const sampleFields: FieldDefinition[] = [
     sphereRadius: 1.5,
     sampling: { radial: 10, angular: 20 },
     farField: false,
-    fieldTypes: ['poynting'],
+    fieldType: 'poynting',
     visible: true,
   },
 ];

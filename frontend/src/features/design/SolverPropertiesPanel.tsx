@@ -344,16 +344,9 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
     }
   };
 
-  // Handler for field types
-  const handleFieldTypeToggle = (type: 'E' | 'H' | 'poynting') => {
-    const currentTypes = field.fieldTypes;
-    const newTypes = currentTypes.includes(type)
-      ? currentTypes.filter(t => t !== type)
-      : [...currentTypes, type];
-    
-    if (newTypes.length > 0) {
-      onUpdate({ fieldTypes: newTypes as any });
-    }
+  // Handler for field type
+  const handleFieldTypeChange = (type: 'E' | 'H' | 'poynting') => {
+    onUpdate({ fieldType: type });
   };
 
   // Handler for far/near field
@@ -673,42 +666,31 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
         </>
       )}
 
-      {/* Field Types */}
+      {/* Field Type */}
       <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-        Field Types:
+        Field Type:
       </Typography>
-      <FormGroup sx={{ mb: 2 }}>
+      <RadioGroup
+        value={field.fieldType}
+        onChange={(e) => handleFieldTypeChange(e.target.value as 'E' | 'H' | 'poynting')}
+        sx={{ mb: 2 }}
+      >
         <FormControlLabel
-          control={
-            <Checkbox
-              checked={field.fieldTypes.includes('E')}
-              onChange={() => handleFieldTypeToggle('E')}
-              size="small"
-            />
-          }
+          value="E"
+          control={<Radio size="small" />}
           label="E-field (Electric)"
         />
         <FormControlLabel
-          control={
-            <Checkbox
-              checked={field.fieldTypes.includes('H')}
-              onChange={() => handleFieldTypeToggle('H')}
-              size="small"
-            />
-          }
+          value="H"
+          control={<Radio size="small" />}
           label="H-field (Magnetic)"
         />
         <FormControlLabel
-          control={
-            <Checkbox
-              checked={field.fieldTypes.includes('poynting')}
-              onChange={() => handleFieldTypeToggle('poynting')}
-              size="small"
-            />
-          }
+          value="poynting"
+          control={<Radio size="small" />}
           label="Poynting (S)"
         />
-      </FormGroup>
+      </RadioGroup>
 
       {/* Computation Type */}
       <Typography variant="caption" color="text.secondary" gutterBottom display="block">
