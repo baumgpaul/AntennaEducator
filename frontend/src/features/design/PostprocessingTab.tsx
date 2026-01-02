@@ -114,32 +114,42 @@ function PostprocessingTab({
       
       {/* MAIN CONTENT - 3 PANELS */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* LEFT PANEL - TreeView with View Configurations */}
-        <TreeViewPanel
-          mode="postprocessing"
-          viewConfigurations={viewConfigurations}
-          selectedViewId={selectedViewId}
-          selectedItemId={selectedItemId}
-          onViewSelect={(viewId) => dispatch(selectView(viewId))}
-          onViewDelete={(viewId) => dispatch(deleteViewConfiguration(viewId))}
-          onViewRename={(viewId, newName) => dispatch(renameViewConfiguration({ viewId, name: newName }))}
-          onItemSelect={(viewId, itemId) => {
-            dispatch(selectView(viewId));
-            dispatch(selectItem(itemId));
+        {/* LEFT PANEL - TreeView with View Configurations (280px fixed) */}
+        <Box
+          sx={{
+            width: 280,
+            height: '100%',
+            borderRight: 1,
+            borderColor: 'divider',
+            overflow: 'auto',
+            backgroundColor: 'background.paper',
           }}
-          onItemDelete={(viewId, itemId) => dispatch(removeItemFromView({ viewId, itemId }))}
-          onItemVisibilityToggle={(viewId, itemId) => dispatch(toggleItemVisibility({ viewId, itemId }))}
-        />
+        >
+          <TreeViewPanel
+            mode="postprocessing"
+            viewConfigurations={viewConfigurations}
+            selectedViewId={selectedViewId}
+            selectedItemId={selectedItemId}
+            onViewSelect={(viewId) => dispatch(selectView(viewId))}
+            onViewDelete={(viewId) => dispatch(deleteViewConfiguration(viewId))}
+            onViewRename={(viewId, newName) => dispatch(renameViewConfiguration({ viewId, name: newName }))}
+            onItemSelect={(viewId, itemId) => {
+              dispatch(selectView(viewId));
+              dispatch(selectItem(itemId));
+            }}
+            onItemDelete={(viewId, itemId) => dispatch(removeItemFromView({ viewId, itemId }))}
+            onItemVisibilityToggle={(viewId, itemId) => dispatch(toggleItemVisibility({ viewId, itemId }))}
+          />
+        </Box>
 
-      {/* MIDDLE PANEL - 3D Visualization */}
+      {/* MIDDLE PANEL - 3D Visualization (flex, remaining space) */}
       <Box
         sx={{
           flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#1a1a1a',
+          height: '100%',
           position: 'relative',
+          overflow: 'hidden',
+          backgroundColor: '#1a1a1a',
         }}
       >
         {!selectedItem || selectedItem === 'currents' || selectedItem === 'voltages' || selectedItem === 'directivity' ? (
@@ -174,8 +184,19 @@ function PostprocessingTab({
         )}
       </Box>
 
-      {/* RIGHT PANEL - Properties Panel */}
-      <PostprocessingPropertiesPanel />
+      {/* RIGHT PANEL - Properties Panel (320px fixed) */}
+      <Box
+        sx={{
+          width: 320,
+          height: '100%',
+          borderLeft: 1,
+          borderColor: 'divider',
+          overflow: 'auto',
+          backgroundColor: 'background.paper',
+        }}
+      >
+        <PostprocessingPropertiesPanel />
+      </Box>
       </Box>
     </Box>
   );

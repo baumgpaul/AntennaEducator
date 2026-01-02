@@ -47,7 +47,7 @@ function AddAntennaElementDialog() {
     dispatch(addItemToView({
       viewId: selectedViewId,
       item: {
-        type: 'antenna-element',
+        type: 'single-antenna',
         visible: true,
         antennaId: selectedElementId,
         label: element.name || element.type, // Use element name or type

@@ -43,6 +43,7 @@ import {
   setAddScalarPlotDialogOpen,
   setExportPDFDialogOpen,
   setExportType,
+  addItemToView,
 } from '@/store/postprocessingSlice';
 
 interface RibbonMenuProps {
@@ -102,8 +103,16 @@ function RibbonMenu({
   };
 
   const handleAddAntennaSystem = () => {
-    // TODO: Add antenna system directly (all elements as single tree item)
-    console.log('Add antenna system');
+    if (!selectedView) return;
+    
+    dispatch(addItemToView({
+      viewId: selectedView,
+      item: {
+        type: 'antenna-system',
+        visible: true,
+        label: 'Antenna System',
+      },
+    }));
   };
 
   const handleAddAntennaElement = () => {
@@ -111,13 +120,33 @@ function RibbonMenu({
   };
 
   const handleAddCurrentDistribution = () => {
-    // TODO: Add current distribution visualization
-    console.log('Add current distribution');
+    if (!selectedView) return;
+    
+    dispatch(addItemToView({
+      viewId: selectedView,
+      item: {
+        type: 'current',
+        visible: true,
+        label: 'Currents',
+        colorMap: 'jet',
+        opacity: 0.8,
+      },
+    }));
   };
 
   const handleAddVoltageDistribution = () => {
-    // TODO: Add voltage distribution visualization
-    console.log('Add voltage distribution');
+    if (!selectedView) return;
+    
+    dispatch(addItemToView({
+      viewId: selectedView,
+      item: {
+        type: 'voltage',
+        visible: true,
+        label: 'Voltages',
+        colorMap: 'jet',
+        opacity: 0.8,
+      },
+    }));
   };
 
   const handleAddField = () => {
@@ -125,8 +154,19 @@ function RibbonMenu({
   };
 
   const handleAddDirectivity = () => {
-    // TODO: Add directivity pattern
-    console.log('Add directivity');
+    if (!selectedView) return;
+    
+    dispatch(addItemToView({
+      viewId: selectedView,
+      item: {
+        type: 'directivity',
+        visible: true,
+        label: 'Directivity',
+        colorMap: 'jet',
+        opacity: 0.8,
+        scale: 'logarithmic',
+      },
+    }));
   };
 
   const handleAddImpedancePlot = () => {

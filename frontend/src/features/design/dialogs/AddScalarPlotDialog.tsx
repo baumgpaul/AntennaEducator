@@ -25,9 +25,6 @@ import {
   selectSelectedViewId,
   selectSelectedView,
 } from '@/store/postprocessingSlice';
-import type { ViewItemType } from '@/types/postprocessing';
-
-type PlotType = 'impedance-plot' | 'voltage-plot' | 'current-plot';
 
 function AddScalarPlotDialog() {
   const dispatch = useAppDispatch();
@@ -35,12 +32,12 @@ function AddScalarPlotDialog() {
   const selectedViewId = useAppSelector(selectSelectedViewId);
   const selectedView = useAppSelector(selectSelectedView);
   
-  const [plotType, setPlotType] = useState<PlotType>('impedance-plot');
+  const [dataType, setDataType] = useState<'impedance' | 'voltage' | 'current'>('impedance');
   const [portNumber, setPortNumber] = useState<number>(1);
 
   const handleClose = () => {
     dispatch(setAddScalarPlotDialogOpen(false));
-    setPlotType('impedance-plot');
+    setDataType('impedance');
     setPortNumber(1);
   };
 
@@ -53,26 +50,26 @@ function AddScalarPlotDialog() {
       return;
     }
 
-    const labels: Record<PlotType, string> = {
-      'impedance-plot': 'Impedance',
-      'voltage-plot': `Voltage (Port ${portNumber})`,
-      'current-plot': `Current (Port ${portNumber})`,
+    const labels: Record<string, string> = {
+      'impedance': 'Impedance',
+      'voltage': `Voltage (Port ${portNumber})`,
+      'current': `Current (Port ${portNumber})`,
     };
 
     dispatch(addItemToView({
       viewId: selectedViewId,
       item: {
-        type: plotType as ViewItemType,
+        type: 'scalar-plot',
         visible: true,
-        portNumber: plotType !== 'impedance-plot' ? portNumber : undefined,
-        label: labels[plotType],
+        portNumber: dataType !== 'impedance' ? portNumber : undefined,
+        label: labels[dataType],
       },
     }));
 
     handleClose();
   };
 
-  const requiresPort = plotType !== 'impedance-plot';
+  const requiresPort = dataType !== 'impedance';
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -81,15 +78,15 @@ function AddScalarPlotDialog() {
         <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
           {/* Plot Type */}
           <FormControl fullWidth>
-            <InputLabel>Plot Type</InputLabel>
+            <InputLabel>Data Type</InputLabel>
             <Select
-              value={plotType}
-              onChange={(e) => setPlotType(e.target.value as PlotType)}
-              label="Plot Type"
+              value={dataType}
+              onChange={(e) => setDataType(e.target.value as 'impedance' | 'voltage' | 'current')}
+              label="Data Type"
             >
-              <MenuItem value="impedance-plot">Impedance vs Frequency</MenuItem>
-              <MenuItem value="voltage-plot">Voltage vs Frequency</MenuItem>
-              <MenuItem value="current-plot">Current vs Frequency</MenuItem>
+              <MenuItem value="impedance">Impedance vs Frequency</MenuItem>
+              <MenuItem value="voltage">Voltage vs Frequency</MenuItem>
+              <MenuItem value="current">Current vs Frequency</MenuItem>
             </Select>
           </FormControl>
 
