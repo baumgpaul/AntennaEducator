@@ -68,6 +68,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const solverProgress = useSelector(selectSolverProgress);
   const currentFrequency = useSelector(selectCurrentFrequency);
   const frequencySweep = useSelector(selectFrequencySweep);
+  const results = useSelector((state: RootState) => state.solver.results);
   const postprocessingStatus = useSelector((state: RootState) => state.solver.postprocessingStatus);
   const fieldResults = useSelector((state: RootState) => state.solver.fieldResults);
   const postprocessingProgress = useSelector((state: RootState) => state.solver.postprocessingProgress);
@@ -322,17 +323,17 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               Solve Control
             </Typography>
             {/* Show sweep solution if available, otherwise show single frequency */}
-            {(solverStatus === 'completed' || solverWorkflowState === 'solved') && frequencySweep?.isComplete ? (
+            {(results && frequencySweep?.isComplete) ? (
               <Chip
                 icon={<CheckCircleIcon />}
                 label={`Sweep: ${frequencySweep.completedCount} pts`}
                 size="small"
                 sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
               />
-            ) : (solverStatus === 'completed' || solverWorkflowState === 'solved') && currentFrequency ? (
+            ) : (results && currentFrequency) ? (
               <Chip
                 icon={<CheckCircleIcon />}
-                label={`Single @ ${currentFrequency.toFixed(1)} MHz`}
+                label={`Solved @ ${currentFrequency.toFixed(1)} MHz`}
                 size="small"
                 sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
               />
