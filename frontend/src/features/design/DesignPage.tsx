@@ -25,7 +25,7 @@ import {
 } from '@/store/designSlice';
 import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification } from '@/store/uiSlice';
-import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions } from '@/store/solverSlice';
+import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState } from '@/store/solverSlice';
 import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 import {
@@ -94,6 +94,7 @@ function DesignPage() {
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const fieldData = useAppSelector((state) => state.solver.fieldData);
   const viewConfigurations = useAppSelector((state) => state.postprocessing.viewConfigurations);
+  const solverState = useAppSelector((state) => state.solver); // Full solver state for persistence
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
@@ -152,6 +153,12 @@ function DesignPage() {
       dispatch(clearViewConfigurations());
     }
 
+    // Load solver state from project
+    if (currentProject.solver_state) {
+      console.log('Loading solver state from project');
+      dispatch(loadSolverState(currentProject.solver_state));
+    }
+
     // If project has JSON description, parse and restore elements
     if (currentProject.description && currentProject.description.startsWith('[')) {
       try {
@@ -178,7 +185,7 @@ function DesignPage() {
 
   // Auto-save function with retry logic (debounced)
   const saveProjectDebounced = useRef(
-    debounce(async (projectElements: typeof elements, fields: any[], views: any[], retryCount = 0) => {
+    debounce(async (projectElements: typeof elements, fields: any[], views: any[], solverData: any, retryCount = 0) => {
       if (!projectId) {
         return;
       }
@@ -191,7 +198,7 @@ function DesignPage() {
         setShowSaveIndicator(true);
         setSaveError(null);
 
-        // Save project elements, requested fields, and view configurations to backend
+        // Save project elements, requested fields, view configurations, and solver state to backend
         await dispatch(updateProject({
           id: projectId,
           data: {
@@ -201,10 +208,12 @@ function DesignPage() {
             requested_fields: fields,
             // Store view configurations
             view_configurations: views,
+            // Store solver state
+            solver_state: solverData,
           },
         })).unwrap();
         
-        console.log('Auto-saved project with', projectElements.length, 'elements,', fields.length, 'fields, and', views.length, 'views');
+        console.log('Auto-saved project with', projectElements.length, 'elements,', fields.length, 'fields,', views.length, 'views, and solver state');
         
         setSaveStatus('saved');
         
@@ -223,7 +232,7 @@ function DesignPage() {
           setSaveError(`Retrying in ${delay / 1000}s...`);
           
           setTimeout(() => {
-            saveProjectDebounced(projectElements, fields, views, retryCount + 1);
+            saveProjectDebounced(projectElements, fields, views, solverData, retryCount + 1);
           }, delay);
         } else {
           // All retries failed
@@ -245,9 +254,25 @@ function DesignPage() {
   useEffect(() => {
     if (triggerSave > 0 && projectId && elements.length > 0) {
       console.log('Triggering auto-save after property change, elements:', elements);
-      saveProjectDebounced(elements, requestedFields, viewConfigurations);
+      // Extract persistable solver state (results, field data, etc.)
+      const persistableSolverState = {
+        results: solverState.results,
+        currentDistribution: solverState.currentDistribution,
+        radiationPattern: solverState.radiationPattern,
+        multiAntennaResults: solverState.multiAntennaResults,
+        frequencySweep: solverState.frequencySweep,
+        resultsHistory: solverState.resultsHistory,
+        requestedFields: solverState.requestedFields,
+        directivityRequested: solverState.directivityRequested,
+        directivitySettings: solverState.directivitySettings,
+        solverState: solverState.solverState,
+        currentFrequency: solverState.currentFrequency,
+        fieldResults: solverState.fieldResults,
+        fieldData: solverState.fieldData,
+      };
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
     }
-  }, [triggerSave, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced]);
+  }, [triggerSave, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced, solverState]);
 
   // Auto-save on element addition only (not on every property change)
   useEffect(() => {
@@ -255,7 +280,23 @@ function DesignPage() {
     if (elements && elements.length > previousElementCountRef.current) {
       console.log(`New element(s) added: ${previousElementCountRef.current} -> ${elements.length}, saving...`);
       previousElementCountRef.current = elements.length;
-      saveProjectDebounced(elements, requestedFields, viewConfigurations);
+      // Extract persistable solver state
+      const persistableSolverState = {
+        results: solverState.results,
+        currentDistribution: solverState.currentDistribution,
+        radiationPattern: solverState.radiationPattern,
+        multiAntennaResults: solverState.multiAntennaResults,
+        frequencySweep: solverState.frequencySweep,
+        resultsHistory: solverState.resultsHistory,
+        requestedFields: solverState.requestedFields,
+        directivityRequested: solverState.directivityRequested,
+        directivitySettings: solverState.directivitySettings,
+        solverState: solverState.solverState,
+        currentFrequency: solverState.currentFrequency,
+        fieldResults: solverState.fieldResults,
+        fieldData: solverState.fieldData,
+      };
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
     } else if (elements && elements.length < previousElementCountRef.current) {
       // Update count if elements were removed
       previousElementCountRef.current = elements.length;
@@ -271,17 +312,70 @@ function DesignPage() {
   useEffect(() => {
     if (projectId && (elements.length > 0 || requestedFields.length > 0)) {
       console.log('Requested fields changed, saving...');
-      saveProjectDebounced(elements, requestedFields, viewConfigurations);
+      const persistableSolverState = {
+        results: solverState.results,
+        currentDistribution: solverState.currentDistribution,
+        radiationPattern: solverState.radiationPattern,
+        multiAntennaResults: solverState.multiAntennaResults,
+        frequencySweep: solverState.frequencySweep,
+        resultsHistory: solverState.resultsHistory,
+        requestedFields: solverState.requestedFields,
+        directivityRequested: solverState.directivityRequested,
+        directivitySettings: solverState.directivitySettings,
+        solverState: solverState.solverState,
+        currentFrequency: solverState.currentFrequency,
+        fieldResults: solverState.fieldResults,
+        fieldData: solverState.fieldData,
+      };
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
     }
-  }, [requestedFields, projectId, elements, viewConfigurations, saveProjectDebounced]);
+  }, [requestedFields, projectId, elements, viewConfigurations, saveProjectDebounced, solverState]);
 
   // Auto-save when view configurations change
   useEffect(() => {
     if (projectId && viewConfigurations.length > 0) {
       console.log('View configurations changed, saving...');
-      saveProjectDebounced(elements, requestedFields, viewConfigurations);
+      const persistableSolverState = {
+        results: solverState.results,
+        currentDistribution: solverState.currentDistribution,
+        radiationPattern: solverState.radiationPattern,
+        multiAntennaResults: solverState.multiAntennaResults,
+        frequencySweep: solverState.frequencySweep,
+        resultsHistory: solverState.resultsHistory,
+        requestedFields: solverState.requestedFields,
+        directivityRequested: solverState.directivityRequested,
+        directivitySettings: solverState.directivitySettings,
+        solverState: solverState.solverState,
+        currentFrequency: solverState.currentFrequency,
+        fieldResults: solverState.fieldResults,
+        fieldData: solverState.fieldData,
+      };
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
     }
-  }, [viewConfigurations, projectId, elements, requestedFields, saveProjectDebounced]);
+  }, [viewConfigurations, projectId, elements, requestedFields, saveProjectDebounced, solverState]);
+
+  // Auto-save when solver completes (results, radiation pattern, field data, etc.)
+  useEffect(() => {
+    if (projectId && solverState.results) {
+      console.log('Solver results changed, saving...');
+      const persistableSolverState = {
+        results: solverState.results,
+        currentDistribution: solverState.currentDistribution,
+        radiationPattern: solverState.radiationPattern,
+        multiAntennaResults: solverState.multiAntennaResults,
+        frequencySweep: solverState.frequencySweep,
+        resultsHistory: solverState.resultsHistory,
+        requestedFields: solverState.requestedFields,
+        directivityRequested: solverState.directivityRequested,
+        directivitySettings: solverState.directivitySettings,
+        solverState: solverState.solverState,
+        currentFrequency: solverState.currentFrequency,
+        fieldResults: solverState.fieldResults,
+        fieldData: solverState.fieldData,
+      };
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
+    }
+  }, [solverState.results, solverState.radiationPattern, solverState.multiAntennaResults, solverState.frequencySweep, solverState.fieldData, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced, solverState]);
 
   // Reset element count when opening a different project
   useEffect(() => {

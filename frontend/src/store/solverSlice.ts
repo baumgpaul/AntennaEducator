@@ -1035,6 +1035,36 @@ const solverSlice = createSlice({
       state.requestedFields = action.payload;
     },
     
+    loadSolverState: (state, action: PayloadAction<Partial<SolverState> | undefined>) => {
+      if (!action.payload) return;
+      
+      // Restore solver state from database, preserving runtime-only state
+      const savedState = action.payload;
+      
+      // Restore results and computed data
+      if (savedState.results !== undefined) state.results = savedState.results;
+      if (savedState.currentDistribution !== undefined) state.currentDistribution = savedState.currentDistribution;
+      if (savedState.radiationPattern !== undefined) state.radiationPattern = savedState.radiationPattern;
+      if (savedState.multiAntennaResults !== undefined) state.multiAntennaResults = savedState.multiAntennaResults;
+      if (savedState.frequencySweep !== undefined) state.frequencySweep = savedState.frequencySweep;
+      if (savedState.resultsHistory !== undefined) state.resultsHistory = savedState.resultsHistory;
+      
+      // Restore field data and state
+      if (savedState.requestedFields !== undefined) state.requestedFields = savedState.requestedFields;
+      if (savedState.directivityRequested !== undefined) state.directivityRequested = savedState.directivityRequested;
+      if (savedState.directivitySettings !== undefined) state.directivitySettings = savedState.directivitySettings;
+      if (savedState.solverState !== undefined) state.solverState = savedState.solverState;
+      if (savedState.currentFrequency !== undefined) state.currentFrequency = savedState.currentFrequency;
+      if (savedState.fieldResults !== undefined) state.fieldResults = savedState.fieldResults;
+      if (savedState.fieldData !== undefined) state.fieldData = savedState.fieldData;
+      
+      // Don't restore status/progress/error/jobId - these are runtime state
+      // Don't restore currentRequest - this is transient
+      // Don't restore sweepInProgress - this is runtime state
+      // Don't restore postprocessingStatus/postprocessingProgress - these are runtime state
+      // Don't restore resultsStale - we assume restored results are valid
+    },
+    
     setDirectivityRequested: (state, action: PayloadAction<boolean>) => {
       state.directivityRequested = action.payload;
     },
@@ -1529,6 +1559,7 @@ export const {
   updateFieldRegion,
   clearFieldRegions,
   setFieldDefinitions,
+  loadSolverState,
   setDirectivityRequested,
   setDirectivitySettings,
   setSolverState,

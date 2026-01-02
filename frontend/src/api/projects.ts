@@ -14,6 +14,7 @@ export interface CreateProjectRequest {
   description?: string;
   requested_fields?: any[];  // Field definitions for solver
   view_configurations?: any[];  // View configurations for postprocessing
+  solver_state?: any;  // Solver results, state, and field data
 }
 
 export interface UpdateProjectRequest {
@@ -21,6 +22,7 @@ export interface UpdateProjectRequest {
   description?: string;
   requested_fields?: any[];  // Field definitions for solver
   view_configurations?: any[];  // View configurations for postprocessing
+  solver_state?: any;  // Solver results, state, and field data
 }
 
 /**
