@@ -26,6 +26,7 @@ import {
 import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification } from '@/store/uiSlice';
 import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions } from '@/store/solverSlice';
+import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 import {
   buildMultiAntennaRequest,
@@ -92,6 +93,7 @@ function DesignPage() {
   const currentFrequency = useAppSelector((state) => state.solver.currentFrequency);
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const fieldData = useAppSelector((state) => state.solver.fieldData);
+  const viewConfigurations = useAppSelector((state) => state.postprocessing.viewConfigurations);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
@@ -141,6 +143,15 @@ function DesignPage() {
       dispatch(setFieldDefinitions([]));
     }
 
+    // Load view configurations from project
+    if (currentProject.view_configurations && Array.isArray(currentProject.view_configurations)) {
+      console.log('Loading view configurations from project:', currentProject.view_configurations);
+      dispatch(loadViewConfigurations(currentProject.view_configurations));
+    } else {
+      // No view configurations - clear any existing ones
+      dispatch(clearViewConfigurations());
+    }
+
     // If project has JSON description, parse and restore elements
     if (currentProject.description && currentProject.description.startsWith('[')) {
       try {
@@ -167,7 +178,7 @@ function DesignPage() {
 
   // Auto-save function with retry logic (debounced)
   const saveProjectDebounced = useRef(
-    debounce(async (projectElements: typeof elements, fields: any[], retryCount = 0) => {
+    debounce(async (projectElements: typeof elements, fields: any[], views: any[], retryCount = 0) => {
       if (!projectId) {
         return;
       }
@@ -180,7 +191,7 @@ function DesignPage() {
         setShowSaveIndicator(true);
         setSaveError(null);
 
-        // Save project elements and requested fields to backend
+        // Save project elements, requested fields, and view configurations to backend
         await dispatch(updateProject({
           id: projectId,
           data: {
@@ -188,10 +199,12 @@ function DesignPage() {
             description: JSON.stringify(projectElements),
             // Store requested fields in dedicated column
             requested_fields: fields,
+            // Store view configurations
+            view_configurations: views,
           },
         })).unwrap();
         
-        console.log('Auto-saved project with', projectElements.length, 'elements and', fields.length, 'fields');
+        console.log('Auto-saved project with', projectElements.length, 'elements,', fields.length, 'fields, and', views.length, 'views');
         
         setSaveStatus('saved');
         
@@ -210,7 +223,7 @@ function DesignPage() {
           setSaveError(`Retrying in ${delay / 1000}s...`);
           
           setTimeout(() => {
-            saveProjectDebounced(projectElements, fields, retryCount + 1);
+            saveProjectDebounced(projectElements, fields, views, retryCount + 1);
           }, delay);
         } else {
           // All retries failed
@@ -232,9 +245,9 @@ function DesignPage() {
   useEffect(() => {
     if (triggerSave > 0 && projectId && elements.length > 0) {
       console.log('Triggering auto-save after property change, elements:', elements);
-      saveProjectDebounced(elements, requestedFields);
+      saveProjectDebounced(elements, requestedFields, viewConfigurations);
     }
-  }, [triggerSave, projectId, elements, requestedFields, saveProjectDebounced]);
+  }, [triggerSave, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced]);
 
   // Auto-save on element addition only (not on every property change)
   useEffect(() => {
@@ -242,7 +255,7 @@ function DesignPage() {
     if (elements && elements.length > previousElementCountRef.current) {
       console.log(`New element(s) added: ${previousElementCountRef.current} -> ${elements.length}, saving...`);
       previousElementCountRef.current = elements.length;
-      saveProjectDebounced(elements, requestedFields);
+      saveProjectDebounced(elements, requestedFields, viewConfigurations);
     } else if (elements && elements.length < previousElementCountRef.current) {
       // Update count if elements were removed
       previousElementCountRef.current = elements.length;
@@ -258,9 +271,17 @@ function DesignPage() {
   useEffect(() => {
     if (projectId && (elements.length > 0 || requestedFields.length > 0)) {
       console.log('Requested fields changed, saving...');
-      saveProjectDebounced(elements, requestedFields);
+      saveProjectDebounced(elements, requestedFields, viewConfigurations);
     }
-  }, [requestedFields, projectId, elements, saveProjectDebounced]);
+  }, [requestedFields, projectId, elements, viewConfigurations, saveProjectDebounced]);
+
+  // Auto-save when view configurations change
+  useEffect(() => {
+    if (projectId && viewConfigurations.length > 0) {
+      console.log('View configurations changed, saving...');
+      saveProjectDebounced(elements, requestedFields, viewConfigurations);
+    }
+  }, [viewConfigurations, projectId, elements, requestedFields, saveProjectDebounced]);
 
   // Reset element count when opening a different project
   useEffect(() => {

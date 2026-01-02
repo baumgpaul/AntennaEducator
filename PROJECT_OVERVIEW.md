@@ -151,9 +151,23 @@ The PEEC Antenna Simulator is a modern, cloud-native electromagnetic simulation 
   - Context menu (rename, delete)
 
 - **Properties Panel**:
-  - Per-view frequency slider (3D views only)
-  - Item-specific settings (opacity, color map, visibility)
-  - View management (rename, delete)
+  - **View-Level Controls**:
+    * Editable name (inline TextField with auto-save)
+    * Type chip (3D/Line, read-only display)
+    * Frequency slider (3D only, MHz units, computed frequencies only, hidden if single frequency)
+    * Delete view button (with confirmation)
+  - **Item-Specific Properties** (10 types with custom controls):
+    * antenna-system: label, visibility, opacity, color picker
+    * current: label, visibility, opacity, color map, value range (auto/manual), edge size
+    * voltage: label, visibility, opacity, color map, value range, node size
+    * single-antenna: label, visibility, opacity, color picker
+    * field-magnitude: label, visibility, opacity, color map, value range
+    * directivity: label, visibility, opacity, color map, value range (dBi), size factor
+    * field-vector: label, visibility, opacity, color map, value range, arrow size
+    * scalar-plot (Line views): label, visibility, line style, color picker, Y-axis scale (linear/log)
+    * field-magnitude-component: same as field-magnitude
+    * field-vector-component: same as field-vector
+  - **Empty State**: "No view selected" + "Create a view to get started" tip
 
 - **Implementation Details**:
   - Redux: postprocessingSlice with ViewConfiguration state

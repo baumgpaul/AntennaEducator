@@ -1,0 +1,284 @@
+import React from 'react';
+import {
+  Box,
+  Typography,
+  TextField,
+  Chip,
+  Button,
+  Slider,
+  FormControlLabel,
+  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+} from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import {
+  selectSelectedView,
+  selectSelectedItem,
+  renameViewConfiguration,
+  deleteViewConfiguration,
+  updateItemProperty,
+  toggleItemVisibility,
+  setViewFrequency,
+} from '../../store/postprocessingSlice';
+
+/**
+ * PostprocessingPropertiesPanel - Right-side properties editor for postprocessing views and items
+ * 
+ * Displays:
+ * - Empty state when no view selected
+ * - View-level properties (name, type, frequency slider, delete)
+ * - Item-specific properties (10 types with custom controls)
+ */
+const PostprocessingPropertiesPanel: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const selectedView = useAppSelector(selectSelectedView);
+  const selectedItem = useAppSelector(selectSelectedItem);
+  const solverResults = useAppSelector((state) => state.solver.results);
+  const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
+  
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [viewName, setViewName] = React.useState('');
+  const [itemLabel, setItemLabel] = React.useState('');
+
+  // Update local state when selection changes
+  React.useEffect(() => {
+    if (selectedView) {
+      setViewName(selectedView.name);
+    }
+  }, [selectedView?.id, selectedView?.name]);
+
+  React.useEffect(() => {
+    if (selectedItem) {
+      setItemLabel(selectedItem.label);
+    }
+  }, [selectedItem?.id, selectedItem?.label]);
+
+  // Empty state: No view selected
+  if (!selectedView) {
+    return (
+      <Box
+        sx={{
+          width: 300,
+          height: '100%',
+          p: 3,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+        }}
+      >
+        <Typography variant="h6" color="text.secondary" gutterBottom>
+          No view selected
+        </Typography>
+        <Typography variant="body2" color="text.disabled">
+          Create a view to get started
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Calculate computed frequencies (in MHz) from frequency sweep or solver results
+  const computedFrequenciesMHz = frequencySweep?.frequencies
+    ? frequencySweep.frequencies.map((freqHz) => freqHz / 1e6).sort((a, b) => a - b)
+    : solverResults
+    ? Object.keys(solverResults)
+        .map((freqStr) => parseFloat(freqStr) / 1e6)
+        .filter((freq) => !isNaN(freq))
+        .sort((a, b) => a - b)
+    : [];
+  const hasMultipleFrequencies = computedFrequenciesMHz.length > 1;
+  const hasAnyFrequencies = computedFrequenciesMHz.length > 0;
+  
+  // Get current frequency, defaulting to first computed frequency if not set
+  const currentFrequencyMHz = selectedView?.selectedFrequencyHz 
+    ? selectedView.selectedFrequencyHz / 1e6 
+    : (computedFrequenciesMHz.length > 0 ? computedFrequenciesMHz[0] : null);
+
+  // Handlers
+  const handleNameChange = (event: React.FocusEvent<HTMLInputElement>) => {
+    const newName = event.target.value.trim();
+    if (newName && newName !== selectedView?.name) {
+      dispatch(renameViewConfiguration({ viewId: selectedView!.id, name: newName }));
+    }
+  };
+
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    dispatch(deleteViewConfiguration(selectedView.id));
+    setDeleteDialogOpen(false);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+  };
+
+  const handleFrequencyChange = (_event: Event, value: number | number[]) => {
+    const frequencyMHz = value as number;
+    const frequencyHz = frequencyMHz * 1e6;
+    dispatch(setViewFrequency({ viewId: selectedView.id, frequencyHz }));
+  };
+
+  // Item property handlers (to be implemented with item editors)
+  const handleItemPropertyChange = (property: keyof import('../../types/postprocessing').ViewItem, value: any) => {
+    if (selectedItem) {
+      dispatch(updateItemProperty({
+        viewId: selectedView.id,
+        itemId: selectedItem.id,
+        property,
+        value,
+      }));
+    }
+  };
+
+  const handleItemVisibilityToggle = () => {
+    if (selectedItem) {
+      dispatch(toggleItemVisibility({
+        viewId: selectedView.id,
+        itemId: selectedItem.id,
+      }));
+    }
+  };
+
+  return (
+    <Box
+      sx={{
+        width: 300,
+        height: '100%',
+        p: 2,
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+      }}
+    >
+      {/* View-Level Properties */}
+      <Box>
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          View Properties
+        </Typography>
+        
+        {/* View Name */}
+        <TextField
+          fullWidth
+          label="Name"
+          value={viewName}
+          onChange={(e) => setViewName(e.target.value)}
+          onBlur={handleNameChange}
+          size="small"
+          sx={{ mb: 1.5 }}
+        />
+
+        {/* View Type Chip (read-only) */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+          <Typography variant="body2" color="text.secondary">
+            Type:
+          </Typography>
+          <Chip
+            label={selectedView.viewType === '3D' ? '3D View' : 'Line View'}
+            size="small"
+            color={selectedView.viewType === '3D' ? 'primary' : 'secondary'}
+          />
+        </Box>
+
+        {/* Frequency Slider (3D views with multiple frequencies only) */}
+        {selectedView.viewType === '3D' && hasMultipleFrequencies && hasAnyFrequencies && currentFrequencyMHz !== null && (
+          <Box sx={{ mb: 1.5 }}>
+            <Typography variant="body2" gutterBottom>
+              Frequency: {currentFrequencyMHz.toFixed(2)} MHz
+            </Typography>
+            <Slider
+              value={currentFrequencyMHz}
+              onChange={handleFrequencyChange}
+              min={Math.min(...computedFrequenciesMHz)}
+              max={Math.max(...computedFrequenciesMHz)}
+              step={null}
+              marks={computedFrequenciesMHz.map((freq) => ({ value: freq, label: '' }))}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(value) => `${value.toFixed(2)} MHz`}
+            />
+          </Box>
+        )}
+
+        {/* Delete View Button */}
+        <Button
+          variant="outlined"
+          color="error"
+          startIcon={<DeleteIcon />}
+          onClick={handleDeleteClick}
+          fullWidth
+        >
+          Delete View
+        </Button>
+      </Box>
+
+      {/* Item-Specific Properties */}
+      {selectedItem && (
+        <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Item Properties
+          </Typography>
+
+          {/* Item Label */}
+          <TextField
+            fullWidth
+            label="Label"
+            value={itemLabel}
+            onChange={(e) => setItemLabel(e.target.value)}
+            onBlur={(e) => {
+              const trimmed = e.target.value.trim();
+              if (trimmed) {
+                handleItemPropertyChange('label', trimmed);
+              }
+            }}
+            size="small"
+            sx={{ mb: 1.5 }}
+          />
+
+          {/* Visibility Checkbox */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={selectedItem.visible}
+                onChange={handleItemVisibilityToggle}
+              />
+            }
+            label="Visible"
+            sx={{ mb: 1.5 }}
+          />
+
+          {/* Type-specific property editors will be added in next increment */}
+          <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic' }}>
+            Additional properties for {selectedItem.type} (to be implemented)
+          </Typography>
+        </Box>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>
+        <DialogTitle>Delete View?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete &quot;{selectedView.name}&quot;? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel}>Cancel</Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
+
+export default PostprocessingPropertiesPanel;

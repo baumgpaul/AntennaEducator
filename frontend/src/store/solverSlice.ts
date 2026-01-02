@@ -148,6 +148,9 @@ interface SolverState {
     E_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>; // Complex E-field vectors
     H_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>; // Complex H-field vectors
   }>> | null; // fieldData[fieldId][frequencyHz] = { points, magnitudes, vectors }
+  
+  // Results validity tracking
+  resultsStale: boolean; // True when geometry/sources changed and results are outdated
 }
 
 const initialState: SolverState = {
@@ -172,6 +175,7 @@ const initialState: SolverState = {
   postprocessingStatus: 'idle',
   postprocessingProgress: null,
   fieldData: null,
+  resultsStale: false,
 };
 
 // ============================================================================
@@ -1096,6 +1100,15 @@ const solverSlice = createSlice({
       delete state.fieldData[action.payload];
     }
   },
+  
+  // Results validity actions
+  markResultsStale: (state) => {
+    state.resultsStale = true;
+  },
+  
+  clearResultsStaleFlag: (state) => {
+    state.resultsStale = false;
+  },
   },
   extraReducers: (builder) => {
     // ========================================================================
@@ -1214,12 +1227,22 @@ const solverSlice = createSlice({
       state.progress = 0;
       state.error = null;
       state.multiAntennaResults = null;
+      
+      // Clear old results when new solve starts
+      state.results = null;
+      state.currentDistribution = null;
+      state.radiationPattern = null;
+      state.frequencySweep = null;
+      state.fieldResults = null;
+      state.fieldData = null;
+      state.resultsStale = false; // New results incoming
     });
 
     builder.addCase(runMultiAntennaSimulation.fulfilled, (state, action) => {
       state.status = 'completed';
       state.progress = 100;
       state.multiAntennaResults = action.payload;
+      state.resultsStale = false; // Fresh results, not stale
       
       // Clear field results when new solution is computed (fields need recomputing)
       state.fieldResults = null;
@@ -1361,6 +1384,16 @@ const solverSlice = createSlice({
       state.progress = 0;
       state.error = null;
       state.frequencySweep = null;
+      
+      // Clear old results when new sweep starts
+      state.results = null;
+      state.currentDistribution = null;
+      state.radiationPattern = null;
+      state.multiAntennaResults = null;
+      state.fieldResults = null;
+      state.fieldData = null;
+      state.resultsStale = false; // New results incoming
+      
       console.log('Frequency sweep started...');
     });
 
@@ -1370,6 +1403,7 @@ const solverSlice = createSlice({
       state.progress = 100;
       state.frequencySweep = action.payload;
       state.solverState = 'solved'; // Enable postprocessing after sweep
+      state.resultsStale = false; // Fresh results, not stale
       console.log('Frequency sweep completed:', {
         numFrequencies: action.payload.frequencies.length,
         allConverged: action.payload.results.every(r => r.converged),
@@ -1451,6 +1485,33 @@ const solverSlice = createSlice({
       state.postprocessingProgress = null;
       console.error('Compute postprocessing workflow rejected:', state.error);
     });
+    
+    // ========================================================================
+    // Listen to design changes to mark results as stale
+    // ========================================================================
+    builder.addMatcher(
+      (action) => {
+        // Mark results stale when geometry or sources change
+        return action.type.startsWith('design/') && (
+          action.type === 'design/addElement' ||
+          action.type === 'design/updateElement' ||
+          action.type === 'design/removeElement' ||
+          action.type === 'design/addSource' ||
+          action.type === 'design/updateSource' ||
+          action.type === 'design/deleteSource' ||
+          action.type === 'design/addLumpedElement' ||
+          action.type === 'design/updateLumpedElement' ||
+          action.type === 'design/deleteLumpedElement'
+        );
+      },
+      (state, action) => {
+        // Only mark stale if we have results
+        if (state.results || state.multiAntennaResults || state.frequencySweep) {
+          state.resultsStale = true;
+          console.log(`[solverSlice] Results marked stale due to: ${action.type}`);
+        }
+      }
+    );
   },
 });
 
@@ -1478,6 +1539,8 @@ export const {
   setFieldData,
   clearFieldData,
   clearFieldDataForField,
+  markResultsStale,
+  clearResultsStaleFlag,
 } = solverSlice.actions;
 
 // Selectors
@@ -1498,5 +1561,6 @@ export const selectDirectivitySettings = (state: RootState) => state.solver.dire
 export const selectSolverState = (state: RootState) => state.solver.solverState;
 export const selectCurrentFrequency = (state: RootState) => state.solver.currentFrequency;
 export const selectFieldData = (state: RootState) => state.solver.fieldData;
+export const selectResultsStale = (state: RootState) => state.solver.resultsStale;
 
 export default solverSlice.reducer;

@@ -2,22 +2,11 @@ import { useState } from 'react';
 import {
   Box,
   Typography,
-  Paper,
-  Divider,
-  ToggleButtonGroup,
-  ToggleButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Slider,
-  SelectChangeEvent,
-  IconButton,
-  Chip,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import type { SolverWorkflowState } from '@/store/solverSlice';
+import { selectResultsStale } from '@/store/solverSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
 import type { FrequencySweepResult } from '@/types/api';
@@ -25,6 +14,7 @@ import Scene3D from './Scene3D';
 import FieldVisualization from './FieldVisualization';
 import RibbonMenu from './RibbonMenu';
 import TreeViewPanel from './TreeViewPanel';
+import PostprocessingPropertiesPanel from '../postprocessing/PostprocessingPropertiesPanel';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   selectViewConfigurations,
@@ -37,11 +27,6 @@ import {
   removeItemFromView,
   toggleItemVisibility,
 } from '@/store/postprocessingSlice';
-import type { ColorMapType } from '@/utils/colorMaps';
-
-type VisualizationMode = 'magnitude' | 'vectorial' | 'component' | 'phase';
-type Component = 'x' | 'y' | 'z';
-type ComplexPart = 'magnitude' | 'real' | 'imaginary';
 
 interface PostprocessingTabProps {
   solverState: SolverWorkflowState;
@@ -75,16 +60,12 @@ function PostprocessingTab({
   const viewConfigurations = useAppSelector(selectViewConfigurations);
   const selectedViewId = useAppSelector(selectSelectedViewId);
   const selectedItemId = useAppSelector(selectSelectedItemId);
+  const resultsStale = useAppSelector(selectResultsStale);
   
   // Backwards compatibility: map selectedItemId to selectedItem for existing code
   const selectedItem = selectedItemId;
   
-  const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('magnitude');
-  const [colorMap, setColorMap] = useState<ColorMapType>('jet');
-  const [opacity, setOpacity] = useState<number>(80);
-  const [selectedComponent, setSelectedComponent] = useState<Component>('x');
-  const [complexPart, setComplexPart] = useState<ComplexPart>('magnitude');
-  const [selectedFrequencyIndex, setSelectedFrequencyIndex] = useState<number>(0);
+  const [selectedFrequencyIndex] = useState<number>(0);
 
   // Debug logging
   console.log('[PostprocessingTab] Props:', { 
@@ -113,22 +94,23 @@ function PostprocessingTab({
       ? 'Postprocessing results ready. Select a field to visualize.'
       : 'Solver results available (voltages/currents). Select a field to visualize.';
 
-  const handlePreviousFrequency = () => {
-    if (selectedFrequencyIndex > 0) {
-      setSelectedFrequencyIndex(selectedFrequencyIndex - 1);
-    }
-  };
-
-  const handleNextFrequency = () => {
-    if (selectedFrequencyIndex < availableFrequencies.length - 1) {
-      setSelectedFrequencyIndex(selectedFrequencyIndex + 1);
-    }
-  };
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* RIBBON MENU */}
       <RibbonMenu currentTab="postprocessing" />
+      
+      {/* WARNING BANNER - Show when no results or results are stale */}
+      {(!frequencySweep && !currentFrequency) || resultsStale ? (
+        <Alert 
+          severity={resultsStale ? "warning" : "info"} 
+          sx={{ m: 2, mb: 0 }}
+        >
+          <AlertTitle>{resultsStale ? "Results Outdated" : "No Results Available"}</AlertTitle>
+          {resultsStale 
+            ? "The antenna structure or solver settings have changed. Run the solver again to update results."
+            : "No solver results found. Please run the solver first."}
+        </Alert>
+      ) : null}
       
       {/* MAIN CONTENT - 3 PANELS */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -179,11 +161,11 @@ function PostprocessingTab({
                   <FieldVisualization
                     key={field.id}
                     field={field}
-                    visualizationMode={visualizationMode}
-                    colorMap={colorMap}
-                    opacity={opacity}
-                    selectedComponent={selectedComponent}
-                    complexPart={complexPart}
+                    visualizationMode="magnitude"
+                    colorMap="jet"
+                    opacity={0.8}
+                    selectedComponent="x"
+                    complexPart="magnitude"
                     fieldData={currentFieldData}
                   />
                 );
@@ -193,273 +175,7 @@ function PostprocessingTab({
       </Box>
 
       {/* RIGHT PANEL - Properties Panel */}
-      <Box
-        sx={{
-          width: 300,
-          borderLeft: 1,
-          borderColor: 'divider',
-          overflowY: 'auto',
-          backgroundColor: 'background.paper',
-        }}
-      >
-        {!selectedItem ? (
-          <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
-            <Typography variant="body2">
-              Select an output to view details
-            </Typography>
-          </Box>
-        ) : (
-          <Box sx={{ p: 2 }}>
-            {/* Frequency Selector - shown at top for all items */}
-            {isSweepMode && availableFrequencies.length > 1 && (
-              <Box sx={{ mb: 3, pb: 2, borderBottom: 1, borderColor: 'divider' }}>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                  Frequency
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <IconButton 
-                    size="small" 
-                    onClick={handlePreviousFrequency}
-                    disabled={selectedFrequencyIndex === 0}
-                  >
-                    <ChevronLeftIcon />
-                  </IconButton>
-                  <Chip 
-                    label={`${(availableFrequencies[selectedFrequencyIndex] / 1e6).toFixed(1)} MHz`}
-                    color="primary"
-                    variant="outlined"
-                    sx={{ flex: 1, fontWeight: 600 }}
-                  />
-                  <IconButton 
-                    size="small" 
-                    onClick={handleNextFrequency}
-                    disabled={selectedFrequencyIndex === availableFrequencies.length - 1}
-                  >
-                    <ChevronRightIcon />
-                  </IconButton>
-                </Box>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, textAlign: 'center' }}>
-                  {selectedFrequencyIndex + 1} of {availableFrequencies.length}
-                </Typography>
-              </Box>
-            )}
-
-            {/* Single Frequency Display - shown at top for all items */}
-            {!isSweepMode && currentFrequency && (
-              <Box sx={{ mb: 3, pb: 2, borderBottom: 1, borderColor: 'divider' }}>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                  Frequency
-                </Typography>
-                <Chip 
-                  label={`${currentFrequency.toFixed(1)} MHz`}
-                  color="primary"
-                  variant="outlined"
-                  sx={{ width: '100%', fontWeight: 600 }}
-                />
-              </Box>
-            )}
-
-            {selectedItem === 'currents' && (
-              <>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-                  Branch Currents
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  Computed current distribution on antenna edges.
-                </Typography>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="caption" color="text.secondary">
-                  Visualization controls will be added in Day 5.
-                </Typography>
-              </>
-            )}
-            {selectedItem === 'voltages' && (
-              <>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-                  Node Voltages
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  Computed potential at antenna nodes.
-                </Typography>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="caption" color="text.secondary">
-                  Visualization controls will be added in Day 5.
-                </Typography>
-              </>
-            )}
-            {selectedItem === 'directivity' && (
-              <>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-                  Directivity Pattern
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  Far-field radiation pattern showing antenna directivity.
-                </Typography>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="caption" color="text.secondary">
-                  2D polar plots and 3D visualization coming in Day 5.
-                </Typography>
-              </>
-            )}
-            {requestedFields.find(f => f.id === selectedItem) && (() => {
-              const field = requestedFields.find(f => f.id === selectedItem)!;
-              const isComputed = fieldResults?.[field.id]?.computed ?? false;
-              const numPoints = fieldResults?.[field.id]?.num_points;
-              return (
-                <>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-                    {field.name || 'Field Region'}
-                  </Typography>
-                  <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Type
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      {field.type} Region - {field.shape}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                      Center
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      ({field.centerPoint[0]}, {field.centerPoint[1]}, {field.centerPoint[2]}) mm
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                      Status
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      {isComputed ? `Computed (${numPoints} points)` : 'Pending computation'}
-                    </Typography>
-                  </Paper>
-
-                  {isComputed && (
-                    <>
-                      <Divider sx={{ my: 2 }} />
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-                        Visualization Settings
-                      </Typography>
-
-                      {/* Visualization Mode */}
-                      <Box sx={{ mb: 3 }}>
-                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                          Display Mode
-                        </Typography>
-                        <ToggleButtonGroup
-                          value={visualizationMode}
-                          exclusive
-                          onChange={(_, newMode) => {
-                            if (newMode !== null) setVisualizationMode(newMode);
-                          }}
-                          size="small"
-                          fullWidth
-                        >
-                          <ToggleButton value="magnitude">Magnitude</ToggleButton>
-                          <ToggleButton value="vectorial">Vectorial</ToggleButton>
-                          <ToggleButton value="component">Component</ToggleButton>
-                          <ToggleButton value="phase">Phase</ToggleButton>
-                        </ToggleButtonGroup>
-                      </Box>
-
-                      {/* Component Selector (only for component mode) */}
-                      {visualizationMode === 'component' && (
-                        <Box sx={{ mb: 3 }}>
-                          <FormControl fullWidth size="small">
-                            <InputLabel>Component</InputLabel>
-                            <Select
-                              value={selectedComponent}
-                              label="Component"
-                              onChange={(e: SelectChangeEvent<Component>) => 
-                                setSelectedComponent(e.target.value as Component)
-                              }
-                            >
-                              <MenuItem value="x">X Component</MenuItem>
-                              <MenuItem value="y">Y Component</MenuItem>
-                              <MenuItem value="z">Z Component</MenuItem>
-                            </Select>
-                          </FormControl>
-                        </Box>
-                      )}
-
-                      {/* Complex Value Part Selector (for component and phase modes) */}
-                      {(visualizationMode === 'component' || visualizationMode === 'phase') && (
-                        <Box sx={{ mb: 3 }}>
-                          <FormControl fullWidth size="small">
-                            <InputLabel>Value</InputLabel>
-                            <Select
-                              value={complexPart}
-                              label="Value"
-                              onChange={(e: SelectChangeEvent<ComplexPart>) => 
-                                setComplexPart(e.target.value as ComplexPart)
-                              }
-                            >
-                              <MenuItem value="magnitude">Magnitude</MenuItem>
-                              <MenuItem value="real">Real Part</MenuItem>
-                              <MenuItem value="imaginary">Imaginary Part</MenuItem>
-                            </Select>
-                          </FormControl>
-                        </Box>
-                      )}
-
-                      {/* Color Map */}
-                      <Box sx={{ mb: 3 }}>
-                        <FormControl fullWidth size="small">
-                          <InputLabel>Color Map</InputLabel>
-                          <Select
-                            value={colorMap}
-                            label="Color Map"
-                            onChange={(e: SelectChangeEvent<ColorMapType>) => 
-                              setColorMap(e.target.value as ColorMapType)
-                            }
-                          >
-                            <MenuItem value="jet">Jet</MenuItem>
-                            <MenuItem value="turbo">Turbo</MenuItem>
-                            <MenuItem value="viridis">Viridis</MenuItem>
-                            <MenuItem value="plasma">Plasma</MenuItem>
-                            <MenuItem value="twilight">Twilight</MenuItem>
-                          </Select>
-                        </FormControl>
-                      </Box>
-
-                      {/* Opacity Slider */}
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                          Opacity: {opacity}%
-                        </Typography>
-                        <Slider
-                          value={opacity}
-                          onChange={(_, newValue) => setOpacity(newValue as number)}
-                          min={0}
-                          max={100}
-                          step={5}
-                          marks={[
-                            { value: 0, label: '0%' },
-                            { value: 50, label: '50%' },
-                            { value: 100, label: '100%' },
-                          ]}
-                          valueLabelDisplay="auto"
-                          size="small"
-                        />
-                      </Box>
-
-                      <Typography variant="caption" color="text.secondary">
-                        3D visualization rendering coming soon.
-                      </Typography>
-                    </>
-                  )}
-
-                  {!isComputed && (
-                    <>
-                      <Divider sx={{ my: 2 }} />
-                      <Typography variant="caption" color="text.secondary">
-                        Visualization settings will be available after field computation.
-                      </Typography>
-                    </>
-                  )}
-                </>
-              );
-            })()}
-          </Box>
-        )}
-      </Box>
+      <PostprocessingPropertiesPanel />
       </Box>
     </Box>
   );

@@ -33,6 +33,7 @@ import {
   selectSolverProgress,
   selectCurrentFrequency,
   selectFrequencySweep,
+  selectResultsStale,
   cancelPostprocessing,
 } from '@/store/solverSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
@@ -70,6 +71,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const postprocessingStatus = useSelector((state: RootState) => state.solver.postprocessingStatus);
   const fieldResults = useSelector((state: RootState) => state.solver.fieldResults);
   const postprocessingProgress = useSelector((state: RootState) => state.solver.postprocessingProgress);
+  const resultsStale = useSelector(selectResultsStale);
   
   // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
@@ -335,6 +337,16 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                 sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
               />
             ) : null}
+            {/* Show stale warning if results exist but are outdated */}
+            {resultsStale && (
+              <Chip
+                label="Outdated"
+                size="small"
+                color="warning"
+                sx={{ height: 20, fontSize: '0.65rem' }}
+                title="Antenna structure or settings changed. Re-run solver to update results."
+              />
+            )}
             {simulationStatus === 'running' && (
               <Chip
                 icon={<CircularProgress size={12} />}
