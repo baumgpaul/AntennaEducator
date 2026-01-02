@@ -213,6 +213,8 @@ async def update_project(
         project.requested_fields = project_data.requested_fields
     if project_data.view_configurations is not None:
         project.view_configurations = project_data.view_configurations
+    if project_data.solver_state is not None:
+        project.solver_state = project_data.solver_state
     
     db.commit()
     db.refresh(project)

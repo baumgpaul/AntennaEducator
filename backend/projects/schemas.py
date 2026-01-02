@@ -93,6 +93,7 @@ class ProjectBase(BaseModel):
     description: Optional[str] = Field(None, max_length=50000)  # Allow large JSON strings for elements
     requested_fields: Optional[List[Any]] = Field(None, description="Field definitions for solver (JSON array)")
     view_configurations: Optional[List[Any]] = Field(None, description="View configurations for postprocessing (JSON array)")
+    solver_state: Optional[dict] = Field(None, description="Solver results, state, and field data (JSON object)")
 
 
 class ProjectCreate(ProjectBase):
@@ -106,6 +107,7 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=50000)  # Allow large JSON strings for elements
     requested_fields: Optional[List[Any]] = Field(None, description="Field definitions for solver (JSON array)")
     view_configurations: Optional[List[Any]] = Field(None, description="View configurations for postprocessing (JSON array)")
+    solver_state: Optional[dict] = Field(None, description="Solver results, state, and field data (JSON object)")
 
 
 class ProjectResponse(ProjectBase):
