@@ -31,6 +31,7 @@ import type { AntennaElement } from '@/types/models';
 import type { FrequencySweepResult } from '@/types/api';
 import Scene3D from './Scene3D';
 import FieldVisualization from './FieldVisualization';
+import RibbonMenu from './RibbonMenu';
 import type { ColorMapType } from '@/utils/colorMaps';
 
 type VisualizationMode = 'magnitude' | 'vectorial' | 'component' | 'phase';
@@ -116,18 +117,23 @@ function PostprocessingTab({
   };
 
   return (
-    <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      {/* LEFT PANEL - Structure & Solution Outputs */}
-      <Box
-        sx={{
-          width: 280,
-          borderRight: 1,
-          borderColor: 'divider',
-          overflowY: 'auto',
-          backgroundColor: 'background.paper',
-        }}
-      >
-        {/* Structure Section */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* RIBBON MENU */}
+      <RibbonMenu currentTab="postprocessing" />
+      
+      {/* MAIN CONTENT - 3 PANELS */}
+      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* LEFT PANEL - Structure & Solution Outputs */}
+        <Box
+          sx={{
+            width: 280,
+            borderRight: 1,
+            borderColor: 'divider',
+            overflowY: 'auto',
+            backgroundColor: 'background.paper',
+          }}
+        >
+          {/* Structure Section */}
         <Box
           sx={{
             px: 2,
@@ -585,6 +591,7 @@ function PostprocessingTab({
             })()}
           </Box>
         )}
+      </Box>
       </Box>
     </Box>
   );

@@ -48,6 +48,10 @@ import { FrequencySweepDialog } from './FrequencySweepDialog';
 import ResultsPanel from './ResultsPanel';
 import { SolverTab } from './SolverTab';
 import PostprocessingTab from './PostprocessingTab';
+import AddViewDialog from './dialogs/AddViewDialog';
+import AddAntennaElementDialog from './dialogs/AddAntennaElementDialog';
+import AddFieldVisualizationDialog from './dialogs/AddFieldVisualizationDialog';
+import AddScalarPlotDialog from './dialogs/AddScalarPlotDialog';
 import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 
 
@@ -831,6 +835,7 @@ function DesignPage() {
         }
         topToolbar={
           <RibbonMenu
+            currentTab={currentTab}
             onAntennaTypeSelect={handleAntennaTypeSelect}
             onAnalysisAction={handleAnalysisAction}
             onViewOption={handleViewOption}
@@ -931,6 +936,12 @@ function DesignPage() {
         onSubmit={handleFrequencySweep}
         isLoading={solverStatus === 'running' || solverStatus === 'preparing'}
       />
+      
+      {/* Postprocessing Dialogs */}
+      <AddViewDialog />
+      <AddAntennaElementDialog />
+      <AddFieldVisualizationDialog />
+      <AddScalarPlotDialog />
       
       {/* Auto-save indicator */}
       <Snackbar
