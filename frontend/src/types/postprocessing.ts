@@ -19,29 +19,29 @@ export type ViewType = '3D' | 'Line';
  * 
  * 3D View Items:
  * - antenna-system: All antennas from Designer (single tree item)
- * - antenna-element: Individual antenna from Designer
- * - current-distribution: Edge currents from solver
- * - voltage-distribution: Node potentials from solver
+ * - single-antenna: Individual antenna from Designer
+ * - current: Edge currents from solver
+ * - voltage: Node potentials from solver
  * - field-magnitude: Scalar color-mapped field surface
+ * - field-magnitude-component: Single component of field magnitude
  * - field-vector: Arrow field visualization
+ * - field-vector-component: Single component of field vector
  * - directivity: Far-field radiation pattern
  * 
  * Line View Items:
- * - impedance-plot: Z vs frequency curve
- * - voltage-plot: Port voltage vs frequency
- * - current-plot: Port current vs frequency
+ * - scalar-plot: Generic scalar data plot (impedance, voltage, current vs frequency)
  */
 export type ViewItemType = 
   | 'antenna-system'
-  | 'antenna-element'
-  | 'current-distribution'
-  | 'voltage-distribution'
+  | 'single-antenna'
+  | 'current'
+  | 'voltage'
   | 'field-magnitude'
+  | 'field-magnitude-component'
   | 'field-vector'
+  | 'field-vector-component'
   | 'directivity'
-  | 'impedance-plot'
-  | 'voltage-plot'
-  | 'current-plot';
+  | 'scalar-plot';
 
 /**
  * Settings for scalar plot visualization
@@ -75,19 +75,54 @@ export interface ViewItem {
   /** Visibility toggle state */
   visible: boolean;
   
-  // Type-specific properties
-  /** Reference to antenna ID (for antenna-element) */
+  // Type-specific references
+  /** Reference to antenna ID (for single-antenna) */
   antennaId?: string;
   /** Reference to field definition ID (for field-magnitude/field-vector) */
   fieldId?: string;
-  /** Color map name (for field visualizations) */
-  colorMap?: string;
-  /** Opacity 0-1 (for 3D items) */
-  opacity?: number;
-  /** Port number (for voltage-plot/current-plot) */
+  /** Port number (for port-specific items) */
   portNumber?: number;
   /** Plot settings (for Line view items) */
   plotSettings?: PlotSettings;
+  
+  // ===== Phase 2: Item Property Editors =====
+  // Common visualization properties
+  /** Opacity 0-1 (rendered as 0-100%) */
+  opacity?: number;
+  /** Hex color (e.g., '#FF8C00') for solid coloring */
+  color?: string;
+  
+  // Color mapping (for current, voltage, field-magnitude, field-vector, directivity)
+  /** Color map name ('jet' | 'turbo' | 'viridis' | 'plasma' | 'twilight') */
+  colorMap?: string;
+  
+  // Value range control
+  /** Value range mode: 'auto' (from data) or 'manual' (user-specified) */
+  valueRangeMode?: 'auto' | 'manual';
+  /** Minimum value for manual range */
+  valueRangeMin?: number;
+  /** Maximum value for manual range */
+  valueRangeMax?: number;
+  
+  // Geometry sizing
+  /** Edge size for current distributions (line width multiplier) */
+  edgeSize?: number;
+  /** Node size for voltage distributions (point size multiplier) */
+  nodeSize?: number;
+  /** Arrow size for field vectors (arrow scale multiplier) */
+  arrowSize?: number;
+  /** Size factor for directivity patterns (overall scale) */
+  sizeFactor?: number;
+  
+  // Line plot properties
+  /** Line style for scalar plots */
+  lineStyle?: 'solid' | 'dashed' | 'dotted' | 'dash-dot';
+  /** Y-axis scale for scalar plots */
+  yAxisScale?: 'linear' | 'log';
+  
+  // Directivity scale
+  /** Scale for directivity pattern (linear or logarithmic dBi) */
+  scale?: 'linear' | 'logarithmic';
 }
 
 /**
@@ -186,21 +221,21 @@ export function generateDefaultViewName(existingViews: ViewConfiguration[]): str
 export function generateDefaultItemLabel(type: ViewItemType, existingItems: ViewItem[]): string {
   const baseLabels: Record<ViewItemType, string> = {
     'antenna-system': 'Antenna System',
-    'antenna-element': 'Antenna Element',
-    'current-distribution': 'Current Distribution',
-    'voltage-distribution': 'Voltage Distribution',
+    'single-antenna': 'Antenna',
+    'current': 'Current',
+    'voltage': 'Voltage',
     'field-magnitude': 'Field Magnitude',
+    'field-magnitude-component': 'Field Component',
     'field-vector': 'Field Vector',
+    'field-vector-component': 'Field Vector Component',
     'directivity': 'Directivity',
-    'impedance-plot': 'Impedance',
-    'voltage-plot': 'Voltage',
-    'current-plot': 'Current',
+    'scalar-plot': 'Plot',
   };
   
   const baseLabel = baseLabels[type];
   
   // For items that typically have only one instance, return base label
-  if (type === 'antenna-system' || type === 'directivity' || type === 'impedance-plot') {
+  if (type === 'antenna-system' || type === 'directivity') {
     return baseLabel;
   }
   
@@ -222,18 +257,18 @@ export function generateDefaultItemLabel(type: ViewItemType, existingItems: View
 export function isItemTypeAllowedInView(itemType: ViewItemType, viewType: ViewType): boolean {
   const threeDItems: ViewItemType[] = [
     'antenna-system',
-    'antenna-element',
-    'current-distribution',
-    'voltage-distribution',
+    'single-antenna',
+    'current',
+    'voltage',
     'field-magnitude',
+    'field-magnitude-component',
     'field-vector',
+    'field-vector-component',
     'directivity',
   ];
   
   const lineItems: ViewItemType[] = [
-    'impedance-plot',
-    'voltage-plot',
-    'current-plot',
+    'scalar-plot',
   ];
   
   if (viewType === '3D') {

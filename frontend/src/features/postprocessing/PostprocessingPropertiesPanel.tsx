@@ -13,6 +13,14 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  RadioGroup,
+  Radio,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -148,6 +156,581 @@ const PostprocessingPropertiesPanel: React.FC = () => {
     }
   };
 
+  // Render type-specific property editors
+  const renderItemTypeProperties = () => {
+    if (!selectedItem) return null;
+
+    const commonProps = {
+      opacity: selectedItem.opacity ?? 0.8,
+      color: selectedItem.color ?? '#FF8C00',
+      colorMap: selectedItem.colorMap ?? 'jet',
+      valueRangeMode: selectedItem.valueRangeMode ?? 'auto',
+      valueRangeMin: selectedItem.valueRangeMin ?? 0,
+      valueRangeMax: selectedItem.valueRangeMax ?? 1,
+      edgeSize: selectedItem.edgeSize ?? 1.0,
+      nodeSize: selectedItem.nodeSize ?? 1.0,
+      arrowSize: selectedItem.arrowSize ?? 1.0,
+      sizeFactor: selectedItem.sizeFactor ?? 1.0,
+      lineStyle: selectedItem.lineStyle ?? 'solid',
+      yAxisScale: selectedItem.yAxisScale ?? 'linear',
+      scale: selectedItem.scale ?? 'logarithmic',
+    };
+
+    switch (selectedItem.type) {
+      case 'antenna-system':
+      case 'single-antenna':
+        return (
+          <>
+            {/* Opacity Slider */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Opacity: {Math.round(commonProps.opacity * 100)}%
+              </Typography>
+              <Slider
+                value={commonProps.opacity * 100}
+                onChange={(_, value) => handleItemPropertyChange('opacity', (value as number) / 100)}
+                min={0}
+                max={100}
+                step={5}
+                valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+
+            {/* Color Picker */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Color
+              </Typography>
+              <input
+                type="color"
+                value={commonProps.color}
+                onChange={(e) => handleItemPropertyChange('color', e.target.value)}
+                style={{ width: '100%', height: 40, cursor: 'pointer', border: '1px solid #ccc', borderRadius: 4 }}
+              />
+            </Box>
+          </>
+        );
+
+      case 'current':
+        return (
+          <>
+            {/* Opacity */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Opacity: {Math.round(commonProps.opacity * 100)}%
+              </Typography>
+              <Slider
+                value={commonProps.opacity * 100}
+                onChange={(_, value) => handleItemPropertyChange('opacity', (value as number) / 100)}
+                min={0}
+                max={100}
+                step={5}
+                valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+
+            {/* Color Map */}
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Color Map</InputLabel>
+              <Select
+                value={commonProps.colorMap}
+                label="Color Map"
+                onChange={(e) => handleItemPropertyChange('colorMap', e.target.value)}
+              >
+                <MenuItem value="jet">Jet</MenuItem>
+                <MenuItem value="turbo">Turbo</MenuItem>
+                <MenuItem value="viridis">Viridis</MenuItem>
+                <MenuItem value="plasma">Plasma</MenuItem>
+                <MenuItem value="twilight">Twilight</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Value Range Mode Toggle */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Value Range
+              </Typography>
+              <ToggleButtonGroup
+                value={commonProps.valueRangeMode}
+                exclusive
+                onChange={(_, value) => value && handleItemPropertyChange('valueRangeMode', value)}
+                size="small"
+                fullWidth
+              >
+                <ToggleButton value="auto">Auto</ToggleButton>
+                <ToggleButton value="manual">Manual</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            {/* Manual Range Inputs */}
+            {commonProps.valueRangeMode === 'manual' && (
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <TextField
+                  label="Min"
+                  type="number"
+                  value={commonProps.valueRangeMin}
+                  onChange={(e) => handleItemPropertyChange('valueRangeMin', parseFloat(e.target.value))}
+                  size="small"
+                  fullWidth
+                />
+                <TextField
+                  label="Max"
+                  type="number"
+                  value={commonProps.valueRangeMax}
+                  onChange={(e) => handleItemPropertyChange('valueRangeMax', parseFloat(e.target.value))}
+                  size="small"
+                  fullWidth
+                />
+              </Box>
+            )}
+
+            {/* Edge Size */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Edge Size: {commonProps.edgeSize.toFixed(1)}
+              </Typography>
+              <Slider
+                value={commonProps.edgeSize}
+                onChange={(_, value) => handleItemPropertyChange('edgeSize', value as number)}
+                min={0.1}
+                max={2.0}
+                step={0.1}
+                valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+          </>
+        );
+
+      case 'voltage':
+        return (
+          <>
+            {/* Opacity */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Opacity: {Math.round(commonProps.opacity * 100)}%
+              </Typography>
+              <Slider
+                value={commonProps.opacity * 100}
+                onChange={(_, value) => handleItemPropertyChange('opacity', (value as number) / 100)}
+                min={0}
+                max={100}
+                step={5}
+                valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+
+            {/* Color Map */}
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Color Map</InputLabel>
+              <Select
+                value={commonProps.colorMap}
+                label="Color Map"
+                onChange={(e) => handleItemPropertyChange('colorMap', e.target.value)}
+              >
+                <MenuItem value="jet">Jet</MenuItem>
+                <MenuItem value="turbo">Turbo</MenuItem>
+                <MenuItem value="viridis">Viridis</MenuItem>
+                <MenuItem value="plasma">Plasma</MenuItem>
+                <MenuItem value="twilight">Twilight</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Value Range Mode Toggle */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Value Range
+              </Typography>
+              <ToggleButtonGroup
+                value={commonProps.valueRangeMode}
+                exclusive
+                onChange={(_, value) => value && handleItemPropertyChange('valueRangeMode', value)}
+                size="small"
+                fullWidth
+              >
+                <ToggleButton value="auto">Auto</ToggleButton>
+                <ToggleButton value="manual">Manual</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            {/* Manual Range Inputs */}
+            {commonProps.valueRangeMode === 'manual' && (
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <TextField
+                  label="Min"
+                  type="number"
+                  value={commonProps.valueRangeMin}
+                  onChange={(e) => handleItemPropertyChange('valueRangeMin', parseFloat(e.target.value))}
+                  size="small"
+                  fullWidth
+                />
+                <TextField
+                  label="Max"
+                  type="number"
+                  value={commonProps.valueRangeMax}
+                  onChange={(e) => handleItemPropertyChange('valueRangeMax', parseFloat(e.target.value))}
+                  size="small"
+                  fullWidth
+                />
+              </Box>
+            )}
+
+            {/* Node Size */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Node Size: {commonProps.nodeSize.toFixed(1)}
+              </Typography>
+              <Slider
+                value={commonProps.nodeSize}
+                onChange={(_, value) => handleItemPropertyChange('nodeSize', value as number)}
+                min={0.1}
+                max={2.0}
+                step={0.1}
+                valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+          </>
+        );
+
+      case 'field-magnitude':
+      case 'field-magnitude-component':
+        return (
+          <>
+            {/* Opacity */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Opacity: {Math.round(commonProps.opacity * 100)}%
+              </Typography>
+              <Slider
+                value={commonProps.opacity * 100}
+                onChange={(_, value) => handleItemPropertyChange('opacity', (value as number) / 100)}
+                min={0}
+                max={100}
+                step={5}
+                valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+
+            {/* Color Map */}
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Color Map</InputLabel>
+              <Select
+                value={commonProps.colorMap}
+                label="Color Map"
+                onChange={(e) => handleItemPropertyChange('colorMap', e.target.value)}
+              >
+                <MenuItem value="jet">Jet</MenuItem>
+                <MenuItem value="turbo">Turbo</MenuItem>
+                <MenuItem value="viridis">Viridis</MenuItem>
+                <MenuItem value="plasma">Plasma</MenuItem>
+                <MenuItem value="twilight">Twilight</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Value Range Mode Toggle */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Value Range
+              </Typography>
+              <ToggleButtonGroup
+                value={commonProps.valueRangeMode}
+                exclusive
+                onChange={(_, value) => value && handleItemPropertyChange('valueRangeMode', value)}
+                size="small"
+                fullWidth
+              >
+                <ToggleButton value="auto">Auto</ToggleButton>
+                <ToggleButton value="manual">Manual</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            {/* Manual Range Inputs */}
+            {commonProps.valueRangeMode === 'manual' && (
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <TextField
+                  label="Min"
+                  type="number"
+                  value={commonProps.valueRangeMin}
+                  onChange={(e) => handleItemPropertyChange('valueRangeMin', parseFloat(e.target.value))}
+                  size="small"
+                  fullWidth
+                />
+                <TextField
+                  label="Max"
+                  type="number"
+                  value={commonProps.valueRangeMax}
+                  onChange={(e) => handleItemPropertyChange('valueRangeMax', parseFloat(e.target.value))}
+                  size="small"
+                  fullWidth
+                />
+              </Box>
+            )}
+          </>
+        );
+
+      case 'directivity':
+        return (
+          <>
+            {/* Opacity */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Opacity: {Math.round(commonProps.opacity * 100)}%
+              </Typography>
+              <Slider
+                value={commonProps.opacity * 100}
+                onChange={(_, value) => handleItemPropertyChange('opacity', (value as number) / 100)}
+                min={0}
+                max={100}
+                step={5}
+                valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+
+            {/* Color Map */}
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Color Map</InputLabel>
+              <Select
+                value={commonProps.colorMap}
+                label="Color Map"
+                onChange={(e) => handleItemPropertyChange('colorMap', e.target.value)}
+              >
+                <MenuItem value="jet">Jet</MenuItem>
+                <MenuItem value="turbo">Turbo</MenuItem>
+                <MenuItem value="viridis">Viridis</MenuItem>
+                <MenuItem value="plasma">Plasma</MenuItem>
+                <MenuItem value="twilight">Twilight</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Scale Toggle (Linear/Logarithmic) */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Scale
+              </Typography>
+              <ToggleButtonGroup
+                value={commonProps.scale}
+                exclusive
+                onChange={(_, value) => value && handleItemPropertyChange('scale', value)}
+                size="small"
+                fullWidth
+              >
+                <ToggleButton value="linear">Linear</ToggleButton>
+                <ToggleButton value="logarithmic">Log (dBi)</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            {/* Value Range Mode Toggle */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Value Range {commonProps.scale === 'logarithmic' ? '(dBi)' : ''}
+              </Typography>
+              <ToggleButtonGroup
+                value={commonProps.valueRangeMode}
+                exclusive
+                onChange={(_, value) => value && handleItemPropertyChange('valueRangeMode', value)}
+                size="small"
+                fullWidth
+              >
+                <ToggleButton value="auto">Auto</ToggleButton>
+                <ToggleButton value="manual">Manual</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            {/* Manual Range Inputs */}
+            {commonProps.valueRangeMode === 'manual' && (
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <TextField
+                  label={`Min${commonProps.scale === 'logarithmic' ? ' (dBi)' : ''}`}
+                  type="number"
+                  value={commonProps.valueRangeMin}
+                  onChange={(e) => handleItemPropertyChange('valueRangeMin', parseFloat(e.target.value))}
+                  size="small"
+                  fullWidth
+                />
+                <TextField
+                  label={`Max${commonProps.scale === 'logarithmic' ? ' (dBi)' : ''}`}
+                  type="number"
+                  value={commonProps.valueRangeMax}
+                  onChange={(e) => handleItemPropertyChange('valueRangeMax', parseFloat(e.target.value))}
+                  size="small"
+                  fullWidth
+                />
+              </Box>
+            )}
+
+            {/* Size Factor */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Size Factor: {commonProps.sizeFactor.toFixed(1)}
+              </Typography>
+              <Slider
+                value={commonProps.sizeFactor}
+                onChange={(_, value) => handleItemPropertyChange('sizeFactor', value as number)}
+                min={0.1}
+                max={2.0}
+                step={0.1}
+                valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+          </>
+        );
+
+      case 'field-vector':
+      case 'field-vector-component':
+        return (
+          <>
+            {/* Opacity */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Opacity: {Math.round(commonProps.opacity * 100)}%
+              </Typography>
+              <Slider
+                value={commonProps.opacity * 100}
+                onChange={(_, value) => handleItemPropertyChange('opacity', (value as number) / 100)}
+                min={0}
+                max={100}
+                step={5}
+                valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+
+            {/* Color Map */}
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Color Map</InputLabel>
+              <Select
+                value={commonProps.colorMap}
+                label="Color Map"
+                onChange={(e) => handleItemPropertyChange('colorMap', e.target.value)}
+              >
+                <MenuItem value="jet">Jet</MenuItem>
+                <MenuItem value="turbo">Turbo</MenuItem>
+                <MenuItem value="viridis">Viridis</MenuItem>
+                <MenuItem value="plasma">Plasma</MenuItem>
+                <MenuItem value="twilight">Twilight</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Value Range Mode Toggle */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Value Range
+              </Typography>
+              <ToggleButtonGroup
+                value={commonProps.valueRangeMode}
+                exclusive
+                onChange={(_, value) => value && handleItemPropertyChange('valueRangeMode', value)}
+                size="small"
+                fullWidth
+              >
+                <ToggleButton value="auto">Auto</ToggleButton>
+                <ToggleButton value="manual">Manual</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            {/* Manual Range Inputs */}
+            {commonProps.valueRangeMode === 'manual' && (
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <TextField
+                  label="Min"
+                  type="number"
+                  value={commonProps.valueRangeMin}
+                  onChange={(e) => handleItemPropertyChange('valueRangeMin', parseFloat(e.target.value))}
+                  size="small"
+                  fullWidth
+                />
+                <TextField
+                  label="Max"
+                  type="number"
+                  value={commonProps.valueRangeMax}
+                  onChange={(e) => handleItemPropertyChange('valueRangeMax', parseFloat(e.target.value))}
+                  size="small"
+                  fullWidth
+                />
+              </Box>
+            )}
+
+            {/* Arrow Size */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Arrow Size: {commonProps.arrowSize.toFixed(1)}
+              </Typography>
+              <Slider
+                value={commonProps.arrowSize}
+                onChange={(_, value) => handleItemPropertyChange('arrowSize', value as number)}
+                min={0.1}
+                max={2.0}
+                step={0.1}
+                valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+          </>
+        );
+
+      case 'scalar-plot':
+        return (
+          <>
+            {/* Line Style */}
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Line Style</InputLabel>
+              <Select
+                value={commonProps.lineStyle}
+                label="Line Style"
+                onChange={(e) => handleItemPropertyChange('lineStyle', e.target.value)}
+              >
+                <MenuItem value="solid">Solid</MenuItem>
+                <MenuItem value="dashed">Dashed</MenuItem>
+                <MenuItem value="dotted">Dotted</MenuItem>
+                <MenuItem value="dash-dot">Dash-Dot</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Color Picker */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Line Color
+              </Typography>
+              <input
+                type="color"
+                value={commonProps.color}
+                onChange={(e) => handleItemPropertyChange('color', e.target.value)}
+                style={{ width: '100%', height: 40, cursor: 'pointer', border: '1px solid #ccc', borderRadius: 4 }}
+              />
+            </Box>
+
+            {/* Y-Axis Scale */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Y-Axis Scale
+              </Typography>
+              <RadioGroup
+                value={commonProps.yAxisScale}
+                onChange={(e) => handleItemPropertyChange('yAxisScale', e.target.value)}
+              >
+                <FormControlLabel value="linear" control={<Radio size="small" />} label="Linear" />
+                <FormControlLabel value="log" control={<Radio size="small" />} label="Logarithmic" />
+              </RadioGroup>
+            </Box>
+          </>
+        );
+
+      default:
+        return (
+          <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic' }}>
+            No additional properties for {selectedItem.type}
+          </Typography>
+        );
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -255,10 +838,8 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             sx={{ mb: 1.5 }}
           />
 
-          {/* Type-specific property editors will be added in next increment */}
-          <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic' }}>
-            Additional properties for {selectedItem.type} (to be implemented)
-          </Typography>
+          {/* Type-Specific Property Editors */}
+          {renderItemTypeProperties()}
         </Box>
       )}
 
