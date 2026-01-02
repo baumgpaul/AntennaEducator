@@ -277,6 +277,7 @@ export interface Project {
   name: string
   description?: string
   requested_fields?: any[]  // Field definitions for solver (JSON array)
+  view_configurations?: any[]  // View configurations for postprocessing (JSON array)
   user_id?: string | number
   created_at: string
   updated_at: string

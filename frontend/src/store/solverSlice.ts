@@ -51,6 +51,35 @@ function parseComplexArray(arr: any[]): Array<{ real: number; imag: number }> {
   return arr.map(parseComplex);
 }
 
+/**
+ * Calculate total size of field data in memory (MB)
+ * Used to warn users about large datasets
+ */
+function calculateFieldDataSize(fieldData: SolverState['fieldData']): number {
+  if (!fieldData) return 0;
+  
+  let totalBytes = 0;
+  
+  for (const fieldId in fieldData) {
+    for (const freqHz in fieldData[fieldId]) {
+      const data = fieldData[fieldId][freqHz];
+      
+      // Points: 3 numbers × 8 bytes each
+      totalBytes += (data.points?.length || 0) * 3 * 8;
+      
+      // Magnitudes: 1 number × 8 bytes each
+      totalBytes += (data.E_mag?.length || 0) * 8;
+      totalBytes += (data.H_mag?.length || 0) * 8;
+      
+      // Complex vectors: 3 components × 2 values (real/imag) × 8 bytes each
+      totalBytes += (data.E_vectors?.length || 0) * 3 * 2 * 8;
+      totalBytes += (data.H_vectors?.length || 0) * 3 * 2 * 8;
+    }
+  }
+  
+  return totalBytes / (1024 * 1024); // Convert to MB
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -110,6 +139,15 @@ interface SolverState {
   fieldResults: Record<string, { computed: boolean; num_points: number }> | null; // Track which fields have been computed
   postprocessingStatus: 'idle' | 'running' | 'completed' | 'failed'; // Separate status for postprocessing
   postprocessingProgress: { completed: number; total: number } | null; // Track field computation progress
+  
+  // Field data storage (in-memory for fast frequency switching)
+  fieldData: Record<string, Record<number, {
+    points: Array<[number, number, number]>; // Observation points [x, y, z] in meters
+    E_mag?: number[]; // E-field magnitudes at each point
+    H_mag?: number[]; // H-field magnitudes at each point
+    E_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>; // Complex E-field vectors
+    H_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>; // Complex H-field vectors
+  }>> | null; // fieldData[fieldId][frequencyHz] = { points, magnitudes, vectors }
 }
 
 const initialState: SolverState = {
@@ -133,6 +171,7 @@ const initialState: SolverState = {
   fieldResults: null,
   postprocessingStatus: 'idle',
   postprocessingProgress: null,
+  fieldData: null,
 };
 
 // ============================================================================
@@ -565,11 +604,11 @@ export const computePostprocessingWorkflow = createAsyncThunk<
       hasFrequencySweep: !!frequencySweep,
       hasFrequencies: !!(frequencySweep?.frequencies),
       frequenciesLength: frequencySweep?.frequencies?.length,
-      hasResults: !!results,
+      hasSingleResults: !!results,
       hasSweepResults: !!(frequencySweep?.results),
       sweepResultsLength: frequencySweep?.results?.length,
       isSweepMode,
-      hasResults,
+      hasAnyResults: hasResults,
     });
     
     if (!hasResults) {
@@ -764,6 +803,30 @@ export const computePostprocessingWorkflow = createAsyncThunk<
         const fieldData = await computeNearField(fieldRequest);
         console.log(`  Field computation complete: ${fieldData.num_points} points computed`);
         
+        // Store field data for all frequencies
+        for (let freqIdx = 0; freqIdx < frequencies.length; freqIdx++) {
+          const freqHz = frequencies[freqIdx];
+          
+          // Note: Backend currently returns data for first frequency only
+          // In future, backend should return array of results for each frequency
+          // For now, we store the same data for all frequencies
+          // TODO: Update when backend supports multi-frequency field computation
+          
+          dispatch(setFieldData({
+            fieldId: field.id,
+            frequencyHz: freqHz,
+            data: {
+              points: fieldRequest.observation_points as Array<[number, number, number]>,
+              E_mag: fieldData.E_magnitudes,
+              H_mag: fieldData.H_magnitudes,
+              E_vectors: fieldData.E_field,
+              H_vectors: fieldData.H_field,
+            },
+          }));
+        }
+        
+        console.log(`  Field data stored for ${frequencies.length} frequencies`);
+        
         // Update field result immediately
         completedWork++;
         dispatch(updateFieldResult({
@@ -786,12 +849,20 @@ export const computePostprocessingWorkflow = createAsyncThunk<
       
       response.fields = fieldResults;
     }
+    
+    // Check total field data size and warn if > 50 MB
+    const totalFieldDataSizeMB = calculateFieldDataSize(getState().solver.fieldData);
+    if (totalFieldDataSizeMB > 50) {
+      console.warn(`⚠️ Large field dataset: ${totalFieldDataSizeMB.toFixed(1)} MB stored in memory`);
+      console.warn('Consider reducing sampling resolution or exporting to ParaView for large datasets');
+      // Note: Snackbar notification will be shown in the UI (handled by fulfilled case)
+    }
 
     // Update workflow state
     dispatch(setSolverState('postprocessing-ready'));
 
     console.log('Postprocessing workflow complete:', response);
-    return response;
+    return { ...response, totalFieldDataSizeMB };
   } catch (error: any) {
     console.error('Postprocessing workflow failed:', error);
     
@@ -993,6 +1064,37 @@ const solverSlice = createSlice({
     state.postprocessingStatus = 'idle';
     state.postprocessingProgress = null;
     state.progress = 0;
+  },
+  
+  // Field data storage actions
+  setFieldData: (state, action: PayloadAction<{
+    fieldId: string;
+    frequencyHz: number;
+    data: {
+      points: Array<[number, number, number]>;
+      E_mag?: number[];
+      H_mag?: number[];
+      E_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>;
+      H_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>;
+    };
+  }>) => {
+    if (!state.fieldData) {
+      state.fieldData = {};
+    }
+    if (!state.fieldData[action.payload.fieldId]) {
+      state.fieldData[action.payload.fieldId] = {};
+    }
+    state.fieldData[action.payload.fieldId][action.payload.frequencyHz] = action.payload.data;
+  },
+  
+  clearFieldData: (state) => {
+    state.fieldData = null;
+  },
+  
+  clearFieldDataForField: (state, action: PayloadAction<string>) => {
+    if (state.fieldData && state.fieldData[action.payload]) {
+      delete state.fieldData[action.payload];
+    }
   },
   },
   extraReducers: (builder) => {
@@ -1373,6 +1475,9 @@ export const {
   updateFieldResult,
   updatePostprocessingProgress,
   cancelPostprocessing,
+  setFieldData,
+  clearFieldData,
+  clearFieldDataForField,
 } = solverSlice.actions;
 
 // Selectors
@@ -1392,5 +1497,6 @@ export const selectDirectivityRequested = (state: RootState) => state.solver.dir
 export const selectDirectivitySettings = (state: RootState) => state.solver.directivitySettings;
 export const selectSolverState = (state: RootState) => state.solver.solverState;
 export const selectCurrentFrequency = (state: RootState) => state.solver.currentFrequency;
+export const selectFieldData = (state: RootState) => state.solver.fieldData;
 
 export default solverSlice.reducer;

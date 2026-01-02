@@ -9,6 +9,7 @@ import projectsReducer from './projectsSlice'
 import designReducer from './designSlice'
 import uiReducer from './uiSlice'
 import solverReducer from './solverSlice'
+import postprocessingReducer from './postprocessingSlice'
 
 export const store = configureStore({
   reducer: {
@@ -17,6 +18,7 @@ export const store = configureStore({
     design: designReducer,
     ui: uiReducer,
     solver: solverReducer,
+    postprocessing: postprocessingReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

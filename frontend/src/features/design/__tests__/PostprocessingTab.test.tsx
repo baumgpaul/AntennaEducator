@@ -27,7 +27,6 @@ const makeField = (id: string, regionType: '2D' | '3D', shape: string): FieldDef
   fieldTypes: ['E'],
   visible: true,
   opacity: 80,
-  pointCount: 25,
   parameters: {},
 });
 
@@ -45,7 +44,7 @@ describe('PostprocessingTab', () => {
         directivityRequested
         fieldResults={fieldResults}
         currentFrequency={300}
-        frequencySweep={null}
+        frequencySweep={null}        fieldData={null}        fieldData={null}
       />
     );
 
@@ -77,6 +76,7 @@ describe('PostprocessingTab', () => {
         fieldResults={null}
         currentFrequency={null}
         frequencySweep={null}
+        fieldData={null}
       />
     );
 
@@ -129,13 +129,13 @@ describe('PostprocessingTab', () => {
     render(
       <PostprocessingTab
         solverState="solved"
-        elements={[makeElement('wire1')]}
+        elements={[makeElement('wire1', 'Wire 1', 'dipole')]}
         requestedFields={[]}
         directivityRequested={false}
-        fieldResults={[]}
+        fieldResults={{}}
         currentFrequency={300}
         frequencySweep={null}
-      />
+        fieldData={null}        fieldData={null}      />
     );
     
     const voltagesItem = screen.getByRole('button', { name: /voltages/i });
@@ -154,8 +154,7 @@ describe('PostprocessingTab', () => {
         directivityRequested={true}
         fieldResults={{}}
         currentFrequency={300}
-        frequencySweep={null}
-      />
+        frequencySweep={null}        fieldData={null}      />
     );
     
     const directivityItem = screen.getByRole('button', { name: /directivity/i });
@@ -172,7 +171,6 @@ describe('PostprocessingTab', () => {
       type: '2D',
       shape: 'plane',
       centerPoint: [1, 2, 3],
-      pointCount: 25,
       parameters: {},
       sampling: { x: 5, y: 5 },
       farField: false,
@@ -190,6 +188,7 @@ describe('PostprocessingTab', () => {
         fieldResults={{ field1: { computed: true, num_points: 25 } }}
         currentFrequency={300}
         frequencySweep={null}
+        fieldData={null}
       />
     );
     
@@ -208,7 +207,6 @@ describe('PostprocessingTab', () => {
       type: '2D',
       shape: 'plane',
       centerPoint: [0, 0, 50],
-      pointCount: 25,
       parameters: {},
       sampling: { x: 10, y: 10 },
       farField: false,
@@ -226,6 +224,7 @@ describe('PostprocessingTab', () => {
         fieldResults={{ field1: { computed: true, num_points: 25 } }}
         currentFrequency={300}
         frequencySweep={null}
+        fieldData={null}
       />
     );
     
@@ -249,7 +248,6 @@ describe('PostprocessingTab', () => {
       type: '2D',
       shape: 'plane',
       centerPoint: [0, 0, 50],
-      pointCount: 25,
       parameters: {},
       sampling: { x: 10, y: 10 },
       farField: false,
@@ -267,6 +265,7 @@ describe('PostprocessingTab', () => {
         fieldResults={{ field1: { computed: false, num_points: 0 } }}
         currentFrequency={300}
         frequencySweep={null}
+        fieldData={null}
       />
     );
     
@@ -285,7 +284,6 @@ describe('PostprocessingTab', () => {
       type: '2D',
       shape: 'plane',
       centerPoint: [0, 0, 50],
-      pointCount: 25,
       parameters: {},
       sampling: { x: 10, y: 10 },
       farField: false,
@@ -303,6 +301,7 @@ describe('PostprocessingTab', () => {
         fieldResults={{ field1: { computed: true, num_points: 25 } }}
         currentFrequency={300}
         frequencySweep={null}
+        fieldData={null}
       />
     );
     
@@ -330,7 +329,6 @@ describe('PostprocessingTab', () => {
       type: '2D',
       shape: 'plane',
       centerPoint: [0, 0, 50],
-      pointCount: 25,
       parameters: {},
       sampling: { x: 10, y: 10 },
       farField: false,
@@ -348,6 +346,7 @@ describe('PostprocessingTab', () => {
         fieldResults={{ field1: { computed: true, num_points: 25 } }}
         currentFrequency={300}
         frequencySweep={null}
+        fieldData={null}
       />
     );
     

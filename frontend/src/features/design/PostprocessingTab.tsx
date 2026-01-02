@@ -45,6 +45,13 @@ interface PostprocessingTabProps {
   fieldResults: Record<string, { computed: boolean; num_points: number }> | null;
   currentFrequency: number | null; // MHz - current single frequency
   frequencySweep: FrequencySweepResult | null; // Sweep data if available
+  fieldData: Record<string, Record<number, {
+    points: Array<[number, number, number]>;
+    E_mag?: number[];
+    H_mag?: number[];
+    E_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>;
+    H_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>;
+  }>> | null;
 }
 
 function PostprocessingTab({
@@ -55,6 +62,7 @@ function PostprocessingTab({
   fieldResults,
   currentFrequency,
   frequencySweep,
+  fieldData,
 }: PostprocessingTabProps) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('magnitude');
@@ -83,8 +91,8 @@ function PostprocessingTab({
     selectedFrequencyIndex 
   });
   
-  // TODO: displayFrequency will be used to fetch field data at the selected frequency
-  // const displayFrequency = availableFrequencies[selectedFrequencyIndex] || currentFrequency;
+  // Get current frequency in Hz for field data lookup
+  const displayFrequencyHz = availableFrequencies[selectedFrequencyIndex] || (currentFrequency ? currentFrequency * 1e6 : null);
 
   const statusMessage =
     solverState === 'postprocessing-ready'
@@ -287,17 +295,25 @@ function PostprocessingTab({
             {/* Render selected field */}
             {requestedFields
               .filter(f => f.id === selectedItem && (fieldResults?.[f.id]?.computed ?? false))
-              .map(field => (
-                <FieldVisualization
-                  key={field.id}
-                  field={field}
-                  visualizationMode={visualizationMode}
-                  colorMap={colorMap}
-                  opacity={opacity}
-                  selectedComponent={selectedComponent}
-                  complexPart={complexPart}
-                />
-              ))}
+              .map(field => {
+                // Get field data for current frequency
+                const currentFieldData = fieldData && displayFrequencyHz
+                  ? fieldData[field.id]?.[displayFrequencyHz]
+                  : undefined;
+                
+                return (
+                  <FieldVisualization
+                    key={field.id}
+                    field={field}
+                    visualizationMode={visualizationMode}
+                    colorMap={colorMap}
+                    opacity={opacity}
+                    selectedComponent={selectedComponent}
+                    complexPart={complexPart}
+                    fieldData={currentFieldData}
+                  />
+                );
+              })}
           </Scene3D>
         )}
       </Box>

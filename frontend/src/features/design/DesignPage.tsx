@@ -87,6 +87,7 @@ function DesignPage() {
   const fieldResults = useAppSelector((state) => state.solver.fieldResults);
   const currentFrequency = useAppSelector((state) => state.solver.currentFrequency);
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
+  const fieldData = useAppSelector((state) => state.solver.fieldData);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
@@ -871,6 +872,7 @@ function DesignPage() {
           fieldResults={fieldResults}
           currentFrequency={currentFrequency}
           frequencySweep={frequencySweep}
+          fieldData={fieldData}
         />
       )}
 

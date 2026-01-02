@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import type { FieldDefinition, FieldDefinition2D, FieldDefinition3D } from '@/types/fieldDefinitions';
 import type { ColorMapType } from '@/utils/colorMaps';
+import { createColorArray } from '@/utils/colorMaps';
 
 interface FieldVisualizationProps {
   field: FieldDefinition;
@@ -15,26 +16,46 @@ interface FieldVisualizationProps {
   opacity: number; // 0-100
   selectedComponent?: 'x' | 'y' | 'z';
   complexPart?: 'magnitude' | 'real' | 'imaginary';
+  fieldData?: {
+    points: Array<[number, number, number]>;
+    E_mag?: number[];
+    H_mag?: number[];
+    E_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>;
+    H_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>;
+  };
 }
 
 /**
  * Render a 2D plane field region
  */
-function PlaneField({ field, opacity }: {
+function PlaneField({ field, opacity, colorMap, fieldData }: {
   field: FieldDefinition2D;
   opacity: number;
+  colorMap: ColorMapType;
+  fieldData?: FieldVisualizationProps['fieldData'];
 }) {
-  const geometry = useMemo(() => {
-    // For now, render as a simple quad with wireframe
-    // Will be replaced with actual field data rendering
+  const { geometry, hasColors } = useMemo(() => {
+    // Calculate segments from sampling (n points → n-1 segments)
+    const segmentsX = (field.sampling?.x || 20) - 1;
+    const segmentsY = (field.sampling?.y || 20) - 1;
+    
     const geom = new THREE.PlaneGeometry(
-      field.dimensions?.width || 100,
-      field.dimensions?.height || 100,
-      10, // segments X
-      10  // segments Y
+      (field.dimensions?.width || 100) / 1000, // mm to meters
+      (field.dimensions?.height || 100) / 1000, // mm to meters
+      segmentsX,
+      segmentsY
     );
-    return geom;
-  }, [field]);
+    
+    // Apply vertex colors if field data is available
+    let hasColors = false;
+    if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
+      const colorArray = createColorArray(fieldData.E_mag, colorMap);
+      geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+      hasColors = true;
+    }
+    
+    return { geometry: geom, hasColors };
+  }, [field, colorMap, fieldData]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -47,11 +68,12 @@ function PlaneField({ field, opacity }: {
   return (
     <mesh geometry={geometry} position={position}>
       <meshBasicMaterial
-        color="#4488ff"
+        color={hasColors ? "#ffffff" : "#4488ff"}
         transparent
         opacity={opacity / 100}
         side={THREE.DoubleSide}
-        wireframe
+        wireframe={!hasColors}
+        vertexColors={hasColors}
       />
     </mesh>
   );
@@ -60,14 +82,28 @@ function PlaneField({ field, opacity }: {
 /**
  * Render a 2D circular field region
  */
-function CircleField({ field, opacity }: {
+function CircleField({ field, opacity, colorMap, fieldData }: {
   field: FieldDefinition2D;
   opacity: number;
+  colorMap: ColorMapType;
+  fieldData?: FieldVisualizationProps['fieldData'];
 }) {
-  const geometry = useMemo(() => {
+  const { geometry, hasColors } = useMemo(() => {
     const radius = field.dimensions?.radius || 50;
-    return new THREE.CircleGeometry(radius / 1000, 32); // mm to meters
-  }, [field]);
+    const segments = (field.sampling?.x || 32) - 1; // Radial segments
+    
+    const geom = new THREE.CircleGeometry(radius / 1000, segments); // mm to meters
+    
+    // Apply vertex colors if field data is available
+    let hasColors = false;
+    if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
+      const colorArray = createColorArray(fieldData.E_mag, colorMap);
+      geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+      hasColors = true;
+    }
+    
+    return { geometry: geom, hasColors };
+  }, [field, colorMap, fieldData]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -80,11 +116,12 @@ function CircleField({ field, opacity }: {
   return (
     <mesh geometry={geometry} position={position}>
       <meshBasicMaterial
-        color="#44ff88"
+        color={hasColors ? "#ffffff" : "#44ff88"}
         transparent
         opacity={opacity / 100}
         side={THREE.DoubleSide}
-        wireframe
+        wireframe={!hasColors}
+        vertexColors={hasColors}
       />
     </mesh>
   );
@@ -93,14 +130,33 @@ function CircleField({ field, opacity }: {
 /**
  * Render a 3D spherical field region
  */
-function SphereField({ field, opacity }: {
+function SphereField({ field, opacity, colorMap, fieldData }: {
   field: FieldDefinition3D;
   opacity: number;
+  colorMap: ColorMapType;
+  fieldData?: FieldVisualizationProps['fieldData'];
 }) {
-  const geometry = useMemo(() => {
+  const { geometry, hasColors } = useMemo(() => {
     const radius = field.sphereRadius || 50;
-    return new THREE.SphereGeometry(radius / 1000, 16, 12); // mm to meters
-  }, [field]);
+    const widthSegments = field.sampling?.angular || 20;
+    const heightSegments = field.sampling?.radial || 10;
+    
+    const geom = new THREE.SphereGeometry(
+      radius / 1000, // mm to meters
+      widthSegments,
+      heightSegments
+    );
+    
+    // Apply vertex colors if field data is available
+    let hasColors = false;
+    if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
+      const colorArray = createColorArray(fieldData.E_mag, colorMap);
+      geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+      hasColors = true;
+    }
+    
+    return { geometry: geom, hasColors };
+  }, [field, colorMap, fieldData]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -113,10 +169,11 @@ function SphereField({ field, opacity }: {
   return (
     <mesh geometry={geometry} position={position}>
       <meshBasicMaterial
-        color="#ff8844"
+        color={hasColors ? "#ffffff" : "#ff8844"}
         transparent
         opacity={opacity / 100}
-        wireframe
+        wireframe={!hasColors}
+        vertexColors={hasColors}
       />
     </mesh>
   );
@@ -125,18 +182,38 @@ function SphereField({ field, opacity }: {
 /**
  * Render a 3D cubic field region
  */
-function CubeField({ field, opacity }: {
+function CubeField({ field, opacity, colorMap, fieldData }: {
   field: FieldDefinition3D;
   opacity: number;
+  colorMap: ColorMapType;
+  fieldData?: FieldVisualizationProps['fieldData'];
 }) {
-  const geometry = useMemo(() => {
+  const { geometry, hasColors } = useMemo(() => {
     const dims = field.cubeDimensions || { Lx: 100, Ly: 100, Lz: 100 };
-    return new THREE.BoxGeometry(
+    // Use sampling to determine segments (n points → n-1 segments)
+    const segmentsX = (field.sampling?.x || 10) - 1;
+    const segmentsY = (field.sampling?.y || 10) - 1;
+    const segmentsZ = (field.sampling?.z || 10) - 1;
+    
+    const geom = new THREE.BoxGeometry(
       dims.Lx / 1000,
       dims.Ly / 1000,
-      dims.Lz / 1000
+      dims.Lz / 1000,
+      segmentsX,
+      segmentsY,
+      segmentsZ
     );
-  }, [field]);
+    
+    // Apply vertex colors if field data is available
+    let hasColors = false;
+    if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
+      const colorArray = createColorArray(fieldData.E_mag, colorMap);
+      geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+      hasColors = true;
+    }
+    
+    return { geometry: geom, hasColors };
+  }, [field, colorMap, fieldData]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -149,10 +226,11 @@ function CubeField({ field, opacity }: {
   return (
     <mesh geometry={geometry} position={position}>
       <meshBasicMaterial
-        color="#ff44aa"
+        color={hasColors ? "#ffffff" : "#ff44aa"}
         transparent
         opacity={opacity / 100}
-        wireframe
+        wireframe={!hasColors}
+        vertexColors={hasColors}
       />
     </mesh>
   );
@@ -165,20 +243,22 @@ function CubeField({ field, opacity }: {
 function FieldVisualization({
   field,
   opacity,
+  colorMap,
+  fieldData,
 }: FieldVisualizationProps) {
   // Route to appropriate renderer based on field shape
   // Type narrowing happens automatically based on shape
   if (field.type === '2D') {
     if (field.shape === 'plane') {
-      return <PlaneField field={field} opacity={opacity} />;
+      return <PlaneField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} />;
     } else if (field.shape === 'circle') {
-      return <CircleField field={field} opacity={opacity} />;
+      return <CircleField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} />;
     }
   } else if (field.type === '3D') {
     if (field.shape === 'sphere') {
-      return <SphereField field={field} opacity={opacity} />;
+      return <SphereField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} />;
     } else if (field.shape === 'cube') {
-      return <CubeField field={field} opacity={opacity} />;
+      return <CubeField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} />;
     }
   }
   

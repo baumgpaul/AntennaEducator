@@ -7,6 +7,7 @@ import solverReducer, {
   addFieldRegion,
   updateFieldResult,
 } from '../solverSlice';
+import type { FieldDefinition2D, FieldDefinition3D } from '@/types/fieldDefinitions';
 
 // Mock API calls
 vi.mock('@/api/postprocessor', () => ({
@@ -46,6 +47,23 @@ vi.mock('@/api/solver', () => ({
   }),
 }));
 
+// Helper to create test field definitions with all required properties
+const makeTestField2D = (id: string): FieldDefinition2D => ({
+  id,
+  name: `Field ${id}`,
+  type: '2D',
+  shape: 'plane',
+  centerPoint: [0, 0, 50],
+  dimensions: { width: 100, height: 100 },
+  normalPreset: 'XY',
+  sampling: { x: 5, y: 5 },
+  farField: false,
+  fieldTypes: ['E'],
+  visible: true,
+  opacity: 30,
+  parameters: {},
+});
+
 describe('Incremental Postprocessing Workflow', () => {
   let store: any;
 
@@ -82,7 +100,8 @@ describe('Incremental Postprocessing Workflow', () => {
           fieldResults: null,
           postprocessingStatus: 'idle',
           postprocessingProgress: null,
-        } as SolverState,
+          fieldData: null,
+        },
         design: {
           elements: [
             {
@@ -102,30 +121,9 @@ describe('Incremental Postprocessing Workflow', () => {
   });
 
   it('computes all fields on first postprocessing run', async () => {
-    // Add two fields
-    store.dispatch(addFieldRegion({
-      id: 'field-1',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 50],
-      dimensions: { width: 100, height: 100 },
-      normalPreset: 'XY',
-      sampling: { x: 5, y: 5 },
-      farField: false,
-      fieldTypes: ['E'],
-    }));
-
-    store.dispatch(addFieldRegion({
-      id: 'field-2',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 100],
-      dimensions: { width: 100, height: 100 },
-      normalPreset: 'XY',
-      sampling: { x: 5, y: 5 },
-      farField: false,
-      fieldTypes: ['E'],
-    }));
+    // Add two fields2D('field-1')));
+    store.dispatch(addFieldRegion(makeTestField2D('field-1')));
+    store.dispatch(addFieldRegion(makeTestField2D('field-2')));
 
     // Run postprocessing
     await store.dispatch(computePostprocessingWorkflow());
@@ -140,18 +138,7 @@ describe('Incremental Postprocessing Workflow', () => {
   });
 
   it('computes only new field when added after postprocessing', async () => {
-    // First run: Add one field and compute
-    store.dispatch(addFieldRegion({
-      id: 'field-1',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 50],
-      dimensions: { width: 100, height: 100 },
-      normalPreset: 'XY',
-      sampling: { x: 5, y: 5 },
-      farField: false,
-      fieldTypes: ['E'],
-    }));
+    store.dispatch(addFieldRegion(makeTestField2D('field-1')));
 
     await store.dispatch(computePostprocessingWorkflow());
     
@@ -161,17 +148,7 @@ describe('Incremental Postprocessing Workflow', () => {
     expect(state.fieldResults['field-1']?.computed).toBe(true);
 
     // Second run: Add another field
-    store.dispatch(addFieldRegion({
-      id: 'field-2',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 100],
-      dimensions: { width: 100, height: 100 },
-      normalPreset: 'XY',
-      sampling: { x: 5, y: 5 },
-      farField: false,
-      fieldTypes: ['E'],
-    }));
+    store.dispatch(addFieldRegion(makeTestField2D('field-2')));
 
     // Run postprocessing again
     await store.dispatch(computePostprocessingWorkflow());
@@ -231,17 +208,7 @@ describe('Incremental Postprocessing Workflow', () => {
 
   it('skips computation when all fields already computed', async () => {
     // First run
-    store.dispatch(addFieldRegion({
-      id: 'field-1',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 50],
-      dimensions: { width: 100, height: 100 },
-      normalPreset: 'XY',
-      sampling: { x: 5, y: 5 },
-      farField: false,
-      fieldTypes: ['E'],
-    }));
+    store.dispatch(addFieldRegion(makeTestField2D('field-1')));
 
     await store.dispatch(computePostprocessingWorkflow());
 
@@ -276,29 +243,9 @@ describe('Incremental Postprocessing Workflow', () => {
 
   it('tracks progress correctly with unified counter', async () => {
     store.dispatch(setDirectivityRequested(true));
-    store.dispatch(addFieldRegion({
-      id: 'field-1',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 50],
-      dimensions: { width: 100, height: 100 },
-      normalPreset: 'XY',
-      sampling: { x: 5, y: 5 },
-      farField: false,
-      fieldTypes: ['E'],
-    }));
+    store.dispatch(addFieldRegion(makeTestField2D('field-1')));
 
-    store.dispatch(addFieldRegion({
-      id: 'field-2',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 100],
-      dimensions: { width: 100, height: 100 },
-      normalPreset: 'XY',
-      sampling: { x: 5, y: 5 },
-      farField: false,
-      fieldTypes: ['E'],
-    }));
+    store.dispatch(addFieldRegion(makeTestField2D('field-2')));
 
     await store.dispatch(computePostprocessingWorkflow());
 
@@ -329,17 +276,7 @@ describe('Incremental Postprocessing Workflow', () => {
       },
     });
 
-    store.dispatch(addFieldRegion({
-      id: 'field-new',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 50],
-      dimensions: { width: 100, height: 100 },
-      normalPreset: 'XY',
-      sampling: { x: 5, y: 5 },
-      farField: false,
-      fieldTypes: ['E'],
-    }));
+    store.dispatch(addFieldRegion(makeTestField2D('field-new')));
 
     // Should be able to run postprocessing
     await store.dispatch(computePostprocessingWorkflow());

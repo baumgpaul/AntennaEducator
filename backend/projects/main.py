@@ -142,7 +142,8 @@ async def create_project(
         user_id=current_user.id,
         name=project_data.name,
         description=project_data.description,
-        requested_fields=project_data.requested_fields
+        requested_fields=project_data.requested_fields,
+        view_configurations=project_data.view_configurations
     )
     db.add(db_project)
     db.commit()
@@ -210,6 +211,8 @@ async def update_project(
         project.description = project_data.description
     if project_data.requested_fields is not None:
         project.requested_fields = project_data.requested_fields
+    if project_data.view_configurations is not None:
+        project.view_configurations = project_data.view_configurations
     
     db.commit()
     db.refresh(project)

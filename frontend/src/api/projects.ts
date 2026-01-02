@@ -13,12 +13,14 @@ export interface CreateProjectRequest {
   name: string;
   description?: string;
   requested_fields?: any[];  // Field definitions for solver
+  view_configurations?: any[];  // View configurations for postprocessing
 }
 
 export interface UpdateProjectRequest {
   name?: string;
   description?: string;
   requested_fields?: any[];  // Field definitions for solver
+  view_configurations?: any[];  // View configurations for postprocessing
 }
 
 /**
