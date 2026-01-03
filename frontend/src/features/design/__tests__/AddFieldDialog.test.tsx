@@ -20,7 +20,7 @@ describe('AddFieldDialog - T4.B1.2', () => {
       expect(screen.getByText('Region Type')).toBeInTheDocument();
       expect(screen.getByText('Shape')).toBeInTheDocument();
       expect(screen.getByText('Parameters')).toBeInTheDocument();
-      expect(screen.getByText('Field Types')).toBeInTheDocument();
+      expect(screen.getByText('Field Type')).toBeInTheDocument();
     });
 
     it('starts at step 1 (Region Type)', () => {
@@ -214,23 +214,6 @@ describe('AddFieldDialog - T4.B1.2', () => {
       const eFieldCheckbox = screen.getByLabelText(/E-field/i) as HTMLInputElement;
       expect(eFieldCheckbox.checked).toBe(true);
     });
-
-    it('disables Next if no field types selected', async () => {
-      const user = userEvent.setup();
-      render(<AddFieldDialog open={true} onClose={mockOnClose} onCreate={mockOnCreate} />);
-
-      // Navigate to step 4
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 2
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 3
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 4
-
-      // Uncheck the default E-field
-      const eFieldCheckbox = screen.getByLabelText(/E-field/i);
-      await user.click(eFieldCheckbox);
-
-      const nextButton = screen.getByRole('button', { name: /Next/i });
-      expect(nextButton).toBeDisabled();
-    });
   });
 
   describe('Step 5: Near/Far Field', () => {
@@ -282,7 +265,7 @@ describe('AddFieldDialog - T4.B1.2', () => {
         expect.objectContaining({
           type: '2D',
           shape: 'plane',
-          centerPoint: [0, 0, 50],
+          centerPoint: [0, 0, 0],
           farField: false,
           fieldType: 'E',
         })

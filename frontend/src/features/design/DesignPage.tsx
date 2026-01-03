@@ -25,7 +25,7 @@ import {
 } from '@/store/designSlice';
 import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification } from '@/store/uiSlice';
-import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState } from '@/store/solverSlice';
+import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
 import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 import {
@@ -157,6 +157,10 @@ function DesignPage() {
     if (currentProject.solver_state) {
       console.log('Loading solver state from project');
       dispatch(loadSolverState(currentProject.solver_state));
+    } else {
+      // No solver state - this is a new/empty project, clear solver state
+      console.log('No solver state in project - resetting solver');
+      dispatch(resetSolver());
     }
 
     // If project has JSON description, parse and restore elements

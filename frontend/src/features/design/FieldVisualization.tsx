@@ -9,6 +9,20 @@ import type { FieldDefinition, FieldDefinition2D, FieldDefinition3D } from '@/ty
 import type { ColorMapType } from '@/utils/colorMaps';
 import { createColorArray } from '@/utils/colorMaps';
 
+/**
+ * Get normal vector from preset
+ */
+function getNormalFromPreset(preset: 'XY' | 'YZ' | 'XZ'): [number, number, number] {
+  switch (preset) {
+    case 'XY':
+      return [0, 0, 1]; // Z-up
+    case 'YZ':
+      return [1, 0, 0]; // X-right
+    case 'XZ':
+      return [0, 1, 0]; // Y-forward
+  }
+}
+
 interface FieldVisualizationProps {
   field: FieldDefinition;
   visualizationMode: 'magnitude' | 'vectorial' | 'component' | 'phase';
@@ -45,6 +59,17 @@ function PlaneField({ field, opacity, colorMap, fieldData }: {
       segmentsX,
       segmentsY
     );
+    
+    // Rotate plane to match normal vector
+    const normal = field.normalPreset
+      ? getNormalFromPreset(field.normalPreset)
+      : field.normalVector ?? [0, 0, 1];
+    
+    const quaternion = new THREE.Quaternion();
+    const targetNormal = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
+    const defaultNormal = new THREE.Vector3(0, 0, 1);
+    quaternion.setFromUnitVectors(defaultNormal, targetNormal);
+    geom.applyQuaternion(quaternion);
     
     // Apply vertex colors if field data is available
     let hasColors = false;
@@ -93,6 +118,17 @@ function CircleField({ field, opacity, colorMap, fieldData }: {
     const segments = (field.sampling?.x || 32) - 1; // Radial segments
     
     const geom = new THREE.CircleGeometry(radius / 1000, segments); // mm to meters
+    
+    // Rotate circle to match normal vector
+    const normal = field.normalPreset
+      ? getNormalFromPreset(field.normalPreset)
+      : field.normalVector ?? [0, 0, 1];
+    
+    const quaternion = new THREE.Quaternion();
+    const targetNormal = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
+    const defaultNormal = new THREE.Vector3(0, 0, 1);
+    quaternion.setFromUnitVectors(defaultNormal, targetNormal);
+    geom.applyQuaternion(quaternion);
     
     // Apply vertex colors if field data is available
     let hasColors = false;

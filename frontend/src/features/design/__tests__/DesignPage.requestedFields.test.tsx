@@ -11,6 +11,7 @@ import designReducer from '@/store/designSlice';
 import solverReducer from '@/store/solverSlice';
 import projectsReducer from '@/store/projectsSlice';
 import uiReducer from '@/store/uiSlice';
+import postprocessingReducer from '@/store/postprocessingSlice';
 import * as projectsApi from '@/api/projects';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 
@@ -56,6 +57,7 @@ function createTestStore(preloadedState = {}) {
       solver: solverReducer,
       projects: projectsReducer,
       ui: uiReducer,
+      postprocessing: postprocessingReducer,
     },
     preloadedState,
   });

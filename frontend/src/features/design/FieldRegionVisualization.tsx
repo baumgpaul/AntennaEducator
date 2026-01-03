@@ -82,9 +82,11 @@ function PlaneRegion({
     return null;
   }
 
-  const width = field.dimensions?.width ?? 100;
-  const height = field.dimensions?.height ?? 100;
-  const [cx, cy, cz] = field.centerPoint;
+  // Convert dimensions from mm to meters
+  const width = (field.dimensions?.width ?? 100) / 1000;
+  const height = (field.dimensions?.height ?? 100) / 1000;
+  // Convert center point from mm to meters
+  const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
   
   console.log('[PlaneRegion] Calculated values:', { width, height, cx, cy, cz });
 
@@ -166,8 +168,10 @@ function CircleRegion({
 }) {
   if (field.type !== '2D' || field.shape !== 'circle') return null;
 
-  const radius = field.dimensions?.radius ?? 50;
-  const [cx, cy, cz] = field.centerPoint;
+  // Convert radius from mm to meters
+  const radius = (field.dimensions?.radius ?? 50) / 1000;
+  // Convert center point from mm to meters
+  const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
 
   // Get normal vector
   const normal = field.normalPreset
@@ -245,8 +249,10 @@ function SphereRegion({
 }) {
   if (field.type !== '3D' || field.shape !== 'sphere') return null;
 
-  const radius = field.sphereRadius ?? 50;
-  const [cx, cy, cz] = field.centerPoint;
+  // Convert radius from mm to meters
+  const radius = (field.sphereRadius ?? 50) / 1000;
+  // Convert center point from mm to meters
+  const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
 
   // Create sphere geometry with wireframe segments
   const sphereGeometry = useMemo(() => {
@@ -308,10 +314,12 @@ function CubeRegion({
 }) {
   if (field.type !== '3D' || field.shape !== 'cube') return null;
 
-  const Lx = field.cubeDimensions?.Lx ?? 100;
-  const Ly = field.cubeDimensions?.Ly ?? 100;
-  const Lz = field.cubeDimensions?.Lz ?? 100;
-  const [cx, cy, cz] = field.centerPoint;
+  // Convert dimensions from mm to meters
+  const Lx = (field.cubeDimensions?.Lx ?? 100) / 1000;
+  const Ly = (field.cubeDimensions?.Ly ?? 100) / 1000;
+  const Lz = (field.cubeDimensions?.Lz ?? 100) / 1000;
+  // Convert center point from mm to meters
+  const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
 
   // Create box geometry
   const boxGeometry = useMemo(() => {

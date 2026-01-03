@@ -23,13 +23,14 @@ export function generateObservationPoints(field: FieldDefinition): number[][] {
  */
 function generate2DObservationPoints(field: FieldDefinition2D): number[][] {
   const points: number[][] = [];
-  const [cx, cy, cz] = field.centerPoint;
+  // Convert center point from mm to m
+  const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
   const { x: nx, y: ny } = field.sampling;
 
   if (field.shape === 'plane') {
-    // Get dimensions (default to 1m x 1m if not specified)
-    const width = field.dimensions?.width ?? 1.0;
-    const height = field.dimensions?.height ?? 1.0;
+    // Get dimensions in mm, convert to meters
+    const width = (field.dimensions?.width ?? 100.0) / 1000.0;  // mm to m
+    const height = (field.dimensions?.height ?? 100.0) / 1000.0;  // mm to m
 
     // Determine normal vector
     let normal: [number, number, number];
@@ -70,7 +71,7 @@ function generate2DObservationPoints(field: FieldDefinition2D): number[][] {
       }
     }
   } else if (field.shape === 'circle') {
-    const radius = field.dimensions?.radius ?? 0.5;
+    const radius = (field.dimensions?.radius ?? 50.0) / 1000.0;  // mm to m
 
     // Determine normal vector (same as plane)
     let normal: [number, number, number];
@@ -123,11 +124,12 @@ function generate2DObservationPoints(field: FieldDefinition2D): number[][] {
  */
 function generate3DObservationPoints(field: FieldDefinition3D): number[][] {
   const points: number[][] = [];
-  const [cx, cy, cz] = field.centerPoint;
+  // Convert center point from mm to m
+  const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
   const { radial: nr, angular: ntheta } = field.sampling;
 
   if (field.shape === 'sphere') {
-    const radius = field.sphereRadius ?? 1.0;
+    const radius = (field.sphereRadius ?? 100.0) / 1000.0;  // mm to m
     const nphi = ntheta; // Use same angular sampling for both angles
 
     // Sample in spherical coordinates
@@ -150,7 +152,9 @@ function generate3DObservationPoints(field: FieldDefinition3D): number[][] {
       }
     }
   } else if (field.shape === 'cube') {
-    const { Lx, Ly, Lz } = field.cubeDimensions ?? { Lx: 1.0, Ly: 1.0, Lz: 1.0 };
+    // Convert cube dimensions from mm to m
+    const dims = field.cubeDimensions ?? { Lx: 100.0, Ly: 100.0, Lz: 100.0 };
+    const { Lx, Ly, Lz } = { Lx: dims.Lx / 1000, Ly: dims.Ly / 1000, Lz: dims.Lz / 1000 };
     
     // Use radial sampling for all 3 dimensions
     const nx = nr;

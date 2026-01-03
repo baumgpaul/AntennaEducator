@@ -48,7 +48,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   const [activeStep, setActiveStep] = useState(0);
   const [regionType, setRegionType] = useState<'2D' | '3D'>('2D');
   const [shape, setShape] = useState<'plane' | 'circle' | 'sphere' | 'cube'>('plane');
-  const [center, setCenter] = useState({ x: 0, y: 0, z: 50 });
+  const [center, setCenter] = useState({ x: 0, y: 0, z: 0 });
   const [dimensions, setDimensions] = useState({ width: 100, height: 100, radius: 50 });
   const [normalPreset, setNormalPreset] = useState<'XY' | 'YZ' | 'XZ'>('XY');
   const [sampling, setSampling] = useState({ x: 20, y: 20, radial: 10, angular: 20 });
@@ -129,7 +129,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
     setActiveStep(0);
     setRegionType('2D');
     setShape('plane');
-    setCenter({ x: 0, y: 0, z: 50 });
+    setCenter({ x: 0, y: 0, z: 0 });
     setDimensions({ width: 100, height: 100, radius: 50 });
     setNormalPreset('XY');
     setSampling({ x: 20, y: 20, radial: 10, angular: 20 });

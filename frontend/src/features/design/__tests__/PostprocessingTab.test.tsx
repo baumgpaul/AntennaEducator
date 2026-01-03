@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
 import PostprocessingTab from '../PostprocessingTab';
+import postprocessingReducer from '@/store/postprocessingSlice';
+import designReducer from '@/store/designSlice';
+import solverReducer from '@/store/solverSlice';
 import type { AntennaElement } from '@/types/models';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 
@@ -30,13 +35,70 @@ const makeField = (id: string, regionType: '2D' | '3D', shape: string): FieldDef
   parameters: {},
 });
 
+// Helper to create a test store and render with Provider
+function renderWithStore(component: React.ReactElement, preloadedState = {}) {
+  const store = configureStore({
+    reducer: {
+      postprocessing: postprocessingReducer,
+      design: designReducer,
+      solver: solverReducer,
+    },
+    preloadedState: {
+      postprocessing: {
+        viewConfigurations: [],
+        selectedViewId: null,
+        selectedItemId: null,
+        addViewDialogOpen: false,
+        addAntennaElementDialogOpen: false,
+        addFieldVisualizationDialogOpen: false,
+        addScalarPlotDialogOpen: false,
+      },
+      design: {
+        elements: [],
+        sources: [],
+        loadPorts: [],
+        selectedElementId: null,
+        currentTab: 'designer',
+        requestedFields: [],
+        fieldRegions: [],
+        selectedFieldId: null,
+        ...preloadedState,
+      },
+      solver: {
+        status: 'idle',
+        progress: 0,
+        error: null,
+        jobId: null,
+        currentRequest: null,
+        results: null,
+        currentDistribution: null,
+        radiationPattern: null,
+        multiAntennaResults: null,
+        frequencySweep: null,
+        sweepInProgress: false,
+        resultsHistory: [],
+        requestedFields: [],
+        directivityRequested: false,
+        directivitySettings: { theta_points: 19, phi_points: 37 },
+        solverState: 'idle',
+        currentFrequency: null,
+        fieldResults: null,
+        postprocessingStatus: 'idle',
+        postprocessingProgress: null,
+        fieldData: null,
+      },
+    },
+  });
+  return renderWithStore(<Provider store={store}>{component}</Provider>);
+}
+
 describe('PostprocessingTab', () => {
   it('renders structure and solution outputs with data', () => {
     const elements = [makeElement('1', 'Dipole 1', 'dipole')];
     const requestedFields: FieldDefinition[] = [makeField('f1', '2D', 'plane')];
     const fieldResults = { f1: { computed: true, num_points: 25 } };
 
-    render(
+    renderWithStore(
       <PostprocessingTab
         solverState="postprocessing-ready"
         elements={elements}
@@ -44,7 +106,7 @@ describe('PostprocessingTab', () => {
         directivityRequested
         fieldResults={fieldResults}
         currentFrequency={300}
-        frequencySweep={null}        fieldData={null}        fieldData={null}
+        frequencySweep={null}        fieldData={null}
       />
     );
 
@@ -67,7 +129,7 @@ describe('PostprocessingTab', () => {
   });
 
   it('renders empty states when no antennas or fields', () => {
-    render(
+    renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[]}
@@ -88,7 +150,7 @@ describe('PostprocessingTab', () => {
     const requestedFields: FieldDefinition[] = [makeField('f1', '3D', 'sphere')];
     const fieldResults = { f1: { computed: false, num_points: 0 } };
 
-    render(
+    renderWithStore(
       <PostprocessingTab
         solverState="postprocessing-ready"
         elements={[makeElement('1', 'Loop 1', 'loop')]}
@@ -106,7 +168,7 @@ describe('PostprocessingTab', () => {
   });
 
   it('selects currents and shows properties panel', () => {
-    render(
+    renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
@@ -126,7 +188,7 @@ describe('PostprocessingTab', () => {
   });
 
   it('selects voltages and shows properties panel', () => {
-    render(
+    renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('wire1', 'Wire 1', 'dipole')]}
@@ -146,7 +208,7 @@ describe('PostprocessingTab', () => {
   });
 
   it('selects directivity and shows properties panel', () => {
-    render(
+    renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
@@ -179,7 +241,7 @@ describe('PostprocessingTab', () => {
       opacity: 80,
     };
     
-    render(
+    renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
@@ -215,7 +277,7 @@ describe('PostprocessingTab', () => {
       opacity: 80,
     };
     
-    render(
+    renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
@@ -256,7 +318,7 @@ describe('PostprocessingTab', () => {
       opacity: 80,
     };
     
-    render(
+    renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
@@ -292,7 +354,7 @@ describe('PostprocessingTab', () => {
       opacity: 80,
     };
     
-    render(
+    renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
@@ -337,7 +399,7 @@ describe('PostprocessingTab', () => {
       opacity: 80,
     };
     
-    render(
+    renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
@@ -362,4 +424,5 @@ describe('PostprocessingTab', () => {
     expect(screen.getAllByText(/Value/).length).toBeGreaterThan(0);
   });
 });
+
 

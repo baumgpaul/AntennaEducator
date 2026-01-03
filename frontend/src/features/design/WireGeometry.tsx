@@ -18,6 +18,10 @@ interface WireGeometryProps {
   // Visualization options
   showNodes?: boolean;
   visualizationMode?: 'element-colors' | 'current-distribution';
+  
+  // Custom rendering overrides (for postprocessing view items)
+  customColor?: string; // Hex color to override element colors
+  customOpacity?: number; // Opacity 0-1 to make wires transparent
 }
 
 /**
@@ -34,7 +38,9 @@ function WireGeometry({
   selected, 
   onSelect,
   showNodes = false,
-  visualizationMode = 'element-colors'
+  visualizationMode = 'element-colors',
+  customColor,
+  customOpacity = 1.0
 }: WireGeometryProps) {
   const [hoveredElement, setHoveredElement] = useState<string | null>(null);
   
@@ -228,6 +234,11 @@ function WireGeometry({
     current: number,
     mode: string
   ): THREE.Color => {
+    // If custom color is provided (from postprocessing view), use it
+    if (customColor) {
+      return hexToThreeColor(customColor);
+    }
+    
     // If in current distribution mode and we have current data
     if (mode === 'current-distribution' && current !== 0) {
       return getColorFromCurrent(current);
@@ -334,6 +345,8 @@ function WireGeometry({
                       emissiveIntensity={isSelected || isHovered ? 0.5 : 0}
                       metalness={0.7}
                       roughness={0.3}
+                      transparent={customOpacity < 1.0}
+                      opacity={customOpacity}
                     />
                   </mesh>
 
@@ -346,6 +359,8 @@ function WireGeometry({
                         color={color}
                         metalness={0.7}
                         roughness={0.3}
+                        transparent={customOpacity < 1.0}
+                        opacity={customOpacity}
                       />
                     </mesh>
                   )}
@@ -357,6 +372,8 @@ function WireGeometry({
                         color={color}
                         metalness={0.7}
                         roughness={0.3}
+                        transparent={customOpacity < 1.0}
+                        opacity={customOpacity}
                       />
                     </mesh>
                   )}

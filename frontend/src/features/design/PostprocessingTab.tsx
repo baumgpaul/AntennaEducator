@@ -11,10 +11,11 @@ import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
 import type { FrequencySweepResult } from '@/types/api';
 import Scene3D from './Scene3D';
-import FieldVisualization from './FieldVisualization';
 import RibbonMenu from './RibbonMenu';
 import TreeViewPanel from './TreeViewPanel';
 import PostprocessingPropertiesPanel from '../postprocessing/PostprocessingPropertiesPanel';
+import { ViewItemRenderer } from '../postprocessing/ViewItemRenderer';
+import { Colorbar } from '../postprocessing/Colorbar';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   selectViewConfigurations,
@@ -46,13 +47,9 @@ interface PostprocessingTabProps {
 }
 
 function PostprocessingTab({
-  solverState,
   elements,
-  requestedFields,
-  fieldResults,
   currentFrequency,
   frequencySweep,
-  fieldData,
 }: PostprocessingTabProps) {
   const dispatch = useAppDispatch();
   
@@ -61,9 +58,6 @@ function PostprocessingTab({
   const selectedViewId = useAppSelector(selectSelectedViewId);
   const selectedItemId = useAppSelector(selectSelectedItemId);
   const resultsStale = useAppSelector(selectResultsStale);
-  
-  // Backwards compatibility: map selectedItemId to selectedItem for existing code
-  const selectedItem = selectedItemId;
   
   const [selectedFrequencyIndex] = useState<number>(0);
 
@@ -88,11 +82,6 @@ function PostprocessingTab({
   
   // Get current frequency in Hz for field data lookup
   const displayFrequencyHz = availableFrequencies[selectedFrequencyIndex] || (currentFrequency ? currentFrequency * 1e6 : null);
-
-  const statusMessage =
-    solverState === 'postprocessing-ready'
-      ? 'Postprocessing results ready. Select a field to visualize.'
-      : 'Solver results available (voltages/currents). Select a field to visualize.';
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -152,36 +141,95 @@ function PostprocessingTab({
           backgroundColor: '#1a1a1a',
         }}
       >
-        {!selectedItem || selectedItem === 'currents' || selectedItem === 'voltages' || selectedItem === 'directivity' ? (
-          <Typography variant="h6" color="text.secondary" textAlign="center">
-            {statusMessage}
-          </Typography>
+        {!selectedViewId ? (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+            }}
+          >
+            <Typography variant="h6" color="text.secondary">
+              No view selected. Create a view to get started.
+            </Typography>
+          </Box>
         ) : (
           <Scene3D elements={elements} showScale showAxisLabels>
-            {/* Render selected field */}
-            {requestedFields
-              .filter(f => f.id === selectedItem && (fieldResults?.[f.id]?.computed ?? false))
-              .map(field => {
-                // Get field data for current frequency
-                const currentFieldData = fieldData && displayFrequencyHz
-                  ? fieldData[field.id]?.[displayFrequencyHz]
-                  : undefined;
-                
-                return (
-                  <FieldVisualization
-                    key={field.id}
-                    field={field}
-                    visualizationMode="magnitude"
-                    colorMap="jet"
-                    opacity={0.8}
-                    selectedComponent="x"
-                    complexPart="magnitude"
-                    fieldData={currentFieldData}
-                  />
-                );
-              })}
+            {/* Render all visible items in the selected view */}
+            {viewConfigurations
+              .find((view) => view.id === selectedViewId)
+              ?.items.filter((item) => item.visible)
+              .map((item) => (
+                <ViewItemRenderer
+                  key={item.id}
+                  item={item}
+                  frequencyHz={displayFrequencyHz || undefined}
+                />
+              ))}
           </Scene3D>
         )}
+        
+        {/* Colorbar - shown when any color-mapped items are visible */}
+        {selectedViewId && (() => {
+          const selectedView = viewConfigurations.find((view) => view.id === selectedViewId);
+          const visibleColorMappedItems = selectedView?.items.filter(
+            (item) => 
+              item.visible && 
+              ['current', 'voltage', 'field-magnitude', 'directivity', 'field-vector'].includes(item.type)
+          ) || [];
+          
+          // Show colorbar for the first visible color-mapped item
+          const firstColorItem = visibleColorMappedItems[0];
+          if (!firstColorItem) return null;
+          
+          // Determine min/max and label based on item type
+          let min = 0, max = 1, label = 'Value', unit = '';
+          
+          if (firstColorItem.valueRangeMode === 'manual') {
+            min = firstColorItem.valueRangeMin || 0;
+            max = firstColorItem.valueRangeMax || 1;
+          } else {
+            // Auto range - will be computed by renderer, use placeholder
+            min = 0;
+            max = 1;
+          }
+          
+          // Set label and unit based on item type
+          switch (firstColorItem.type) {
+            case 'current':
+              label = 'Current';
+              unit = 'A';
+              break;
+            case 'voltage':
+              label = 'Voltage';
+              unit = 'V';
+              break;
+            case 'field-magnitude':
+              label = 'Field';
+              unit = 'V/m';
+              break;
+            case 'directivity':
+              label = 'Directivity';
+              unit = firstColorItem.scale === 'logarithmic' ? 'dBi' : 'linear';
+              break;
+            case 'field-vector':
+              label = 'Field Magnitude';
+              unit = 'V/m';
+              break;
+          }
+          
+          return (
+            <Colorbar
+              min={min}
+              max={max}
+              colorMap={(firstColorItem.colorMap || 'jet') as 'jet' | 'turbo' | 'viridis' | 'plasma' | 'twilight'}
+              label={label}
+              unit={unit}
+              position="right"
+            />
+          );
+        })()}
       </Box>
 
       {/* RIGHT PANEL - Properties Panel (320px fixed) */}

@@ -37,7 +37,7 @@ describe('AddViewDialog', () => {
 
   it('renders dialog when open', () => {
     renderDialog();
-    expect(screen.getByText('Add Result View')).toBeInTheDocument();
+    expect(screen.getByText('Create New View')).toBeInTheDocument();
     expect(screen.getByLabelText(/View Name/i)).toBeInTheDocument();
   });
 
@@ -47,7 +47,7 @@ describe('AddViewDialog', () => {
     const nameInput = screen.getByLabelText(/View Name/i);
     fireEvent.change(nameInput, { target: { value: 'My Custom View' } });
     
-    const radio3D = screen.getByLabelText('3D View');
+    const radio3D = screen.getByLabelText(/3D View - Visualize/);
     fireEvent.click(radio3D);
     
     const createButton = screen.getByRole('button', { name: /create/i });
@@ -65,7 +65,7 @@ describe('AddViewDialog', () => {
     renderDialog();
     
     // Leave name blank
-    const radioLine = screen.getByLabelText('Line View');
+    const radioLine = screen.getByLabelText(/Line View - Plot/);
     fireEvent.click(radioLine);
     
     const createButton = screen.getByRole('button', { name: /create/i });

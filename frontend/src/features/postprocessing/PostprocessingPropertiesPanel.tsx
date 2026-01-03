@@ -294,9 +294,9 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               <Slider
                 value={commonProps.edgeSize}
                 onChange={(_, value) => handleItemPropertyChange('edgeSize', value as number)}
-                min={0.1}
-                max={2.0}
-                step={0.1}
+                min={1}
+                max={10}
+                step={0.5}
                 valueLabelDisplay="auto"
                 size="small"
               />
@@ -386,9 +386,9 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               <Slider
                 value={commonProps.nodeSize}
                 onChange={(_, value) => handleItemPropertyChange('nodeSize', value as number)}
-                min={0.1}
-                max={2.0}
-                step={0.1}
+                min={0.01}
+                max={0.05}
+                step={0.01}
                 valueLabelDisplay="auto"
                 size="small"
               />
@@ -573,7 +573,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 value={commonProps.sizeFactor}
                 onChange={(_, value) => handleItemPropertyChange('sizeFactor', value as number)}
                 min={0.1}
-                max={2.0}
+                max={10}
                 step={0.1}
                 valueLabelDisplay="auto"
                 size="small"
@@ -665,9 +665,9 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               <Slider
                 value={commonProps.arrowSize}
                 onChange={(_, value) => handleItemPropertyChange('arrowSize', value as number)}
-                min={0.1}
-                max={2.0}
-                step={0.1}
+                min={1}
+                max={10}
+                step={0.5}
                 valueLabelDisplay="auto"
                 size="small"
               />

@@ -8,6 +8,7 @@ import projectsReducer from '@/store/projectsSlice';
 import designReducer from '@/store/designSlice';
 import solverReducer from '@/store/solverSlice';
 import uiReducer from '@/store/uiSlice';
+import postprocessingReducer from '@/store/postprocessingSlice';
 
 // Create mock navigate function at module level
 const mockNavigate = vi.fn();
@@ -38,6 +39,7 @@ const createTestStore = (initialState = {}) => {
       design: designReducer,
       solver: solverReducer,
       ui: uiReducer,
+      postprocessing: postprocessingReducer,
     },
     preloadedState: initialState,
   });

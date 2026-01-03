@@ -58,7 +58,7 @@ describe('AddAntennaElementDialog', () => {
 
   it('renders dialog when open', () => {
     renderDialog();
-    expect(screen.getByText('Add Antenna Element')).toBeInTheDocument();
+    expect(screen.getByText(/Add Antenna Element/)).toBeInTheDocument();
   });
 
   it('displays antenna list in dropdown', () => {

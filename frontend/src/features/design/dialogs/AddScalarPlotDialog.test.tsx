@@ -52,7 +52,7 @@ describe('AddScalarPlotDialog', () => {
   it('shows port selector for voltage plot', async () => {
     renderDialog();
     
-    const select = screen.getByLabelText(/Plot Type/i);
+    const select = screen.getByLabelText(/Data Type/i);
     fireEvent.mouseDown(select);
     
     const voltageOption = screen.getByText('Voltage vs Frequency');
@@ -66,7 +66,7 @@ describe('AddScalarPlotDialog', () => {
   it('hides port selector for impedance plot', async () => {
     renderDialog();
     
-    const select = screen.getByLabelText(/Plot Type/i);
+    const select = screen.getByLabelText(/Data Type/i);
     fireEvent.mouseDown(select);
     
     const impedanceOption = screen.getByText('Input Impedance');
