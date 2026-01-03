@@ -32,3 +32,47 @@ output "environment" {
   description = "Environment name"
   value       = var.environment
 }
+
+# ECR outputs
+output "ecr_projects_url" {
+  description = "URL of the projects ECR repository"
+  value       = module.ecr_projects.repository_url
+}
+
+output "ecr_preprocessor_url" {
+  description = "URL of the preprocessor ECR repository"
+  value       = module.ecr_preprocessor.repository_url
+}
+
+output "ecr_solver_url" {
+  description = "URL of the solver ECR repository"
+  value       = module.ecr_solver.repository_url
+}
+
+output "ecr_postprocessor_url" {
+  description = "URL of the postprocessor ECR repository"
+  value       = module.ecr_postprocessor.repository_url
+}
+
+# Lambda outputs (uncomment after deploying Lambda functions)
+/*
+output "lambda_projects_url" {
+  description = "Function URL for projects service"
+  value       = module.lambda_projects.function_url
+}
+
+output "lambda_preprocessor_url" {
+  description = "Function URL for preprocessor service"
+  value       = module.lambda_preprocessor.function_url
+}
+
+output "lambda_solver_url" {
+  description = "Function URL for solver service"
+  value       = module.lambda_solver.function_url
+}
+
+output "lambda_postprocessor_url" {
+  description = "Function URL for postprocessor service"
+  value       = module.lambda_postprocessor.function_url
+}
+*/

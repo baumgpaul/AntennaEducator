@@ -87,6 +87,182 @@ module "s3_frontend" {
 }
 
 # ============================================================================
+# ECR - Container Registries
+# ============================================================================
+
+module "ecr_projects" {
+  source = "../../modules/ecr"
+  
+  repository_name = "antenna-simulator-projects-${var.environment}"
+  environment     = var.environment
+  
+  tags = {
+    Component = "backend"
+    Service   = "projects"
+  }
+}
+
+module "ecr_preprocessor" {
+  source = "../../modules/ecr"
+  
+  repository_name = "antenna-simulator-preprocessor-${var.environment}"
+  environment     = var.environment
+  
+  tags = {
+    Component = "backend"
+    Service   = "preprocessor"
+  }
+}
+
+module "ecr_solver" {
+  source = "../../modules/ecr"
+  
+  repository_name = "antenna-simulator-solver-${var.environment}"
+  environment     = var.environment
+  
+  tags = {
+    Component = "backend"
+    Service   = "solver"
+  }
+}
+
+module "ecr_postprocessor" {
+  source = "../../modules/ecr"
+  
+  repository_name = "antenna-simulator-postprocessor-${var.environment}"
+  environment     = var.environment
+  
+  tags = {
+    Component = "backend"
+    Service   = "postprocessor"
+  }
+}
+
+# ============================================================================
+# Lambda Functions (container-based)
+# Note: Deploy after building and pushing images to ECR
+# ============================================================================
+
+# Uncomment after pushing images to ECR
+/*
+module "lambda_projects" {
+  source = "../../modules/lambda"
+  
+  function_name = "antenna-simulator-projects-${var.environment}"
+  image_uri     = "${module.ecr_projects.repository_url}:latest"
+  environment   = var.environment
+  region        = var.aws_region
+  
+  memory_size = 512
+  timeout     = 30
+  
+  environment_variables = {
+    USE_DYNAMODB       = "true"
+    DYNAMODB_TABLE_NAME = module.dynamodb.table_name
+    DISABLE_AUTH       = "true"  # Temporary for MVP
+  }
+  
+  dynamodb_table_arns = [module.dynamodb.table_arn]
+  
+  create_function_url    = true
+  function_url_auth_type = "NONE"
+  cors_allowed_origins   = ["*"]
+  
+  tags = {
+    Component = "backend"
+    Service   = "projects"
+  }
+}
+
+module "lambda_preprocessor" {
+  source = "../../modules/lambda"
+  
+  function_name = "antenna-simulator-preprocessor-${var.environment}"
+  image_uri     = "${module.ecr_preprocessor.repository_url}:latest"
+  environment   = var.environment
+  region        = var.aws_region
+  
+  memory_size = 512
+  timeout     = 30
+  
+  environment_variables = {
+    USE_DYNAMODB        = "true"
+    DYNAMODB_TABLE_NAME = module.dynamodb.table_name
+  }
+  
+  dynamodb_table_arns = [module.dynamodb.table_arn]
+  s3_bucket_arns      = [module.s3_data.bucket_arn]
+  
+  create_function_url    = true
+  function_url_auth_type = "NONE"
+  cors_allowed_origins   = ["*"]
+  
+  tags = {
+    Component = "backend"
+    Service   = "preprocessor"
+  }
+}
+
+module "lambda_solver" {
+  source = "../../modules/lambda"
+  
+  function_name = "antenna-simulator-solver-${var.environment}"
+  image_uri     = "${module.ecr_solver.repository_url}:latest"
+  environment   = var.environment
+  region        = var.aws_region
+  
+  memory_size = 2048
+  timeout     = 900  # 15 minutes (max for Lambda)
+  
+  environment_variables = {
+    USE_DYNAMODB        = "true"
+    DYNAMODB_TABLE_NAME = module.dynamodb.table_name
+  }
+  
+  dynamodb_table_arns = [module.dynamodb.table_arn]
+  s3_bucket_arns      = [module.s3_data.bucket_arn]
+  
+  create_function_url    = true
+  function_url_auth_type = "NONE"
+  cors_allowed_origins   = ["*"]
+  
+  tags = {
+    Component = "backend"
+    Service   = "solver"
+  }
+}
+
+module "lambda_postprocessor" {
+  source = "../../modules/lambda"
+  
+  function_name = "antenna-simulator-postprocessor-${var.environment}"
+  image_uri     = "${module.ecr_postprocessor.repository_url}:latest"
+  environment   = var.environment
+  region        = var.aws_region
+  
+  memory_size = 1024
+  timeout     = 60
+  
+  environment_variables = {
+    USE_DYNAMODB        = "true"
+    DYNAMODB_TABLE_NAME = module.dynamodb.table_name
+  }
+  
+  dynamodb_table_arns = [module.dynamodb.table_arn]
+  s3_bucket_arns      = [module.s3_data.bucket_arn]
+  
+  create_function_url    = true
+  function_url_auth_type = "NONE"
+  cors_allowed_origins   = ["*"]
+  
+  tags = {
+    Component = "backend"
+    Service   = "postprocessor"
+  }
+}
+*/
+
+# ============================================================================
 # Data Sources
 # ============================================================================
 
