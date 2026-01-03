@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Box,
   Typography,
   Alert,
   AlertTitle,
+  Snackbar,
 } from '@mui/material';
 import type { SolverWorkflowState } from '@/store/solverSlice';
 import { selectResultsStale } from '@/store/solverSlice';
@@ -17,6 +18,8 @@ import PostprocessingPropertiesPanel from '../postprocessing/PostprocessingPrope
 import LineViewPanel from '../postprocessing/LineViewPanel';
 import { ViewItemRenderer } from '../postprocessing/ViewItemRenderer';
 import { Colorbar } from '../postprocessing/Colorbar';
+import ExportPDFDialog from './dialogs/ExportPDFDialog';
+import { exportToPDF } from '@/utils/exportToPDF';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   selectViewConfigurations,
@@ -45,12 +48,14 @@ interface PostprocessingTabProps {
     E_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>;
     H_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>;
   }>> | null;
+  projectName?: string;
 }
 
 function PostprocessingTab({
   elements,
   currentFrequency,
   frequencySweep,
+  projectName,
 }: PostprocessingTabProps) {
   const dispatch = useAppDispatch();
   
@@ -61,6 +66,11 @@ function PostprocessingTab({
   const resultsStale = useAppSelector(selectResultsStale);
   
   const [selectedFrequencyIndex] = useState<number>(0);
+  const [snackbarMessage, setSnackbarMessage] = useState<string>('');
+  const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
+  
+  // Ref for the middle panel to capture for PDF export
+  const middlePanelRef = useRef<HTMLDivElement>(null);
 
   // Debug logging
   console.log('[PostprocessingTab] Props:', { 
@@ -84,10 +94,63 @@ function PostprocessingTab({
   // Get current frequency in Hz for field data lookup
   const displayFrequencyHz = availableFrequencies[selectedFrequencyIndex] || (currentFrequency ? currentFrequency * 1e6 : null);
 
+  // Handle PDF export
+  const handlePDFExport = async (options: {
+    includeMetadata: boolean;
+    resolution: '1080p' | '1440p' | '4K';
+    filename: string;
+  }) => {
+    if (!middlePanelRef.current || !selectedViewId) {
+      setSnackbarMessage('Error: Cannot export - no view selected');
+      setShowSnackbar(true);
+      return;
+    }
+
+    const selectedView = viewConfigurations.find((v) => v.id === selectedViewId);
+    if (!selectedView) {
+      setSnackbarMessage('Error: Selected view not found');
+      setShowSnackbar(true);
+      return;
+    }
+
+    try {
+      await exportToPDF({
+        targetElement: middlePanelRef.current,
+        view: selectedView,
+        metadata: {
+          include: options.includeMetadata,
+          projectName,
+          frequency: displayFrequencyHz || undefined,
+        },
+        resolution: options.resolution,
+        filename: options.filename,
+      });
+      
+      setSnackbarMessage(`PDF exported successfully: ${options.filename}.pdf`);
+      setShowSnackbar(true);
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      setSnackbarMessage(`Error: ${error instanceof Error ? error.message : 'PDF export failed'}`);
+      setShowSnackbar(true);
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* RIBBON MENU */}
       <RibbonMenu currentTab="postprocessing" />
+      
+      {/* EXPORT PDF DIALOG */}
+      <ExportPDFDialog projectName={projectName} onExport={handlePDFExport} />
+      
+      {/* SNACKBAR FOR NOTIFICATIONS */}
+      <Snackbar
+        open={showSnackbar}
+        autoHideDuration={4000}
+        onClose={() => setShowSnackbar(false)}
+        message={snackbarMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
       
       {/* WARNING BANNER - Show when no results or results are stale */}
       {(!frequencySweep && !currentFrequency) || resultsStale ? (

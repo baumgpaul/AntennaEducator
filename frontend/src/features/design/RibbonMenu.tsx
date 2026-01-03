@@ -12,6 +12,8 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   CableOutlined,
@@ -34,7 +36,7 @@ import {
   PictureAsPdf,
   SaveAlt,
 } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { useAppDispatch, useAppSelector, useAppStore } from '@/store/hooks';
 import { toggleVisualizationMode } from '@/store/uiSlice';
 import {
   setAddViewDialogOpen,
@@ -44,7 +46,11 @@ import {
   setExportPDFDialogOpen,
   setExportType,
   addItemToView,
+  selectViewConfigurations,
+  selectSelectedViewId,
 } from '@/store/postprocessingSlice';
+import { exportToVTU, canExportToVTU } from '@/utils/ParaViewExporter';
+import type { RootState } from '@/store';
 
 interface RibbonMenuProps {
   currentTab?: 'designer' | 'solver' | 'postprocessing';
@@ -70,13 +76,19 @@ function RibbonMenu({
   solverProgress = 0 
 }: RibbonMenuProps) {
   const dispatch = useAppDispatch();
+  const store = useAppStore();
   const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
-  const selectedView = useAppSelector((state) => state.postprocessing.selectedViewId);
+  const selectedViewId = useAppSelector((state) => state.postprocessing.selectedViewId);
+  const viewConfigurations = useAppSelector((state) => state.postprocessing.viewConfigurations);
+  const currentFrequency = useAppSelector((state) => state.solver.currentFrequency);
   const selectedViewData = useAppSelector((state) => 
-    state.postprocessing.viewConfigurations.find(v => v.id === selectedView)
+    state.postprocessing.viewConfigurations.find(v => v.id === selectedViewId)
   );
   
   const [antennaMenuAnchor, setAntennaMenuAnchor] = useState<null | HTMLElement>(null);
+  const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
+  const [snackbarMessage, setSnackbarMessage] = useState<string>('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
   const isSimulationRunning = solverStatus === 'preparing' || solverStatus === 'running';
 
@@ -103,10 +115,10 @@ function RibbonMenu({
   };
 
   const handleAddAntennaSystem = () => {
-    if (!selectedView) return;
+    if (!selectedViewId) return;
     
     dispatch(addItemToView({
-      viewId: selectedView,
+      viewId: selectedViewId,
       item: {
         type: 'antenna-system',
         visible: true,
@@ -120,10 +132,10 @@ function RibbonMenu({
   };
 
   const handleAddCurrentDistribution = () => {
-    if (!selectedView) return;
+    if (!selectedViewId) return;
     
     dispatch(addItemToView({
-      viewId: selectedView,
+      viewId: selectedViewId,
       item: {
         type: 'current',
         visible: true,
@@ -135,10 +147,10 @@ function RibbonMenu({
   };
 
   const handleAddVoltageDistribution = () => {
-    if (!selectedView) return;
+    if (!selectedViewId) return;
     
     dispatch(addItemToView({
-      viewId: selectedView,
+      viewId: selectedViewId,
       item: {
         type: 'voltage',
         visible: true,
@@ -154,10 +166,10 @@ function RibbonMenu({
   };
 
   const handleAddDirectivity = () => {
-    if (!selectedView) return;
+    if (!selectedViewId) return;
     
     dispatch(addItemToView({
-      viewId: selectedView,
+      viewId: selectedViewId,
       item: {
         type: 'directivity',
         visible: true,
@@ -189,10 +201,70 @@ function RibbonMenu({
     dispatch(setExportPDFDialogOpen(true));
   };
 
-  const handleExportParaView = () => {
+  const handleExportParaView = async () => {
     dispatch(setExportType('paraview'));
-    // TODO: Export to VTU format
-    console.log('Export to ParaView (VTU)');
+    
+    // Find first field item in current view
+    const currentView = selectedViewId 
+      ? viewConfigurations.find(v => v.id === selectedViewId)
+      : null;
+    
+    if (!currentView) {
+      setSnackbarMessage('No view selected for export');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+      return;
+    }
+    
+    // Find first field-magnitude item
+    const fieldItem = currentView.items.find(item => 
+      item.type === 'field-magnitude' || item.type === 'field-vector'
+    );
+    
+    if (!fieldItem || !('fieldId' in fieldItem)) {
+      setSnackbarMessage('No field data in this view. Add a field visualization first.');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+      return;
+    }
+    
+    const frequencyHz = currentFrequency ? currentFrequency * 1e6 : null;
+    
+    if (!frequencyHz) {
+      setSnackbarMessage('No frequency data available');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+      return;
+    }
+    
+    // Check if we can export
+    if (!canExportToVTU(fieldItem.fieldId, frequencyHz, store.getState() as RootState)) {
+      setSnackbarMessage('Field data not computed yet. Run postprocessing first.');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+      return;
+    }
+    
+    // Generate filename
+    const frequencyMHz = (frequencyHz / 1e6).toFixed(2);
+    const filename = `${currentView.name.replace(/[^a-zA-Z0-9]/g, '_')}_${frequencyMHz}MHz`;
+    
+    try {
+      await exportToVTU({
+        fieldId: fieldItem.fieldId,
+        frequencyHz,
+        filename,
+      }, store.getState() as RootState);
+      
+      setSnackbarMessage(`VTU file exported: ${filename}.vtu`);
+      setSnackbarSeverity('success');
+      setShowSnackbar(true);
+    } catch (error) {
+      console.error('VTU export failed:', error);
+      setSnackbarMessage(error instanceof Error ? error.message : 'VTU export failed');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+    }
   };
 
   return (
@@ -326,7 +398,7 @@ function RibbonMenu({
                         <Button
                           startIcon={<ViewInAr />}
                           onClick={handleAddAntennaSystem}
-                          disabled={!selectedView}
+                          disabled={!selectedViewId}
                         >
                           Add System
                         </Button>
@@ -335,7 +407,7 @@ function RibbonMenu({
                         <Button
                           startIcon={<Widgets />}
                           onClick={handleAddAntennaElement}
-                          disabled={!selectedView}
+                          disabled={!selectedViewId}
                         >
                           Add Element
                         </Button>
@@ -344,7 +416,7 @@ function RibbonMenu({
                         <Button
                           startIcon={<TrendingUp />}
                           onClick={handleAddCurrentDistribution}
-                          disabled={!selectedView}
+                          disabled={!selectedViewId}
                         >
                           Currents
                         </Button>
@@ -353,7 +425,7 @@ function RibbonMenu({
                         <Button
                           startIcon={<RadioButtonChecked />}
                           onClick={handleAddVoltageDistribution}
-                          disabled={!selectedView}
+                          disabled={!selectedViewId}
                         >
                           Voltages
                         </Button>
@@ -373,7 +445,7 @@ function RibbonMenu({
                         <Button
                           startIcon={<Sensors />}
                           onClick={handleAddField}
-                          disabled={!selectedView}
+                          disabled={!selectedViewId}
                         >
                           Add Field
                         </Button>
@@ -382,7 +454,7 @@ function RibbonMenu({
                         <Button
                           startIcon={<RadioButtonChecked />}
                           onClick={handleAddDirectivity}
-                          disabled={!selectedView}
+                          disabled={!selectedViewId}
                         >
                           Directivity
                         </Button>
@@ -406,7 +478,7 @@ function RibbonMenu({
                         <Button
                           startIcon={<ShowChart />}
                           onClick={handleAddImpedancePlot}
-                          disabled={!selectedView}
+                          disabled={!selectedViewId}
                         >
                           Impedance
                         </Button>
@@ -415,7 +487,7 @@ function RibbonMenu({
                         <Button
                           startIcon={<ShowChart />}
                           onClick={handleAddVoltagePlot}
-                          disabled={!selectedView}
+                          disabled={!selectedViewId}
                         >
                           Voltage
                         </Button>
@@ -424,7 +496,7 @@ function RibbonMenu({
                         <Button
                           startIcon={<ShowChart />}
                           onClick={handleAddCurrentPlot}
-                          disabled={!selectedView}
+                          disabled={!selectedViewId}
                         >
                           Current
                         </Button>
@@ -446,7 +518,7 @@ function RibbonMenu({
                     <Button
                       startIcon={<PictureAsPdf />}
                       onClick={handleExportPDF}
-                      disabled={!selectedView}
+                      disabled={!selectedViewId}
                     >
                       PDF
                     </Button>
@@ -455,7 +527,7 @@ function RibbonMenu({
                     <Button
                       startIcon={<SaveAlt />}
                       onClick={handleExportParaView}
-                      disabled={!selectedView}
+                      disabled={!selectedViewId}
                     >
                       ParaView
                     </Button>
@@ -466,6 +538,22 @@ function RibbonMenu({
           )}
         </Box>
       </Box>
+      
+      {/* SNACKBAR FOR NOTIFICATIONS */}
+      <Snackbar
+        open={showSnackbar}
+        autoHideDuration={4000}
+        onClose={() => setShowSnackbar(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setShowSnackbar(false)} 
+          severity={snackbarSeverity}
+          variant="filled"
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Paper>
   );
 }

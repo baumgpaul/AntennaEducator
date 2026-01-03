@@ -138,11 +138,27 @@ The PEEC Antenna Simulator is a modern, cloud-native electromagnetic simulation 
   - Field magnitude + vector modes (dual tree items, shared data)
   - Directivity patterns (2D polar + 3D sphere)
 
-- **Line View Visualization**: ⏳ T5.6 NOT STARTED (3 hours)
-  - Impedance vs frequency curves
-  - Voltage/current vs frequency plots
-  - Multiple plots per view
-  - Recharts-based implementation
+- **Line View Visualization**: ✅ T5.6 COMPLETE (3 hours)
+  - ImpedancePlot component (rectangular/polar modes, Hz→MHz conversion)
+  - VoltagePlot component (magnitude/phase vs frequency, per-port)
+  - CurrentPlot component (magnitude/phase vs frequency, per-antenna)
+  - LineViewPanel orchestrator (filters visible items, renders multiple plots)
+  - Integration with PostprocessingTab (conditional rendering based on viewType)
+  - 19 tests passing (4 component tests + 1 integration test)
+  - Recharts-based implementation with tooltips and legends
+
+- **Export Functionality**: ✅ T5.7 COMPLETE (4.5 hours) - January 3, 2026
+  - PDF Export (Frontend): html2canvas + jsPDF for screenshot capture ✅
+    * ExportPDFDialog: metadata checkbox, resolution dropdown (1080p/1440p/4K), filename input
+    * exportToPDF utility: captures middle panel at selected resolution, generates PDF with optional metadata page
+    * Integration: PostprocessingTab with ref, handler, snackbar notifications
+    * 165 + 172 = 337 lines of frontend code
+  - VTU Export (Backend + Frontend): ParaView-compatible field data ✅
+    * Backend endpoint: POST /api/v1/export/vtu with VTK XML generation (283 lines)
+    * ParaViewExporter utility: calls backend API, downloads VTU blob (124 lines)
+    * RibbonMenu integration: replaced TODO with full export handler, validation, notifications
+    * Supports E-field, H-field vectors with real/imaginary components, magnitudes
+  - Testing: 12 tests planned for dialogs, utilities, and API calls (deferred to T5.8)
 
 - **Tree View Structure**: ✅ COMPLETE
   - Hierarchical view configurations ✅

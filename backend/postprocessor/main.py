@@ -2,9 +2,11 @@
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from datetime import datetime
 import numpy as np
+import base64
+from io import BytesIO
 
 from .config import settings
 from .models import (
@@ -320,6 +322,169 @@ async def extract_antenna_parameters(request: AntennaParametersRequest):
         raise HTTPException(status_code=500, detail=f"Parameter extraction failed: {str(e)}")
 
 
+@app.post(
+    f"{settings.api_prefix}/export/vtu",
+    response_class=Response,
+    summary="Export field data to VTU format for ParaView"
+)
+async def export_to_vtu(request: FieldRequest):
+    """
+    Export electromagnetic field data to VTU (VTK Unstructured Grid) format.
+    
+    This endpoint generates a VTK XML file containing:
+    - Observation points as StructuredGrid
+    - E-field and H-field vectors (real and imaginary components)
+    - Field magnitudes
+    
+    The VTU file can be opened in ParaView for advanced visualization.
+    """
+    try:
+        print(f"Received VTU export request")
+        print(f"  Frequencies: {request.frequencies}")
+        print(f"  Observation points: {len(request.observation_points)}")
+        
+        # Extract data
+        frequency_hz = request.frequencies[0] if request.frequencies else 0
+        observation_points = np.array(request.observation_points)
+        num_points = len(observation_points)
+        
+        # Compute fields if not already computed
+        # Re-use the near field computation
+        E_vectors, H_vectors = compute_near_field_impl(
+            frequencies=np.array(request.frequencies),
+            branch_currents=request.branch_currents,
+            nodes=np.array(request.nodes),
+            edges=np.array(request.edges),
+            radii=np.array(request.radii),
+            observation_points=observation_points
+        )
+        
+        # Extract first frequency results
+        E_field = E_vectors[0, :, :]  # Shape: (num_points, 3)
+        H_field = H_vectors[0, :, :]  # Shape: (num_points, 3)
+        
+        # Compute magnitudes
+        E_magnitude = np.linalg.norm(E_field, axis=1)
+        H_magnitude = np.linalg.norm(H_field, axis=1)
+        
+        # Generate VTU XML
+        vtu_xml = _generate_vtu_xml(
+            points=observation_points,
+            E_field=E_field,
+            H_field=H_field,
+            E_magnitude=E_magnitude,
+            H_magnitude=H_magnitude,
+            frequency=frequency_hz
+        )
+        
+        print(f"VTU export successful: {len(vtu_xml)} bytes")
+        
+        return Response(
+            content=vtu_xml,
+            media_type="application/xml",
+            headers={
+                "Content-Disposition": f"attachment; filename=field_data_{frequency_hz/1e6:.2f}MHz.vtu"
+            }
+        )
+        
+    except Exception as e:
+        print(f"VTU export error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"VTU export failed: {str(e)}")
+
+
+def _generate_vtu_xml(
+    points: np.ndarray,
+    E_field: np.ndarray,
+    H_field: np.ndarray,
+    E_magnitude: np.ndarray,
+    H_magnitude: np.ndarray,
+    frequency: float
+) -> str:
+    """
+    Generate VTU XML string for ParaView visualization.
+    
+    Args:
+        points: Observation points (num_points, 3)
+        E_field: E-field complex vectors (num_points, 3)
+        H_field: H-field complex vectors (num_points, 3)
+        E_magnitude: E-field magnitudes (num_points,)
+        H_magnitude: H-field magnitudes (num_points,)
+        frequency: Frequency in Hz
+    
+    Returns:
+        VTU XML string
+    """
+    num_points = len(points)
+    
+    # Convert complex arrays to real and imaginary components
+    E_real = E_field.real.flatten()  # Shape: (num_points * 3,)
+    E_imag = E_field.imag.flatten()
+    H_real = H_field.real.flatten()
+    H_imag = H_field.imag.flatten()
+    
+    # Convert to base64-encoded binary (Float32)
+    def to_base64_float32(arr):
+        return base64.b64encode(arr.astype(np.float32).tobytes()).decode('ascii')
+    
+    points_b64 = to_base64_float32(points.flatten())
+    E_mag_b64 = to_base64_float32(E_magnitude)
+    H_mag_b64 = to_base64_float32(H_magnitude)
+    E_real_b64 = to_base64_float32(E_real)
+    E_imag_b64 = to_base64_float32(E_imag)
+    H_real_b64 = to_base64_float32(H_real)
+    H_imag_b64 = to_base64_float32(H_imag)
+    
+    # Build VTU XML
+    xml = f"""<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian" header_type="UInt64">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="{num_points}" NumberOfCells="0">
+      <PointData>
+        <DataArray type="Float32" Name="E_Magnitude" format="binary">
+          {E_mag_b64}
+        </DataArray>
+        <DataArray type="Float32" Name="H_Magnitude" format="binary">
+          {H_mag_b64}
+        </DataArray>
+        <DataArray type="Float32" Name="E_Field_Real" NumberOfComponents="3" format="binary">
+          {E_real_b64}
+        </DataArray>
+        <DataArray type="Float32" Name="E_Field_Imag" NumberOfComponents="3" format="binary">
+          {E_imag_b64}
+        </DataArray>
+        <DataArray type="Float32" Name="H_Field_Real" NumberOfComponents="3" format="binary">
+          {H_real_b64}
+        </DataArray>
+        <DataArray type="Float32" Name="H_Field_Imag" NumberOfComponents="3" format="binary">
+          {H_imag_b64}
+        </DataArray>
+        <DataArray type="Float32" Name="Frequency_MHz" format="ascii">
+          {' '.join([f"{frequency/1e6:.6f}"] * num_points)}
+        </DataArray>
+      </PointData>
+      <Points>
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="binary">
+          {points_b64}
+        </DataArray>
+      </Points>
+      <Cells>
+        <DataArray type="Int64" Name="connectivity" format="ascii">
+        </DataArray>
+        <DataArray type="Int64" Name="offsets" format="ascii">
+        </DataArray>
+        <DataArray type="UInt8" Name="types" format="ascii">
+        </DataArray>
+      </Cells>
+    </Piece>
+  </UnstructuredGrid>
+</VTKFile>
+"""
+    
+    return xml
+
+
 @app.get(f"{settings.api_prefix}/info")
 async def get_info():
     """Get information about available postprocessing capabilities."""
@@ -338,6 +503,10 @@ async def get_info():
             "antenna_parameters": {
                 "description": "Extract VSWR, return loss, efficiency",
                 "endpoint": f"{settings.api_prefix}/parameters"
+            },
+            "vtu_export": {
+                "description": "Export field data to VTU format for ParaView",
+                "endpoint": f"{settings.api_prefix}/export/vtu"
             }
         },
         "default_settings": {

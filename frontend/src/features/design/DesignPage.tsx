@@ -997,6 +997,7 @@ function DesignPage() {
           currentFrequency={currentFrequency}
           frequencySweep={frequencySweep}
           fieldData={fieldData}
+          projectName={currentProject?.name}
         />
       )}
 
