@@ -15,12 +15,7 @@ resource "aws_lambda_function" "this" {
   
   # Environment variables
   environment {
-    variables = merge(
-      var.environment_variables,
-      {
-        AWS_REGION = var.region
-      }
-    )
+    variables = var.environment_variables
   }
   
   # VPC configuration (optional)

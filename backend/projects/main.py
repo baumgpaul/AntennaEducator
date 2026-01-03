@@ -13,12 +13,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configure logging
+# Lambda: Only console output (CloudWatch Logs), no file logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),  # Console output
-        logging.FileHandler('projects_service.log')  # File output
+        logging.StreamHandler()  # Console output only (goes to CloudWatch)
     ]
 )
 logger = logging.getLogger(__name__)
@@ -47,8 +47,9 @@ from backend.projects.auth import (
     get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Create database tables only if using SQLAlchemy (not DynamoDB)
+if os.getenv("USE_DYNAMODB", "false").lower() != "true":
+    Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI(

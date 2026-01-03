@@ -54,8 +54,7 @@ output "ecr_postprocessor_url" {
   value       = module.ecr_postprocessor.repository_url
 }
 
-# Lambda outputs (uncomment after deploying Lambda functions)
-/*
+# Lambda outputs
 output "lambda_projects_url" {
   description = "Function URL for projects service"
   value       = module.lambda_projects.function_url
@@ -75,4 +74,4 @@ output "lambda_postprocessor_url" {
   description = "Function URL for postprocessor service"
   value       = module.lambda_postprocessor.function_url
 }
-*/
+
