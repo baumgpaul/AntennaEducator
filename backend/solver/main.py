@@ -27,6 +27,7 @@ from .schemas import (
 )
 from .solver import solve_single_frequency, solve_peec_frequency_sweep, solve_multi_antenna, SolverConfiguration
 from .system import VoltageSource, CurrentSource, Load
+from .services.estimation import estimate_solve_time, estimate_from_mesh
 
 
 # Initialize FastAPI application
@@ -494,6 +495,65 @@ async def get_materials():
             },
         }
     }
+
+
+@app.post(
+    f"{settings.api_prefix}/estimate",
+    tags=["Solver"],
+    summary="Estimate solve time",
+)
+async def estimate_complexity(request: dict):
+    """
+    Estimate solve time based on problem complexity.
+    
+    Warns users before Lambda timeout (15 minutes). Returns estimated time
+    and recommendations for problem size optimization.
+    
+    Args:
+        request: Can be either:
+            - Full mesh data structure with 'edges', 'frequencies', etc.
+            - Simple parameters: {'n_edges': int, 'n_frequencies': int}
+    
+    Returns:
+        Estimation dictionary with:
+        - estimated_seconds: Predicted solve time
+        - warning: True if > 10 minutes
+        - will_timeout: True if likely to exceed Lambda timeout
+        - recommendation: User-facing suggestion if problem is large
+        - complexity_class: Problem size classification
+    """
+    try:
+        # Check if this is a full mesh structure or simple parameters
+        if "edges" in request:
+            # Full mesh data
+            result = estimate_from_mesh(request)
+        else:
+            # Simple parameters
+            n_edges = request.get("n_edges", 0)
+            n_frequencies = request.get("n_frequencies", 1)
+            has_lumped_elements = request.get("has_lumped_elements", False)
+            solver_type = request.get("solver_type", "direct")
+            
+            if n_edges == 0:
+                raise ValueError("n_edges must be provided and > 0")
+            
+            result = estimate_solve_time(
+                n_edges=n_edges,
+                n_frequencies=n_frequencies,
+                has_lumped_elements=has_lumped_elements,
+                solver_type=solver_type
+            )
+        
+        return JSONResponse(status_code=200, content=result)
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Estimation error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Estimation error: {str(e)}"
+        )
 
 
 if __name__ == "__main__":
