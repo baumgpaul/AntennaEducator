@@ -17,6 +17,9 @@ minio>=7.1.0
 # AWS SDK (for DynamoDB, S3, etc.)
 boto3>=1.35.0
 
+# Lambda integration
+mangum>=0.17.0
+
 # Development tools
 pytest>=7.4.0
 pytest-cov>=4.1.0
