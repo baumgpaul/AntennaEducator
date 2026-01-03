@@ -140,11 +140,8 @@ module "ecr_postprocessor" {
 
 # ============================================================================
 # Lambda Functions (container-based)
-# Note: Deploy after building and pushing images to ECR
 # ============================================================================
 
-# Uncomment after pushing images to ECR
-/*
 module "lambda_projects" {
   source = "../../modules/lambda"
   
@@ -185,13 +182,7 @@ module "lambda_preprocessor" {
   memory_size = 512
   timeout     = 30
   
-  environment_variables = {
-    USE_DYNAMODB        = "true"
-    DYNAMODB_TABLE_NAME = module.dynamodb.table_name
-  }
-  
-  dynamodb_table_arns = [module.dynamodb.table_arn]
-  s3_bucket_arns      = [module.s3_data.bucket_arn]
+  environment_variables = {}
   
   create_function_url    = true
   function_url_auth_type = "NONE"
@@ -212,15 +203,9 @@ module "lambda_solver" {
   region        = var.aws_region
   
   memory_size = 2048
-  timeout     = 900  # 15 minutes (max for Lambda)
+  timeout     = 900
   
-  environment_variables = {
-    USE_DYNAMODB        = "true"
-    DYNAMODB_TABLE_NAME = module.dynamodb.table_name
-  }
-  
-  dynamodb_table_arns = [module.dynamodb.table_arn]
-  s3_bucket_arns      = [module.s3_data.bucket_arn]
+  environment_variables = {}
   
   create_function_url    = true
   function_url_auth_type = "NONE"
@@ -243,13 +228,7 @@ module "lambda_postprocessor" {
   memory_size = 1024
   timeout     = 60
   
-  environment_variables = {
-    USE_DYNAMODB        = "true"
-    DYNAMODB_TABLE_NAME = module.dynamodb.table_name
-  }
-  
-  dynamodb_table_arns = [module.dynamodb.table_arn]
-  s3_bucket_arns      = [module.s3_data.bucket_arn]
+  environment_variables = {}
   
   create_function_url    = true
   function_url_auth_type = "NONE"
@@ -260,7 +239,6 @@ module "lambda_postprocessor" {
     Service   = "postprocessor"
   }
 }
-*/
 
 # ============================================================================
 # Data Sources
