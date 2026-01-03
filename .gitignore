@@ -72,6 +72,16 @@ logs/
 # AWS
 .aws-sam/
 
+# Terraform - IMPORTANT SECURITY
+.terraform/             # Provider plugins (anywhere in tree)
+**/terraform.tfstate    # State files contain SECRETS!
+**/terraform.tfstate.*  # State backups
+*.tfvars                # Variable files with secrets
+.terraformrc
+**/crash.log            # Terraform crash logs
+**/override.tf          # Local overrides
+**/override.tf.json
+
 # Data files
 *.npz
 *.hdf5
@@ -92,3 +102,5 @@ Matlab/
 /TESTING_QUICK_REF.md
 /PROJECT_OVERVIEW.md
 *.md
+terraform.tfstate
+.terraform/
