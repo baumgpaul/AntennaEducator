@@ -14,6 +14,7 @@ import Scene3D from './Scene3D';
 import RibbonMenu from './RibbonMenu';
 import TreeViewPanel from './TreeViewPanel';
 import PostprocessingPropertiesPanel from '../postprocessing/PostprocessingPropertiesPanel';
+import LineViewPanel from '../postprocessing/LineViewPanel';
 import { ViewItemRenderer } from '../postprocessing/ViewItemRenderer';
 import { Colorbar } from '../postprocessing/Colorbar';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -131,14 +132,16 @@ function PostprocessingTab({
           />
         </Box>
 
-      {/* MIDDLE PANEL - 3D Visualization (flex, remaining space) */}
+      {/* MIDDLE PANEL - 3D Visualization OR Line View (flex, remaining space) */}
       <Box
         sx={{
           flex: 1,
           height: '100%',
           position: 'relative',
           overflow: 'hidden',
-          backgroundColor: '#1a1a1a',
+          backgroundColor: selectedViewId && viewConfigurations.find(v => v.id === selectedViewId)?.viewType === 'Line' 
+            ? 'background.default' 
+            : '#1a1a1a',
         }}
       >
         {!selectedViewId ? (
@@ -154,25 +157,38 @@ function PostprocessingTab({
               No view selected. Create a view to get started.
             </Typography>
           </Box>
-        ) : (
-          <Scene3D elements={elements} showScale showAxisLabels>
-            {/* Render all visible items in the selected view */}
-            {viewConfigurations
-              .find((view) => view.id === selectedViewId)
-              ?.items.filter((item) => item.visible)
-              .map((item) => (
-                <ViewItemRenderer
-                  key={item.id}
-                  item={item}
-                  frequencyHz={displayFrequencyHz || undefined}
-                />
-              ))}
-          </Scene3D>
-        )}
+        ) : (() => {
+          const selectedView = viewConfigurations.find((view) => view.id === selectedViewId);
+          
+          // Render Line View Panel for Line views
+          if (selectedView?.viewType === 'Line') {
+            return <LineViewPanel view={selectedView} />;
+          }
+          
+          // Render 3D Scene for 3D views
+          return (
+            <Scene3D elements={elements} showScale showAxisLabels>
+              {/* Render all visible items in the selected view */}
+              {selectedView?.items
+                .filter((item) => item.visible)
+                .map((item) => (
+                  <ViewItemRenderer
+                    key={item.id}
+                    item={item}
+                    frequencyHz={displayFrequencyHz || undefined}
+                  />
+                ))}
+            </Scene3D>
+          );
+        })()}
         
-        {/* Colorbar - shown when any color-mapped items are visible */}
+        {/* Colorbar - shown when any color-mapped items are visible in 3D views */}
         {selectedViewId && (() => {
           const selectedView = viewConfigurations.find((view) => view.id === selectedViewId);
+          
+          // Only show colorbar for 3D views
+          if (selectedView?.viewType !== '3D') return null;
+          
           const visibleColorMappedItems = selectedView?.items.filter(
             (item) => 
               item.visible && 
