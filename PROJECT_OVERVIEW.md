@@ -2,8 +2,10 @@
 
 **Cloud-Native Electromagnetic Simulation Platform**
 
-Version: 0.2.0 (Beta)  
-Last Updated: December 30, 2025, 4:30 PM
+Version: 0.3.0 (Beta)  
+Last Updated: January 3, 2026  
+**Domain**: nyakyagyawa.com  
+**AWS Region**: eu-west-1 (Ireland)
 
 ---
 
@@ -57,9 +59,39 @@ The PEEC Antenna Simulator is a modern, cloud-native electromagnetic simulation 
 
 ## Current Implementation Status
 
-### 🎯 Sprint 1 Status: 60% Complete (3/5 days) - December 30, 2025
+### ✅ Sprint 1 Status: COMPLETE - January 3, 2026
 
-**Major Milestone Achieved**: End-to-end workflow operational from design through solve to visualization, with database persistence.
+**Major Milestone Achieved**: End-to-end workflow operational from design through solve to visualization, with database persistence and postprocessing UI.
+
+---
+
+### 🎯 Sprint 2: AWS Deployment - STARTING January 3, 2026
+
+**Goal**: Deploy fully serverless application to AWS with CI/CD pipeline.
+
+**Architecture Decisions**:
+| Component | Choice | Rationale |
+|-----------|--------|----------|
+| **Compute** | AWS Lambda (all services) | Serverless, pay-per-use, scales to zero |
+| **Database** | DynamoDB | Fully serverless, single-table design |
+| **Storage** | S3 (2 buckets) | Frontend + data separation |
+| **Auth** | AWS Cognito | Managed auth with local JWT fallback |
+| **Frontend** | S3 + CloudFront | Global CDN, HTTPS |
+| **IaC** | Terraform | Modular, reproducible infrastructure |
+| **CI/CD** | AWS CodePipeline | Native AWS integration |
+| **Region** | eu-west-1 (Ireland) | Low latency for European users |
+
+**Sprint 2 Phases**:
+- **Phase A (Days 1-3)**: Foundation - AWS setup, Terraform bootstrap, DynamoDB, S3
+- **Phase B (Days 4-7)**: Backend - Repository abstraction, Lambda handlers, container images
+- **Phase C (Days 8-10)**: API & Auth - Cognito, API Gateway, frontend auth integration
+- **Phase D (Days 11-12)**: Frontend - CloudFront, DNS, production build
+- **Phase E (Days 13-14)**: CI/CD - CodePipeline, CodeBuild, automated deployments
+- **Phase F (Days 15-16)**: Testing & Documentation
+
+**Estimated Cost**: ~$1-2/month (free tier), ~$10-25/month after free tier
+
+**Documentation**: See `docs/AWS_MVP_DEPLOYMENT_PLAN.md` for detailed implementation plan.
 
 #### Sprint Summary (Days 1-3 Complete)
 
@@ -1047,12 +1079,21 @@ The frontend React application is actively under development with core infrastru
 - ⬜ User documentation
 - ⬜ Demo video
 
-#### ⬜ Future Phases
+#### 🚀 Sprint 2: AWS Deployment (Starting January 3, 2026)
 
-- ⬜ AWS SAM deployment templates
-- ⬜ AWS Cognito authentication
-- ⬜ CI/CD pipelines
-- ⬜ Postprocessor UI (radiation patterns, field visualization)
+- 🚀 Terraform infrastructure (DynamoDB, S3, Lambda, API Gateway)
+- 🚀 AWS Cognito authentication with local fallback
+- 🚀 CodePipeline CI/CD with staging + production
+- 🚀 CloudFront CDN for frontend (nyakyagyawa.com)
+- 🚀 Repository abstraction layer (DynamoDB + PostgreSQL)
+
+#### ⬜ Future Phases (Sprint 3+)
+
+- ⬜ Step Functions for workflow orchestration
+- ⬜ Fargate/EKS for long-running solver jobs
+- ⬜ ElastiCache Redis for caching
+- ⬜ X-Ray distributed tracing
+- ⬜ Multi-region deployment
 
 ---
 
@@ -1060,15 +1101,26 @@ The frontend React application is actively under development with core infrastru
 
 ### Execution Mode 1: AWS Cloud with React Frontend
 
-**Target Configuration:**
-- **Frontend**: React SPA hosted on S3 + CloudFront
-- **Authentication**: AWS Cognito with user pools
-- **Backend Options** (switchable):
-  - **Lambda Functions** (Default): Serverless, auto-scaling
-  - **EKS (Kubernetes)** (Later): For long-running solver jobs
-  - **AWS Batch** (Later): For massive parallel solver arrays
-- **Storage**: S3 for geometry/results, DynamoDB for metadata
-- **API**: API Gateway with Lambda proxy integration
+**Production Configuration (Sprint 2 - January 2026):**
+- **Domain**: nyakyagyawa.com (Route 53 + ACM SSL)
+- **Region**: eu-west-1 (Ireland) - optimized for European users
+- **Frontend**: React SPA on S3 + CloudFront CDN
+- **Authentication**: AWS Cognito with user pools (local JWT fallback)
+- **Backend**: AWS Lambda (all 4 services via container images)
+  - Preprocessor: 512 MB, 30s timeout
+  - Solver: 2048 MB, 900s timeout (15 min max)
+  - Postprocessor: 1024 MB, 60s timeout
+  - Projects: 512 MB, 30s timeout
+- **Database**: DynamoDB (single-table design, PAY_PER_REQUEST)
+- **Storage**: S3 (2 buckets: frontend-static, data-private)
+- **API**: API Gateway HTTP API with Cognito JWT authorizer
+- **IaC**: Terraform (modular structure)
+- **CI/CD**: AWS CodePipeline + CodeBuild
+
+**Future Scaling Options:**
+- **Fargate** (Sprint 3): For solver jobs > 15 minutes
+- **Step Functions** (Sprint 3): Workflow orchestration, async jobs
+- **EKS/Batch** (Later): For massive parallel frequency sweeps
 
 **Architecture Diagram:**
 ```
@@ -1208,9 +1260,53 @@ The frontend React application is actively under development with core infrastru
 
 **Testing & Quality**:
 - **Pytest**: Testing framework (185+ tests passing)
-- **Coverage**: Code coverage reporting (91% average)
-- **Black**: Code formatter
-- **Flake8**: Linting and style checking
+- **Coverage**: Code coverage reporting (91% average, 80% minimum gate)
+- **Ruff**: Fast Python linter and formatter (replaces Black + Flake8)
+- **Pre-commit hooks**: Blocking hooks for lint + unit tests
+
+**Testing & Quality**:
+- **Vitest**: Vite-native unit testing (49+ tests)
+- **Testing Library**: React component testing
+- **MSW**: Mock Service Worker for API mocking
+- **ESLint**: Linting for TypeScript/React
+- **Prettier**: Code formatter
+- **Pre-commit hooks**: Blocking hooks for lint + unit tests + type-check
+
+### Local CI/Testing Strategy
+
+**Multi-Layer Testing** (cost optimization - test locally before pushing):
+
+| Layer | Location | Tools | Trigger |
+|-------|----------|-------|---------|
+| Pre-commit hooks | Local | Ruff, pytest, ESLint, Vitest | Every commit (blocking) |
+| Full local suite | Local | All tests + coverage | Manual (before push) |
+| SAM Local | Local | Lambda + API Gateway | Complex Lambda testing |
+| CodePipeline | AWS | Full CI + Deploy | Push to `main` only |
+
+**Pre-commit Hooks** (blocking - tests must pass to commit):
+- Backend: Ruff lint, Ruff format check, pytest unit tests
+- Frontend: ESLint, Vitest, TypeScript type-check
+
+**Test Coverage Gates**:
+- Backend: 80% minimum (pytest --cov-fail-under=80)
+- Frontend: 80% minimum (vitest coverage thresholds)
+
+**Branch Strategy**:
+- `feature/*` branches: Local testing only (no AWS costs)
+- `main` branch: CodePipeline runs full CI + deploys to staging
+- Production: Manual approval in CodePipeline
+
+**DynamoDB Local**:
+- Full local development without AWS using `amazon/dynamodb-local` Docker image
+- Same DynamoDB code works locally and in AWS
+- Environment variable toggle: `USE_DYNAMODB_LOCAL=true`
+
+**E2E Tests** (on roadmap, not yet implemented):
+- Framework: Playwright or Cypress (decision pending)
+- Scope: Critical user journeys only
+- When: CI only (too slow for pre-commit)
+
+See `docs/AWS_MVP_DEPLOYMENT_PLAN.md` Section 9 for detailed configuration.
 
 ### Frontend (TypeScript + React 18)
 
@@ -1235,13 +1331,6 @@ The frontend React application is actively under development with core infrastru
 - **Zod**: TypeScript-first schema validation
 - **React Hook Form**: Performant form handling
 - **Date-fns**: Modern date utility library
-
-**Testing & Quality**:
-- **Vitest**: Vite-native unit testing (49+ tests)
-- **Testing Library**: React component testing
-- **MSW**: Mock Service Worker for API mocking
-- **ESLint**: Linting for TypeScript/React
-- **Prettier**: Code formatter
 
 ### Development Tools
 
@@ -2576,10 +2665,10 @@ The following architectural and technical decisions have been confirmed for the 
 | **Frontend Foundation** | ✅ Complete | 100% | React, TypeScript, Vite, MUI, Redux Toolkit |
 | **Redux Store** | ✅ Complete | 100% | Auth, projects, design, UI slices configured |
 | **React Components** | ✅ Complete | 100% | App shell, routing, layout, 3D design components |
-| **Frontend Features** | 🚀 In Progress | ~80% | Auth & projects, 3D workspace, solver/postprocessor integration |
-| **AWS Deployment** | ⬜ Planned | 0% | Target Q3 2026 |
-| **Optimization** | ⬜ Planned | 0% | Target Q1 2027 |
-| **Machine Learning** | ⬜ Planned | 0% | Target Q2–Q3 2027 |
+| **Frontend Features** | ✅ Complete | 95% | Auth & projects, 3D workspace, solver/postprocessor, export |
+| **AWS Deployment** | 🚀 In Progress | 0% | Sprint 2 starting January 3, 2026 |
+| **Optimization** | ⬜ Planned | 0% | Target Q2 2026 |
+| **Machine Learning** | ⬜ Planned | 0% | Target Q3-Q4 2026 |
 
 ---
 
@@ -2612,9 +2701,9 @@ MIT License (or specify your chosen license)
 
 ---
 
-**Document Version**: 1.0  
-**Last Reviewed**: December 26, 2025  
-**Next Review**: March 2026 (after Phase 2 completion)
+**Document Version**: 1.1  
+**Last Reviewed**: January 3, 2026  
+**Next Review**: February 2026 (after Sprint 2 AWS Deployment)
 ### Backend Service Startup Integration (Dev Tools)
 
 #### Combined Startup Script (dev_tools/start_backend.ps1)
