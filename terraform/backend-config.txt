@@ -1,0 +1,10 @@
+terraform {
+  backend "s3" {
+    bucket         = "antenna-simulator-terraform-state-767397882329"
+    key            = "ENV/terraform.tfstate"  # Replace ENV with staging/production
+    region         = "eu-west-1"
+    dynamodb_table = "antenna-terraform-locks"
+    encrypt        = true
+    profile        = "antenna-staging"
+  }
+}
