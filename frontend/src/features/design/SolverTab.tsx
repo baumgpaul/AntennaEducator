@@ -19,6 +19,7 @@ import { AddFieldDialog } from './AddFieldDialog';
 import DirectivitySettingsDialog from './DirectivitySettingsDialog';
 import type { AntennaElement } from '@/types/models';
 import type { AppDispatch, RootState } from '@/store/store';
+import { useAppStore } from '@/store/hooks';
 import { 
   addFieldRegion, 
   deleteFieldRegion, 
@@ -36,6 +37,7 @@ import {
   selectResultsStale,
   cancelPostprocessing,
 } from '@/store/solverSlice';
+import { createViewConfiguration, addItemToView } from '@/store/postprocessingSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 
@@ -57,6 +59,7 @@ interface SolverTabProps {
 
 export function SolverTab({ elements, selectedElementId, onElementSelect, onElementVisibilityToggle, solverStatus = 'idle' }: SolverTabProps) {
   const dispatch = useDispatch<AppDispatch>();
+  const store = useAppStore();
   
   // Redux state
   const requestedFields = useSelector((state: RootState) => state.solver.requestedFields);
@@ -224,6 +227,26 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
       console.log('[SolverTab] Starting postprocessing workflow, state:', solverWorkflowState);
       try {
         await dispatch(computePostprocessingWorkflow()).unwrap();
+        
+        // Auto-create default view if none exist
+        const state = store.getState();
+        if (state.postprocessing.viewConfigurations.length === 0) {
+          console.log('[SolverTab] No views exist, creating default view');
+          const viewAction = dispatch(createViewConfiguration({ name: 'Result View 1', viewType: '3D' }));
+          const newViewId = state.postprocessing.viewConfigurations[state.postprocessing.viewConfigurations.length - 1]?.id;
+          
+          if (newViewId) {
+            dispatch(addItemToView({
+              viewId: newViewId,
+              item: {
+                type: 'antenna-system',
+                visible: true,
+                label: 'Antenna System',
+              },
+            }));
+          }
+        }
+        
         setSnackbarMessage('Postprocessing complete!');
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
