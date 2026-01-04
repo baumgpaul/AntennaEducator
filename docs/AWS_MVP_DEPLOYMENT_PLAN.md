@@ -1710,16 +1710,18 @@ resource "aws_codepipeline" "main" {
 
 #### Phase C: API Gateway & Auth (Days 8-10)
 
-**Task C1: Cognito Module** (4 hours) - ✅ **COMPLETE (Jan 4, 2026)**
-- [x] Create Cognito user pool via Terraform
+**Task C1: Cognito Module** (4 hours) - ✅ **MODULE COMPLETE (Jan 4, 2026)** ⚠️ Not yet deployed to AWS
+- [x] Create Cognito user pool via Terraform module
 - [x] Configure password policy
 - [x] Create app client for frontend
 - [x] Set up callback URLs (staging + localhost)
 - [x] Output user pool ID and client ID
-- **Status**: Module created and integrated into staging environment
+- [x] Create SSM parameters for outputs
+- **Status**: Terraform module created and integrated into staging environment
+- **Next**: Deploy to AWS with `terraform apply` to test cloud authentication
 
-**Task C2: API Gateway Module** (6 hours) - ✅ **COMPLETE (Jan 4, 2026)**
-- [x] Create HTTP API via Terraform
+**Task C2: API Gateway Module** (6 hours) - ✅ **MODULE COMPLETE (Jan 4, 2026)** ⚠️ Not yet deployed to AWS
+- [x] Create HTTP API via Terraform module
 - [x] Configure routes for all services
 - [x] Set up Cognito JWT authorizer (ready, disabled for MVP)
 - [x] Configure CORS settings
@@ -1728,20 +1730,29 @@ resource "aws_codepipeline" "main" {
 - [x] Create testing script
 - **Status**: Module created and ready to deploy
 
-**Task C3: Auth Abstraction Frontend** (4 hours)
-- [ ] Install `amazon-cognito-identity-js`
-- [ ] Create `cognitoAuth.ts` service
-- [ ] Create `localAuth.ts` service (existing JWT)
-- [ ] Create auth factory with env toggle
-- [ ] Update Redux auth slice
-- [ ] Test sign up, sign in, sign out
+**Task C3: Auth Abstraction Frontend** (4 hours) - ✅ **COMPLETE (Jan 4, 2026)**
+- [x] Install `amazon-cognito-identity-js`
+- [x] Create `cognitoAuth.ts` service
+- [x] Create `localAuth.ts` service (existing JWT)
+- [x] Create auth factory with env toggle
+- [x] Update Redux auth slice with async thunks (loginAsync, registerAsync, logoutAsync, getCurrentUserAsync, refreshTokenAsync)
+- [x] Test sign up, sign in, sign out
+- [x] Update UI components (LoginPage, RegisterPage, Header)
+- [x] Update useSessionTimeout hook
+- [x] Fix TypeScript compilation errors
+- **Status**: Fully integrated, tested locally with Docker backend
 
-**Task C4: Frontend Environment Config** (2 hours)
-- [ ] Create `.env.production` template
-- [ ] Update Vite config for env vars
-- [ ] Add Cognito env variables
-- [ ] Add API Gateway URL variable
-- [ ] Test build with production config
+**Task C4: Frontend Environment Config** (2 hours) - ✅ **COMPLETE (Jan 4, 2026)**
+- [x] Create `.env.production` template
+- [x] Create `.env.development` for local development
+- [x] Create `.env.template` with comprehensive documentation
+- [x] Update Vite config for env vars
+- [x] Add Cognito env variables (pool ID, client ID, domain, region)
+- [x] Add API Gateway URL variable
+- [x] Configure Vite proxy for local CORS-free development
+- [x] Add global polyfill for Cognito SDK (global: 'globalThis')
+- [x] Test build with production config
+- **Status**: Both local JWT and AWS Cognito configurations ready
 
 #### Phase D: Frontend Deployment (Days 11-12)
 
