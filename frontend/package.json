@@ -22,6 +22,7 @@
     "@types/lodash": "^4.17.21",
     "@types/three": "^0.160.0",
     "@types/uuid": "^10.0.0",
+    "amazon-cognito-identity-js": "^6.3.16",
     "axios": "^1.6.5",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
