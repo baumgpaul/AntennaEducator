@@ -103,11 +103,33 @@ module "s3_frontend" {
   source = "../../modules/s3-frontend"
   
   bucket_name                   = "antenna-simulator-frontend-${var.environment}-${data.aws_caller_identity.current.account_id}"
-  cloudfront_distribution_arn   = ""  # Will be populated in Phase D
+  cloudfront_distribution_arn   = module.cloudfront.distribution_arn
   allowed_origins               = ["https://${var.domain_name}"]
   
   tags = {
     Component = "frontend"
+  }
+}
+
+# ============================================================================
+# CloudFront - CDN for Frontend
+# ============================================================================
+
+module "cloudfront" {
+  source = "../../modules/cloudfront"
+  
+  environment                       = var.environment
+  s3_bucket_name                    = module.s3_frontend.bucket_name
+  s3_bucket_regional_domain_name    = module.s3_frontend.bucket_regional_domain_name
+  
+  # SSL Certificate - using CloudFront default for now
+  # acm_certificate_arn = var.acm_certificate_arn  # Add custom domain later
+  # domain_aliases      = ["antennaeducator.nyakyagyawa.com"]
+  
+  price_class = "PriceClass_100"  # North America + Europe (cheapest)
+  
+  tags = {
+    Component = "cdn"
   }
 }
 
