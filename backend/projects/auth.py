@@ -106,9 +106,23 @@ def decode_access_token(token: str) -> TokenData:
         raise credentials_exception
 
 
+# Dev mode with DynamoDB: No database dependency
+async def get_current_user_dynamodb() -> User:
+    """Get mock user for DynamoDB mode (no database, auth disabled)."""
+    from backend.projects.models import User
+    mock_user = User(
+        id="dev-user-001",  # String ID for DynamoDB
+        email="dev@test.com",
+        password_hash="mock-hash-no-real-auth"  # Skip bcrypt in dev mode
+    )
+    logger.debug("Using mock user for DynamoDB mode")
+    return mock_user
+
+
 # Dev mode: Create a separate dependency that doesn't require auth
 async def get_current_user_dev(db: Session = Depends(get_db)) -> User:
     """Get current user in development mode (no auth required)."""
+    # Normal dev mode with database
     test_user = db.query(User).filter(User.email == "dev@test.com").first()
     if not test_user:
         test_user = User(
@@ -141,5 +155,11 @@ async def get_current_user_prod(
     return user
 
 
-# Select the appropriate dependency based on DISABLE_AUTH
-get_current_user = get_current_user_dev if DISABLE_AUTH else get_current_user_prod
+# Select the appropriate dependency based on DISABLE_AUTH and USE_DYNAMODB
+USE_DYNAMODB = os.getenv("USE_DYNAMODB", "false").lower() == "true"
+if USE_DYNAMODB and DISABLE_AUTH:
+    get_current_user = get_current_user_dynamodb
+elif DISABLE_AUTH:
+    get_current_user = get_current_user_dev
+else:
+    get_current_user = get_current_user_prod

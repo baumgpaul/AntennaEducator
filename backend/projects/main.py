@@ -47,6 +47,10 @@ from backend.projects.auth import (
     get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 
+# Import repository for DynamoDB support
+from backend.common.repositories.factory import get_project_repository
+from backend.common.repositories.base import ProjectRepository
+
 # Create database tables only if using SQLAlchemy (not DynamoDB)
 if os.getenv("USE_DYNAMODB", "false").lower() != "true":
     Base.metadata.create_all(bind=engine)
@@ -66,6 +70,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Dependency for repository
+def get_repository() -> ProjectRepository:
+    """Get project repository instance."""
+    return get_project_repository()
 
 
 # Health check endpoint
@@ -136,46 +146,54 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
 async def create_project(
     project_data: ProjectCreate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    repo: ProjectRepository = Depends(get_repository)
 ):
     """Create a new project."""
-    db_project = Project(
-        user_id=current_user.id,
+    # Use repository to create project
+    project = await repo.create_project(
+        user_id=str(current_user.id),
         name=project_data.name,
-        description=project_data.description,
-        requested_fields=project_data.requested_fields,
-        view_configurations=project_data.view_configurations
+        description=project_data.description
     )
-    db.add(db_project)
-    db.commit()
-    db.refresh(db_project)
     
-    return db_project
+    # Update with additional fields if provided
+    if project_data.requested_fields or project_data.view_configurations:
+        project = await repo.update_project(
+            project_id=project['id'],
+            requested_fields=project_data.requested_fields,
+            view_configurations=project_data.view_configurations
+        )
+    
+    return project
 
 
 @app.get("/api/v1/projects", response_model=List[ProjectListResponse])
 async def list_projects(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    repo: ProjectRepository = Depends(get_repository)
 ):
     """List all projects for the current user."""
-    projects = db.query(Project).filter(Project.user_id == current_user.id).all()
+    projects = await repo.list_projects(user_id=str(current_user.id))
     return projects
 
 
 @app.get("/api/v1/projects/{project_id}", response_model=ProjectResponse)
 async def get_project(
-    project_id: int,
+    project_id: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    repo: ProjectRepository = Depends(get_repository)
 ):
     """Get a specific project with all elements and results."""
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.user_id == current_user.id
-    ).first()
+    project = await repo.get_project(project_id=project_id)
     
     if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+    
+    # Verify ownership
+    if project['user_id'] != str(current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
@@ -186,95 +204,87 @@ async def get_project(
 
 @app.put("/api/v1/projects/{project_id}", response_model=ProjectResponse)
 async def update_project(
-    project_id: int,
+    project_id: str,
     project_data: ProjectUpdate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    repo: ProjectRepository = Depends(get_repository)
 ):
     """Update a project."""
     logger.debug(f"Updating project {project_id} with data: {project_data}")
     
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.user_id == current_user.id
-    ).first()
-    
-    if not project:
+    # First verify project exists and user owns it
+    project = await repo.get_project(project_id=project_id)
+    if not project or project['user_id'] != str(current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
     
-    # Update fields
-    if project_data.name is not None:
-        project.name = project_data.name
-    if project_data.description is not None:
-        project.description = project_data.description
-    if project_data.requested_fields is not None:
-        project.requested_fields = project_data.requested_fields
-    if project_data.view_configurations is not None:
-        project.view_configurations = project_data.view_configurations
-    if project_data.solver_state is not None:
-        project.solver_state = project_data.solver_state
+    # Update project using repository
+    updated_project = await repo.update_project(
+        project_id=project_id,
+        name=project_data.name,
+        description=project_data.description,
+        requested_fields=project_data.requested_fields,
+        view_configurations=project_data.view_configurations,
+        solver_state=project_data.solver_state
+    )
     
-    db.commit()
-    db.refresh(project)
-    
-    return project
+    return updated_project
 
 
 @app.delete("/api/v1/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(
-    project_id: int,
+    project_id: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    repo: ProjectRepository = Depends(get_repository)
 ):
     """Delete a project."""
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.user_id == current_user.id
-    ).first()
-    
-    if not project:
+    # Verify project exists and user owns it
+    project = await repo.get_project(project_id=project_id)
+    if not project or project['user_id'] != str(current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
     
-    db.delete(project)
-    db.commit()
+    # Delete using repository
+    await repo.delete_project(project_id=project_id)
     
     return None
 
 
 @app.post("/api/v1/projects/{project_id}/duplicate", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def duplicate_project(
-    project_id: int,
+    project_id: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    repo: ProjectRepository = Depends(get_repository)
 ):
     """Duplicate a project."""
     # Find original project
-    original_project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.user_id == current_user.id
-    ).first()
+    original_project = await repo.get_project(project_id=project_id)
     
-    if not original_project:
+    if not original_project or original_project['user_id'] != str(current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
     
     # Create duplicate
-    duplicate = Project(
-        user_id=current_user.id,
-        name=f"{original_project.name} (Copy)",
-        description=original_project.description
+    duplicate = await repo.create_project(
+        user_id=str(current_user.id),
+        name=f"{original_project['name']} (Copy)",
+        description=original_project.get('description', '')
     )
-    db.add(duplicate)
-    db.commit()
-    db.refresh(duplicate)
+    
+    # Copy additional fields
+    if original_project.get('requested_fields') or original_project.get('view_configurations') or original_project.get('solver_state'):
+        duplicate = await repo.update_project(
+            project_id=duplicate['id'],
+            requested_fields=original_project.get('requested_fields'),
+            view_configurations=original_project.get('view_configurations'),
+            solver_state=original_project.get('solver_state')
+        )
     
     return duplicate
 
