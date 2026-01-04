@@ -75,3 +75,28 @@ output "lambda_postprocessor_url" {
   value       = module.lambda_postprocessor.function_url
 }
 
+# Cognito outputs
+output "cognito_user_pool_id" {
+  description = "ID of the Cognito User Pool"
+  value       = module.cognito.user_pool_id
+}
+
+output "cognito_user_pool_arn" {
+  description = "ARN of the Cognito User Pool"
+  value       = module.cognito.user_pool_arn
+}
+
+output "cognito_client_id" {
+  description = "ID of the Cognito User Pool Client"
+  value       = module.cognito.client_id
+}
+
+output "cognito_domain_url" {
+  description = "URL of the Cognito hosted UI"
+  value       = module.cognito.domain_url
+}
+
+output "cognito_issuer_url" {
+  description = "JWT issuer URL for API Gateway authorizer"
+  value       = module.cognito.issuer_url
+}

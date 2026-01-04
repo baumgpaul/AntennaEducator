@@ -37,6 +37,25 @@ provider "aws" {
 }
 
 # ============================================================================
+# Cognito - User Authentication
+# ============================================================================
+
+module "cognito" {
+  source = "../../modules/cognito"
+  
+  environment   = var.environment
+  domain_name   = var.domain_name
+  domain_suffix = "auth-${data.aws_caller_identity.current.account_id}"
+  
+  # MFA disabled for MVP, can be enabled later
+  enable_mfa = "OFF"
+  
+  tags = {
+    Component = "authentication"
+  }
+}
+
+# ============================================================================
 # DynamoDB - Application Database
 # ============================================================================
 

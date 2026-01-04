@@ -52,6 +52,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "data" {
     id     = "archive-old-results"
     status = var.enable_lifecycle ? "Enabled" : "Disabled"
     
+    # Apply to all objects
+    filter {}
+    
     # Move files to Infrequent Access after 30 days
     transition {
       days          = 30
@@ -74,6 +77,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "data" {
   rule {
     id     = "cleanup-incomplete-uploads"
     status = "Enabled"
+    
+    filter {}
     
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
