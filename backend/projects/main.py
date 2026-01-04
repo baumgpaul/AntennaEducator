@@ -102,6 +102,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     hashed_password = get_password_hash(user_data.password)
     db_user = User(
         email=user_data.email,
+        username=user_data.username,
         password_hash=hashed_password
     )
     db.add(db_user)

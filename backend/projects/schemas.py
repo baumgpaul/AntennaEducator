@@ -13,6 +13,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """Schema for user registration."""
+    username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=8, max_length=100)
 
 
@@ -26,6 +27,7 @@ class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
     
     id: int
+    username: str
     created_at: datetime
 
 
