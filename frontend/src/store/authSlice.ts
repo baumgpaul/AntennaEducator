@@ -1,10 +1,12 @@
 /**
  * Authentication state slice
  * Manages user login, logout, and token state
+ * Uses auth service factory to support both local JWT and AWS Cognito
  */
 
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit'
 import type { User, AuthTokens } from '@/types/models'
+import { getAuthService, type LoginCredentials, type RegisterData } from '@/services/auth'
 
 interface AuthState {
   isAuthenticated: boolean
@@ -25,7 +27,8 @@ const initialState: AuthState = {
 // Load auth state from localStorage on init
 const loadAuthFromStorage = (): Partial<AuthState> => {
   try {
-    const token = localStorage.getItem('auth_token')
+    const authService = getAuthService()
+    const token = authService.getAccessToken()
     const userStr = localStorage.getItem('user')
     
     if (token && userStr) {
@@ -41,43 +44,121 @@ const loadAuthFromStorage = (): Partial<AuthState> => {
   return {}
 }
 
+// ============================================================================
+// Async Thunks
+// ============================================================================
+
+/**
+ * Login with email and password
+ */
+export const loginAsync = createAsyncThunk<
+  { user: User; tokens: AuthTokens },
+  LoginCredentials,
+  { rejectValue: string }
+>(
+  'auth/login',
+  async (credentials: LoginCredentials, { rejectWithValue }) => {
+    try {
+      const authService = getAuthService()
+      const response = await authService.login(credentials)
+      // Convert AuthResponse to expected format
+      return {
+        user: response.user,
+        tokens: {
+          access_token: response.tokens.accessToken,
+          refresh_token: response.tokens.refreshToken,
+          token_type: 'Bearer',
+        }
+      }
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Login failed')
+    }
+  }
+)
+
+/**
+ * Register new user
+ */
+export const registerAsync = createAsyncThunk<
+  { user: User; tokens: AuthTokens },
+  RegisterData,
+  { rejectValue: string }
+>(
+  'auth/register',
+  async (data: RegisterData, { rejectWithValue }) => {
+    try {
+      const authService = getAuthService()
+      const response = await authService.register(data)
+      // Convert AuthResponse to expected format
+      return {
+        user: response.user,
+        tokens: {
+          access_token: response.tokens.accessToken,
+          refresh_token: response.tokens.refreshToken,
+          token_type: 'Bearer',
+        }
+      }
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Registration failed')
+    }
+  }
+)
+
+/**
+ * Logout user
+ */
+export const logoutAsync = createAsyncThunk('auth/logout', async () => {
+  const authService = getAuthService()
+  await authService.logout()
+})
+
+/**
+ * Get current user
+ */
+export const getCurrentUserAsync = createAsyncThunk<
+  User,
+  void,
+  { rejectValue: string }
+>(
+  'auth/getCurrentUser',
+  async (_, { rejectWithValue }) => {
+    try {
+      const authService = getAuthService()
+      const user = await authService.getCurrentUser()
+      return user
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to get current user')
+    }
+  }
+)
+
+/**
+ * Refresh access token
+ */
+export const refreshTokenAsync = createAsyncThunk<
+  { accessToken: string; refreshToken?: string },
+  void,
+  { rejectValue: string }
+>(
+  'auth/refreshToken',
+  async (_, { rejectWithValue }) => {
+    try {
+      const authService = getAuthService()
+      const tokens = await authService.refreshToken()
+      return tokens
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Token refresh failed')
+    }
+  }
+)
+
 const authSlice = createSlice({
   name: 'auth',
   initialState: { ...initialState, ...loadAuthFromStorage() },
   reducers: {
-    // Login actions
-    loginStart: (state) => {
-      state.loading = true
+    // Clear error
+    clearAuthError: (state) => {
       state.error = null
-    },
-    loginSuccess: (state, action: PayloadAction<{ user: User; tokens: AuthTokens }>) => {
-      state.isAuthenticated = true
-      state.user = action.payload.user
-      state.tokens = action.payload.tokens
-      state.loading = false
-      state.error = null
-      
-      // Persist to localStorage
-      localStorage.setItem('auth_token', action.payload.tokens.access_token)
-      localStorage.setItem('user', JSON.stringify(action.payload.user))
-    },
-    loginFailure: (state, action: PayloadAction<string>) => {
-      state.loading = false
-      state.error = action.payload
-      state.isAuthenticated = false
-    },
-    
-    // Logout
-    logout: (state) => {
-      state.isAuthenticated = false
-      state.user = null
-      state.tokens = null
-      state.loading = false
-      state.error = null
-      
-      // Clear localStorage
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('user')
     },
     
     // Update user info
@@ -87,21 +168,102 @@ const authSlice = createSlice({
         localStorage.setItem('user', JSON.stringify(state.user))
       }
     },
-    
-    // Clear error
-    clearAuthError: (state) => {
+  },
+  extraReducers: (builder) => {
+    // Login
+    builder
+      .addCase(loginAsync.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(loginAsync.fulfilled, (state, action) => {
+        state.isAuthenticated = true
+        state.user = action.payload.user
+        state.tokens = action.payload.tokens
+        state.loading = false
+        state.error = null
+        
+        // Persist to localStorage
+        localStorage.setItem('user', JSON.stringify(action.payload.user))
+      })
+      .addCase(loginAsync.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+        state.isAuthenticated = false
+      })
+
+    // Register
+    builder
+      .addCase(registerAsync.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(registerAsync.fulfilled, (state, action) => {
+        state.isAuthenticated = true
+        state.user = action.payload.user
+        state.tokens = action.payload.tokens
+        state.loading = false
+        state.error = null
+        
+        // Persist to localStorage
+        localStorage.setItem('user', JSON.stringify(action.payload.user))
+      })
+      .addCase(registerAsync.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+        state.isAuthenticated = false
+      })
+
+    // Logout
+    builder.addCase(logoutAsync.fulfilled, (state) => {
+      state.isAuthenticated = false
+      state.user = null
+      state.tokens = null
+      state.loading = false
       state.error = null
-    },
+      
+      // Clear localStorage
+      localStorage.removeItem('user')
+    })
+
+    // Get current user
+    builder
+      .addCase(getCurrentUserAsync.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(getCurrentUserAsync.fulfilled, (state, action) => {
+        state.user = action.payload
+        state.loading = false
+        localStorage.setItem('user', JSON.stringify(action.payload))
+      })
+      .addCase(getCurrentUserAsync.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+
+    // Refresh token
+    builder
+      .addCase(refreshTokenAsync.fulfilled, (state, action) => {
+        if (state.tokens) {
+          state.tokens.access_token = action.payload.accessToken
+          if (action.payload.refreshToken) {
+            state.tokens.refresh_token = action.payload.refreshToken
+          }
+        }
+      })
+      .addCase(refreshTokenAsync.rejected, (state) => {
+        // Token refresh failed, log out user
+        state.isAuthenticated = false
+        state.user = null
+        state.tokens = null
+        localStorage.removeItem('user')
+      })
   },
 })
 
 export const {
-  loginStart,
-  loginSuccess,
-  loginFailure,
-  logout,
-  updateUser,
   clearAuthError,
+  updateUser,
 } = authSlice.actions
 
 export default authSlice.reducer

@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { logout } from '@/store/authSlice';
+import { logoutAsync } from '@/store/authSlice';
 import { showWarning } from '@/store/uiSlice';
 import { useNavigate } from 'react-router-dom';
 
@@ -36,7 +36,7 @@ export function useSessionTimeout() {
   const lastActivityRef = useRef<number>(Date.now());
 
   const handleLogout = useCallback(() => {
-    dispatch(logout());
+    dispatch(logoutAsync());
     navigate('/login');
   }, [dispatch, navigate]);
 

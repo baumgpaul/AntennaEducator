@@ -1,14 +1,12 @@
 import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress, Alert } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppDispatch } from '@/store/hooks';
-import { loginSuccess } from '@/store/authSlice';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { registerAsync, clearAuthError } from '@/store/authSlice';
 import { showSuccess } from '@/store/uiSlice';
 import { registerSchema, type RegisterFormData } from '@/utils/validation';
-import { formatErrorMessage } from '@/utils/errors';
-import { authApi } from '@/api';
 
 /**
  * RegisterPage - User registration with form validation
@@ -17,8 +15,7 @@ import { authApi } from '@/api';
 function RegisterPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string>('');
+  const { loading, error, isAuthenticated } = useAppSelector((state) => state.auth);
 
   const {
     control,
@@ -34,28 +31,26 @@ function RegisterPage() {
     },
   });
 
-  const onSubmit = async (data: RegisterFormData) => {
-    setLoading(true);
-    setErrorMessage('');
-    
-    try {
-      // Call real backend registration API
-      const response = await authApi.register({
-        email: data.email,
-        username: data.username,
-        password: data.password,
-      });
-      
-      // Auto-login after successful registration
-      dispatch(loginSuccess({ user: response.user, tokens: response.tokens }));
+  // Clear errors on mount
+  useEffect(() => {
+    dispatch(clearAuthError());
+  }, [dispatch]);
+
+  // Navigate on successful registration
+  useEffect(() => {
+    if (isAuthenticated) {
       dispatch(showSuccess('Registration successful! Welcome to Antenna Educator.'));
       navigate('/');
-    } catch (error: any) {
-      const message = formatErrorMessage(error);
-      setErrorMessage(message);
-    } finally {
-      setLoading(false);
     }
+  }, [isAuthenticated, navigate, dispatch]);
+
+  const onSubmit = async (data: RegisterFormData) => {
+    dispatch(clearAuthError());
+    await dispatch(registerAsync({
+      email: data.email,
+      username: data.username,
+      password: data.password,
+    }));
   };
 
   return (
@@ -79,9 +74,9 @@ function RegisterPage() {
           </Typography>
 
           <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 3 }}>
-            {errorMessage && (
+            {error && (
               <Alert severity="error" sx={{ mb: 2 }}>
-                {errorMessage}
+                {error}
               </Alert>
             )}
             
