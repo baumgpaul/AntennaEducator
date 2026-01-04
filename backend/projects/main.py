@@ -81,9 +81,26 @@ def get_repository() -> ProjectRepository:
 # Health check endpoint
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint with detailed status."""
+    from datetime import datetime
     logger.debug("Health check requested")
-    return {"status": "healthy", "service": "projects"}
+    
+    # Check database connectivity
+    db_status = "unknown"
+    try:
+        repo = get_project_repository()
+        db_status = "connected" if repo else "disconnected"
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        db_status = f"error: {str(e)[:50]}"
+    
+    return {
+        "status": "healthy",
+        "service": "projects",
+        "timestamp": datetime.utcnow().isoformat(),
+        "database": db_status,
+        "environment": os.getenv("ENVIRONMENT", "unknown")
+    }
 
 
 # Authentication endpoints

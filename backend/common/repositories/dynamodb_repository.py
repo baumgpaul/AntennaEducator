@@ -137,18 +137,24 @@ class DynamoDBProjectRepository(ProjectRepository):
             expr_values[':state'] = solver_state
         
         update_expr = ', '.join(update_parts)
-        expr_names = {'#name': 'Name'} if name is not None else None
+        expr_names = {'#name': 'Name'} if name is not None else {}
         
-        response = self.table.update_item(
-            Key={
+        # Build update_item parameters
+        update_params = {
+            'Key': {
                 'PK': f'USER#{user_id}',
                 'SK': f'PROJECT#{project_id}'
             },
-            UpdateExpression=update_expr,
-            ExpressionAttributeValues=expr_values,
-            ExpressionAttributeNames=expr_names,
-            ReturnValues='ALL_NEW'
-        )
+            'UpdateExpression': update_expr,
+            'ExpressionAttributeValues': expr_values,
+            'ReturnValues': 'ALL_NEW'
+        }
+        
+        # Only add ExpressionAttributeNames if it has values
+        if expr_names:
+            update_params['ExpressionAttributeNames'] = expr_names
+        
+        response = self.table.update_item(**update_params)
         
         return self._item_to_project(response['Attributes'])
     
