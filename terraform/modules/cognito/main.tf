@@ -12,21 +12,9 @@ resource "aws_cognito_user_pool" "main" {
     temporary_password_validity_days = 7
   }
 
-  # User attributes
-  schema {
-    name                = "email"
-    attribute_data_type = "String"
-    required            = true
-    mutable             = true
-  }
-
-  schema {
-    name                = "preferred_username"
-    attribute_data_type = "String"
-    required            = false
-    mutable             = true
-  }
-
+  # User attributes - schema cannot be modified after creation
+  # These were set during initial creation
+  
   # Email verification
   auto_verified_attributes = ["email"]
 
@@ -70,11 +58,11 @@ resource "aws_cognito_user_pool" "main" {
       sms_message   = "Your username is {username} and temporary password is {####}"
     }
   }
-
-  # Lambda triggers (optional, for future use)
-  # lambda_config {
-  #   pre_sign_up = aws_lambda_function.pre_signup.arn
-  # }
+  
+  # Ignore schema changes - schema cannot be modified after user pool creation
+  lifecycle {
+    ignore_changes = [schema]
+  }
 
   tags = {
     Name        = "antenna-simulator-${var.environment}"

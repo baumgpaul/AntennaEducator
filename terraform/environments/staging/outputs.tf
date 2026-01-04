@@ -100,3 +100,24 @@ output "cognito_issuer_url" {
   description = "JWT issuer URL for API Gateway authorizer"
   value       = module.cognito.issuer_url
 }
+
+# API Gateway outputs
+output "api_gateway_id" {
+  description = "ID of the API Gateway"
+  value       = module.api_gateway.api_id
+}
+
+output "api_gateway_endpoint" {
+  description = "Default endpoint URL of the API Gateway"
+  value       = module.api_gateway.api_endpoint
+}
+
+output "api_gateway_invoke_url" {
+  description = "Invoke URL for the API Gateway"
+  value       = module.api_gateway.stage_invoke_url
+}
+
+output "api_gateway_custom_domain" {
+  description = "Custom domain URL (if configured)"
+  value       = module.api_gateway.custom_domain_url
+}
