@@ -37,6 +37,12 @@ provider "aws" {
 }
 
 # ============================================================================
+# Data Sources
+# ============================================================================
+
+data "aws_caller_identity" "current" {}
+
+# ============================================================================
 # Cognito - User Authentication
 # ============================================================================
 
@@ -260,7 +266,52 @@ module "lambda_postprocessor" {
 }
 
 # ============================================================================
-# Data Sources
+# API Gateway - Unified API for all services
 # ============================================================================
 
-data "aws_caller_identity" "current" {}
+module "api_gateway" {
+  source = "../../modules/api-gateway"
+  
+  environment = var.environment
+  enable_auth = false  # Disable auth for MVP, enable later with Cognito
+  
+  # Cognito configuration (for when auth is enabled)
+  cognito_user_pool_id = module.cognito.user_pool_id
+  cognito_client_id    = module.cognito.client_id
+  cognito_issuer_url   = module.cognito.issuer_url
+  
+  # Lambda integrations
+  lambda_projects_invoke_arn        = module.lambda_projects.invoke_arn
+  lambda_projects_function_name     = module.lambda_projects.function_name
+  lambda_preprocessor_invoke_arn    = module.lambda_preprocessor.invoke_arn
+  lambda_preprocessor_function_name = module.lambda_preprocessor.function_name
+  lambda_solver_invoke_arn          = module.lambda_solver.invoke_arn
+  lambda_solver_function_name       = module.lambda_solver.function_name
+  lambda_postprocessor_invoke_arn   = module.lambda_postprocessor.invoke_arn
+  lambda_postprocessor_function_name = module.lambda_postprocessor.function_name
+  
+  # CORS configuration
+  cors_allowed_origins = [
+    "https://${var.domain_name}",
+    "http://localhost:3000",
+    "http://localhost:5173"
+  ]
+  
+  # Throttling (generous limits for staging)
+  throttling_burst_limit = 100
+  throttling_rate_limit  = 50
+  
+  # Logging
+  log_retention_days = 7
+  
+  # Custom domain (optional - can be added later)
+  # custom_domain_name   = "api.${var.domain_name}"
+  # acm_certificate_arn  = var.acm_certificate_arn
+  # route53_zone_id      = var.route53_zone_id
+  
+  tags = {
+    Component = "api-gateway"
+  }
+}
+
+# ============================================================================
