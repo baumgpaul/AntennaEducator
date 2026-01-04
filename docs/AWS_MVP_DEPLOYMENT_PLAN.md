@@ -1731,13 +1731,15 @@ resource "aws_codepipeline" "main" {
 - [x] Configure CORS settings
 - [x] Add Lambda permissions
 - [x] **Deploy to AWS staging environment**
+- [x] Fix CORS for CloudFront origin
 - **Status**: Deployed and functional
   - API Gateway URL: `https://vhciv2vd0e.execute-api.eu-west-1.amazonaws.com`
   - All Lambda functions integrated and accessible
   - Projects endpoint tested with DynamoDB backend
+  - CORS configured for: CloudFront (`https://d1wh11n6foy85c.cloudfront.net`) and localhost
 - [x] Create deployment automation script
 - [x] Create testing script
-- **Status**: Module created and ready to deploy
+- **Status**: Module created and deployed
 
 **Task C3: Auth Abstraction Frontend** (4 hours) - ✅ **COMPLETE (Jan 4, 2026)**
 - [x] Install `amazon-cognito-identity-js`
@@ -1768,30 +1770,36 @@ resource "aws_codepipeline" "main" {
 **Task D1: Frontend Terraform Module** (4 hours) - ✅ **COMPLETE (Jan 4, 2026)**
 - [x] Create S3 bucket for static hosting
 - [x] Create CloudFront distribution
-- [ ] Configure SSL certificate (ACM) - for custom domain
-- [ ] Set up Route53 DNS records - for custom domain
+- [x] Configure SSL certificate (ACM) - for custom domain
+- [x] Set up Route53 DNS records - for custom domain
 - [x] Configure SPA error handling (404→index.html)
-- **Status**: CloudFront CDN deployed with HTTPS
+- **Status**: CloudFront CDN deployed with HTTPS and custom domain
   - Bucket: `antenna-simulator-frontend-staging-767397882329`
   - CloudFront Distribution: `E2WUND9P0FX4NA`
   - CloudFront URL: `https://d1wh11n6foy85c.cloudfront.net`
-  - HTTPS enabled with CloudFront default certificate
+  - **Custom Domain**: `https://antennaeducator.nyakyagyawa.com`
+  - **SSL Certificate**: `arn:aws:acm:us-east-1:767397882329:certificate/570e4d2d-52c2-459a-9097-7b2ddf55428c` (VALIDATED)
+  - **Route53**: DNS records in existing zone Z044958815N0VJY4808JQ
+  - HTTPS enforced with TLS 1.2+
   - SPA routing configured (404/403 → index.html)
   - Gzip compression enabled
   - Cache TTL: 1 hour default, 24 hours max
-  - **Pending**: Custom domain with ACM certificate + Route53 DNS (optional)
 
 **Task D2: Build & Deploy Frontend** (2 hours) - ✅ **COMPLETE (Jan 4, 2026)**
 - [x] Build frontend with production env
 - [x] Upload to S3 bucket
 - [x] Test static website endpoint (HTTP)
 - [x] Test CloudFront URL (HTTPS)
+- [x] Test custom domain URL (HTTPS)
+- [x] Fix Lambda DynamoDB bug (ExpressionAttributeNames None issue)
 - [ ] Invalidate CloudFront cache (after content updates)
 - [ ] Verify API calls work with AWS Cognito (end-to-end test)
-- **Status**: Frontend built and deployed with HTTPS access
+- **Status**: Frontend built and deployed with HTTPS access via custom domain
   - Build size: 3.12 MB (main bundle), 150 KB (vendor), 23 KB (DOMPurify)
   - Deployed via `aws s3 sync` with `--delete` flag
-  - Accessible via CloudFront (HTTPS): `https://d1wh11n6foy85c.cloudfront.net`
+  - Accessible via CloudFront: `https://d1wh11n6foy85c.cloudfront.net`
+  - **Custom Domain**: `https://antennaeducator.nyakyagyawa.com`
+  - **Bug Fixed**: Lambda projects update_item DynamoDB error (Jan 4, 2026)
   - **Pending**: Cache invalidation strategy, end-to-end API testing with Cognito
 
 #### Phase E: CI/CD Pipeline (Days 13-14)
@@ -1883,6 +1891,66 @@ resource "aws_codepipeline" "main" {
 | CodeBuild | $2-5 |
 | ECR | $0.50 |
 | **Total** | **$10-25/month** |
+
+---
+
+### Current Production Setup (No Free Tier)
+**Scenario**: 5 users, 10 solver runs/day, 20 postprocessor runs/day
+
+#### Detailed Cost Breakdown
+
+**Lambda Functions** (Compute + Requests)
+```
+Preprocessor:  10/day × 30 = 300 invocations
+               300 × 5s × 512 MB = 768 GB-seconds
+               
+Solver:        10/day × 30 = 300 invocations
+               300 × 30s × 2048 MB = 18,432 GB-seconds
+               
+Postprocessor: 20/day × 30 = 600 invocations
+               600 × 10s × 1024 MB = 6,144 GB-seconds
+               
+Projects:      50/day × 30 = 1,500 invocations
+               1,500 × 0.5s × 512 MB = 384 GB-seconds
+
+Total:         2,700 invocations, 25,728 GB-seconds
+Compute:       25,728 × $0.0000166667 = $0.43
+Requests:      2,700 × $0.0000002 = $0.0005
+Lambda Total:  $0.43/month
+```
+
+| Service | Usage | Monthly Cost | Notes |
+|---------|-------|--------------|-------|
+| **Lambda** | 2,700 invocations<br>25,728 GB-seconds | **$0.43** | Compute-heavy solver dominates |
+| **API Gateway** | 3,000 requests | **$0.01** | HTTP API pricing |
+| **DynamoDB** | 1,500 writes<br>3,000 reads<br>1 GB storage | **$0.25** | On-demand pricing |
+| **S3** | 0.15 GB storage<br>1,000 requests | **$0.01** | Minimal storage |
+| **CloudFront** | 1 GB transfer<br>3,000 requests | **$0.09** | CDN distribution |
+| **Route 53** | 1 hosted zone<br>10K queries | **$0.50** | DNS hosting |
+| **Cognito** | 5 MAUs | **$0.03** | User authentication |
+| **CloudWatch** | 500 MB logs | **$0.25** | Logging & monitoring |
+| **ECR** | 200 MB images | **$0.02** | Container registry |
+| **ACM** | 1 certificate | **$0** | SSL certificate (free) |
+| **CodePipeline** | 1 pipeline (optional) | **$1.00** | CI/CD automation |
+| **CodeBuild** | 50 min/month (optional) | **$0.25** | Build automation |
+| | | | |
+| **Total (without CI/CD)** | | **$1.59/month** | ✅ **Very affordable!** |
+| **Total (with CI/CD)** | | **$2.84/month** | Still under $3/month |
+
+#### Cost Notes
+- **Lambda is the main cost** at $0.43/month due to solver compute time
+- **Route 53** ($0.50) is the largest fixed cost for DNS hosting
+- **Actual usage is very low** - mostly within free tier limits if it applied
+- **Scaling**: Cost increases linearly with usage (10x users ≈ 10x cost)
+- **Heavy solver usage**: If solver runs increase to 100/day, Lambda cost → ~$4/month
+
+#### Cost Optimization Tips
+1. **Enable CloudWatch log retention** (default forever → expensive over time)
+   - Set to 7 days for Lambda logs: Saves $$$ long-term
+2. **CloudFront caching**: Already configured (1-24 hour TTL)
+3. **DynamoDB**: On-demand is perfect for this usage level
+4. **Lambda memory**: Already optimized per service
+5. **S3 lifecycle policies**: Auto-delete old solver results after 90 days
 
 ---
 
