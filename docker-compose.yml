@@ -99,8 +99,8 @@ services:
   # Projects Service - Project management and persistence
   projects:
     build:
-      context: ./backend/projects
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/projects/Dockerfile
     ports:
       - "8010:8010"
     environment:
