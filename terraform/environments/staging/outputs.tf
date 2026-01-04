@@ -39,6 +39,34 @@ output "cloudfront_domain_name" {
   value       = "https://${module.cloudfront.distribution_domain_name}"
 }
 
+# Route53 outputs
+output "route53_zone_id" {
+  description = "Route53 hosted zone ID"
+  value       = module.route53.zone_id
+}
+
+output "route53_name_servers" {
+  description = "Route53 name servers (configure these at domain registrar)"
+  value       = module.route53.name_servers
+}
+
+# ACM Certificate outputs
+output "acm_certificate_arn" {
+  description = "ARN of the ACM certificate"
+  value       = module.acm_certificate.certificate_arn
+}
+
+output "acm_certificate_status" {
+  description = "Status of the ACM certificate"
+  value       = module.acm_certificate.certificate_status
+}
+
+# Custom domain URL
+output "custom_domain_url" {
+  description = "Custom domain URL (after DNS configuration)"
+  value       = "https://${var.domain_name}"
+}
+
 output "aws_region" {
   description = "AWS region"
   value       = var.aws_region
