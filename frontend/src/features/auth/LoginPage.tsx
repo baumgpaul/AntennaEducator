@@ -1,14 +1,12 @@
 import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress, Alert, FormControlLabel, Checkbox } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { loginStart, loginSuccess, loginFailure } from '@/store/authSlice';
+import { loginAsync, clearAuthError } from '@/store/authSlice';
 import { showSuccess } from '@/store/uiSlice';
 import { loginSchema, type LoginFormData } from '@/utils/validation';
-import { formatErrorMessage } from '@/utils/errors';
-import { authApi } from '@/api';
 
 /**
  * LoginPage - User authentication with form validation
@@ -18,8 +16,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const { loading } = useAppSelector((state) => state.auth);
-  const [errorMessage, setErrorMessage] = useState<string>('');
+  const { loading, error, isAuthenticated } = useAppSelector((state) => state.auth);
   const [rememberMe, setRememberMe] = useState(false);
 
   // Get the page user was trying to access before being redirected to login
@@ -37,26 +34,25 @@ function LoginPage() {
     },
   });
 
-  const onSubmit = async (data: LoginFormData) => {
-    setErrorMessage('');
-    dispatch(loginStart());
-    
-    try {
-      // Call real backend authentication API
-      const response = await authApi.login({
-        email: data.email,
-        password: data.password,
-      });
-      
-      dispatch(loginSuccess({ user: response.user, tokens: response.tokens }));
+  // Clear errors on mount
+  useEffect(() => {
+    dispatch(clearAuthError());
+  }, [dispatch]);
+
+  // Navigate on successful authentication
+  useEffect(() => {
+    if (isAuthenticated) {
       dispatch(showSuccess('Login successful!'));
-      // Redirect to the page they were trying to access, or home
       navigate(from, { replace: true });
-    } catch (error: any) {
-      const message = formatErrorMessage(error);
-      setErrorMessage(message);
-      dispatch(loginFailure(message));
     }
+  }, [isAuthenticated, navigate, from, dispatch]);
+
+  const onSubmit = async (data: LoginFormData) => {
+    dispatch(clearAuthError());
+    await dispatch(loginAsync({
+      email: data.email,
+      password: data.password,
+    }));
   };
 
   return (
@@ -80,9 +76,9 @@ function LoginPage() {
           </Typography>
 
           <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 3 }}>
-            {errorMessage && (
+            {error && (
               <Alert severity="error" sx={{ mb: 2 }}>
-                {errorMessage}
+                {error}
               </Alert>
             )}
             
