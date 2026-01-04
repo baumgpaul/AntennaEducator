@@ -17,23 +17,35 @@ DATABASE_URL = os.getenv(
 )
 
 # Create SQLAlchemy engine (don't connect yet)
-connect_args = {}
-if "sqlite" in DATABASE_URL:
-    connect_args = {"check_same_thread": False}
-elif "postgresql" in DATABASE_URL:
-    connect_args = {"connect_timeout": 10}
+# Skip engine creation if using DynamoDB (for Lambda with DISABLE_AUTH=true)
+USE_DYNAMODB = os.getenv("USE_DYNAMODB", "false").lower() == "true"
 
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,  # Verify connections before using
-    connect_args=connect_args
-)
+if USE_DYNAMODB and os.getenv("DISABLE_AUTH", "false").lower() == "true":
+    # In Lambda with DynamoDB, we don't need SQLAlchemy
+    # Create dummy objects to avoid import errors
+    engine = None
+    SessionLocal = None
+    Base = declarative_base()
+    logger.info("Skipping SQLAlchemy engine creation (USE_DYNAMODB=true, DISABLE_AUTH=true)")
+else:
+    # Normal operation: create engine for SQLite/PostgreSQL
+    connect_args = {}
+    if "sqlite" in DATABASE_URL:
+        connect_args = {"check_same_thread": False}
+    elif "postgresql" in DATABASE_URL:
+        connect_args = {"connect_timeout": 10}
 
-# Create SessionLocal class for database sessions
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,  # Verify connections before using
+        connect_args=connect_args
+    )
 
-# Create Base class for declarative models
-Base = declarative_base()
+    # Create SessionLocal class for database sessions
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    # Create Base class for declarative models
+    Base = declarative_base()
 
 
 def get_db():
@@ -47,6 +59,11 @@ def get_db():
         OperationalError: If database connection fails
         SQLAlchemyError: For other database errors
     """
+    if SessionLocal is None:
+        # In DynamoDB mode with auth disabled, auth endpoints won't be called
+        # If they are called, raise an error
+        raise RuntimeError("SQLAlchemy database not available (USE_DYNAMODB=true, DISABLE_AUTH=true)")
+    
     db = SessionLocal()
     try:
         # Test connection

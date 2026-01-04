@@ -114,8 +114,8 @@ class ProjectResponse(ProjectBase):
     """Schema for project response."""
     model_config = ConfigDict(from_attributes=True)
     
-    id: int
-    user_id: int
+    id: str  # UUID string for DynamoDB compatibility
+    user_id: str  # UUID string for DynamoDB compatibility
     created_at: datetime
     updated_at: datetime
     elements: List[ProjectElementResponse] = []
@@ -126,7 +126,7 @@ class ProjectListResponse(ProjectBase):
     """Schema for project list response (without elements/results)."""
     model_config = ConfigDict(from_attributes=True)
     
-    id: int
-    user_id: int
+    id: str  # UUID string for DynamoDB compatibility
+    user_id: str  # UUID string for DynamoDB compatibility
     created_at: datetime
     updated_at: datetime
