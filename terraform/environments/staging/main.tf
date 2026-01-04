@@ -36,6 +36,22 @@ provider "aws" {
   }
 }
 
+# Provider for ACM certificates (must be in us-east-1 for CloudFront)
+provider "aws" {
+  alias   = "us_east_1"
+  region  = "us-east-1"
+  profile = var.aws_profile
+  
+  default_tags {
+    tags = {
+      Project     = "antenna-simulator"
+      Environment = "staging"
+      ManagedBy   = "terraform"
+      Repository  = "github.com/yourusername/antenna-simulator"
+    }
+  }
+}
+
 # ============================================================================
 # Data Sources
 # ============================================================================
@@ -112,6 +128,51 @@ module "s3_frontend" {
 }
 
 # ============================================================================
+# Route53 - DNS Management
+# ============================================================================
+
+module "route53" {
+  source = "../../modules/route53"
+  
+  domain_name                 = var.domain_name
+  environment                 = var.environment
+  
+  # Use existing parent zone (nyakyagyawa.com)
+  use_existing_zone          = true
+  existing_zone_id           = "Z044958815N0VJY4808JQ"  # Your existing nyakyagyawa.com zone
+  parent_domain_name         = "nyakyagyawa.com"
+  
+  cloudfront_domain_name      = module.cloudfront.distribution_domain_name
+  cloudfront_hosted_zone_id   = module.cloudfront.distribution_hosted_zone_id
+  create_www_subdomain        = false  # Set to true if you want www.antennaeducator.nyakyagyawa.com
+  
+  tags = {
+    Component = "dns"
+  }
+}
+
+# ============================================================================
+# ACM Certificate - SSL/TLS (us-east-1 for CloudFront)
+# ============================================================================
+
+module "acm_certificate" {
+  source = "../../modules/acm-certificate"
+  
+  providers = {
+    aws.us_east_1 = aws.us_east_1
+  }
+  
+  domain_name               = var.domain_name
+  subject_alternative_names = []  # Add ["www.${var.domain_name}"] if needed
+  route53_zone_id           = module.route53.zone_id
+  environment               = var.environment
+  
+  tags = {
+    Component = "ssl-certificate"
+  }
+}
+
+# ============================================================================
 # CloudFront - CDN for Frontend
 # ============================================================================
 
@@ -122,15 +183,17 @@ module "cloudfront" {
   s3_bucket_name                    = module.s3_frontend.bucket_name
   s3_bucket_regional_domain_name    = module.s3_frontend.bucket_regional_domain_name
   
-  # SSL Certificate - using CloudFront default for now
-  # acm_certificate_arn = var.acm_certificate_arn  # Add custom domain later
-  # domain_aliases      = ["antennaeducator.nyakyagyawa.com"]
+  # SSL Certificate - custom domain with ACM
+  acm_certificate_arn = module.acm_certificate.certificate_arn
+  domain_aliases      = [var.domain_name]  # Add "www.${var.domain_name}" if needed
   
   price_class = "PriceClass_100"  # North America + Europe (cheapest)
   
   tags = {
     Component = "cdn"
   }
+  
+  depends_on = [module.acm_certificate]
 }
 
 # ============================================================================
@@ -315,8 +378,10 @@ module "api_gateway" {
   # CORS configuration
   cors_allowed_origins = [
     "https://${var.domain_name}",
+    "https://${module.cloudfront.distribution_domain_name}",  # CloudFront distribution
     "http://localhost:3000",
-    "http://localhost:5173"
+    "http://localhost:5173",
+    "http://localhost:3004"
   ]
   
   # Throttling (generous limits for staging)
