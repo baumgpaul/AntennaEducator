@@ -1710,22 +1710,31 @@ resource "aws_codepipeline" "main" {
 
 #### Phase C: API Gateway & Auth (Days 8-10)
 
-**Task C1: Cognito Module** (4 hours) - ✅ **MODULE COMPLETE (Jan 4, 2026)** ⚠️ Not yet deployed to AWS
+**Task C1: Cognito Module** (4 hours) - ✅ **DEPLOYED TO AWS (Jan 4, 2026)**
 - [x] Create Cognito user pool via Terraform module
 - [x] Configure password policy
 - [x] Create app client for frontend
 - [x] Set up callback URLs (staging + localhost)
 - [x] Output user pool ID and client ID
 - [x] Create SSM parameters for outputs
-- **Status**: Terraform module created and integrated into staging environment
-- **Next**: Deploy to AWS with `terraform apply` to test cloud authentication
+- [x] **Deploy to AWS staging environment**
+- [x] **Test registration via AWS CLI**
+- **Status**: Deployed and functional
+  - User Pool ID: `eu-west-1_IrKrKMip7`
+  - Client ID: `26soasclspfs76edce205l0mci`
+  - Registration tested successfully (email verification required)
 
-**Task C2: API Gateway Module** (6 hours) - ✅ **MODULE COMPLETE (Jan 4, 2026)** ⚠️ Not yet deployed to AWS
+**Task C2: API Gateway Module** (6 hours) - ✅ **DEPLOYED TO AWS (Jan 4, 2026)**
 - [x] Create HTTP API via Terraform module
 - [x] Configure routes for all services
 - [x] Set up Cognito JWT authorizer (ready, disabled for MVP)
 - [x] Configure CORS settings
 - [x] Add Lambda permissions
+- [x] **Deploy to AWS staging environment**
+- **Status**: Deployed and functional
+  - API Gateway URL: `https://vhciv2vd0e.execute-api.eu-west-1.amazonaws.com`
+  - All Lambda functions integrated and accessible
+  - Projects endpoint tested with DynamoDB backend
 - [x] Create deployment automation script
 - [x] Create testing script
 - **Status**: Module created and ready to deploy
@@ -1756,19 +1765,34 @@ resource "aws_codepipeline" "main" {
 
 #### Phase D: Frontend Deployment (Days 11-12)
 
-**Task D1: Frontend Terraform Module** (4 hours)
-- [ ] Create S3 bucket for static hosting
-- [ ] Create CloudFront distribution
-- [ ] Configure SSL certificate (ACM)
-- [ ] Set up Route53 DNS records
-- [ ] Configure SPA error handling (404→index.html)
+**Task D1: Frontend Terraform Module** (4 hours) - ✅ **COMPLETE (Jan 4, 2026)**
+- [x] Create S3 bucket for static hosting
+- [x] Create CloudFront distribution
+- [ ] Configure SSL certificate (ACM) - for custom domain
+- [ ] Set up Route53 DNS records - for custom domain
+- [x] Configure SPA error handling (404→index.html)
+- **Status**: CloudFront CDN deployed with HTTPS
+  - Bucket: `antenna-simulator-frontend-staging-767397882329`
+  - CloudFront Distribution: `E2WUND9P0FX4NA`
+  - CloudFront URL: `https://d1wh11n6foy85c.cloudfront.net`
+  - HTTPS enabled with CloudFront default certificate
+  - SPA routing configured (404/403 → index.html)
+  - Gzip compression enabled
+  - Cache TTL: 1 hour default, 24 hours max
+  - **Pending**: Custom domain with ACM certificate + Route53 DNS (optional)
 
-**Task D2: Build & Deploy Frontend** (2 hours)
-- [ ] Build frontend with production env
-- [ ] Upload to S3 bucket
-- [ ] Invalidate CloudFront cache
-- [ ] Test all pages load correctly
-- [ ] Verify API calls work
+**Task D2: Build & Deploy Frontend** (2 hours) - ✅ **COMPLETE (Jan 4, 2026)**
+- [x] Build frontend with production env
+- [x] Upload to S3 bucket
+- [x] Test static website endpoint (HTTP)
+- [x] Test CloudFront URL (HTTPS)
+- [ ] Invalidate CloudFront cache (after content updates)
+- [ ] Verify API calls work with AWS Cognito (end-to-end test)
+- **Status**: Frontend built and deployed with HTTPS access
+  - Build size: 3.12 MB (main bundle), 150 KB (vendor), 23 KB (DOMPurify)
+  - Deployed via `aws s3 sync` with `--delete` flag
+  - Accessible via CloudFront (HTTPS): `https://d1wh11n6foy85c.cloudfront.net`
+  - **Pending**: Cache invalidation strategy, end-to-end API testing with Cognito
 
 #### Phase E: CI/CD Pipeline (Days 13-14)
 
