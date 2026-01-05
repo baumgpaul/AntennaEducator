@@ -38,6 +38,7 @@ import DesignCanvas from './DesignCanvas';
 import TreeViewPanel from './TreeViewPanel';
 import PropertiesPanel from './PropertiesPanel';
 import RibbonMenu from './RibbonMenu';
+import type { Scene3DHandle } from './Scene3D';
 import ViewControls from './ViewControls';
 import { DipoleDialog } from './DipoleDialog';
 import { LoopDialog } from './LoopDialog';
@@ -96,8 +97,13 @@ function DesignPage() {
   const viewConfigurations = useAppSelector((state) => state.postprocessing.viewConfigurations);
   const solverState = useAppSelector((state) => state.solver); // Full solver state for persistence
   
+  // Map solver status to SolverTab-compatible type
+  const solvableStatus: 'idle' | 'preparing' | 'running' | 'completed' | 'error' | 'postprocessing-ready' = 
+    solverStatus === 'failed' ? 'error' : solverStatus === 'cancelled' ? 'idle' : solverStatus;
+  
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
+  const [cameraMode, setCameraMode] = useState<'perspective' | 'orthographic'>('perspective');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
   const [dipoleDialogOpen, setDipoleDialogOpen] = useState(false);
@@ -834,19 +840,21 @@ function DesignPage() {
     }
   };
 
+  const scene3DRef = useRef<Scene3DHandle>(null);
+
   const handleZoomIn = () => {
-    console.log('Zoom in');
-    // TODO: Control camera zoom
+    console.log('[DesignPage] Zoom in triggered');
+    scene3DRef.current?.zoomIn();
   };
 
   const handleZoomOut = () => {
-    console.log('Zoom out');
-    // TODO: Control camera zoom
+    console.log('[DesignPage] Zoom out triggered');
+    scene3DRef.current?.zoomOut();
   };
 
   const handleResetView = () => {
-    console.log('Reset view');
-    // TODO: Reset camera to default position
+    console.log('[DesignPage] Reset view triggered');
+    scene3DRef.current?.resetView();
   };
 
   const handleToggleFullscreen = () => {
@@ -881,6 +889,15 @@ function DesignPage() {
         onElementSelect={handleElementSelect}
         mesh={mesh || undefined} // Keep for backward compatibility
         currentDistribution={currentDistribution || undefined} // Pass solver results
+        gridVisible={gridVisible}
+        cameraMode={cameraMode}
+        scene3DRef={scene3DRef}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetView={handleResetView}
+        onToggleGrid={() => handleViewOption('toggle-grid')}
+        onToggleFullscreen={handleToggleFullscreen}
+        isFullscreen={isFullscreen}
         leftPanel={
           <TreeViewPanel
             elements={elements}
@@ -982,7 +999,7 @@ function DesignPage() {
           selectedElementId={selectedElementId}
           onElementSelect={handleElementSelect}
           onElementVisibilityToggle={handleElementVisibilityToggle}
-          solverStatus={solverStatus}
+          solverStatus={solvableStatus}
         />
       )}
 
@@ -1001,16 +1018,6 @@ function DesignPage() {
         />
       )}
 
-      <ViewControls
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        onResetView={handleResetView}
-        onToggleGrid={() => handleViewOption('toggle-grid')}
-        onToggleFullscreen={handleToggleFullscreen}
-        gridVisible={gridVisible}
-        isFullscreen={isFullscreen}
-      />
-      
       {/* Antenna Configuration Dialogs */}
       <DipoleDialog
         open={dipoleDialogOpen}
@@ -1084,4 +1091,6 @@ function DesignPage() {
 }
 
 export default DesignPage;
+
+
 
