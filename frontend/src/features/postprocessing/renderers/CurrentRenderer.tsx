@@ -10,6 +10,13 @@ interface CurrentRendererProps {
   frequencyHz?: number;
 }
 
+// Safe toFixed helper: returns formatted string for numbers or numeric strings, otherwise 'N/A'
+function safeToFixed(value: any, digits: number): string {
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(digits);
+  if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value).toFixed(digits);
+  return 'N/A';
+}
+
 /**
  * Renders current distribution as color-mapped wire edges.
  * Uses current magnitudes from solver results to color each edge.
@@ -96,9 +103,9 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
               offsetZ = offsetMagnitude;
             }
             
-            console.log(`[CurrentRenderer]     Start: [${start[0].toFixed(3)}, ${start[1].toFixed(3)}, ${start[2].toFixed(3)}]`);
-            console.log(`[CurrentRenderer]     End:   [${end[0].toFixed(3)}, ${end[1].toFixed(3)}, ${end[2].toFixed(3)}]`);
-            console.log(`[CurrentRenderer]     Length: ${length.toFixed(3)} mm, Offset: [${offsetX}, ${offsetY}, ${offsetZ}]`);
+            console.log(`[CurrentRenderer]     Start: [${safeToFixed(start[0], 3)}, ${safeToFixed(start[1], 3)}, ${safeToFixed(start[2], 3)}]`);
+            console.log(`[CurrentRenderer]     End:   [${safeToFixed(end[0], 3)}, ${safeToFixed(end[1], 3)}, ${safeToFixed(end[2], 3)}]`);
+            console.log(`[CurrentRenderer]     Length: ${safeToFixed(length, 3)} mm, Offset: [${offsetX}, ${offsetY}, ${offsetZ}]`);
             
             allEdges.push({
               start: [start[0] + offsetX, start[1] + offsetY, start[2] + offsetZ],
@@ -116,8 +123,8 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
     
     console.log('[CurrentRenderer] === EDGE EXTRACTION COMPLETE ===');
     console.log('[CurrentRenderer] Total edges extracted:', allEdges.length);
-    console.log('[CurrentRenderer] Edge lengths (mm):', allEdges.map(e => e.length.toFixed(4)));
-    console.log('[CurrentRenderer] Total wire length:', allEdges.reduce((sum, e) => sum + e.length, 0).toFixed(4), 'mm');
+    console.log('[CurrentRenderer] Edge lengths (mm):', allEdges.map(e => safeToFixed(e.length, 4)));
+    console.log('[CurrentRenderer] Total wire length:', safeToFixed(allEdges.reduce((sum, e) => sum + e.length, 0), 4), 'mm');
     
     return allEdges;
   }, [elements]);
@@ -131,14 +138,14 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
       const mag = Math.sqrt(real * real + imag * imag);
       
       if (idx < 5 || idx >= currentData.length - 2) {
-        console.log(`[CurrentRenderer] Current ${idx}: real=${real.toFixed(6)}, imag=${imag.toFixed(6)}, magnitude=${mag.toFixed(6)} A`);
+        console.log(`[CurrentRenderer] Current ${idx}: real=${safeToFixed(real, 6)}, imag=${safeToFixed(imag, 6)}, magnitude=${safeToFixed(mag, 6)} A`);
       }
       
       return mag;
     });
     
     console.log('[CurrentRenderer] Total magnitudes:', mags.length);
-    console.log('[CurrentRenderer] Magnitude range: [${Math.min(...mags).toFixed(6)}, ${Math.max(...mags).toFixed(6)}] A');
+    console.log(`[CurrentRenderer] Magnitude range: [${safeToFixed(Math.min(...mags), 6)}, ${safeToFixed(Math.max(...mags), 6)}] A`);
     return mags;
   }, [currentData]);
 
@@ -165,7 +172,7 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
       const g = cols[i * 3 + 1];
       const b = cols[i * 3 + 2];
       const color = new THREE.Color(r, g, b);
-      console.log(`  Edge ${i}: RGB(${r.toFixed(3)}, ${g.toFixed(3)}, ${b.toFixed(3)}) = #${color.getHexString()} | magnitude: ${magnitudes[i].toFixed(6)}`);
+      console.log(`  Edge ${i}: RGB(${safeToFixed(r, 3)}, ${safeToFixed(g, 3)}, ${safeToFixed(b, 3)}) = #${color.getHexString()} | magnitude: ${safeToFixed(magnitudes[i], 6)}`);
     }
     console.log('[CurrentRenderer] Last color (RGB):');
     const lastIdx = magnitudes.length - 1;
@@ -173,7 +180,7 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
     const g = cols[lastIdx * 3 + 1];
     const b = cols[lastIdx * 3 + 2];
     const color = new THREE.Color(r, g, b);
-    console.log(`  Edge ${lastIdx}: RGB(${r.toFixed(3)}, ${g.toFixed(3)}, ${b.toFixed(3)}) = #${color.getHexString()} | magnitude: ${magnitudes[lastIdx].toFixed(6)}`);
+    console.log(`  Edge ${lastIdx}: RGB(${safeToFixed(r, 3)}, ${safeToFixed(g, 3)}, ${safeToFixed(b, 3)}) = #${color.getHexString()} | magnitude: ${safeToFixed(magnitudes[lastIdx], 6)}`);
     return cols;
   }, [magnitudes, colorMap, min, max]);
 
@@ -209,12 +216,12 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
 
         if (index < 3 || index === edges.length - 1) {
           console.log(`[CurrentRenderer] Rendering edge ${index}:`, {
-            start: edge.start.map(v => v.toFixed(4)),
-            end: edge.end.map(v => v.toFixed(4)),
-            length: edge.length.toFixed(4) + ' mm',
-            rgbInput: `RGB(${r.toFixed(3)}, ${g.toFixed(3)}, ${b.toFixed(3)})`,
+            start: edge.start.map(v => safeToFixed(v, 4)),
+            end: edge.end.map(v => safeToFixed(v, 4)),
+            length: safeToFixed(edge.length, 4) + ' mm',
+            rgbInput: `RGB(${safeToFixed(r, 3)}, ${safeToFixed(g, 3)}, ${safeToFixed(b, 3)})`,
             colorHex: '#' + color.getHexString(),
-            magnitude: magnitudes[index]?.toFixed(6) + ' A',
+            magnitude: safeToFixed(magnitudes[index], 6) + ' A',
             lineWidth: edgeSize
           });
         }
