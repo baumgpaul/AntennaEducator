@@ -204,18 +204,21 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                   label="Element Type"
                   value={elementType}
                   onChange={(e) => {
-                    const value = e.target.value as 'R' | 'L' | 'C';
-                    reset({
+                    const value = e.target.value as string;
+                    const baseData = {
                       antennaId: selectedAntennaId || elements[0]?.id || '',
-                      element_type: value,
-                      ...(value === 'R'
-                        ? { resistance: 50 }
-                        : value === 'L'
-                        ? { inductance: 1e-9 }
-                        : { capacitance_inv: 1e9 }),
                       node1: 0,
                       node2: 1,
-                    });
+                    };
+                    
+                    // Construct type-safe form data based on element type
+                    if (value === 'R') {
+                      reset({ ...baseData, element_type: 'R', resistance: 50 } as any);
+                    } else if (value === 'L') {
+                      reset({ ...baseData, element_type: 'L', inductance: 1e-9 } as any);
+                    } else if (value === 'C') {
+                      reset({ ...baseData, element_type: 'C', capacitance_inv: 1e9 } as any);
+                    }
                   }}
                   disabled={loading || adding}
                 >
