@@ -79,7 +79,18 @@ export class CognitoAuthService implements IAuthService {
           })
         },
         onFailure: (err) => {
-          reject(new Error(err.message || 'Authentication failed'))
+          // Provide more specific error messages
+          let errorMessage = err.message || 'Authentication failed'
+          
+          if (err.code === 'UserNotConfirmedException') {
+            errorMessage = 'Please verify your email address before logging in. Check your email for the verification code.'
+          } else if (err.code === 'NotAuthorizedException') {
+            errorMessage = 'Incorrect email or password'
+          } else if (err.code === 'UserNotFoundException') {
+            errorMessage = 'No account found with this email'
+          }
+          
+          reject(new Error(errorMessage))
         },
       })
     })
@@ -124,19 +135,16 @@ export class CognitoAuthService implements IAuthService {
             created_at: new Date().toISOString(),
           }
 
-          // Auto-login after registration
-          this.login({ email: data.email, password: data.password })
-            .then((authResponse) => resolve(authResponse))
-            .catch(() => {
-              // If auto-login fails, still return success for registration
-              resolve({
-                user,
-                tokens: {
-                  accessToken: '',
-                  refreshToken: '',
-                },
-              })
-            })
+          // Return registration success WITHOUT logging in
+          // User must verify email before they can login
+          resolve({
+            user,
+            tokens: {
+              accessToken: '',
+              refreshToken: '',
+            },
+            message: 'Registration successful. Please check your email to verify your account before logging in.',
+          })
         }
       )
     })

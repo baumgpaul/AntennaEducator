@@ -25,6 +25,7 @@ export interface RegisterData {
 export interface AuthResponse {
   user: User
   tokens: AuthTokens
+  message?: string  // Optional message (e.g., for email verification)
 }
 
 /**

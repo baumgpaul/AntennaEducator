@@ -1,7 +1,7 @@
 import { Box, Container, Typography, Paper, TextField, Button, Link as MuiLink, CircularProgress, Alert } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { registerAsync, clearAuthError } from '@/store/authSlice';
@@ -16,6 +16,7 @@ function RegisterPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { loading, error, isAuthenticated } = useAppSelector((state) => state.auth);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   const {
     control,
@@ -36,7 +37,7 @@ function RegisterPage() {
     dispatch(clearAuthError());
   }, [dispatch]);
 
-  // Navigate on successful registration
+  // Navigate on successful authentication (not just registration)
   useEffect(() => {
     if (isAuthenticated) {
       dispatch(showSuccess('Registration successful! Welcome to Antenna Educator.'));
@@ -46,12 +47,58 @@ function RegisterPage() {
 
   const onSubmit = async (data: RegisterFormData) => {
     dispatch(clearAuthError());
-    await dispatch(registerAsync({
+    const result = await dispatch(registerAsync({
       email: data.email,
       username: data.username,
       password: data.password,
     }));
+    
+    // Check if registration succeeded (but user is not yet authenticated)
+    if (registerAsync.fulfilled.match(result)) {
+      setRegistrationSuccess(true);
+    }
   };
+
+  // Show success message if registration completed but user needs to verify email
+  if (registrationSuccess && !isAuthenticated) {
+    return (
+      <Box
+        sx={{
+          width: '100vw',
+          height: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'background.default',
+        }}
+      >
+        <Container maxWidth="sm">
+          <Paper elevation={3} sx={{ p: 4 }}>
+            <Typography variant="h4" align="center" gutterBottom color="success.main">
+              Registration Successful!
+            </Typography>
+            <Alert severity="success" sx={{ mt: 2, mb: 3 }}>
+              <Typography variant="body1" paragraph>
+                Please check your email for a verification code.
+              </Typography>
+              <Typography variant="body2">
+                You must verify your email address before you can log in.
+              </Typography>
+            </Alert>
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              onClick={() => navigate('/login')}
+              sx={{ mt: 2 }}
+            >
+              Go to Login
+            </Button>
+          </Paper>
+        </Container>
+      </Box>
+    );
+  }
 
   return (
     <Box
