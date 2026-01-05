@@ -12,7 +12,16 @@ import {
   Paper,
 } from '@mui/material';
 import { MuiColorInput } from 'mui-color-input';
+import { parseDecimalNumber } from '@/utils/numberParser';
 import type { AntennaElement } from '@/types/models';
+
+// Helper to convert comma to period in number inputs
+const handleDecimalInput = (e: React.FormEvent<HTMLDivElement>) => {
+  const input = e.target as HTMLInputElement;
+  if (input.value.includes(',')) {
+    input.value = input.value.replace(',', '.');
+  }
+};
 
 interface PropertyField {
   label: string;
@@ -251,6 +260,7 @@ function PropertiesPanel({
                       label="X"
                       type="number"
                       value={antennaElement.position[0]}
+                      onInput={handleDecimalInput}
                       onChange={(e) => {
                         if (onPositionChange) {
                           const newPos: [number, number, number] = [
@@ -272,6 +282,7 @@ function PropertiesPanel({
                       label="Y"
                       type="number"
                       value={antennaElement.position[1]}
+                      onInput={handleDecimalInput}
                       onChange={(e) => {
                         if (onPositionChange) {
                           const newPos: [number, number, number] = [
@@ -293,6 +304,7 @@ function PropertiesPanel({
                       label="Z"
                       type="number"
                       value={antennaElement.position[2]}
+                      onInput={handleDecimalInput}
                       onChange={(e) => {
                         if (onPositionChange) {
                           const newPos: [number, number, number] = [
@@ -323,6 +335,7 @@ function PropertiesPanel({
                       label="X"
                       type="number"
                       value={(antennaElement.rotation[0] * 180 / Math.PI).toFixed(1)}
+                      onInput={handleDecimalInput}
                       onChange={(e) => {
                         if (onRotationChange) {
                           const degToRad = parseFloat(e.target.value) * Math.PI / 180;
@@ -345,6 +358,7 @@ function PropertiesPanel({
                       label="Y"
                       type="number"
                       value={(antennaElement.rotation[1] * 180 / Math.PI).toFixed(1)}
+                      onInput={handleDecimalInput}
                       onChange={(e) => {
                         if (onRotationChange) {
                           const degToRad = parseFloat(e.target.value) * Math.PI / 180;
@@ -367,6 +381,7 @@ function PropertiesPanel({
                       label="Z"
                       type="number"
                       value={(antennaElement.rotation[2] * 180 / Math.PI).toFixed(1)}
+                      onInput={handleDecimalInput}
                       onChange={(e) => {
                         if (onRotationChange) {
                           const degToRad = parseFloat(e.target.value) * Math.PI / 180;

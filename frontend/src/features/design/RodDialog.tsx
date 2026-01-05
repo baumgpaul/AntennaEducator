@@ -17,7 +17,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PositionControl } from '@/components/PositionControl';
 import { parseDecimalNumber } from '@/utils/numberParser';
-import { parseDecimalNumber } from '@/utils/numberParser';
 // Zod validation schema
 const rodSchema = z.object({
   start_x: z.number().min(-10, 'X too small').max(10, 'X too large'),
@@ -153,7 +152,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                     error={!!errors.start_x}
                     helperText={errors.start_x?.message}
                     inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
                   />
                 )}
               />
@@ -171,7 +170,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                     error={!!errors.start_y}
                     helperText={errors.start_y?.message}
                     inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
                   />
                 )}
               />
@@ -189,7 +188,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                     error={!!errors.start_z}
                     helperText={errors.start_z?.message}
                     inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
                   />
                 )}
               />
@@ -214,7 +213,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                     error={!!errors.end_x}
                     helperText={errors.end_x?.message}
                     inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
                   />
                 )}
               />
@@ -232,7 +231,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                     error={!!errors.end_y}
                     helperText={errors.end_y?.message}
                     inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
                   />
                 )}
               />
@@ -250,7 +249,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                     error={!!errors.end_z}
                     helperText={errors.end_z?.message}
                     inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
                   />
                 )}
               />
@@ -270,7 +269,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                     error={!!errors.radius}
                     helperText={errors.radius?.message}
                     inputProps={{ step: 0.0001 }}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
                   />
                 )}
               />

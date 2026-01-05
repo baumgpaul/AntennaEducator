@@ -222,7 +222,12 @@ const designSlice = createSlice({
     updateElement: (state, action: PayloadAction<{ id: string; updates: Partial<AntennaElement> }>) => {
       const index = state.elements.findIndex(el => el.id === action.payload.id)
       if (index >= 0) {
-        state.elements[index] = { ...state.elements[index], ...action.payload.updates }
+        const updates = action.payload.updates
+        // Check if geometry-affecting properties changed (position, rotation)
+        if (updates.position || updates.rotation) {
+          state.isSolved = false
+        }
+        state.elements[index] = { ...state.elements[index], ...updates }
       }
     },
 
@@ -317,6 +322,15 @@ const designSlice = createSlice({
       state.elements = []
       state.selectedElementId = null
       state.activeElementId = null
+    },
+
+    // Solver state management
+    markAsSolved: (state) => {
+      state.isSolved = true
+    },
+
+    markAsUnsolved: (state) => {
+      state.isSolved = false
     },
 
     // Legacy antenna configuration (backward compatibility)
@@ -518,7 +532,8 @@ const designSlice = createSlice({
         
         // Add to elements array
         state.elements.push(element);
-        state.selectedElementId = element.id;
+        state.selectedElementId = element.id;        state.isSolved = false; // Invalidate solver state        state.isSolved = false; // Invalidate solver state
+        state.isSolved = false; // Invalidate solver state
         
         // Legacy mesh support (for backward compatibility)
         state.mesh = action.payload.mesh;
@@ -566,8 +581,7 @@ const designSlice = createSlice({
         
         // Add to elements array
         state.elements.push(element);
-        state.selectedElementId = element.id;
-        
+        state.selectedElementId = element.id;        state.isSolved = false; // Invalidate solver state        
         // Legacy support
         state.mesh = action.payload.mesh;
         state.sources = action.payload.element?.sources || [];
@@ -615,6 +629,7 @@ const designSlice = createSlice({
         // Add to elements array
         state.elements.push(element);
         state.selectedElementId = element.id;
+        state.isSolved = false; // Invalidate solver state
         
         // Legacy support
         state.mesh = action.payload.mesh;
@@ -656,6 +671,7 @@ const designSlice = createSlice({
         // Add to elements array
         state.elements.push(element);
         state.selectedElementId = element.id;
+        state.isSolved = false; // Invalidate solver state
         
         // Legacy support
         state.mesh = action.payload.mesh;
@@ -684,6 +700,9 @@ export const {
   setSelectedElement,
   setActiveElement,
   clearElements,
+  // Solver state
+  markAsSolved,
+  markAsUnsolved,
   // Legacy actions
   setAntennaType,
   setAntennaConfig,
@@ -708,5 +727,8 @@ export const {
   clearDesign,
   loadDesign,
 } = designSlice.actions
+
+// Selectors
+export const selectIsSolved = (state: any) => state.design.isSolved
 
 export default designSlice.reducer

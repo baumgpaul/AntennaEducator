@@ -80,6 +80,7 @@ interface TreeViewPanelProps {
   directivityRequested?: boolean;
   onDirectivitySelect?: () => void;
   onDirectivityDelete?: () => void;
+  isSolved?: boolean; // Track if design is solved (for outdated warnings)
   
   // Postprocessing mode (view configurations)
   viewConfigurations?: Array<{
@@ -136,6 +137,7 @@ function TreeViewPanel({
   directivityRequested = false,
   onDirectivitySelect,
   onDirectivityDelete,
+  isSolved = true,
   viewConfigurations = [],
   selectedViewId,
   selectedItemId,
@@ -639,11 +641,22 @@ function TreeViewPanel({
                 borderColor: 'divider',
                 bgcolor: 'background.default',
                 mt: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
               }}
             >
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                 Requested Quantities
               </Typography>
+              {!isSolved && fieldResults && Object.keys(fieldResults).length > 0 && (
+                <Chip
+                  label="Outdated"
+                  size="small"
+                  color="warning"
+                  sx={{ height: 18, fontSize: '0.6rem' }}
+                />
+              )}
             </Box>
             <List disablePadding>
               <ListItem disablePadding data-testid="currents-item">

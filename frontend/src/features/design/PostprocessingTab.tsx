@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import type { SolverWorkflowState } from '@/store/solverSlice';
 import { selectResultsStale } from '@/store/solverSlice';
+import { selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
 import type { FrequencySweepResult } from '@/types/api';
@@ -64,6 +65,7 @@ function PostprocessingTab({
   const selectedViewId = useAppSelector(selectSelectedViewId);
   const selectedItemId = useAppSelector(selectSelectedItemId);
   const resultsStale = useAppSelector(selectResultsStale);
+  const isSolved = useAppSelector(selectIsSolved);
   
   const [selectedFrequencyIndex] = useState<number>(0);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
@@ -152,15 +154,24 @@ function PostprocessingTab({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
       
-      {/* WARNING BANNER - Show when no results or results are stale */}
-      {(!frequencySweep && !currentFrequency) || resultsStale ? (
+      {/* WARNING BANNER - Show when no results or results are stale or unsolved */}
+      {(!frequencySweep && !currentFrequency) || resultsStale || !isSolved ? (
         <Alert 
-          severity={resultsStale ? "warning" : "info"} 
+          severity={resultsStale ? "warning" : !isSolved && (!currentFrequency && !frequencySweep) ? "info" : "info"} 
           sx={{ m: 2, mb: 0 }}
         >
-          <AlertTitle>{resultsStale ? "Results Outdated" : "No Results Available"}</AlertTitle>
+          <AlertTitle>
+            {resultsStale ? "Results Outdated" : 
+             !isSolved && (!currentFrequency && !frequencySweep) ? "No Results Available" :
+             !isSolved ? "Design Modified" :
+             "No Results Available"}
+          </AlertTitle>
           {resultsStale 
             ? "The antenna structure or solver settings have changed. Run the solver again to update results."
+            : !isSolved && (!currentFrequency && !frequencySweep)
+            ? "No solver results found. Please run the solver first."
+            : !isSolved
+            ? "The antenna structure has been modified. Results shown may be outdated. Run the solver and postprocessor again to update."
             : "No solver results found. Please run the solver first."}
         </Alert>
       ) : null}

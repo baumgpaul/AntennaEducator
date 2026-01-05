@@ -198,7 +198,7 @@ export const generateLoopMesh = async (formData: {
     normal_vector: [0, 0, 1] as [number, number, number], // Loop in XY plane, normal points up (Z)
     // Add default voltage source (two symmetric sources like dipole)
     source: {
-      type: 'voltage',
+      type: 'voltage' as const,
       amplitude: { real: 1.0, imag: 0.0 },
       series_R: 0.0,
       series_L: 0.0,
@@ -263,7 +263,7 @@ export async function generateHelixMesh(formData: any): Promise<PreprocessorResp
     polarization: formData.polarization,
     // Add default voltage source (feeding against node 0)
     source: {
-      type: 'voltage',
+      type: 'voltage' as const,
       amplitude: { real: 1.0, imag: 0.0 },
       series_R: 0.0,
       series_L: 0.0,
