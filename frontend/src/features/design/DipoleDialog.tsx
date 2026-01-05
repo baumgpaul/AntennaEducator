@@ -16,6 +16,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PositionControl } from '@/components/PositionControl';
+import { parseDecimalNumber } from '@/utils/numberParser';
 
 // Validation schema - frequency removed, will be set during Solve phase
 const dipoleSchema = z.object({
@@ -143,7 +144,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
                   <TextField
                     {...field}
                     value={value}
-                    onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
                     label="Total Length"
                     type="number"
                     fullWidth
@@ -168,7 +169,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
                   <TextField
                     {...field}
                     value={value}
-                    onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
                     label="Wire Radius"
                     type="number"
                     fullWidth
@@ -193,7 +194,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
                   <TextField
                     {...field}
                     value={value}
-                    onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
                     label="Feed Gap"
                     type="number"
                     fullWidth
