@@ -47,7 +47,11 @@ function generate2DObservationPoints(field: FieldDefinition2D): number[][] {
           break;
       }
     } else if (field.normalVector) {
-      normal = field.normalVector;
+      normal = [
+        field.normalVector[0] ?? 0,
+        field.normalVector[1] ?? 0,
+        field.normalVector[2] ?? 1,
+      ];
     } else {
       normal = [0, 0, 1]; // Default to XY plane
     }
@@ -88,7 +92,11 @@ function generate2DObservationPoints(field: FieldDefinition2D): number[][] {
           break;
       }
     } else if (field.normalVector) {
-      normal = field.normalVector;
+      normal = [
+        field.normalVector[0] ?? 0,
+        field.normalVector[1] ?? 0,
+        field.normalVector[2] ?? 1,
+      ];
     } else {
       normal = [0, 0, 1];
     }

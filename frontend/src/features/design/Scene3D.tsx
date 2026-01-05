@@ -1,10 +1,18 @@
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, Grid, PerspectiveCamera, GizmoHelper, GizmoViewport } from '@react-three/drei';
+import { OrbitControls, Grid, PerspectiveCamera, OrthographicCamera, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { Box } from '@mui/material';
 import { ScaleIndicator, AxisLabels } from '@/components/visualization';
 import type { AntennaElement, Mesh } from '@/types/models';
 import * as THREE from 'three';
+
+export interface Scene3DHandle {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetView: () => void;
+  setCameraProjection: (mode: 'perspective' | 'orthographic') => void;
+  toggleGrid: () => void;
+}
 
 interface Scene3DProps {
   children?: React.ReactNode;
@@ -12,6 +20,9 @@ interface Scene3DProps {
   showAxisLabels?: boolean;
   elements?: AntennaElement[];
   mesh?: Mesh;
+  gridVisible?: boolean;
+  onGridVisibilityChange?: (visible: boolean) => void;
+  cameraMode?: 'perspective' | 'orthographic';
 }
 
 /**
@@ -108,11 +119,65 @@ function CameraController({ bounds }: { bounds: ReturnType<typeof calculateBound
 }
 
 /**
+ * Scene controls helper to expose imperative controls
+ */
+const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeof calculateBounds> }>(
+  function SceneControlsHelper({ bounds }, ref) {
+    const { camera, controls, gl } = useThree();
+    
+    useImperativeHandle(ref, () => ({
+      zoomIn: () => {
+        if (controls && 'dollyOut' in (controls as any)) {
+          (controls as any).dollyOut(1.2);
+          (controls as any).update();
+        }
+      },
+      zoomOut: () => {
+        if (controls && 'dollyIn' in (controls as any)) {
+          (controls as any).dollyIn(1.2);
+          (controls as any).update();
+        }
+      },
+      resetView: () => {
+        if (controls && 'target' in controls && 'reset' in (controls as any)) {
+          // Reset to initial view position
+          const target = bounds.center;
+          (controls as any).target.copy(target);
+          
+          const distance = bounds.size * 2.5;
+          const cameraPos = new THREE.Vector3(
+            target.x + distance * 0.6,
+            target.y + distance * 0.6,
+            target.z + distance * 0.6
+          );
+          
+          camera.position.copy(cameraPos);
+          camera.lookAt(target);
+          (controls as any).update();
+        }
+      },
+      setCameraProjection: (mode: 'perspective' | 'orthographic') => {
+        console.log('Set camera projection:', mode);
+        // TODO: Switch between perspective/orthographic camera
+        // This requires swapping the camera instance, which is complex in R3F
+      },
+      toggleGrid: () => {
+        console.log('Toggle grid');
+        // Grid visibility is controlled by parent component props
+      },
+    }));
+    
+    return null;
+  }
+);
+
+/**
  * Scene3D - Main 3D canvas component using React Three Fiber
  * Provides camera controls, lighting, grid, and axes helpers
  * Automatically scales to fit antenna geometry
  */
-function Scene3D({ children, showScale = true, showAxisLabels = true, elements, mesh }: Scene3DProps) {
+const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
+  function Scene3D({ children, showScale = true, showAxisLabels = true, elements, mesh, gridVisible = true, onGridVisibilityChange, cameraMode = 'perspective' }, ref) {
   const controlsRef = useRef<any>(null);
   
   // Calculate scene bounds based on antenna geometry
@@ -132,10 +197,17 @@ function Scene3D({ children, showScale = true, showAxisLabels = true, elements, 
     <Box sx={{ width: '100%', height: '100%', position: 'relative', bgcolor: '#1a1a1a' }}>
       <Canvas>
         {/* Camera setup - Z-axis up, viewing from front-right-top */}
-        <PerspectiveCamera makeDefault position={[5, 5, 5]} fov={60} up={[0, 0, 1]} />
+        {cameraMode === 'perspective' ? (
+          <PerspectiveCamera makeDefault position={[5, 5, 5]} fov={60} up={[0, 0, 1]} />
+        ) : (
+          <OrthographicCamera makeDefault position={[5, 5, 5]} zoom={50} up={[0, 0, 1]} />
+        )}
         
         {/* Auto-adjust camera when antenna loads */}
         <CameraController bounds={bounds} />
+        
+        {/* Expose imperative controls */}
+        <SceneControlsHelper ref={ref} bounds={bounds} />
 
         {/* Lighting */}
         <ambientLight intensity={0.5} />
@@ -144,20 +216,22 @@ function Scene3D({ children, showScale = true, showAxisLabels = true, elements, 
         <pointLight position={[0, 10, 0]} intensity={0.5} />
 
         {/* Grid and axes - Grid on XY plane (Z-up), auto-scaled */}
-        <Grid
-          args={[gridSize, gridSize]}
-          cellSize={Math.max(gridSize / 20, 0.1)}
-          cellThickness={0.5}
-          cellColor="#6e6e6e"
-          sectionSize={Math.max(gridSize / 10, 0.5)}
-          sectionThickness={1}
-          sectionColor="#9d9d9d"
-          fadeDistance={gridSize * 1.5}
-          fadeStrength={1}
-          followCamera={false}
-          infiniteGrid={false}
-          rotation={[Math.PI / 2, 0, 0]}
-        />
+        {gridVisible && (
+          <Grid
+            args={[gridSize, gridSize]}
+            cellSize={Math.max(gridSize / 20, 0.1)}
+            cellThickness={0.5}
+            cellColor="#6e6e6e"
+            sectionSize={Math.max(gridSize / 10, 0.5)}
+            sectionThickness={1}
+            sectionColor="#9d9d9d"
+            fadeDistance={gridSize * 1.5}
+            fadeStrength={1}
+            followCamera={false}
+            infiniteGrid={false}
+            rotation={[Math.PI / 2, 0, 0]}
+          />
+        )}
 
         {/* Axes helper - auto-scaled */}
         <axesHelper args={[axesSize]} />
@@ -199,6 +273,6 @@ function Scene3D({ children, showScale = true, showAxisLabels = true, elements, 
       </Canvas>
     </Box>
   );
-}
+});
 
 export default Scene3D;
