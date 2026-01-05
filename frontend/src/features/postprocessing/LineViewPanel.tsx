@@ -43,110 +43,15 @@ function LineViewPanel({ view }: LineViewPanelProps) {
 
   // Render each plot type
   const renderPlot = (item: ViewConfiguration['items'][0], index: number) => {
-    switch (item.type) {
-      case 'impedance-plot': {
-        // Check if we have single result or sweep data
-        if (frequencySweep && frequencySweep.impedances) {
-          const impedanceData = frequencySweep.frequencies.map((freq, i) => ({
-            frequency: freq,
-            real: frequencySweep.impedances[i].real,
-            imag: frequencySweep.impedances[i].imag,
-          }));
-          return (
-            <ImpedancePlot 
-              key={item.id} 
-              data={impedanceData}
-              displayMode={item.displayMode || 'rectangular'}
-              title={item.label || 'Input Impedance'}
-            />
-          );
-        } else if (results?.impedance) {
-          // Single frequency point
-          const singlePoint = [{
-            frequency: results.frequency || 300e6,
-            real: results.impedance.real,
-            imag: results.impedance.imag,
-          }];
-          return (
-            <ImpedancePlot 
-              key={item.id} 
-              data={singlePoint}
-              displayMode={item.displayMode || 'rectangular'}
-              title={item.label || 'Input Impedance'}
-            />
-          );
-        }
-        return (
-          <Box key={item.id} sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              No impedance data available. Run the solver first.
-            </Typography>
-          </Box>
-        );
-      }
-
-      case 'voltage-plot': {
-        if (frequencySweep && frequencySweep.voltages) {
-          const portData = frequencySweep.voltages[item.portNumber];
-          if (portData) {
-            const voltageData = frequencySweep.frequencies.map((freq, i) => ({
-              frequency: freq,
-              magnitude: Math.abs(portData[i]),
-              phase: Math.atan2(portData[i].imag || 0, portData[i].real || Math.abs(portData[i])),
-            }));
-            return (
-              <VoltagePlot 
-                key={item.id} 
-                data={voltageData}
-                portNumber={item.portNumber}
-                title={item.label}
-              />
-            );
-          }
-        }
-        return (
-          <Box key={item.id} sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              No voltage data available for Port {item.portNumber}. Run a frequency sweep.
-            </Typography>
-          </Box>
-        );
-      }
-
-      case 'current-plot': {
-        if (frequencySweep && frequencySweep.currents) {
-          const antennaData = frequencySweep.currents[item.antennaId];
-          const antenna = elements.find((el) => el.id === item.antennaId);
-          
-          if (antennaData) {
-            const currentData = frequencySweep.frequencies.map((freq, i) => ({
-              frequency: freq,
-              magnitude: Math.abs(antennaData[i]),
-              phase: Math.atan2(antennaData[i].imag || 0, antennaData[i].real || Math.abs(antennaData[i])),
-            }));
-            return (
-              <CurrentPlot 
-                key={item.id} 
-                data={currentData}
-                antennaId={item.antennaId}
-                antennaName={antenna?.name}
-                title={item.label}
-              />
-            );
-          }
-        }
-        return (
-          <Box key={item.id} sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              No current data available for antenna {item.antennaId}. Run a frequency sweep.
-            </Typography>
-          </Box>
-        );
-      }
-
-      default:
-        return null;
-    }
+    // Note: impedance/voltage/current plots are deprecated and need implementation
+    // They require restructuring FrequencySweepResult to include these data
+    return (
+      <Box key={item.id} sx={{ p: 2, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          Plot type not yet implemented. Use field visualization or radiation patterns instead.
+        </Typography>
+      </Box>
+    );
   };
 
   return (
