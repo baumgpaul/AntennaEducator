@@ -71,9 +71,9 @@ function PlaneRegion({
     type: field.type,
     shape: field.shape,
     centerPoint: field.centerPoint,
-    dimensions: field.dimensions,
-    normalPreset: field.normalPreset,
-    normalVector: field.normalVector,
+    dimensions: field.type === '2D' ? field.dimensions : undefined,
+    normalPreset: field.type === '2D' ? field.normalPreset : undefined,
+    normalVector: field.type === '2D' ? field.normalVector : undefined,
     fullField: field
   });
   

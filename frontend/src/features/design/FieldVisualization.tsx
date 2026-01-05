@@ -227,9 +227,9 @@ function CubeField({ field, opacity, colorMap, fieldData }: {
   const { geometry, hasColors } = useMemo(() => {
     const dims = field.cubeDimensions || { Lx: 100, Ly: 100, Lz: 100 };
     // Use sampling to determine segments (n points → n-1 segments)
-    const segmentsX = (field.sampling?.x || 10) - 1;
-    const segmentsY = (field.sampling?.y || 10) - 1;
-    const segmentsZ = (field.sampling?.z || 10) - 1;
+    const segmentsX = (field.sampling?.radial || 10) - 1;
+    const segmentsY = (field.sampling?.angular || 10) - 1;
+    const segmentsZ = (field.sampling?.angular || 10) - 1;
     
     const geom = new THREE.BoxGeometry(
       dims.Lx / 1000,

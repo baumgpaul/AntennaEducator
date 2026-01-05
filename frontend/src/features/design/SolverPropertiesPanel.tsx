@@ -242,7 +242,11 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
   const handleCenterChange = (axis: 0 | 1 | 2, value: string) => {
     const num = validateNumber(value, -10000, 10000);
     if (num !== null) {
-      const newCenter: [number, number, number] = [...field.centerPoint];
+      const newCenter: [number, number, number] = [
+        field.centerPoint[0] ?? 0,
+        field.centerPoint[1] ?? 0,
+        field.centerPoint[2] ?? 0,
+      ];
       newCenter[axis] = num;
       onUpdate({ centerPoint: newCenter });
       setErrors({ ...errors, [`center_${axis}`]: '' });
@@ -322,7 +326,11 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
   const handleNormalVectorChange = (axis: 0 | 1 | 2, value: string) => {
     const num = validateNumber(value);
     if (num !== null && field.type === '2D') {
-      const newNormal: [number, number, number] = field.normalVector || [0, 0, 1];
+      const newNormal: [number, number, number] = [
+        field.normalVector?.[0] ?? 0,
+        field.normalVector?.[1] ?? 0,
+        field.normalVector?.[2] ?? 1,
+      ];
       newNormal[axis] = num;
       
       if (validateNormalVector(newNormal[0], newNormal[1], newNormal[2])) {
