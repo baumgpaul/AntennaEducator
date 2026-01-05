@@ -38,6 +38,7 @@ import {
   cancelPostprocessing,
 } from '@/store/solverSlice';
 import { createViewConfiguration, addItemToView } from '@/store/postprocessingSlice';
+import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 
@@ -76,6 +77,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const fieldResults = useSelector((state: RootState) => state.solver.fieldResults);
   const postprocessingProgress = useSelector((state: RootState) => state.solver.postprocessingProgress);
   const resultsStale = useSelector(selectResultsStale);
+  const isSolved = useSelector(selectIsSolved);
   
   // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
@@ -145,8 +147,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         const current_sources = allSources
           .filter((s) => s.type === 'current')
           .map((s) => ({
-            node_start: s.node_start,
-            node_end: s.node_end,
+            node: s.node_start,  // Use primary node for current source
             value: typeof s.amplitude === 'number' ? s.amplitude : 
                    typeof s.amplitude === 'string' ? parseFloat(s.amplitude) : 
                    (s.amplitude as any).real || 1.0,
@@ -183,6 +184,8 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         params,
         request: baseRequest as MultiAntennaRequest,
       })).unwrap();
+
+      dispatch(markAsSolved());
 
       setSnackbarMessage(`Frequency sweep complete! ${params.numPoints} frequencies solved.`);
       setSnackbarSeverity('success');
@@ -229,11 +232,11 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         await dispatch(computePostprocessingWorkflow()).unwrap();
         
         // Auto-create default view if none exist
-        const state = store.getState();
-        if (state.postprocessing.viewConfigurations.length === 0) {
+        const stateSnapshot = store.getState() as unknown as { postprocessing: { viewConfigurations: Array<{ id: string }> } };
+        if (stateSnapshot.postprocessing.viewConfigurations.length === 0) {
           console.log('[SolverTab] No views exist, creating default view');
           const viewAction = dispatch(createViewConfiguration({ name: 'Result View 1', viewType: '3D' }));
-          const newViewId = state.postprocessing.viewConfigurations[state.postprocessing.viewConfigurations.length - 1]?.id;
+          const newViewId = stateSnapshot.postprocessing.viewConfigurations[stateSnapshot.postprocessing.viewConfigurations.length - 1]?.id;
           
           if (newViewId) {
             dispatch(addItemToView({
@@ -273,6 +276,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
     
     try {
       await dispatch(solveSingleFrequencyWorkflow({ frequency, unit })).unwrap();
+      dispatch(markAsSolved());
       setSnackbarMessage(`Single frequency solve complete at ${frequency} ${unit}`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
@@ -353,31 +357,45 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                 size="small"
                 sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
               />
-            ) : (results && currentFrequency) ? (
+            ) : ((solverWorkflowState === 'solved' || solverWorkflowState === 'postprocessing-ready') && (results || frequencySweep)) ? (
               (() => {
-                const freqLabel = (typeof currentFrequency === 'number')
-                  ? currentFrequency.toFixed(1)
+                const freqValue = (typeof currentFrequency === 'number' && currentFrequency > 0)
+                  ? currentFrequency
                   : (typeof currentFrequency === 'string' && !isNaN(Number(currentFrequency)))
-                    ? Number(currentFrequency).toFixed(1)
-                    : 'N/A';
+                    ? Number(currentFrequency)
+                    : (frequencySweep?.frequencies && frequencySweep.frequencies.length > 0
+                        ? frequencySweep.frequencies[0]
+                        : undefined);
+                const freqLabel = freqValue !== undefined ? freqValue.toFixed(1) : 'N/A';
                 return (
-                  <Chip
-                    icon={<CheckCircleIcon />}
-                    label={`Solved @ ${freqLabel} MHz`}
-                    size="small"
-                    sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
-                  />
+                  <>
+                    <Chip
+                      icon={<CheckCircleIcon />}
+                      label={`Solved @ ${freqLabel} MHz`}
+                      size="small"
+                      sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
+                    />
+                    {!isSolved && (
+                      <Chip
+                        label="Solution Outdated"
+                        size="small"
+                        color="warning"
+                        sx={{ height: 20, fontSize: '0.65rem' }}
+                        title="Design changed after solving. Re-run solver to update results."
+                      />
+                    )}
+                  </>
                 );
               })()
             ) : null}
-            {/* Show stale warning if results exist but are outdated */}
-            {resultsStale && (
+            {/* Show unsolved warning when geometry changed but no results yet */}
+            {!isSolved && !resultsStale && !results && (
               <Chip
-                label="Outdated"
+                label="Unsolved"
                 size="small"
-                color="warning"
+                color="info"
                 sx={{ height: 20, fontSize: '0.65rem' }}
-                title="Antenna structure or settings changed. Re-run solver to update results."
+                title="Geometry modified. Run solver to compute results."
               />
             )}
             {simulationStatus === 'running' && (
@@ -450,12 +468,23 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               Postprocessing
             </Typography>
             {postprocessingStatus === 'completed' && fieldResults && (
-              <Chip
-                icon={<CheckCircleIcon />}
-                label="Ready"
-                size="small"
-                sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
-              />
+              <>
+                <Chip
+                  icon={<CheckCircleIcon />}
+                  label="Ready"
+                  size="small"
+                  sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
+                />
+                {!isSolved && (
+                  <Chip
+                    label="Outdated"
+                    size="small"
+                    color="warning"
+                    sx={{ height: 20, fontSize: '0.65rem' }}
+                    title="Design changed after postprocessing. Re-run solver and postprocessing."
+                  />
+                )}
+              </>
             )}
             {postprocessingStatus === 'running' && (
               <Chip
@@ -480,8 +509,9 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               variant="outlined"
               startIcon={postprocessingStatus === 'running' ? <CircularProgress size={16} /> : <CalculateIcon />}
               onClick={handleComputePostprocessing}
-              disabled={!canComputePostprocessing || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
+              disabled={!canComputePostprocessing || !isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
               sx={{ flex: 1 }}
+              title={!isSolved ? 'Run solver first before computing postprocessing' : undefined}
             >
               Compute Postprocessing
             </Button>
@@ -539,6 +569,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           directivityRequested={directivityRequested}
           onDirectivityDelete={handleDirectivityDelete}
           onDirectivitySelect={handleDirectivitySelect}
+          isSolved={isSolved}
         />
       </Box>
 
