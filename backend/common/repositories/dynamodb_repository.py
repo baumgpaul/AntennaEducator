@@ -6,6 +6,21 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 import uuid
 from backend.common.repositories.base import ProjectRepository
+from decimal import Decimal
+
+
+def _convert_numbers_for_dynamodb(value: Any) -> Any:
+    """Recursively convert floats/ints to Decimal for DynamoDB serialization."""
+    if isinstance(value, dict):
+        return {k: _convert_numbers_for_dynamodb(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_convert_numbers_for_dynamodb(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_convert_numbers_for_dynamodb(v) for v in value)
+    if isinstance(value, (float, int)) and not isinstance(value, bool):
+        # Convert via str to avoid float binary representation issues
+        return Decimal(str(value))
+    return value
 
 
 class DynamoDBProjectRepository(ProjectRepository):
@@ -146,7 +161,8 @@ class DynamoDBProjectRepository(ProjectRepository):
                 'SK': f'PROJECT#{project_id}'
             },
             'UpdateExpression': update_expr,
-            'ExpressionAttributeValues': expr_values,
+            # DynamoDB expects Decimal for numeric types
+            'ExpressionAttributeValues': _convert_numbers_for_dynamodb(expr_values),
             'ReturnValues': 'ALL_NEW'
         }
         

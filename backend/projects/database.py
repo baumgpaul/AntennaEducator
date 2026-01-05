@@ -17,16 +17,19 @@ DATABASE_URL = os.getenv(
 )
 
 # Create SQLAlchemy engine (don't connect yet)
-# Skip engine creation if using DynamoDB (for Lambda with DISABLE_AUTH=true)
+# Use DynamoDB when configured for production Lambdas (no local SQLite)
 USE_DYNAMODB = os.getenv("USE_DYNAMODB", "false").lower() == "true"
 
-if USE_DYNAMODB and os.getenv("DISABLE_AUTH", "false").lower() == "true":
-    # In Lambda with DynamoDB, we don't need SQLAlchemy
-    # Create dummy objects to avoid import errors
+# If the service is configured to use DynamoDB, do not initialize SQLAlchemy/SQLite
+# Lambda's filesystem is read-only for deployed code; using SQLite there causes
+# "unable to open database file" errors. Skip engine/session creation when
+# `USE_DYNAMODB=true` so the service uses DynamoDB-backed persistence.
+if USE_DYNAMODB:
+    # Create dummy SQLAlchemy placeholders to avoid import errors in other modules
     engine = None
     SessionLocal = None
     Base = declarative_base()
-    logger.info("Skipping SQLAlchemy engine creation (USE_DYNAMODB=true, DISABLE_AUTH=true)")
+    logger.info("Skipping SQLAlchemy engine creation (USE_DYNAMODB=true)")
 else:
     # Normal operation: create engine for SQLite/PostgreSQL
     connect_args = {}

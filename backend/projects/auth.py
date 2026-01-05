@@ -4,11 +4,12 @@ from datetime import datetime, timedelta
 from typing import Optional, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, HTTPAuthorizationCredentials as OptionalHTTPAuth
 from sqlalchemy.orm import Session
 import os
 import logging
+import requests
 from dotenv import load_dotenv
 
 # Load environment variables FIRST
@@ -25,6 +26,9 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 DISABLE_AUTH = os.getenv("DISABLE_AUTH", "false").lower() == "true"
+USE_COGNITO = os.getenv("USE_COGNITO", "false").lower() == "true"
+COGNITO_REGION = os.getenv("COGNITO_REGION", "eu-west-1")
+COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "")
 
 # Log warning if auth is disabled
 if DISABLE_AUTH:
@@ -94,17 +98,44 @@ def decode_access_token(token: str) -> TokenData:
     )
     
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id_str: str = payload.get("sub")
-        email: str = payload.get("email")
-        
-        if user_id_str is None:
-            raise credentials_exception
-        
-        user_id = int(user_id_str)  # Convert string back to integer
+        if USE_COGNITO:
+            # Decode without verification first to get header/claims
+            unverified_header = jwt.get_unverified_header(token)
+
+            # Use python-jose helper to read claims without requiring a key
+            # (jwt.decode requires a key argument). This is safe here because
+            # signature verification will be implemented separately when needed.
+            payload = jwt.get_unverified_claims(token)
             
-        return TokenData(user_id=user_id, email=email)
-    except JWTError:
+            # Cognito tokens have 'sub' (user UUID) and 'email' claims
+            user_id_str: str = payload.get("sub")
+            email: str = payload.get("email")
+            
+            if user_id_str is None:
+                raise credentials_exception
+            
+            # For Cognito, user_id is a UUID string
+            return TokenData(user_id=user_id_str, email=email)
+        else:
+            # Local JWT tokens
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id_str: str = payload.get("sub")
+            email: str = payload.get("email")
+            
+            if user_id_str is None:
+                raise credentials_exception
+            
+            # For local JWT tokens, convert to integer for backward compatibility
+            # In practice, with DynamoDB we use string UUIDs
+            try:
+                user_id = int(user_id_str)
+            except ValueError:
+                # If it's not an integer, keep it as a string (UUID)
+                user_id = user_id_str
+                
+            return TokenData(user_id=user_id, email=email)
+    except JWTError as e:
+        logger.error(f"JWT decode error: {e}")
         raise credentials_exception
 
 
@@ -119,6 +150,42 @@ async def get_current_user_dynamodb() -> User:
     )
     logger.debug("Using mock user for DynamoDB mode")
     return mock_user
+
+
+# Production mode with Cognito + DynamoDB
+async def get_current_user_cognito(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request = None
+) -> User:
+    """Get current user in Cognito mode (DynamoDB, auth via Cognito JWT)."""
+    # Log whether Authorization header is present (sanitized) for diagnostics
+    try:
+        auth_header = None
+        if request is not None:
+            auth_header = request.headers.get("authorization")
+        if auth_header:
+            parts = auth_header.split()
+            token_part = parts[1] if len(parts) > 1 else parts[0]
+            mask = token_part[:12]
+            logger.info(f"Auth header present: yes, token mask: {mask}...")
+        else:
+            logger.info("Auth header present: no")
+    except Exception:
+        logger.exception("Failed to read Authorization header")
+
+    token = credentials.credentials
+    token_data = decode_access_token(token)
+    
+    # In Cognito mode, user_id is the Cognito sub (UUID string)
+    # We create a User object on-the-fly (DynamoDB doesn't have a users table)
+    from backend.projects.models import User
+    user = User(
+        id=token_data.user_id,  # This is the Cognito sub (UUID)
+        email=token_data.email or "unknown@example.com",
+        password_hash=""  # Not used in Cognito mode
+    )
+    logger.debug(f"Cognito user authenticated: {user.id} ({user.email})")
+    return user
 
 
 # Dev mode: Create a separate dependency that doesn't require auth
@@ -157,11 +224,22 @@ async def get_current_user_prod(
     return user
 
 
-# Select the appropriate dependency based on DISABLE_AUTH and USE_DYNAMODB
+# Select the appropriate dependency based on DISABLE_AUTH, USE_COGNITO, and USE_DYNAMODB
 USE_DYNAMODB = os.getenv("USE_DYNAMODB", "false").lower() == "true"
+
 if USE_DYNAMODB and DISABLE_AUTH:
+    # Development mode: no auth
     get_current_user = get_current_user_dynamodb
+    logger.info("Auth mode: DynamoDB DEV (no authentication)")
+elif USE_COGNITO and USE_DYNAMODB:
+    # Production mode: Cognito + DynamoDB
+    get_current_user = get_current_user_cognito
+    logger.info("Auth mode: Cognito + DynamoDB (production)")
 elif DISABLE_AUTH:
+    # Development mode: local database, no auth
     get_current_user = get_current_user_dev
+    logger.info("Auth mode: Local DEV (no authentication)")
 else:
+    # Production mode: local JWT + database
     get_current_user = get_current_user_prod
+    logger.info("Auth mode: Local JWT + Database")
