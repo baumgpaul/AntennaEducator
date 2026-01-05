@@ -23,6 +23,9 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PositionControl } from '@/components/PositionControl';
+import { parseDecimalNumber } from '@/utils/numberParser';
+
+// TODO: Add support for rectangular and regular polygon loops (not just circular)
 
 // Common position and orientation schema
 const positionOrientationSchema = {
@@ -46,6 +49,7 @@ const loopSchema = z.discriminatedUnion('loopType', [
     loopType: z.literal('circular'),
     radius: z.number().positive('Radius must be positive').max(10, 'Radius too large'),
     wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
+    feedGap: z.number().nonnegative('Feed gap must be non-negative').max(1, 'Feed gap too large'),
     segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
     ...positionOrientationSchema,
   }),
@@ -56,6 +60,7 @@ const loopSchema = z.discriminatedUnion('loopType', [
     width: z.number().positive('Width must be positive').max(10, 'Width too large'),
     height: z.number().positive('Height must be positive').max(10, 'Height too large'),
     wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
+    feedGap: z.number().nonnegative('Feed gap must be non-negative').max(1, 'Feed gap too large'),
     segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
     ...positionOrientationSchema,
   }),
@@ -66,6 +71,7 @@ const loopSchema = z.discriminatedUnion('loopType', [
     sides: z.number().int('Must be integer').min(3, 'Minimum 3 sides').max(20, 'Maximum 20 sides'),
     circumradius: z.number().positive('Radius must be positive').max(10, 'Radius too large'),
     wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
+    feedGap: z.number().nonnegative('Feed gap must be non-negative').max(1, 'Feed gap too large'),
     segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
     ...positionOrientationSchema,
   }),
@@ -95,6 +101,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
       loopType: 'circular',
       radius: 0.048, // ~λ/10 at 1 GHz
       wireRadius: 0.001, // 1mm
+      feedGap: 0.001, // 1mm feed gap
       segments: 32,
       position: {
         x: 0,
@@ -143,17 +150,18 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
         loopType: 'circular',
         radius: 0.048,
         wireRadius: watch('wireRadius'),
+        feedGap: watch('feedGap'),
         segments: watch('segments'),
         position,
         orientation,
       });
     } else if (loopType === 'rectangular') {
-      reset({
-        name: watch('name'),
+      reset({        name: watch('name'),
         loopType: 'rectangular',
         width: 0.08,
         height: 0.06,
         wireRadius: watch('wireRadius'),
+        feedGap: watch('feedGap'),
         segments: watch('segments'),
         position,
         orientation,
@@ -165,6 +173,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
         sides: 6,
         circumradius: 0.048,
         wireRadius: watch('wireRadius'),
+        feedGap: watch('feedGap'),
         segments: watch('segments'),
         position,
         orientation,
@@ -243,7 +252,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                     <TextField
                       {...field}
                       value={value || ''}
-                      onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
                       label="Loop Radius"
                       type="number"
                       fullWidth
@@ -271,7 +280,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                       <TextField
                         {...field}
                         value={value || ''}
-                        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
                         label="Width"
                         type="number"
                         fullWidth
@@ -294,7 +303,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                       <TextField
                         {...field}
                         value={value || ''}
-                        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
                         label="Height"
                         type="number"
                         fullWidth
@@ -345,7 +354,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                       <TextField
                         {...field}
                         value={value || ''}
-                        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
                         label="Circumradius"
                         type="number"
                         fullWidth
@@ -372,7 +381,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                   <TextField
                     {...field}
                     value={value || ''}
-                    onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
                     label="Wire Radius"
                     type="number"
                     fullWidth
@@ -388,8 +397,33 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               />
             </Grid>
 
+            {/* Feed Gap */}
+            <Grid item xs={6}>
+              <Controller
+                name="feedGap"
+                control={control}
+                render={({ field: { onChange, value, ...field } }) => (
+                  <TextField
+                    {...field}
+                    value={value || ''}
+                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
+                    label="Feed Gap"
+                    type="number"
+                    fullWidth
+                    error={!!errors.feedGap}
+                    helperText={errors.feedGap?.message || 'Gap at feed position'}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                      inputProps: { step: 0.0001, min: 0 },
+                    }}
+                    disabled={isGenerating}
+                  />
+                )}
+              />
+            </Grid>
+
             {/* Segments */}
-            <Grid item xs={12}>
+            <Grid item xs={6}>
               <Controller
                 name="segments"
                 control={control}
@@ -402,7 +436,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                     type="number"
                     fullWidth
                     error={!!errors.segments}
-                    helperText={errors.segments?.message || 'More segments = better accuracy, longer solve time'}
+                    helperText={errors.segments?.message || 'More segments = better accuracy'}
                     InputProps={{
                       inputProps: { step: 1, min: 8, max: 1000 },
                     }}

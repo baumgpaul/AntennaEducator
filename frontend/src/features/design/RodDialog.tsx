@@ -16,6 +16,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PositionControl } from '@/components/PositionControl';
+import { parseDecimalNumber } from '@/utils/numberParser';
+import { parseDecimalNumber } from '@/utils/numberParser';
 // Zod validation schema
 const rodSchema = z.object({
   start_x: z.number().min(-10, 'X too small').max(10, 'X too large'),

@@ -32,6 +32,7 @@ interface DesignState {
   // Solver results
   results: SolverResult | null
   resultsHistory: SolverResult[]
+  isSolved: boolean  // Track if current geometry has been solved
   
   // Sources and lumped elements (global to all elements)
   sources: Source[]
@@ -63,6 +64,7 @@ const initialState: DesignState = {
   // Results and global elements
   results: null,
   resultsHistory: [],
+  isSolved: false,
   sources: [],
   lumpedElements: [],
   
@@ -125,6 +127,7 @@ export const generateLoop = createAsyncThunk(
       sides?: number
       circumradius?: number
       wireRadius: number
+      feedGap: number
       frequency: number
       segments: number
       position: { x: number; y: number; z: number }
@@ -212,6 +215,8 @@ const designSlice = createSlice({
       state.elements.push(action.payload)
       // Auto-select the new element
       state.selectedElementId = action.payload.id
+      // Invalidate solved state since geometry changed
+      state.isSolved = false
     },
 
     updateElement: (state, action: PayloadAction<{ id: string; updates: Partial<AntennaElement> }>) => {
@@ -226,6 +231,9 @@ const designSlice = createSlice({
       console.log('[removeElement] Elements before:', state.elements.map(e => ({ id: e.id, name: e.name })));
       
       state.elements = state.elements.filter(el => el.id !== action.payload);
+      
+      // Invalidate solved state since geometry changed
+      state.isSolved = false;
       
       console.log('[removeElement] Elements after:', state.elements.map(e => ({ id: e.id, name: e.name })));
       
@@ -283,6 +291,8 @@ const designSlice = createSlice({
       const index = state.elements.findIndex(el => el.id === action.payload.id)
       if (index >= 0) {
         state.elements[index].position = action.payload.position
+        // Invalidate solved state since geometry changed
+        state.isSolved = false
       }
     },
 
@@ -290,6 +300,8 @@ const designSlice = createSlice({
       const index = state.elements.findIndex(el => el.id === action.payload.id)
       if (index >= 0) {
         state.elements[index].rotation = action.payload.rotation
+        // Invalidate solved state since geometry changed
+        state.isSolved = false
       }
     },
 
