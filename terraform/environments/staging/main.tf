@@ -264,9 +264,12 @@ module "lambda_projects" {
   timeout     = 30
   
   environment_variables = {
-    USE_DYNAMODB       = "true"
-    DYNAMODB_TABLE_NAME = module.dynamodb.table_name
-    DISABLE_AUTH       = "true"  # Temporary for MVP
+    USE_DYNAMODB           = "true"
+    DYNAMODB_TABLE_NAME    = module.dynamodb.table_name
+    DISABLE_AUTH           = "false"  # Enable authentication with Cognito
+    USE_COGNITO            = "true"   # Use Cognito JWT validation
+    COGNITO_REGION         = var.aws_region
+    COGNITO_USER_POOL_ID   = module.cognito.user_pool_id
   }
   
   dynamodb_table_arns = [module.dynamodb.table_arn]

@@ -3,8 +3,8 @@
 **Cloud-Native Electromagnetic Simulation Platform**
 
 Version: 0.3.0 (Beta)  
-Last Updated: January 3, 2026  
-**Domain**: nyakyagyawa.com  
+Last Updated: January 4, 2026  
+**Domain**: antennaeducator.nyakyagyawa.com (SSL enabled)  
 **AWS Region**: eu-west-1 (Ireland)
 
 ---
@@ -65,7 +65,7 @@ The PEEC Antenna Simulator is a modern, cloud-native electromagnetic simulation 
 
 ---
 
-### 🎯 Sprint 2: AWS Deployment - STARTING January 3, 2026
+### 🚀 Sprint 2: AWS Deployment - IN PROGRESS (85% Complete) - January 3-4, 2026
 
 **Goal**: Deploy fully serverless application to AWS with CI/CD pipeline.
 
@@ -82,16 +82,52 @@ The PEEC Antenna Simulator is a modern, cloud-native electromagnetic simulation 
 | **Region** | eu-west-1 (Ireland) | Low latency for European users |
 
 **Sprint 2 Phases**:
-- **Phase A (Days 1-3)**: Foundation - AWS setup, Terraform bootstrap, DynamoDB, S3
-- **Phase B (Days 4-7)**: Backend - Repository abstraction, Lambda handlers, container images
-- **Phase C (Days 8-10)**: API & Auth - Cognito, API Gateway, frontend auth integration
-- **Phase D (Days 11-12)**: Frontend - CloudFront, DNS, production build
-- **Phase E (Days 13-14)**: CI/CD - CodePipeline, CodeBuild, automated deployments
-- **Phase F (Days 15-16)**: Testing & Documentation
+- ✅ **Phase A (Days 1-3)**: Foundation - AWS setup, Terraform bootstrap, DynamoDB, S3
+- ✅ **Phase B (Days 4-7)**: Backend - Repository abstraction, Lambda handlers, container images
+- ✅ **Phase C (Days 8-10)**: API & Auth - Cognito, API Gateway, frontend auth integration
+- ✅ **Phase D (Days 11-12)**: Frontend - CloudFront, SSL/DNS, custom domain, production build
+- ⏳ **Phase E (Days 13-14)**: CI/CD - CodePipeline, CodeBuild, automated deployments (NEXT)
+- ⏳ **Phase F (Days 15-16)**: Testing & Documentation (NEXT)
 
-**Estimated Cost**: ~$1-2/month (free tier), ~$10-25/month after free tier
+**Actual Monthly Cost**: $1.59/month (5 users, 10 solver runs/day, 2,700 invocations)
+- Lambda: $0.43/month (compute - main cost)
+- Route 53: $0.50/month (DNS hosting)
+- DynamoDB: $0.25/month (on-demand)
+- Other: $0.41/month (API Gateway, S3, CloudFront, CloudWatch, ECR, Cognito)
+- Cost scales linearly with usage
+- Detailed breakdown: `docs/AWS_MVP_DEPLOYMENT_PLAN.md`
 
 **Documentation**: See `docs/AWS_MVP_DEPLOYMENT_PLAN.md` for detailed implementation plan.
+
+#### Recent Achievements (January 3-4, 2026)
+
+**SSL Certificate & Custom Domain Deployment** ✅ COMPLETE
+- ACM certificate provisioned in us-east-1 for CloudFront compatibility
+- Domain: https://antennaeducator.nyakyagyawa.com
+- Certificate ARN: arn:aws:acm:us-east-1:767397882329:certificate/570e4d2d-52c2-459a-9097-7b2ddf55428c
+- Status: VALIDATED with DNS verification
+- Route53: DNS records (A and AAAA) created in existing zone Z044958815N0VJY4808JQ
+- CloudFront: Distribution E2WUND9P0FX4NA configured with custom domain
+- TLS 1.2+ enforced for all connections
+
+**DynamoDB Bug Fix & Monitoring Enhancements** ✅ COMPLETE
+- Fixed Lambda DynamoDB ExpressionAttributeNames parameter bug
+  - Changed from `None` to empty dict `{}` when not used
+  - Conditionally pass parameter only when needed
+  - Deployed to production Lambda function
+- Enhanced projects service health check endpoint
+  - Added database connectivity status
+  - Added ISO 8601 timestamps
+  - Added environment variable display
+  - Better error handling with truncated messages
+- CloudWatch log retention configured (7 days for all Lambda functions)
+- SNS billing alert topic created (email subscription pending)
+- Health check test script created (test-health.ps1)
+
+**CORS Configuration** ✅ COMPLETE
+- API Gateway CORS updated to include CloudFront origin
+- Allowed origins: CloudFront, custom domain, localhost
+- All services accessible via API Gateway
 
 #### Sprint Summary (Days 1-3 Complete)
 
@@ -991,9 +1027,9 @@ The frontend React application is actively under development with core infrastru
 - ✅ Quick start guide
 - ✅ MATLAB verification documentation
 
-### 🔄 Phase 2: Frontend & Cloud Deployment - IN PROGRESS (80% Complete)
+### 🔄 Phase 2: Frontend & Cloud Deployment - IN PROGRESS (90% Complete)
 
-#### ✅ Foundation Complete (Commits 1-14, December 26, 2025)
+#### ✅ Foundation Complete (Commits 1-23, December 26, 2025 - January 4, 2026)
 
 **Frontend Infrastructure**
 - ✅ React 18 + TypeScript 5 project initialization
@@ -1079,21 +1115,43 @@ The frontend React application is actively under development with core infrastru
 - ⬜ User documentation
 - ⬜ Demo video
 
-#### 🚀 Sprint 2: AWS Deployment (Starting January 3, 2026)
+#### 🚀 Sprint 2: AWS Deployment (January 3-4, 2026) - 85% COMPLETE
 
-- 🚀 Terraform infrastructure (DynamoDB, S3, Lambda, API Gateway)
-- 🚀 AWS Cognito authentication with local fallback
-- 🚀 CodePipeline CI/CD with staging + production
-- 🚀 CloudFront CDN for frontend (nyakyagyawa.com)
-- 🚀 Repository abstraction layer (DynamoDB + PostgreSQL)
+- ✅ Terraform infrastructure (DynamoDB, S3, Lambda, API Gateway, CloudFront, Route53, ACM)
+- ✅ AWS Cognito authentication with JWT authorizer
+- ✅ CloudFront CDN with custom domain (antennaeducator.nyakyagyawa.com)
+- ✅ SSL certificate (ACM) with DNS validation
+- ✅ Repository abstraction layer (DynamoDB + PostgreSQL)
+- ✅ All 4 Lambda functions deployed with container images
+- ✅ CORS configuration for CloudFront origin
+- ✅ DynamoDB bug fix (ExpressionAttributeNames handling)
+- ✅ CloudWatch monitoring (7-day log retention, health checks)
+- ⏳ CodePipeline CI/CD with staging + production (NEXT - Phase E)
 
-#### ⬜ Future Phases (Sprint 3+)
+#### ⬜ Sprint 3 (Next Phase)
 
+**Compute Scaling**:
 - ⬜ Step Functions for workflow orchestration
-- ⬜ Fargate/EKS for long-running solver jobs
-- ⬜ ElastiCache Redis for caching
-- ⬜ X-Ray distributed tracing
-- ⬜ Multi-region deployment
+- ⬜ Fargate for solver jobs > 15 minutes
+- ⬜ EKS/Batch for parallel frequency sweeps
+
+**Observability**:
+- ⬜ Enhanced CloudWatch dashboards
+- ⬜ Custom metrics and alarms
+
+#### 📋 Future Backlog (Long-term)
+
+**Performance & Scalability**:
+- ElastiCache Redis for caching (API responses, mesh data)
+- Multi-region deployment (global latency optimization)
+
+**Advanced Monitoring**:
+- X-Ray distributed tracing (request flow visualization)
+- Enhanced logging with structured JSON
+
+**Optimization**:
+- Reserved Lambda concurrency for production
+- S3 Intelligent-Tiering for cost optimization
 
 ---
 
@@ -1102,7 +1160,7 @@ The frontend React application is actively under development with core infrastru
 ### Execution Mode 1: AWS Cloud with React Frontend
 
 **Production Configuration (Sprint 2 - January 2026):**
-- **Domain**: nyakyagyawa.com (Route 53 + ACM SSL)
+- **Domain**: antennaeducator.nyakyagyawa.com (Route 53 + ACM SSL) ✅ DEPLOYED
 - **Region**: eu-west-1 (Ireland) - optimized for European users
 - **Frontend**: React SPA on S3 + CloudFront CDN
 - **Authentication**: AWS Cognito with user pools (local JWT fallback)
