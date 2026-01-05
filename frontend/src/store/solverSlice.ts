@@ -505,8 +505,7 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
       const current_sources = allSources
         .filter((s) => s.type === 'current')
         .map((s) => ({
-          node_start: s.node_start,
-          node_end: s.node_end,
+          node: s.node_start,  // Use primary node for current source
           value: typeof s.amplitude === 'number' ? s.amplitude : 
                  typeof s.amplitude === 'string' ? parseFloat(s.amplitude) : 
                  (s.amplitude as any).real || 1.0,
@@ -632,17 +631,19 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     }
     
     // For sweep mode, branch_currents are in antenna_solutions, not at top level
-    const referenceBranchCurrents = isSweepMode && referenceResult.antenna_solutions?.length 
-      ? referenceResult.antenna_solutions[0].branch_currents 
+    const isMultiAntenna = (referenceResult as any).antenna_solutions !== undefined;
+    const referenceBranchCurrents = isSweepMode && isMultiAntenna && (referenceResult as any).antenna_solutions?.length 
+      ? (referenceResult as any).antenna_solutions[0].branch_currents 
       : (referenceResult as any).branch_currents;
     
     console.log('Postprocessing workflow - frequency mode:', {
       isSweepMode,
+      isMultiAntenna,
       numFrequencies: frequencies.length,
       frequencies: frequencies.slice(0, 3), // Show first 3
       hasReferenceResult: !!referenceResult,
-      hasAntennaSolutions: !!(referenceResult.antenna_solutions),
-      numAntennaSolutions: referenceResult.antenna_solutions?.length,
+      hasAntennaSolutions: isMultiAntenna,
+      numAntennaSolutions: isMultiAntenna ? (referenceResult as any).antenna_solutions?.length : 0,
       hasBranchCurrents: !!referenceBranchCurrents,
     });
 
@@ -1051,7 +1052,12 @@ const solverSlice = createSlice({
       
       // Restore field data and state
       if (savedState.requestedFields !== undefined) state.requestedFields = savedState.requestedFields;
-      if (savedState.directivityRequested !== undefined) state.directivityRequested = savedState.directivityRequested;
+      if (savedState.directivityRequested !== undefined) {
+        state.directivityRequested = savedState.directivityRequested;
+      } else {
+        // Default to cleared directivity when not present in project state
+        state.directivityRequested = initialState.directivityRequested;
+      }
       if (savedState.directivitySettings !== undefined) state.directivitySettings = savedState.directivitySettings;
       if (savedState.solverState !== undefined) state.solverState = savedState.solverState;
       if (savedState.currentFrequency !== undefined) state.currentFrequency = savedState.currentFrequency;
@@ -1161,7 +1167,6 @@ const solverSlice = createSlice({
         input_impedance: action.payload.input_impedance,
         branch_currents_length: action.payload.branch_currents?.length,
         branch_currents_sample: action.payload.branch_currents?.slice(0, 3),
-        input_current: action.payload.input_current
       });
       
       // Calculate current magnitude for visualization
@@ -1295,7 +1300,6 @@ const solverSlice = createSlice({
           branch_currents_sample: solution.branch_currents?.slice(0, 3),
           voltage_source_currents_length: solution.voltage_source_currents?.length,
           voltage_source_currents: solution.voltage_source_currents,
-          has_current_source_currents: !!solution.current_source_currents,
           has_load_currents: !!solution.load_currents
         });
 
@@ -1500,7 +1504,7 @@ const solverSlice = createSlice({
         for (const field of action.payload.fields) {
           state.fieldResults[field.fieldId] = {
             computed: field.computed,
-            num_points: field.num_points,
+            num_points: (field as any).num_points || 0,
           };
         }
       }
