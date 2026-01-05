@@ -182,6 +182,7 @@ export const generateLoopMesh = async (formData: {
   sides?: number;
   circumradius?: number;
   wireRadius: number;
+  feedGap: number;
   frequency: number;
   segments: number;
   position?: { x: number; y: number; z: number };
@@ -190,10 +191,20 @@ export const generateLoopMesh = async (formData: {
   const baseConfig = {
     loop_type: formData.loopType,
     wire_radius: formData.wireRadius,
+    gap: formData.feedGap,
     segments: formData.segments,
     // Always generate at origin - frontend will apply position offset
     center_position: [0, 0, 0] as [number, number, number],
     normal_vector: [0, 0, 1] as [number, number, number], // Loop in XY plane, normal points up (Z)
+    // Add default voltage source (two symmetric sources like dipole)
+    source: {
+      type: 'voltage',
+      amplitude: { real: 1.0, imag: 0.0 },
+      series_R: 0.0,
+      series_L: 0.0,
+      series_C_inv: 0.0,
+      tag: 'Feed',
+    },
   };
 
   let config: LoopConfig;
@@ -250,6 +261,15 @@ export async function generateHelixMesh(formData: any): Promise<PreprocessorResp
     segments_per_turn: formData.segments_per_turn,
     helix_mode: formData.helix_mode,
     polarization: formData.polarization,
+    // Add default voltage source (feeding against node 0)
+    source: {
+      type: 'voltage',
+      amplitude: { real: 1.0, imag: 0.0 },
+      series_R: 0.0,
+      series_L: 0.0,
+      series_C_inv: 0.0,
+      tag: 'Feed',
+    },
   }
 
   return createHelix(config)

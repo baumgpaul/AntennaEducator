@@ -104,6 +104,7 @@ export interface LoopConfig {
   center_position?: Vector3D
   normal_vector?: Vector3D
   wire_radius?: number
+  gap?: number // feed gap
   segments?: number
   source?: Source
   lumped_elements?: LumpedElement[]
