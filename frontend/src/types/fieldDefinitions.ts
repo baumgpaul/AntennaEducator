@@ -92,7 +92,7 @@ export function validateFieldDefinition(field: unknown): { valid: boolean; error
   if (result.success) {
     return { valid: true };
   }
-  return { valid: false, error: result.error.errors[0]?.message || 'Invalid field definition' };
+  return { valid: false, error: result.error.issues[0]?.message || 'Invalid field definition' };
 }
 
 /**

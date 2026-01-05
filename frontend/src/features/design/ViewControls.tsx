@@ -1,15 +1,13 @@
-import { Box, Paper, IconButton, Tooltip, Divider, ToggleButtonGroup, ToggleButton } from '@mui/material';
+import { Box, Paper, IconButton, Tooltip, Divider } from '@mui/material';
 import {
   ZoomIn,
   ZoomOut,
   ZoomOutMap,
-  ThreeDRotation,
   Fullscreen,
   FullscreenExit,
   GridOn,
   GridOff,
 } from '@mui/icons-material';
-import { useState } from 'react';
 
 interface ViewControlsProps {
   onZoomIn?: () => void;
@@ -17,6 +15,7 @@ interface ViewControlsProps {
   onResetView?: () => void;
   onToggleGrid?: () => void;
   onToggleFullscreen?: () => void;
+  onToggleCameraMode?: (mode: 'perspective' | 'orthographic') => void;
   gridVisible?: boolean;
   isFullscreen?: boolean;
 }
@@ -31,14 +30,13 @@ function ViewControls({
   onResetView,
   onToggleGrid,
   onToggleFullscreen,
+  onToggleCameraMode,
   gridVisible = true,
   isFullscreen = false,
 }: ViewControlsProps) {
-  const [viewMode, setViewMode] = useState<string>('perspective');
-
   const handleViewModeChange = (_event: React.MouseEvent<HTMLElement>, newMode: string | null) => {
-    if (newMode !== null) {
-      setViewMode(newMode);
+    if (newMode !== null && onToggleCameraMode) {
+      onToggleCameraMode(newMode as 'perspective' | 'orthographic');
     }
   };
 
@@ -88,41 +86,10 @@ function ViewControls({
           </IconButton>
         </Tooltip>
       </Box>
-
-      <Divider />
-
-      {/* View Mode Toggle */}
-      <Box sx={{ px: 0.5 }}>
-        <ToggleButtonGroup
-          value={viewMode}
-          exclusive
-          onChange={handleViewModeChange}
-          orientation="vertical"
-          size="small"
-          sx={{
-            '& .MuiToggleButton-root': {
-              px: 1,
-              py: 0.5,
-              minWidth: 0,
-              fontSize: '0.7rem',
-            },
-          }}
-        >
-          <ToggleButton value="perspective">
-            <Tooltip title="Perspective View" placement="left">
-              <ThreeDRotation fontSize="small" />
-            </Tooltip>
-          </ToggleButton>
-          <ToggleButton value="orthographic">
-            <Tooltip title="Orthographic View" placement="left">
-              <Box sx={{ fontSize: '0.7rem', fontWeight: 600 }}>O</Box>
-            </Tooltip>
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
       </Box>
     </Paper>
   );
 }
 
 export default ViewControls;
+

@@ -20,6 +20,7 @@ import {
   Divider,
   ToggleButtonGroup,
   ToggleButton,
+  SelectChangeEvent,
 } from '@mui/material'
 import PolarPlot2D from './PolarPlot2D'
 import Pattern3D from './Pattern3D'

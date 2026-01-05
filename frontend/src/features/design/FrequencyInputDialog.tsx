@@ -91,8 +91,8 @@ export function FrequencyInputDialog({
 
       if (!result.success) {
         // Get first error message from Zod validation
-        const errors = result.error.errors;
-        const errorMessage = errors.length > 0 ? errors[0].message : 'Invalid frequency';
+        const issues = result.error.issues;
+        const errorMessage = issues.length > 0 ? issues[0].message : 'Invalid frequency';
         setValidationError(errorMessage);
         return;
       }
