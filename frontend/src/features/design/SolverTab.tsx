@@ -354,12 +354,21 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                 sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
               />
             ) : (results && currentFrequency) ? (
-              <Chip
-                icon={<CheckCircleIcon />}
-                label={`Solved @ ${currentFrequency.toFixed(1)} MHz`}
-                size="small"
-                sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
-              />
+              (() => {
+                const freqLabel = (typeof currentFrequency === 'number')
+                  ? currentFrequency.toFixed(1)
+                  : (typeof currentFrequency === 'string' && !isNaN(Number(currentFrequency)))
+                    ? Number(currentFrequency).toFixed(1)
+                    : 'N/A';
+                return (
+                  <Chip
+                    icon={<CheckCircleIcon />}
+                    label={`Solved @ ${freqLabel} MHz`}
+                    size="small"
+                    sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
+                  />
+                );
+              })()
             ) : null}
             {/* Show stale warning if results exist but are outdated */}
             {resultsStale && (

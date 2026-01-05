@@ -199,14 +199,14 @@ const authSlice = createSlice({
         state.error = null
       })
       .addCase(registerAsync.fulfilled, (state, action) => {
-        state.isAuthenticated = true
-        state.user = action.payload.user
-        state.tokens = action.payload.tokens
+        // Don't authenticate user immediately - they must verify email first
+        state.isAuthenticated = false
+        state.user = null
+        state.tokens = null
         state.loading = false
         state.error = null
         
-        // Persist to localStorage
-        localStorage.setItem('user', JSON.stringify(action.payload.user))
+        // Don't persist to localStorage - user is not logged in yet
       })
       .addCase(registerAsync.rejected, (state, action) => {
         state.loading = false
