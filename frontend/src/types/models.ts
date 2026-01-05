@@ -58,8 +58,8 @@ export type SourceType = 'voltage' | 'current'
 export interface Source {
   type: SourceType
   amplitude: ComplexNumber | string | number // Support complex, string format ("1+0j"), or number
-  node_start: number // 1-based index
-  node_end: number // 1-based index
+  node_start?: number // 1-based index (optional for generated geometries like Loop/Helix)
+  node_end?: number // 1-based index (optional for generated geometries like Loop/Helix)
   position?: string | number // 'center', 'base', or segment index
   series_R?: number
   series_L?: number

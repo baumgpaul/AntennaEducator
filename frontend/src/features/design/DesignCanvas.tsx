@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { useAppSelector } from '@/store/hooks';
-import Scene3D from './Scene3D';
+import Scene3D, { type Scene3DHandle } from './Scene3D';
 import WireGeometry from './WireGeometry';
 import ColorLegend from './ColorLegend';
 import ColorScaleLegend from './ColorScaleLegend';
+import ViewControls from './ViewControls';
 import type { Mesh, AntennaElement } from '@/types/models';
 
 interface DesignCanvasProps {
@@ -24,6 +25,19 @@ interface DesignCanvasProps {
   topToolbar?: React.ReactNode;
   bottomPanel?: React.ReactNode;
   showResultsPanel?: boolean;
+  
+  // Display options
+  gridVisible?: boolean;
+  cameraMode?: 'perspective' | 'orthographic';
+  scene3DRef?: React.RefObject<Scene3DHandle>;
+  
+  // View control handlers
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onResetView?: () => void;
+  onToggleGrid?: () => void;
+  onToggleFullscreen?: () => void;
+  isFullscreen?: boolean;
 }
 
 /**
@@ -42,6 +56,15 @@ function DesignCanvas({
   topToolbar,
   bottomPanel,
   showResultsPanel = false,
+  gridVisible = true,
+  cameraMode = 'perspective',
+  scene3DRef,
+  onZoomIn,
+  onZoomOut,
+  onResetView,
+  onToggleGrid,
+  onToggleFullscreen,
+  isFullscreen = false,
 }: DesignCanvasProps) {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
@@ -122,7 +145,7 @@ function DesignCanvas({
             }}>
               <Tooltip title="Hide Tree View" placement="right">
                 <IconButton
-                  size="small"
+                  size="medium"
                   onClick={() => setLeftPanelOpen(false)}
                   sx={{
                     bgcolor: 'background.paper',
@@ -130,7 +153,7 @@ function DesignCanvas({
                     '&:hover': { bgcolor: 'action.hover' },
                   }}
                 >
-                  <ChevronLeft />
+                  <ChevronLeft fontSize="large" />
                 </IconButton>
               </Tooltip>
             </div>
@@ -148,7 +171,7 @@ function DesignCanvas({
           }}>
             <Tooltip title="Show Tree View" placement="right">
               <IconButton
-                size="small"
+                size="medium"
                 onClick={() => setLeftPanelOpen(true)}
                 sx={{
                   bgcolor: 'background.paper',
@@ -156,7 +179,7 @@ function DesignCanvas({
                   '&:hover': { bgcolor: 'action.hover' },
                 }}
               >
-                <ChevronRight />
+                <ChevronRight fontSize="large" />
               </IconButton>
             </Tooltip>
           </div>
@@ -171,7 +194,7 @@ function DesignCanvas({
           margin: 0,
           padding: 0,
         }}>
-          <Scene3D elements={elements} mesh={mesh}>
+          <Scene3D ref={scene3DRef} elements={elements} mesh={mesh} gridVisible={gridVisible} cameraMode={cameraMode}>
             {(elements && elements.length > 0) || mesh ? (
               <WireGeometry
                 elements={elements}
@@ -191,6 +214,17 @@ function DesignCanvas({
           {visualizationMode === 'element-colors' && (
             <ColorLegend elements={elements} visible={true} />
           )}
+
+          {/* View Controls - Inside 3D viewport */}
+          <ViewControls
+            onZoomIn={onZoomIn}
+            onZoomOut={onZoomOut}
+            onResetView={onResetView}
+            onToggleGrid={onToggleGrid}
+            onToggleFullscreen={onToggleFullscreen}
+            gridVisible={gridVisible}
+            isFullscreen={isFullscreen}
+          />
 
           {/* Current Distribution Legend - Show only in current-distribution mode */}
           {visualizationMode === 'current-distribution' && currentDistribution && currentDistribution.length > 0 && (
@@ -247,7 +281,7 @@ function DesignCanvas({
             }}>
               <Tooltip title="Hide Properties" placement="left">
                 <IconButton
-                  size="small"
+                  size="medium"
                   onClick={() => setRightPanelOpen(false)}
                   sx={{
                     bgcolor: 'background.paper',
@@ -255,7 +289,7 @@ function DesignCanvas({
                     '&:hover': { bgcolor: 'action.hover' },
                   }}
                 >
-                  <ChevronRight />
+                  <ChevronRight fontSize="large" />
                 </IconButton>
               </Tooltip>
             </div>
@@ -273,7 +307,7 @@ function DesignCanvas({
           }}>
             <Tooltip title="Show Properties" placement="left">
               <IconButton
-                size="small"
+                size="medium"
                 onClick={() => setRightPanelOpen(true)}
                 sx={{
                   bgcolor: 'background.paper',
@@ -281,7 +315,7 @@ function DesignCanvas({
                   '&:hover': { bgcolor: 'action.hover' },
                 }}
               >
-                <ChevronLeft />
+                <ChevronLeft fontSize="large" />
               </IconButton>
             </Tooltip>
           </div>

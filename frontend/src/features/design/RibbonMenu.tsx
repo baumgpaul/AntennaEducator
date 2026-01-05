@@ -238,7 +238,7 @@ function RibbonMenu({
     }
     
     // Check if we can export
-    if (!canExportToVTU(fieldItem.fieldId, frequencyHz, store.getState() as RootState)) {
+    if (!canExportToVTU(fieldItem.fieldId, frequencyHz, store.getState() as unknown as RootState)) {
       setSnackbarMessage('Field data not computed yet. Run postprocessing first.');
       setSnackbarSeverity('error');
       setShowSnackbar(true);
@@ -254,7 +254,7 @@ function RibbonMenu({
         fieldId: fieldItem.fieldId,
         frequencyHz,
         filename,
-      }, store.getState() as RootState);
+      }, store.getState() as unknown as RootState);
       
       setSnackbarMessage(`VTU file exported: ${filename}.vtu`);
       setSnackbarSeverity('success');

@@ -21,7 +21,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PositionControl } from '@/components/PositionControl';
 import { parseDecimalNumber } from '@/utils/numberParser';
-import { parseDecimalNumber } from '@/utils/numberParser';
 // Zod validation schema
 const helixSchema = z.object({
   diameter: z.number().positive('Diameter must be positive').max(10, 'Diameter too large'),
@@ -191,7 +190,7 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
                     error={!!errors.pitch}
                     helperText={errors.pitch?.message || 'Distance between turns'}
                     inputProps={{ step: 0.001 }}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
                   />
                 )}
               />
@@ -231,7 +230,7 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
                     error={!!errors.wire_radius}
                     helperText={errors.wire_radius?.message}
                     inputProps={{ step: 0.0001 }}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
                   />
                 )}
               />
