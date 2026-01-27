@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import datetime
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Union
 
 
 # User Schemas
@@ -26,9 +26,13 @@ class UserResponse(UserBase):
     """Schema for user response."""
     model_config = ConfigDict(from_attributes=True)
     
-    id: int
+    id: Union[int, str]  # int for Docker mode (DB ID), str for AWS mode (Cognito Sub)
     username: str
-    created_at: datetime
+    is_approved: bool = False
+    is_admin: bool = False
+    is_locked: bool = False  # New field: user lock status
+    cognito_sub: Optional[str] = None
+    created_at: Optional[datetime] = None  # May be None for some Cognito users
 
 
 # Token Schemas

@@ -35,23 +35,11 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
   }
   
   const token = `mock-token-${Date.now()}`;
-  const refreshToken = `mock-refresh-${Date.now()}`;
   
   return {
     access_token: token,
-    refresh_token: refreshToken,
     token_type: 'Bearer',
-    user: {
-      id: user.id,
-      email: user.email,
-      username: user.email.split('@')[0],
-      created_at: new Date().toISOString(),
-    },
-    tokens: {
-      access_token: token,
-      refresh_token: refreshToken,
-      token_type: 'Bearer',
-    },
+    expires_in: 3600,
   };
 }
 
@@ -72,23 +60,11 @@ export async function register(data: RegisterRequest): Promise<LoginResponse> {
   mockUsers.push(newUser);
   
   const token = `mock-token-${Date.now()}`;
-  const refreshToken = `mock-refresh-${Date.now()}`;
   
   return {
     access_token: token,
-    refresh_token: refreshToken,
     token_type: 'Bearer',
-    user: {
-      id: newUser.id,
-      email: newUser.email,
-      username: data.username,
-      created_at: new Date().toISOString(),
-    },
-    tokens: {
-      access_token: token,
-      refresh_token: refreshToken,
-      token_type: 'Bearer',
-    },
+    expires_in: 3600,
   };
 }
 

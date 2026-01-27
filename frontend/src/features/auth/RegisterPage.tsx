@@ -59,7 +59,7 @@ function RegisterPage() {
     }
   };
 
-  // Show success message if registration completed but user needs to verify email
+  // Show success message if registration completed
   if (registrationSuccess && !isAuthenticated) {
     return (
       <Box
@@ -79,10 +79,10 @@ function RegisterPage() {
             </Typography>
             <Alert severity="success" sx={{ mt: 2, mb: 3 }}>
               <Typography variant="body1" paragraph>
-                Please check your email for a verification code.
+                Your account has been created successfully.
               </Typography>
               <Typography variant="body2">
-                You must verify your email address before you can log in.
+                You can now log in with your credentials.
               </Typography>
             </Alert>
             <Button

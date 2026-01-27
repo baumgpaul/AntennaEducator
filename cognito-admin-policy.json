@@ -1,0 +1,13 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Resource": "arn:aws:cognito-idp:eu-west-1:767397882329:userpool/eu-west-1_IrKrKMip7",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:AdminConfirmSignUp",
+        "cognito-idp:AdminGetUser"
+      ]
+    }
+  ]
+}

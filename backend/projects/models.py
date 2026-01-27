@@ -1,6 +1,6 @@
 """SQLAlchemy database models."""
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, JSON, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from backend.projects.database import Base
@@ -16,6 +16,15 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     username = Column(String(50), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
+    
+    # Approval and admin fields
+    is_approved = Column(Boolean, default=False, nullable=False)  # Admin must approve users (AWS mode)
+    is_admin = Column(Boolean, default=False, nullable=False)     # Admin can approve other users
+    
+    # AWS Cognito integration
+    cognito_sub = Column(String(255), nullable=True, unique=True, index=True)  # Cognito user ID (UUID)
+    
+    # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships

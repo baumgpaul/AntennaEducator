@@ -44,8 +44,13 @@ from backend.projects.schemas import (
 )
 from backend.projects.auth import (
     get_password_hash, verify_password, create_access_token,
-    get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
+    get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES, USE_COGNITO
 )
+from backend.projects import cognito_service
+from backend.projects.local_auth_service import LocalAuthService
+
+# Initialize local auth service for Docker mode
+local_auth_service = LocalAuthService()
 
 # Import repository for DynamoDB support
 from backend.common.repositories.factory import get_project_repository
@@ -105,52 +110,170 @@ async def health_check():
 
 # Authentication endpoints
 @app.post("/api/v1/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(user_data: UserCreate, db: Session = Depends(get_db)):
-    """Register a new user."""
-    # Check if user already exists
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+async def register(user_data: UserCreate):
+    """
+    Register a new user.
     
-    # Create new user
-    hashed_password = get_password_hash(user_data.password)
-    db_user = User(
-        email=user_data.email,
-        username=user_data.username,
-        password_hash=hashed_password
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    Docker Mode (USE_COGNITO=false):
+    - Creates user in DynamoDB via local_auth_service
+    - User is unlocked by default (is_locked=false)
+    - First user becomes admin automatically
     
-    return db_user
+    AWS Mode (USE_COGNITO=true):
+    - Creates user in AWS Cognito
+    - Sends email verification
+    - User is unlocked by default
+    """
+    if USE_COGNITO:
+        # AWS Mode: Register in Cognito
+        try:
+            result = cognito_service.register_user(
+                email=user_data.email,
+                username=user_data.username,
+                password=user_data.password
+            )
+            
+            # Return user info matching UserResponse schema
+            return UserResponse(
+                id=-1,  # No DB ID in Cognito mode
+                email=result['email'],
+                username=result['username'],
+                is_approved=result.get('is_approved', True),
+                is_admin=False,  # Admin status managed via Cognito groups
+                is_locked=result.get('is_locked', False),  # Users unlocked by default
+                cognito_sub=result['user_sub'],
+                created_at="2026-01-26T00:00:00Z"  # Placeholder
+            )
+            
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+        except RuntimeError as e:
+            logger.error(f"Cognito registration error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Registration failed. Please try again."
+            )
+    
+    else:
+        # Docker Mode: Register via local auth service
+        try:
+            db_user = local_auth_service.register_user(
+                email=user_data.email,
+                username=user_data.username,
+                password=user_data.password
+            )
+            
+            logger.info(f"User registered: {user_data.email}, is_admin={db_user['is_admin']}, is_locked={db_user['is_locked']}")
+            
+            return UserResponse(
+                id=-1,  # DynamoDB uses UUID, not int ID
+                email=db_user['email'],
+                username=db_user['username'],
+                is_approved=True,  # Keep for backward compatibility
+                is_admin=db_user['is_admin'],
+                is_locked=db_user['is_locked'],
+                created_at=db_user['created_at']
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+        except Exception as e:
+            logger.error(f"Registration error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Registration failed"
+            )
 
 
 @app.post("/api/v1/auth/login", response_model=Token)
-async def login(user_data: UserLogin, db: Session = Depends(get_db)):
-    """Login and get access token."""
-    # Find user
-    user = db.query(User).filter(User.email == user_data.email).first()
-    if not user or not verify_password(user_data.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
-        )
+async def login(user_data: UserLogin):
+    """
+    Login and get access token.
     
-    # Create access token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id), "email": user.email},  # Convert user ID to string
-        expires_delta=access_token_expires
-    )
+    Docker Mode (USE_COGNITO=false):
+    - Validates credentials via local_auth_service
+    - Checks is_locked field
+    - Returns JWT token
     
-    return Token(
-        access_token=access_token,
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    )
+    AWS Mode (USE_COGNITO=true):
+    - Validates against Cognito
+    - Checks is_locked field in DynamoDB
+    - Returns Cognito access token
+    """
+    if USE_COGNITO:
+        # AWS Mode: Authenticate with Cognito
+        try:
+            result = cognito_service.authenticate_user(
+                email=user_data.email,
+                password=user_data.password
+            )
+            
+            logger.info(f"Cognito user logged in: {user_data.email}")
+            
+            return Token(
+                access_token=result['access_token'],
+                token_type=result['token_type'],
+                expires_in=result['expires_in']
+            )
+            
+        except ValueError as e:
+            error_msg = str(e)
+            if "locked" in error_msg.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=error_msg
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=error_msg
+                )
+        except RuntimeError as e:
+            logger.error(f"Cognito authentication error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Authentication failed. Please try again."
+            )
+    
+    else:
+        # Docker Mode: Authenticate via local auth service
+        try:
+            result = local_auth_service.authenticate_user(
+                email=user_data.email,
+                password=user_data.password
+            )
+            
+            logger.info(f"Local user logged in: {user_data.email}")
+            
+            return Token(
+                access_token=result['access_token'],
+                token_type=result['token_type'],
+                expires_in=result['expires_in']
+            )
+            
+        except ValueError as e:
+            error_msg = str(e)
+            if "locked" in error_msg.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=error_msg
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=error_msg
+                )
+        except Exception as e:
+            logger.error(f"Local authentication error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Authentication failed"
+            )
 
 
 @app.get("/api/v1/auth/me", response_model=UserResponse)

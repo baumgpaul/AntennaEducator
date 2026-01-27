@@ -257,8 +257,8 @@ const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
           />
         </GizmoHelper>
 
-        {/* Scale indicator - auto-sized */}
-        {showScale && (
+        {/* Scale indicator - DISABLED in favor of dynamic axis labels */}
+        {false && (
           <ScaleIndicator 
             size={scaleIndicatorSize} 
             position={[bounds.min.x - gridSize * 0.1, bounds.min.y - gridSize * 0.1, 0]} 

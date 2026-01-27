@@ -5,10 +5,6 @@
 
 import { apiClient } from './client'
 import type { User, AuthTokens } from '@/types/models'
-import * as mockAuth from './mockAuth'
-
-// Toggle between real API and mock API for testing
-const USE_MOCK_API = true; // Set to false when backend is ready
 
 // ============================================================================
 // Request/Response Types
@@ -20,11 +16,9 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  user: User
-  tokens: AuthTokens
-  access_token?: string
-  refresh_token?: string
-  token_type?: string
+  access_token: string
+  token_type: string
+  expires_in?: number
 }
 
 export interface RegisterRequest {
@@ -34,18 +28,13 @@ export interface RegisterRequest {
 }
 
 export interface RegisterResponse {
-  user: User
-  tokens: AuthTokens
-}
-
-export interface RefreshTokenRequest {
-  refresh_token: string
-}
-
-export interface RefreshTokenResponse {
-  access_token: string
-  token_type: string
-  expires_in?: number
+  id: number
+  email: string
+  username: string
+  is_approved: boolean
+  is_admin: boolean
+  cognito_sub?: string
+  created_at: string
 }
 
 // ============================================================================
@@ -56,118 +45,60 @@ export interface RefreshTokenResponse {
  * Login user with email and password
  */
 export const login = async (credentials: LoginRequest): Promise<LoginResponse> => {
-  if (USE_MOCK_API) {
-    const mockResponse = await mockAuth.login(credentials);
-    // Store tokens in localStorage
-    if (mockResponse.access_token) {
-      localStorage.setItem('auth_token', mockResponse.access_token);
+  try {
+    const response = await apiClient.post<LoginResponse>('/api/v1/auth/login', credentials)
+    
+    // Store token in localStorage
+    if (response.data.access_token) {
+      localStorage.setItem('auth_token', response.data.access_token)
     }
-    if (mockResponse.refresh_token) {
-      localStorage.setItem('refresh_token', mockResponse.refresh_token);
+    
+    return response.data
+  } catch (error: any) {
+    // Handle specific error cases
+    if (error.response?.status === 403) {
+      throw new Error('Account pending admin approval. Please wait for approval.')
     }
-    return {
-      user: mockResponse.user,
-      tokens: {
-        access_token: mockResponse.access_token || '',
-        refresh_token: mockResponse.refresh_token,
-        token_type: mockResponse.token_type || 'Bearer',
-      }
-    };
+    if (error.response?.status === 401) {
+      throw new Error('Incorrect email or password')
+    }
+    throw error
   }
-  
-  const response = await apiClient.post<LoginResponse>('/api/auth/login', credentials)
-  
-  // Store tokens in localStorage
-  if (response.data.tokens.access_token) {
-    localStorage.setItem('auth_token', response.data.tokens.access_token)
-  }
-  if (response.data.tokens.refresh_token) {
-    localStorage.setItem('refresh_token', response.data.tokens.refresh_token)
-  }
-  
-  return response.data
 }
 
 /**
  * Register new user
  */
 export const register = async (data: RegisterRequest): Promise<RegisterResponse> => {
-  if (USE_MOCK_API) {
-    const mockResponse = await mockAuth.register(data);
-    // Store tokens in localStorage
-    if (mockResponse.access_token) {
-      localStorage.setItem('auth_token', mockResponse.access_token);
+  try {
+    const response = await apiClient.post<RegisterResponse>('/api/v1/auth/register', data)
+    
+    // In Docker mode, user is auto-approved and can log in immediately
+    // No token returned from registration - user must login
+    return response.data
+  } catch (error: any) {
+    // Handle specific error cases
+    if (error.response?.status === 400) {
+      throw new Error(error.response?.data?.detail || 'Email already registered')
     }
-    if (mockResponse.refresh_token) {
-      localStorage.setItem('refresh_token', mockResponse.refresh_token);
-    }
-    return {
-      user: mockResponse.user,
-      tokens: {
-        access_token: mockResponse.access_token || '',
-        refresh_token: mockResponse.refresh_token,
-        token_type: mockResponse.token_type || 'Bearer',
-      }
-    };
+    throw error
   }
-  
-  const response = await apiClient.post<RegisterResponse>('/api/auth/register', data)
-  
-  // Store tokens in localStorage
-  if (response.data.tokens.access_token) {
-    localStorage.setItem('auth_token', response.data.tokens.access_token)
-  }
-  if (response.data.tokens.refresh_token) {
-    localStorage.setItem('refresh_token', response.data.tokens.refresh_token)
-  }
-  
-  return response.data
 }
 
 /**
  * Logout user - clear tokens and session
  */
 export const logout = async (): Promise<void> => {
-  try {
-    // Call backend logout endpoint if available
-    await apiClient.post('/api/auth/logout')
-  } catch (error) {
-    // Continue even if backend call fails
-    console.warn('Logout API call failed:', error)
-  } finally {
-    // Always clear local tokens
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('refresh_token')
-  }
-}
-
-/**
- * Refresh access token using refresh token
- */
-export const refreshToken = async (): Promise<RefreshTokenResponse> => {
-  const refresh_token = localStorage.getItem('refresh_token')
-  
-  if (!refresh_token) {
-    throw new Error('No refresh token available')
-  }
-  
-  const response = await apiClient.post<RefreshTokenResponse>('/api/auth/refresh', {
-    refresh_token,
-  })
-  
-  // Update access token
-  if (response.data.access_token) {
-    localStorage.setItem('auth_token', response.data.access_token)
-  }
-  
-  return response.data
+  // Clear local tokens (no backend logout endpoint needed for JWT)
+  localStorage.removeItem('auth_token')
+  localStorage.removeItem('refresh_token')
 }
 
 /**
  * Get current user profile
  */
 export const getCurrentUser = async (): Promise<User> => {
-  const response = await apiClient.get<User>('/api/auth/me')
+  const response = await apiClient.get<User>('/api/v1/users/me')
   return response.data
 }
 

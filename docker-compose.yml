@@ -104,19 +104,24 @@ services:
     ports:
       - "8010:8010"
     environment:
-      - DATABASE_URL=postgresql://antenna:antenna123@postgres:5432/antenna_db
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_BUCKET=antenna-data
       - MINIO_SECURE=false
       - JWT_SECRET_KEY=your-secret-key-change-in-production-use-openssl-rand-hex-32
-      - USE_DYNAMODB=false
-      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      # Database: DynamoDB Local (same as AWS production)
+      - USE_DYNAMODB=true
+      - DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
       - DYNAMODB_TABLE_NAME=antenna-simulator-local
-      - DISABLE_AUTH=false
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy
+      - AWS_DEFAULT_REGION=eu-west-1
+      # Authentication: JWT (not Cognito) with auto-approval
+      - USE_COGNITO=false  # Docker mode: local JWT with auto-approval
+      # Note: First registered user becomes admin automatically
+      # All users are auto-approved in Docker mode
     depends_on:
-      - postgres
       - minio
       - dynamodb-local
     networks:
@@ -128,9 +133,7 @@ services:
     image: amazon/dynamodb-local:latest
     ports:
       - "8000:8000"
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
-    volumes:
-      - dynamodb-data:/data
+    command: "-jar DynamoDBLocal.jar -inMemory -sharedDb"
     networks:
       - antenna-network
     restart: unless-stopped
