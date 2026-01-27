@@ -65,6 +65,8 @@ export class CognitoAuthService implements IAuthService {
             id: idTokenPayload.sub,
             email: idTokenPayload.email || credentials.email,
             username: idTokenPayload['cognito:username'] || credentials.email,
+            is_approved: true,
+            is_admin: false,
             created_at: new Date().toISOString(),
           }
 
@@ -132,6 +134,8 @@ export class CognitoAuthService implements IAuthService {
             id: result.userSub,
             email: data.email,
             username: data.username,
+            is_approved: true,
+            is_admin: false,
             created_at: new Date().toISOString(),
           }
 
@@ -263,6 +267,8 @@ export class CognitoAuthService implements IAuthService {
               attributes?.find((attr) => attr.Name === 'preferred_username')?.Value ||
               idTokenPayload['cognito:username'] ||
               '',
+            is_approved: true,
+            is_admin: false,
             created_at: new Date().toISOString(),
           }
 

@@ -12,55 +12,70 @@ export class LocalAuthService implements IAuthService {
    * Sign in with email and password
    */
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await apiClient.post<{
-      user: User
-      access_token: string
-      refresh_token?: string
-      token_type: string
-    }>('/api/v1/auth/login', credentials)
+    try {
+      // Backend returns: {access_token, token_type, expires_in}
+      const response = await apiClient.post<{
+        access_token: string
+        token_type: string
+        expires_in?: number
+      }>('/api/v1/auth/login', credentials)
 
-    const { user, access_token, refresh_token } = response.data
+      const { access_token } = response.data
 
-    // Store tokens in localStorage
-    localStorage.setItem('auth_token', access_token)
-    if (refresh_token) {
-      localStorage.setItem('refresh_token', refresh_token)
-    }
+      // Store token in localStorage
+      localStorage.setItem('auth_token', access_token)
 
-    return {
-      user,
-      tokens: {
-        accessToken: access_token,
-        refreshToken: refresh_token,
-      },
+      // Fetch user details using the token
+      const userResponse = await apiClient.get<User>('/api/v1/users/me')
+      const user = userResponse.data
+
+      // Store user in localStorage for session persistence
+      localStorage.setItem('user', JSON.stringify(user))
+
+      return {
+        user,
+        tokens: {
+          accessToken: access_token,
+          refreshToken: undefined,
+        },
+      }
+    } catch (error: any) {
+      // Handle specific error cases
+      if (error.response?.status === 403) {
+        throw new Error('Account pending admin approval. Please wait for approval.')
+      }
+      if (error.response?.status === 401) {
+        throw new Error('Incorrect email or password')
+      }
+      throw error
     }
   }
 
   /**
    * Register new user
+   * Returns user object, requires separate login to get token
    */
   async register(data: RegisterData): Promise<AuthResponse> {
-    const response = await apiClient.post<{
-      user: User
-      access_token: string
-      refresh_token?: string
-      token_type: string
-    }>('/api/v1/auth/register', data)
+    try {
+      // Backend returns user object: {id, email, username, is_approved, is_admin, cognito_sub, created_at}
+      const response = await apiClient.post<User>('/api/v1/auth/register', data)
+      const user = response.data
 
-    const { user, access_token, refresh_token } = response.data
-
-    // Store tokens in localStorage
-    localStorage.setItem('auth_token', access_token)
-    if (refresh_token) {
-      localStorage.setItem('refresh_token', refresh_token)
-    }
-
-    return {
-      user,
-      tokens: {
-        accessToken: access_token,
-        refreshToken: refresh_token,
-      },
+      // Registration doesn't return a token - user must login separately
+      // This is intentional to separate registration from authentication
+      return {
+        user,
+        tokens: {
+          accessToken: '',  // No token on registration
+          refreshToken: undefined,
+        },
+      }
+    } catch (error: any) {
+      // Handle specific error cases
+      if (error.response?.status === 400) {
+        throw new Error(error.response?.data?.detail || 'Email already registered')
+      }
+      throw error
     }
   }
 
@@ -68,54 +83,24 @@ export class LocalAuthService implements IAuthService {
    * Sign out current user
    */
   async logout(): Promise<void> {
-    try {
-      // Call backend logout endpoint if available
-      await apiClient.post('/api/v1/auth/logout')
-    } catch (error) {
-      // Continue even if backend call fails
-      console.warn('Logout API call failed:', error)
-    } finally {
-      // Always clear local tokens
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('refresh_token')
-    }
+    // Clear local tokens and user data (no backend logout needed for JWT)
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('user')
   }
 
   /**
-   * Refresh access token
+   * Refresh access token (not supported in local JWT auth)
    */
   async refreshToken(): Promise<AuthTokens> {
-    const refresh_token = localStorage.getItem('refresh_token')
-
-    if (!refresh_token) {
-      throw new Error('No refresh token available')
-    }
-
-    const response = await apiClient.post<{
-      access_token: string
-      token_type: string
-      expires_in?: number
-    }>('/api/v1/auth/refresh', {
-      refresh_token,
-    })
-
-    const { access_token, expires_in } = response.data
-
-    // Update access token
-    localStorage.setItem('auth_token', access_token)
-
-    return {
-      accessToken: access_token,
-      refreshToken: refresh_token,
-      expiresIn: expires_in,
-    }
+    throw new Error('Token refresh not supported. Please login again.')
   }
 
   /**
    * Get current authenticated user
    */
   async getCurrentUser(): Promise<User> {
-    const response = await apiClient.get<User>('/api/v1/auth/me')
+    const response = await apiClient.get<User>('/api/v1/users/me')
     return response.data
   }
 

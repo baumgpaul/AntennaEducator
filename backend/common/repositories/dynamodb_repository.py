@@ -35,18 +35,36 @@ class DynamoDBProjectRepository(ProjectRepository):
             dynamodb_resource: boto3 DynamoDB resource (for testing/DynamoDB Local)
         """
         self.table_name = table_name or os.getenv("DYNAMODB_TABLE_NAME", "antenna-simulator-staging")
-        
-        if dynamodb_resource:
-            self.dynamodb = dynamodb_resource
-        else:
-            # Check if using DynamoDB Local
-            endpoint_url = os.getenv("DYNAMODB_ENDPOINT_URL")
-            if endpoint_url:
-                self.dynamodb = boto3.resource('dynamodb', endpoint_url=endpoint_url)
+        self._dynamodb_resource = dynamodb_resource
+        self._table = None
+        self._dynamodb = None
+    
+    @property
+    def table(self):
+        """Lazy-load DynamoDB table on first access."""
+        if self._table is None:
+            if self._dynamodb_resource:
+                self.dynamodb = self._dynamodb_resource
             else:
-                self.dynamodb = boto3.resource('dynamodb')
-        
-        self.table = self.dynamodb.Table(self.table_name)
+                # Check if using DynamoDB Local
+                endpoint_url = os.getenv("DYNAMODB_ENDPOINT_URL")
+                if endpoint_url:
+                    self.dynamodb = boto3.resource('dynamodb', endpoint_url=endpoint_url)
+                else:
+                    self.dynamodb = boto3.resource('dynamodb')
+            
+            self._table = self.dynamodb.Table(self.table_name)
+        return self._table
+    
+    @property
+    def dynamodb(self):
+        """Get DynamoDB resource."""
+        return self._dynamodb
+    
+    @dynamodb.setter
+    def dynamodb(self, value):
+        """Set DynamoDB resource."""
+        self._dynamodb = value
     
     async def create_project(
         self,

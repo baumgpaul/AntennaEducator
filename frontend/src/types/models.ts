@@ -338,6 +338,9 @@ export interface User {
   id: string
   email: string
   username: string
+  is_approved: boolean
+  is_admin: boolean
+  cognito_sub?: string
   created_at: string
 }
 
