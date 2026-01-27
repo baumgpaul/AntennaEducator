@@ -109,7 +109,7 @@ async def health_check():
 
 
 # Authentication endpoints
-@app.post("/api/v1/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/api/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserCreate):
     """
     Register a new user.
@@ -190,7 +190,7 @@ async def register(user_data: UserCreate):
             )
 
 
-@app.post("/api/v1/auth/login", response_model=Token)
+@app.post("/api/auth/login", response_model=Token)
 async def login(user_data: UserLogin):
     """
     Login and get access token.
@@ -276,14 +276,14 @@ async def login(user_data: UserLogin):
             )
 
 
-@app.get("/api/v1/auth/me", response_model=UserResponse)
+@app.get("/api/auth/me", response_model=UserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information."""
     return current_user
 
 
 # Project endpoints
-@app.post("/api/v1/projects", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/api/projects", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def create_project(
     project_data: ProjectCreate,
     current_user: User = Depends(get_current_user),
@@ -308,7 +308,7 @@ async def create_project(
     return project
 
 
-@app.get("/api/v1/projects", response_model=List[ProjectListResponse])
+@app.get("/api/projects", response_model=List[ProjectListResponse])
 async def list_projects(
     current_user: User = Depends(get_current_user),
     repo: ProjectRepository = Depends(get_repository)
@@ -318,7 +318,7 @@ async def list_projects(
     return projects
 
 
-@app.get("/api/v1/projects/{project_id}", response_model=ProjectResponse)
+@app.get("/api/projects/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: str,
     current_user: User = Depends(get_current_user),
@@ -343,7 +343,7 @@ async def get_project(
     return project
 
 
-@app.put("/api/v1/projects/{project_id}", response_model=ProjectResponse)
+@app.put("/api/projects/{project_id}", response_model=ProjectResponse)
 async def update_project(
     project_id: str,
     project_data: ProjectUpdate,
@@ -374,7 +374,7 @@ async def update_project(
     return updated_project
 
 
-@app.delete("/api/v1/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete("/api/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(
     project_id: str,
     current_user: User = Depends(get_current_user),
@@ -395,7 +395,7 @@ async def delete_project(
     return None
 
 
-@app.post("/api/v1/projects/{project_id}/duplicate", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/api/projects/{project_id}/duplicate", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def duplicate_project(
     project_id: str,
     current_user: User = Depends(get_current_user),
@@ -431,7 +431,7 @@ async def duplicate_project(
 
 
 # Project elements endpoints
-@app.post("/api/v1/projects/{project_id}/elements", response_model=ProjectElementResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/api/projects/{project_id}/elements", response_model=ProjectElementResponse, status_code=status.HTTP_201_CREATED)
 async def add_element(
     project_id: int,
     element_data: ProjectElementCreate,
@@ -464,7 +464,7 @@ async def add_element(
     return db_element
 
 
-@app.delete("/api/v1/projects/{project_id}/elements/{element_id}", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete("/api/projects/{project_id}/elements/{element_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_element(
     project_id: int,
     element_id: int,
@@ -503,7 +503,7 @@ async def delete_element(
 
 
 # Results endpoints
-@app.post("/api/v1/projects/{project_id}/results", response_model=ResultResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/api/projects/{project_id}/results", response_model=ResultResponse, status_code=status.HTTP_201_CREATED)
 async def save_result(
     project_id: int,
     result_data: ResultCreate,
@@ -538,7 +538,7 @@ async def save_result(
     return db_result
 
 
-@app.get("/api/v1/projects/{project_id}/results", response_model=List[ResultResponse])
+@app.get("/api/projects/{project_id}/results", response_model=List[ResultResponse])
 async def list_results(
     project_id: int,
     current_user: User = Depends(get_current_user),

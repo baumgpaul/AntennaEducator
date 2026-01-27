@@ -46,7 +46,7 @@ export interface RegisterResponse {
  */
 export const login = async (credentials: LoginRequest): Promise<LoginResponse> => {
   try {
-    const response = await apiClient.post<LoginResponse>('/api/v1/auth/login', credentials)
+    const response = await apiClient.post<LoginResponse>('/api/auth/login', credentials)
     
     // Store token in localStorage
     if (response.data.access_token) {
@@ -71,7 +71,7 @@ export const login = async (credentials: LoginRequest): Promise<LoginResponse> =
  */
 export const register = async (data: RegisterRequest): Promise<RegisterResponse> => {
   try {
-    const response = await apiClient.post<RegisterResponse>('/api/v1/auth/register', data)
+    const response = await apiClient.post<RegisterResponse>('/api/auth/register', data)
     
     // In Docker mode, user is auto-approved and can log in immediately
     // No token returned from registration - user must login
@@ -98,7 +98,7 @@ export const logout = async (): Promise<void> => {
  * Get current user profile
  */
 export const getCurrentUser = async (): Promise<User> => {
-  const response = await apiClient.get<User>('/api/v1/users/me')
+  const response = await apiClient.get<User>('/api/auth/me')
   return response.data
 }
 
