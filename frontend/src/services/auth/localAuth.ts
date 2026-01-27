@@ -18,7 +18,7 @@ export class LocalAuthService implements IAuthService {
         access_token: string
         token_type: string
         expires_in?: number
-      }>('/api/v1/auth/login', credentials)
+      }>('/api/auth/login', credentials)
 
       const { access_token } = response.data
 
@@ -26,7 +26,7 @@ export class LocalAuthService implements IAuthService {
       localStorage.setItem('auth_token', access_token)
 
       // Fetch user details using the token
-      const userResponse = await apiClient.get<User>('/api/v1/users/me')
+      const userResponse = await apiClient.get<User>('/api/auth/me')
       const user = userResponse.data
 
       // Store user in localStorage for session persistence
@@ -58,7 +58,7 @@ export class LocalAuthService implements IAuthService {
   async register(data: RegisterData): Promise<AuthResponse> {
     try {
       // Backend returns user object: {id, email, username, is_approved, is_admin, cognito_sub, created_at}
-      const response = await apiClient.post<User>('/api/v1/auth/register', data)
+      const response = await apiClient.post<User>('/api/auth/register', data)
       const user = response.data
 
       // Registration doesn't return a token - user must login separately
@@ -100,7 +100,7 @@ export class LocalAuthService implements IAuthService {
    * Get current authenticated user
    */
   async getCurrentUser(): Promise<User> {
-    const response = await apiClient.get<User>('/api/v1/users/me')
+    const response = await apiClient.get<User>('/api/auth/me')
     return response.data
   }
 

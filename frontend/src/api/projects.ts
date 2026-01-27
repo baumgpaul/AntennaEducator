@@ -30,7 +30,7 @@ export interface UpdateProjectRequest {
  */
 export async function getProjects(): Promise<Project[]> {
   if (USE_MOCK_API) return mockApi.getProjects();
-  const response = await projectsClient.get<Project[]>('/api/v1/projects');
+  const response = await projectsClient.get<Project[]>('/api/projects');
   return response.data;
 }
 
@@ -39,7 +39,7 @@ export async function getProjects(): Promise<Project[]> {
  */
 export async function getProject(id: string | number): Promise<Project> {
   if (USE_MOCK_API) return mockApi.getProject(String(id));
-  const response = await projectsClient.get<Project>(`/api/v1/projects/${id}`);
+  const response = await projectsClient.get<Project>(`/api/projects/${id}`);
   return response.data;
 }
 
@@ -48,7 +48,7 @@ export async function getProject(id: string | number): Promise<Project> {
  */
 export async function createProject(data: CreateProjectRequest): Promise<Project> {
   if (USE_MOCK_API) return mockApi.createProject(data);
-  const response = await projectsClient.post<Project>('/api/v1/projects', data);
+  const response = await projectsClient.post<Project>('/api/projects', data);
   return response.data;
 }
 
@@ -57,7 +57,7 @@ export async function createProject(data: CreateProjectRequest): Promise<Project
  */
 export async function updateProject(id: string | number, data: UpdateProjectRequest): Promise<Project> {
   if (USE_MOCK_API) return mockApi.updateProject(String(id), data);
-  const response = await projectsClient.put<Project>(`/api/v1/projects/${id}`, data);
+  const response = await projectsClient.put<Project>(`/api/projects/${id}`, data);
   return response.data;
 }
 
@@ -66,7 +66,7 @@ export async function updateProject(id: string | number, data: UpdateProjectRequ
  */
 export async function deleteProject(id: string | number): Promise<void> {
   if (USE_MOCK_API) return mockApi.deleteProject(String(id));
-  await projectsClient.delete(`/api/v1/projects/${id}`);
+  await projectsClient.delete(`/api/projects/${id}`);
 }
 
 /**
@@ -75,6 +75,6 @@ export async function deleteProject(id: string | number): Promise<void> {
  */
 export async function duplicateProject(id: string | number): Promise<Project> {
   if (USE_MOCK_API) return mockApi.duplicateProject(String(id));
-  const response = await projectsClient.post<Project>(`/api/v1/projects/${id}/duplicate`);
+  const response = await projectsClient.post<Project>(`/api/projects/${id}/duplicate`);
   return response.data;
 }
