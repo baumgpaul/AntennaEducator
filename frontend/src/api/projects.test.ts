@@ -48,7 +48,7 @@ describe('Projects API Client', () => {
 
       const result = await getProjects();
 
-      expect(hoisted.mockClient.get).toHaveBeenCalledWith('/api/v1/projects');
+      expect(hoisted.mockClient.get).toHaveBeenCalledWith('/api/projects');
       expect(result).toEqual(mockProjects);
       expect(result.length).toBe(2);
     });
@@ -84,7 +84,7 @@ describe('Projects API Client', () => {
 
       const result = await getProject(1);
 
-      expect(hoisted.mockClient.get).toHaveBeenCalledWith('/api/v1/projects/1');
+      expect(hoisted.mockClient.get).toHaveBeenCalledWith('/api/projects/1');
       expect(result).toEqual(mockProject);
       expect(result.name).toBe('Dipole');
     });
@@ -102,7 +102,7 @@ describe('Projects API Client', () => {
 
       const result = await getProject('1');
 
-      expect(hoisted.mockClient.get).toHaveBeenCalledWith('/api/v1/projects/1');
+      expect(hoisted.mockClient.get).toHaveBeenCalledWith('/api/projects/1');
       expect(result.id).toBe('1');
     });
 
@@ -128,7 +128,7 @@ describe('Projects API Client', () => {
 
       const result = await createProject(newProject);
 
-      expect(hoisted.mockClient.post).toHaveBeenCalledWith('/api/v1/projects', newProject);
+      expect(hoisted.mockClient.post).toHaveBeenCalledWith('/api/projects', newProject);
       expect(result).toEqual(createdProject);
       expect(result.id).toBe(1);
     });
@@ -165,7 +165,7 @@ describe('Projects API Client', () => {
 
       const result = await updateProject(1, updateData);
 
-      expect(hoisted.mockClient.put).toHaveBeenCalledWith('/api/v1/projects/1', updateData);
+      expect(hoisted.mockClient.put).toHaveBeenCalledWith('/api/projects/1', updateData);
       expect(result).toEqual(updatedProject);
       expect(result.name).toBe('Updated Name');
     });
@@ -202,7 +202,7 @@ describe('Projects API Client', () => {
 
       const result = await deleteProject(1);
 
-      expect(hoisted.mockClient.delete).toHaveBeenCalledWith('/api/v1/projects/1');
+      expect(hoisted.mockClient.delete).toHaveBeenCalledWith('/api/projects/1');
       expect(result).toBeUndefined();
     });
 
@@ -211,7 +211,7 @@ describe('Projects API Client', () => {
 
       await deleteProject('1');
 
-      expect(hoisted.mockClient.delete).toHaveBeenCalledWith('/api/v1/projects/1');
+      expect(hoisted.mockClient.delete).toHaveBeenCalledWith('/api/projects/1');
     });
 
     it('should handle 404 errors', async () => {
@@ -236,7 +236,7 @@ describe('Projects API Client', () => {
 
       const result = await duplicateProject(1);
 
-      expect(hoisted.mockClient.post).toHaveBeenCalledWith('/api/v1/projects/1/duplicate');
+      expect(hoisted.mockClient.post).toHaveBeenCalledWith('/api/projects/1/duplicate');
       expect(result).toEqual(duplicatedProject);
       expect(result.id).not.toBe(1);
     });

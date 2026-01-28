@@ -27,13 +27,13 @@ const mockProjects: Record<string | number, Project> = {
 };
 
 export const handlers = [
-  // GET /api/v1/projects - List all projects
-  http.get(`${API_URL}/api/v1/projects`, () => {
+  // GET /api/projects - List all projects
+  http.get(`${API_URL}/api/projects`, () => {
     return HttpResponse.json(Object.values(mockProjects), { status: 200 });
   }),
 
-  // GET /api/v1/projects/:id - Get single project
-  http.get(`${API_URL}/api/v1/projects/:id`, ({ params }) => {
+  // GET /api/projects/:id - Get single project
+  http.get(`${API_URL}/api/projects/:id`, ({ params }) => {
     const project = mockProjects[params.id as string | number];
     if (!project) {
       return HttpResponse.json(
@@ -44,8 +44,8 @@ export const handlers = [
     return HttpResponse.json(project, { status: 200 });
   }),
 
-  // POST /api/v1/projects - Create project
-  http.post(`${API_URL}/api/v1/projects`, async ({ request }) => {
+  // POST /api/projects - Create project
+  http.post(`${API_URL}/api/projects`, async ({ request }) => {
     const body = await request.json() as { name: string; description?: string };
     const newProject: Project = {
       id: Math.max(...Object.keys(mockProjects).map(Number)) + 1,
@@ -58,8 +58,8 @@ export const handlers = [
     return HttpResponse.json(newProject, { status: 201 });
   }),
 
-  // PUT /api/v1/projects/:id - Update project
-  http.put(`${API_URL}/api/v1/projects/:id`, async ({ params, request }) => {
+  // PUT /api/projects/:id - Update project
+  http.put(`${API_URL}/api/projects/:id`, async ({ params, request }) => {
     const project = mockProjects[params.id as string | number];
     if (!project) {
       return HttpResponse.json(
@@ -79,8 +79,8 @@ export const handlers = [
     return HttpResponse.json(updated, { status: 200 });
   }),
 
-  // DELETE /api/v1/projects/:id - Delete project
-  http.delete(`${API_URL}/api/v1/projects/:id`, ({ params }) => {
+  // DELETE /api/projects/:id - Delete project
+  http.delete(`${API_URL}/api/projects/:id`, ({ params }) => {
     const project = mockProjects[params.id as string | number];
     if (!project) {
       return HttpResponse.json(
@@ -92,8 +92,8 @@ export const handlers = [
     return HttpResponse.json(null, { status: 204 });
   }),
 
-  // POST /api/v1/projects/:id/duplicate - Duplicate project
-  http.post(`${API_URL}/api/v1/projects/:id/duplicate`, ({ params }) => {
+  // POST /api/projects/:id/duplicate - Duplicate project
+  http.post(`${API_URL}/api/projects/:id/duplicate`, ({ params }) => {
     const original = mockProjects[params.id as string | number];
     if (!original) {
       return HttpResponse.json(
