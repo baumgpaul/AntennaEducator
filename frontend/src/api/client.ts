@@ -29,6 +29,10 @@ const getProjectsURL = () => {
   return (import.meta.env.VITE_PROJECTS_URL as string) || 'http://localhost:8010'
 }
 
+const getAuthURL = () => {
+  return (import.meta.env.VITE_AUTH_URL as string) || getProjectsURL()
+}
+
 // Token refresh state management
 let isRefreshing = false
 let failedQueue: Array<{
@@ -188,9 +192,10 @@ export const preprocessorClient = createApiClient(getPreprocessorURL())
 export const solverClient = createApiClient(getSolverURL())
 export const postprocessorClient = createApiClient(getPostprocessorURL())
 export const projectsClient = createApiClient(getProjectsURL())
+export const authClient = createApiClient(getAuthURL())
 
 // Export URL getters for reference
-export { getBaseURL, getPreprocessorURL, getSolverURL, getPostprocessorURL, getProjectsURL }
+export { getBaseURL, getPreprocessorURL, getSolverURL, getPostprocessorURL, getProjectsURL, getAuthURL }
 
 // Helper function for handling API responses
 export const handleApiResponse = <T>(response: { data: T }): T => {
