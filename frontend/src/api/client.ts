@@ -55,23 +55,39 @@ const processQueue = (error: unknown, token: string | null = null) => {
 // Refresh token function
 const refreshAccessToken = async (): Promise<string> => {
   const refresh_token = localStorage.getItem('refresh_token')
+  const authProvider = import.meta.env.VITE_AUTH_PROVIDER as string
   
   if (!refresh_token) {
+    console.error('[Auth] No refresh token available')
     throw new Error('No refresh token available')
   }
   
   try {
-    const response = await axios.post(`${getBaseURL()}/api/auth/refresh`, {
-      refresh_token,
-    })
-    
-    const { access_token } = response.data
-    localStorage.setItem('auth_token', access_token)
-    return access_token
+    // Cognito tokens: use Cognito SDK to refresh
+    // Local tokens: use backend API
+    if (authProvider === 'cognito') {
+      // For Cognito, we need to use the Cognito SDK to refresh
+      // For now, just fail and redirect to login
+      // TODO: Implement proper Cognito token refresh using amazon-cognito-identity-js
+      console.warn('[Auth] Cognito token refresh not implemented, redirecting to login')
+      throw new Error('Cognito token refresh not implemented')
+    } else {
+      // Local auth: use backend refresh endpoint
+      const response = await axios.post(`${getAuthURL()}/api/auth/refresh`, {
+        refresh_token,
+      })
+      
+      const { access_token } = response.data
+      localStorage.setItem('auth_token', access_token)
+      return access_token
+    }
   } catch (error) {
     // Refresh failed - clear tokens and redirect to login
+    console.error('[Auth] Token refresh failed:', error)
     localStorage.removeItem('auth_token')
     localStorage.removeItem('refresh_token')
+    localStorage.removeItem('id_token')
+    localStorage.removeItem('user')
     window.location.href = '/login'
     throw error
   }
@@ -126,6 +142,21 @@ const createApiClient = (baseURL: string): AxiosInstance => {
 
       // Handle 401 Unauthorized - attempt token refresh
       if (error.response?.status === 401 && !originalRequest._retry) {
+        const errorDetails = {
+          url: originalRequest.url,
+          method: originalRequest.method,
+          hasToken: !!localStorage.getItem('auth_token'),
+          authProvider: import.meta.env.VITE_AUTH_PROVIDER,
+          timestamp: new Date().toISOString(),
+          responseData: error.response?.data,
+        }
+        
+        console.error('[Auth] ⚠️ RECEIVED 401 UNAUTHORIZED - CHECK THIS BEFORE REDIRECT ⚠️')
+        console.error('[Auth] Error details:', errorDetails)
+        
+        // Store error details for debugging after redirect
+        localStorage.setItem('last_auth_error', JSON.stringify(errorDetails))
+        
         // In dev mode with auth disabled, skip token refresh
         const authEnabled = import.meta.env.VITE_ENABLE_AUTH === 'true'
         if (!authEnabled) {
@@ -136,10 +167,19 @@ const createApiClient = (baseURL: string): AxiosInstance => {
         // Skip refresh for login/register/refresh endpoints
         const isAuthEndpoint = originalRequest.url?.includes('/api/auth/')
         if (isAuthEndpoint) {
+          console.error('[Auth] 401 on auth endpoint, clearing tokens and redirecting')
+          console.error('[Auth] Error details:', error.response?.data)
+          
+          // Store reason for debugging
+          localStorage.setItem('logout_reason', 'auth_endpoint_401')
+          
           // Clear tokens and redirect to login
           localStorage.removeItem('auth_token')
           localStorage.removeItem('refresh_token')
+          localStorage.removeItem('id_token')
+          localStorage.removeItem('user')
           window.location.href = '/login'
+          
           return Promise.reject(apiError)
         }
 
@@ -172,7 +212,9 @@ const createApiClient = (baseURL: string): AxiosInstance => {
           
           return instance(originalRequest)
         } catch (refreshError) {
+          console.error('[Auth] Token refresh failed, redirect will happen from refreshAccessToken()')
           processQueue(refreshError, null)
+          localStorage.setItem('logout_reason', 'token_refresh_failed')
           return Promise.reject(apiError)
         } finally {
           isRefreshing = false

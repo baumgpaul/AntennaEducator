@@ -18,6 +18,7 @@ function LoginPage() {
   const dispatch = useAppDispatch();
   const { loading, error, isAuthenticated } = useAppSelector((state) => state.auth);
   const [rememberMe, setRememberMe] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   // Get the page user was trying to access before being redirected to login
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
@@ -34,9 +35,32 @@ function LoginPage() {
     },
   });
 
-  // Clear errors on mount
+  // Clear errors on mount and check for stored error details
   useEffect(() => {
     dispatch(clearAuthError());
+    
+    // Check for debug information from previous session
+    const lastError = localStorage.getItem('last_auth_error');
+    const logoutReason = localStorage.getItem('logout_reason');
+    
+    if (lastError || logoutReason) {
+      console.group('🔍 Debug: Previous Session Error');
+      console.log('Logout reason:', logoutReason);
+      if (lastError) {
+        console.log('Last auth error:', JSON.parse(lastError));
+      }
+      console.groupEnd();
+      
+      // Show debug info in UI
+      if (lastError) {
+        const errorData = JSON.parse(lastError);
+        setDebugInfo(`Previous error: ${errorData.method} ${errorData.url} - ${JSON.stringify(errorData.responseData)}`);
+      }
+      
+      // Clear after showing
+      localStorage.removeItem('last_auth_error');
+      localStorage.removeItem('logout_reason');
+    }
   }, [dispatch]);
 
   // Navigate on successful authentication
@@ -79,6 +103,17 @@ function LoginPage() {
             {error && (
               <Alert severity="error" sx={{ mb: 2 }}>
                 {error}
+              </Alert>
+            )}
+            
+            {debugInfo && (
+              <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setDebugInfo(null)}>
+                <Typography variant="caption" component="div">
+                  <strong>Debug Info (check console for details):</strong>
+                </Typography>
+                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                  {debugInfo}
+                </Typography>
               </Alert>
             )}
             

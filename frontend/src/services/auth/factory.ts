@@ -25,8 +25,13 @@ export function createAuthService(provider?: AuthProvider): IAuthService {
 
   switch (authProvider) {
     case 'cognito':
+      // Use Cognito SDK directly for AWS authentication
+      // Backend will lazily create user record in DynamoDB on first API call
+      console.log('[Auth] Using CognitoAuthService (direct AWS Cognito SDK)')
       return new CognitoAuthService()
     case 'local':
+      // Use backend auth endpoints for local JWT authentication
+      console.log('[Auth] Using LocalAuthService (backend JWT)')
       return new LocalAuthService()
     default:
       console.warn(`Unknown auth provider: ${authProvider}, falling back to local`)
