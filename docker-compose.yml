@@ -96,6 +96,32 @@ services:
       - antenna-network
     restart: unless-stopped
 
+  # Auth Service - Authentication and user management
+  auth:
+    build:
+      context: .
+      dockerfile: backend/auth/Dockerfile
+    ports:
+      - "8011:8011"
+    environment:
+      - JWT_SECRET_KEY=your-secret-key-change-in-production-use-openssl-rand-hex-32
+      # Database: DynamoDB Local (same as AWS production)
+      - USE_DYNAMODB=true
+      - DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
+      - DYNAMODB_TABLE_NAME=antenna-simulator-local
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy
+      - AWS_DEFAULT_REGION=eu-west-1
+      # Authentication: JWT (not Cognito) with auto-approval
+      - USE_COGNITO=false  # Docker mode: local JWT with auto-approval
+      # Note: First registered user becomes admin automatically
+      # All users are auto-approved in Docker mode
+    depends_on:
+      - dynamodb-local
+    networks:
+      - antenna-network
+    restart: unless-stopped
+
   # Projects Service - Project management and persistence
   projects:
     build:
