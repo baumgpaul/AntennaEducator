@@ -3,7 +3,7 @@
  * Wraps existing local auth API for Docker/local development
  */
 
-import { apiClient } from '@/api/client'
+import { authClient } from '@/api/client'
 import type { IAuthService, LoginCredentials, RegisterData, AuthResponse, AuthTokens } from './types'
 import type { User } from '@/types/models'
 
@@ -14,7 +14,7 @@ export class LocalAuthService implements IAuthService {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       // Backend returns: {access_token, token_type, expires_in}
-      const response = await apiClient.post<{
+      const response = await authClient.post<{
         access_token: string
         token_type: string
         expires_in?: number
@@ -26,7 +26,7 @@ export class LocalAuthService implements IAuthService {
       localStorage.setItem('auth_token', access_token)
 
       // Fetch user details using the token
-      const userResponse = await apiClient.get<User>('/api/auth/me')
+      const userResponse = await authClient.get<User>('/api/auth/me')
       const user = userResponse.data
 
       // Store user in localStorage for session persistence
@@ -58,7 +58,7 @@ export class LocalAuthService implements IAuthService {
   async register(data: RegisterData): Promise<AuthResponse> {
     try {
       // Backend returns user object: {id, email, username, is_approved, is_admin, cognito_sub, created_at}
-      const response = await apiClient.post<User>('/api/auth/register', data)
+      const response = await authClient.post<User>('/api/auth/register', data)
       const user = response.data
 
       // Registration doesn't return a token - user must login separately
@@ -100,7 +100,7 @@ export class LocalAuthService implements IAuthService {
    * Get current authenticated user
    */
   async getCurrentUser(): Promise<User> {
-    const response = await apiClient.get<User>('/api/auth/me')
+    const response = await authClient.get<User>('/api/auth/me')
     return response.data
   }
 

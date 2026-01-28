@@ -25,6 +25,12 @@ export default defineConfig({
     port: 3000,
     host: true,
     proxy: {
+      // Auth endpoints -> auth service (port 8011)
+      '/api/auth': {
+        target: 'http://localhost:8011',
+        changeOrigin: true,
+      },
+      // All other API endpoints -> projects service (port 8010)
       '/api': {
         target: 'http://localhost:8010',
         changeOrigin: true,

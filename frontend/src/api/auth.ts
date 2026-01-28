@@ -3,7 +3,7 @@
  * Handles user authentication, registration, and token management
  */
 
-import { apiClient } from './client'
+import { authClient } from './client'
 import type { User, AuthTokens } from '@/types/models'
 
 // ============================================================================
@@ -46,7 +46,7 @@ export interface RegisterResponse {
  */
 export const login = async (credentials: LoginRequest): Promise<LoginResponse> => {
   try {
-    const response = await apiClient.post<LoginResponse>('/api/auth/login', credentials)
+    const response = await authClient.post<LoginResponse>('/api/auth/login', credentials)
     
     // Store token in localStorage
     if (response.data.access_token) {
@@ -71,7 +71,7 @@ export const login = async (credentials: LoginRequest): Promise<LoginResponse> =
  */
 export const register = async (data: RegisterRequest): Promise<RegisterResponse> => {
   try {
-    const response = await apiClient.post<RegisterResponse>('/api/auth/register', data)
+    const response = await authClient.post<RegisterResponse>('/api/auth/register', data)
     
     // In Docker mode, user is auto-approved and can log in immediately
     // No token returned from registration - user must login
@@ -98,7 +98,7 @@ export const logout = async (): Promise<void> => {
  * Get current user profile
  */
 export const getCurrentUser = async (): Promise<User> => {
-  const response = await apiClient.get<User>('/api/auth/me')
+  const response = await authClient.get<User>('/api/auth/me')
   return response.data
 }
 
