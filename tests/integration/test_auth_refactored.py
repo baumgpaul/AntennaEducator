@@ -56,7 +56,7 @@ class TestDockerModeAuth:
     def test_register_first_user_becomes_admin(self):
         """First registered user should automatically become admin."""
         response = client.post(
-            "/api/v1/auth/register",
+            "/api/auth/register",
             json={
                 "email": "first@test.com",
                 "username": "first_user",
@@ -74,7 +74,7 @@ class TestDockerModeAuth:
         """Second registered user should not be admin."""
         # Register first user
         client.post(
-            "/api/v1/auth/register",
+            "/api/auth/register",
             json={
                 "email": "first@test.com",
                 "username": "first_user",
@@ -84,7 +84,7 @@ class TestDockerModeAuth:
         
         # Register second user
         response = client.post(
-            "/api/v1/auth/register",
+            "/api/auth/register",
             json={
                 "email": "second@test.com",
                 "username": "second_user",
@@ -101,7 +101,7 @@ class TestDockerModeAuth:
         """Approved user should be able to login."""
         # Register user (auto-approved in Docker mode)
         client.post(
-            "/api/v1/auth/register",
+            "/api/auth/register",
             json={
                 "email": "user@test.com",
                 "username": "testuser",
@@ -111,7 +111,7 @@ class TestDockerModeAuth:
         
         # Login
         response = client.post(
-            "/api/v1/auth/login",
+            "/api/auth/login",
             json={
                 "email": "user@test.com",
                 "password": "SecurePass123!"
@@ -139,7 +139,7 @@ class TestDockerModeAuth:
         
         # Try to login
         response = client.post(
-            "/api/v1/auth/login",
+            "/api/auth/login",
             json={
                 "email": "unapproved@test.com",
                 "password": "SecurePass123!"
@@ -153,7 +153,7 @@ class TestDockerModeAuth:
         """User with valid token should access protected endpoint."""
         # Register and login
         client.post(
-            "/api/v1/auth/register",
+            "/api/auth/register",
             json={
                 "email": "user@test.com",
                 "username": "testuser",
@@ -162,7 +162,7 @@ class TestDockerModeAuth:
         )
         
         login_response = client.post(
-            "/api/v1/auth/login",
+            "/api/auth/login",
             json={
                 "email": "user@test.com",
                 "password": "SecurePass123!"
@@ -173,7 +173,7 @@ class TestDockerModeAuth:
         
         # Access protected endpoint
         response = client.get(
-            "/api/v1/auth/me",
+            "/api/auth/me",
             headers={"Authorization": f"Bearer {token}"}
         )
         
@@ -183,7 +183,7 @@ class TestDockerModeAuth:
     
     def test_access_protected_endpoint_without_token_fails(self):
         """Accessing protected endpoint without token should fail."""
-        response = client.get("/api/v1/auth/me")
+        response = client.get("/api/auth/me")
         
         # HTTPBearer returns 401 when credentials are missing
         assert response.status_code == 401
@@ -191,7 +191,7 @@ class TestDockerModeAuth:
     def test_access_protected_endpoint_with_invalid_token_fails(self):
         """Accessing protected endpoint with invalid token should fail."""
         response = client.get(
-            "/api/v1/auth/me",
+            "/api/auth/me",
             headers={"Authorization": "Bearer invalid-token-here"}
         )
         

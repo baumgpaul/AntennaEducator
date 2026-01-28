@@ -11,8 +11,9 @@ import os
 # Use a file-based SQLite database that can be shared across connections
 os.environ["DATABASE_URL"] = "sqlite:///./test_projects.db"
 
-# Disable the DISABLE_AUTH flag for tests - we want to test real authentication
-os.environ["DISABLE_AUTH"] = "false"
+# Use Docker auth mode (JWT) for tests
+os.environ["USE_COGNITO"] = "false"
+os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-testing-only"
 
 # Add backend directory to path for consistent imports
 backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))

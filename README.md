@@ -164,6 +164,35 @@ AntennaEducator/
 
 ## Getting Started
 
+### Authentication System
+
+The application supports two authentication modes:
+
+**🐳 Docker Mode (Local Development)**
+- **JWT-based authentication** with local secret key
+- **Auto-approval**: Users are automatically approved upon registration
+- **First user becomes admin** automatically
+- **Best for**: Local development and testing
+
+**☁️ AWS Mode (Production)**
+- **AWS Cognito authentication** with email verification
+- **Manual approval**: Admin must approve users via custom:approved attribute
+- **Email verification required** before first login
+- **Best for**: Production deployments
+
+**Environment Configuration:**
+```bash
+# Docker Mode (default for local dev)
+USE_COGNITO=false
+JWT_SECRET_KEY=your-secret-key-here
+
+# AWS Mode (production)
+USE_COGNITO=true
+COGNITO_USER_POOL_ID=your-pool-id
+COGNITO_CLIENT_ID=your-client-id
+COGNITO_REGION=eu-west-1
+```
+
 ### Quick Start - Full Stack (Docker)
 
 Run the entire application (frontend + backend + infrastructure):
@@ -192,10 +221,11 @@ npm run dev
 # The app will be available at http://localhost:3000
 ```
 
-**Mock Login:**
-- Email: any@example.com
-- Password: anything
-- You'll be logged in and can explore the UI
+**Login:**
+- The frontend uses the unified auth service
+- Register a new account (first user becomes admin in Docker mode)
+- Or use Cognito for AWS deployments
+- See Authentication System section above for configuration
 
 ### Backend Development
 
