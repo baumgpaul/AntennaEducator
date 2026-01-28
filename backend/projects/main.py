@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 logger.info("="*80)
 logger.info("ENVIRONMENT DEBUG INFO")
 logger.info(f"Current working directory: {os.getcwd()}")
-logger.info(f"DISABLE_AUTH env var: {os.getenv('DISABLE_AUTH', 'NOT SET')}")
+logger.info(f"USE_COGNITO env var: {os.getenv('USE_COGNITO', 'NOT SET')}")
 logger.info(f".env file exists: {os.path.exists('.env')}")
 if os.path.exists('.env'):
     with open('.env', 'r') as f:
