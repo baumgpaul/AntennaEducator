@@ -167,11 +167,32 @@ async def get_current_user(
             user_item = response.get('Item')
             
             if not user_item:
-                logger.warning(f"User record not found in DynamoDB: {token_data.user_id}")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User record not found"
-                )
+                # Lazy initialization: Create user record on first API call
+                # This handles users who register directly via Cognito SDK
+                logger.info(f"Lazy init: Creating DynamoDB record for Cognito user {token_data.user_id}")
+                
+                from datetime import datetime
+                
+                # Extract username from email or use a default
+                email = token_data.email or "unknown@example.com"
+                username = email.split('@')[0] if email else f"user_{token_data.user_id[:8]}"
+                
+                # Create user record
+                user_item = {
+                    'PK': f'USER#{token_data.user_id}',
+                    'SK': 'METADATA',
+                    'user_id': token_data.user_id,
+                    'email': email,
+                    'username': username,
+                    'is_approved': True,
+                    'is_locked': False,
+                    'is_admin': False,
+                    'created_at': datetime.utcnow().isoformat(),
+                    'entity_type': 'user'
+                }
+                
+                users_table.put_item(Item=user_item)
+                logger.info(f"Created DynamoDB record for Cognito user: {email}")
             
             # Check if user is locked (new field)
             is_locked = user_item.get('is_locked', False)
@@ -185,7 +206,7 @@ async def get_current_user(
             # Create User object from DynamoDB data
             user = User(
                 id=token_data.user_id,  # Cognito sub (UUID)
-                email=token_data.email or "unknown@example.com",
+                email=token_data.email or user_item.get('email', "unknown@example.com"),
                 username=user_item.get('username', token_data.email.split('@')[0] if token_data.email else "unknown"),
                 password_hash="",  # Not used in Cognito mode
                 is_approved=user_item.get('is_approved', True),  # Keep for backward compatibility
