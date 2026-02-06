@@ -23,8 +23,7 @@ class ProjectBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
     description: Optional[str] = Field(
         None,
-        max_length=2000,
-        description="Human-readable project description",
+        description="Human-readable project description (also accepts legacy JSON-encoded elements)",
     )
     design_state: Optional[Dict[str, Any]] = Field(
         None,
@@ -62,7 +61,7 @@ class ProjectUpdate(BaseModel):
     """Schema for updating a project — all fields optional."""
 
     name: Optional[str] = Field(None, min_length=3, max_length=100)
-    description: Optional[str] = Field(None, max_length=2000)
+    description: Optional[str] = Field(None)
     design_state: Optional[Dict[str, Any]] = None
     simulation_config: Optional[Dict[str, Any]] = None
     simulation_results: Optional[Dict[str, Any]] = None
