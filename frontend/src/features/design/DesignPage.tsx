@@ -137,57 +137,43 @@ function DesignPage() {
     }
   }, [projectId, dispatch]);
 
-  // Parse and restore design elements from project description
+  // Parse and restore design elements from project
   useEffect(() => {
     if (!currentProject) return;
 
-    // Load requested fields from project
-    if (currentProject.requested_fields && Array.isArray(currentProject.requested_fields)) {
-      console.log('Loading requested fields from project:', currentProject.requested_fields);
-      dispatch(setFieldDefinitions(currentProject.requested_fields));
+    // Load requested fields from simulation_config
+    const simConfig = currentProject.simulation_config;
+    if (simConfig?.requested_fields && Array.isArray(simConfig.requested_fields)) {
+      console.log('Loading requested fields from simulation_config:', simConfig.requested_fields);
+      dispatch(setFieldDefinitions(simConfig.requested_fields));
     } else {
-      // No requested fields - clear any existing ones
       dispatch(setFieldDefinitions([]));
     }
 
-    // Load view configurations from project
-    if (currentProject.view_configurations && Array.isArray(currentProject.view_configurations)) {
-      console.log('Loading view configurations from project:', currentProject.view_configurations);
-      dispatch(loadViewConfigurations(currentProject.view_configurations));
+    // Load view configurations from ui_state
+    const uiState = currentProject.ui_state;
+    if (uiState?.view_configurations && Array.isArray(uiState.view_configurations)) {
+      console.log('Loading view configurations from ui_state:', uiState.view_configurations);
+      dispatch(loadViewConfigurations(uiState.view_configurations));
     } else {
-      // No view configurations - clear any existing ones
       dispatch(clearViewConfigurations());
     }
 
-    // Load solver state from project
-    if (currentProject.solver_state) {
-      console.log('Loading solver state from project');
-      dispatch(loadSolverState(currentProject.solver_state));
+    // Load solver state from simulation_results
+    if (currentProject.simulation_results && Object.keys(currentProject.simulation_results).length > 0) {
+      console.log('Loading solver state from simulation_results');
+      dispatch(loadSolverState(currentProject.simulation_results));
     } else {
-      // No solver state - this is a new/empty project, clear solver state
-      console.log('No solver state in project - resetting solver');
+      console.log('No simulation results — resetting solver');
       dispatch(resetSolver());
     }
 
-    // If project has JSON description, parse and restore elements
-    if (currentProject.description && currentProject.description.startsWith('[')) {
-      try {
-        const designElements = JSON.parse(currentProject.description);
-        console.log('Restored design elements from project:', designElements);
-        // Dispatch action to load elements into design state
-        if (Array.isArray(designElements) && designElements.length > 0) {
-          dispatch(loadDesign({ elements: designElements }));
-        } else {
-          // Empty array in description - clear design
-          dispatch(loadDesign({ elements: [] }));
-        }
-      } catch (error) {
-        console.error('Failed to parse design elements from project description:', error);
-        // On parse error, clear design to prevent showing old elements
-        dispatch(loadDesign({ elements: [] }));
-      }
+    // Restore design elements from design_state
+    const designState = currentProject.design_state;
+    if (designState?.elements && Array.isArray(designState.elements) && designState.elements.length > 0) {
+      console.log('Restored design elements from design_state:', designState.elements);
+      dispatch(loadDesign({ elements: designState.elements }));
     } else {
-      // No description or non-JSON description - this is an empty project, clear design
       console.log('Empty project loaded, clearing design state');
       dispatch(loadDesign({ elements: [] }));
     }
@@ -208,18 +194,25 @@ function DesignPage() {
         setShowSaveIndicator(true);
         setSaveError(null);
 
-        // Save project elements, requested fields, view configurations, and solver state to backend
+        // Save using structured JSON blobs instead of description hack
         await dispatch(updateProject({
           id: projectId,
           data: {
-            // Store elements as JSON in description field
-            description: JSON.stringify(projectElements),
-            // Store requested fields in dedicated column
-            requested_fields: fields,
-            // Store view configurations
-            view_configurations: views,
-            // Store solver state
-            solver_state: solverData,
+            // Elements snapshot with schema version
+            design_state: {
+              elements: projectElements,
+              version: 2,
+            },
+            // Solver / postprocessor settings
+            simulation_config: {
+              requested_fields: fields,
+            },
+            // Solver output
+            simulation_results: solverData,
+            // Frontend-only view state
+            ui_state: {
+              view_configurations: views,
+            },
           },
         })).unwrap();
         

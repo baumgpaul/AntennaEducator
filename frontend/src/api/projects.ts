@@ -12,17 +12,19 @@ const USE_MOCK_API = false; // Real Projects API is now working!
 export interface CreateProjectRequest {
   name: string;
   description?: string;
-  requested_fields?: any[];  // Field definitions for solver
-  view_configurations?: any[];  // View configurations for postprocessing
-  solver_state?: any;  // Solver results, state, and field data
+  design_state?: Record<string, any>;       // Design snapshot (elements, sources, etc.)
+  simulation_config?: Record<string, any>;  // Method, frequency config, requested fields
+  simulation_results?: Record<string, any>; // Solver output summary + S3 keys
+  ui_state?: Record<string, any>;           // View configs, tabs, camera position
 }
 
 export interface UpdateProjectRequest {
   name?: string;
   description?: string;
-  requested_fields?: any[];  // Field definitions for solver
-  view_configurations?: any[];  // View configurations for postprocessing
-  solver_state?: any;  // Solver results, state, and field data
+  design_state?: Record<string, any>;
+  simulation_config?: Record<string, any>;
+  simulation_results?: Record<string, any>;
+  ui_state?: Record<string, any>;
 }
 
 /**
