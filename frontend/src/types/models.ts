@@ -277,9 +277,10 @@ export interface Project {
   id: string | number  // Backend uses integer IDs, mock API uses string IDs
   name: string
   description?: string
-  requested_fields?: any[]  // Field definitions for solver (JSON array)
-  view_configurations?: any[]  // View configurations for postprocessing (JSON array)
-  solver_state?: any  // Solver results, state, and field data (JSON object)
+  design_state?: Record<string, any>       // Elements, sources, positions — versioned snapshot
+  simulation_config?: Record<string, any>  // Method, frequency config, requested fields, postprocessing
+  simulation_results?: Record<string, any> // Solver output summary + S3 keys
+  ui_state?: Record<string, any>           // View configs, selected tabs, camera position
   user_id?: string | number
   created_at: string
   updated_at: string

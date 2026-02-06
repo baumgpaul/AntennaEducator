@@ -915,41 +915,106 @@ export const computeRadiationPattern = createAsyncThunk<
       return rejectWithValue('No solver results or mesh data available');
     }
 
-    // Get mesh data from first element (for now)
-    const element = elements[0];
-    if (!element.mesh) {
-      return rejectWithValue('No mesh data available');
-    }
-
-    const mesh = element.mesh;
-
     // Get directivity discretization settings
     const { directivitySettings } = state.solver;
 
     // Determine frequencies and branch currents
     const frequencies = isSweepMode ? frequencySweep.frequencies : (currentFrequency ? [currentFrequency * 1e6] : [results!.frequency]);
+    
+    // Check if results is multi-antenna format
+    const isMultiAntenna = (results as any)?.antenna_solutions !== undefined;
+    
+    // For multi-antenna: combine all meshes into one (concatenate nodes/edges/radii)
+    let combinedNodes: number[][] = [];
+    let combinedEdges: number[][] = [];
+    let combinedRadii: number[] = [];
+    let combinedBranchCurrents: any[] = [];
+    
+    if (isMultiAntenna) {
+      console.log('Multi-antenna radiation pattern - combining meshes from all elements');
+      const antenna_solutions = (results as any).antenna_solutions;
+      
+      let nodeOffset = 0;
+      for (let i = 0; i < elements.length; i++) {
+        const element = elements[i];
+        if (!element.mesh) {
+          console.warn(`Element ${i} has no mesh, skipping`);
+          continue;
+        }
+        
+        const mesh = element.mesh;
+        
+        // Add nodes (with position offset already applied)
+        const offsetNodes = mesh.nodes.map(node => [
+          node[0] + element.position[0],
+          node[1] + element.position[1],
+          node[2] + element.position[2]
+        ]);
+        combinedNodes.push(...offsetNodes);
+        
+        // Add edges (adjusting indices by nodeOffset)
+        const offsetEdges = mesh.edges.map(edge => [
+          edge[0] + nodeOffset,
+          edge[1] + nodeOffset
+        ]);
+        combinedEdges.push(...offsetEdges);
+        
+        // Add radii
+        combinedRadii.push(...mesh.radii);
+        
+        // Add branch currents from corresponding antenna solution
+        if (antenna_solutions[i]) {
+          combinedBranchCurrents.push(...antenna_solutions[i].branch_currents);
+        }
+        
+        nodeOffset += mesh.nodes.length;
+      }
+      
+      console.log('Combined mesh for radiation pattern:', {
+        totalNodes: combinedNodes.length,
+        totalEdges: combinedEdges.length,
+        totalRadii: combinedRadii.length,
+        totalBranchCurrents: combinedBranchCurrents.length
+      });
+    } else {
+      // Single antenna: use first element's mesh
+      const element = elements[0];
+      if (!element.mesh) {
+        return rejectWithValue('No mesh data available');
+      }
+      
+      const mesh = element.mesh;
+      combinedNodes = mesh.nodes;
+      combinedEdges = mesh.edges;
+      combinedRadii = mesh.radii;
+      combinedBranchCurrents = results!.branch_currents;
+    }
+    
     // For sweep, extract branch_currents from antenna_solutions[0] in each result
+    // For single solve, use the combined branch currents
     const branch_currents_array = isSweepMode 
       ? frequencySweep.results.map(r => r.antenna_solutions?.[0]?.branch_currents || [])
-      : [results!.branch_currents];
+      : [combinedBranchCurrents];
 
     // Prepare request for far-field computation
     const request = {
       frequencies: frequencies,
       branch_currents: branch_currents_array,
-      nodes: mesh.nodes,
-      edges: mesh.edges,
-      radii: mesh.radii,
+      nodes: combinedNodes,
+      edges: combinedEdges,
+      radii: combinedRadii,
       theta_points: directivitySettings.theta_points,
       phi_points: directivitySettings.phi_points,
     };
 
     console.log('Computing far-field radiation pattern:', {
       isSweepMode,
+      isMultiAntenna,
       numFrequencies: frequencies.length,
       firstFrequency: frequencies[0],
-      nodes: mesh.nodes.length,
-      edges: mesh.edges.length,
+      nodes: combinedNodes.length,
+      edges: combinedEdges.length,
+      radii: combinedRadii.length,
       branch_currents_arrays: branch_currents_array.length,
       first_array_length: branch_currents_array[0]?.length,
     });
@@ -1366,7 +1431,20 @@ const solverSlice = createSlice({
           return Math.sqrt(real * real + imag * imag);
         });
       } else {
-        // Multiple antennas: combine all branch currents for visualization
+        // Multiple antennas: store the full multi-antenna response for postprocessing
+        // and combine all branch currents for visualization
+        console.log('Multiple antennas detected, storing multi-antenna results');
+        
+        state.results = {
+          project_id: 'default',
+          frequency: action.payload.frequency,
+          omega: action.payload.frequency * 2 * Math.PI,
+          converged: action.payload.converged,
+          // Store antenna_solutions in the results for postprocessing
+          antenna_solutions: action.payload.antenna_solutions,
+          solve_time: action.payload.solve_time,
+        } as any; // Multi-antenna results have a different shape
+        
         const allCurrents: number[] = [];
         for (const solution of action.payload.antenna_solutions) {
           const currents = parseComplexArray(solution.branch_currents).map((current) => {
