@@ -5,7 +5,6 @@ Tests for data models.
 import pytest
 from uuid import UUID
 from backend.common.models.geometry import Source, AntennaElement, Mesh, Geometry
-from backend.common.models.project import Project, ProjectStatus
 from backend.common.models.solver import SolverJob, SolverConfig, FrequencyConfig, SolverJobType
 
 
@@ -98,19 +97,6 @@ def test_geometry_add_remove_element(sample_geometry, sample_loop_element):
     success = geometry.remove_element(sample_loop_element.id)
     assert success
     assert geometry.num_elements == 1
-
-
-def test_project_model(sample_project):
-    """Test Project model."""
-    project = sample_project
-    
-    assert project.name == "Test Project"
-    assert project.status == ProjectStatus.DRAFT
-    assert isinstance(project.id, UUID)
-    
-    # Test status update
-    project.update_status(ProjectStatus.MESHED)
-    assert project.status == ProjectStatus.MESHED
 
 
 def test_solver_config_model(sample_solver_config):

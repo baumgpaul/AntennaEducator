@@ -6,7 +6,6 @@ import pytest
 import numpy as np
 from uuid import uuid4
 from backend.common.models.geometry import Geometry, AntennaElement, Mesh, Source
-from backend.common.models.project import Project, ProjectStatus
 from backend.common.models.solver import SolverJob, SolverConfig, FrequencyConfig, SolverJobType
 
 
@@ -91,16 +90,6 @@ def sample_geometry(sample_dipole_element, sample_mesh):
 
 
 @pytest.fixture
-def sample_project():
-    """Create a sample project."""
-    return Project(
-        name="Test Project",
-        description="A test project for antenna simulation",
-        status=ProjectStatus.DRAFT
-    )
-
-
-@pytest.fixture
 def sample_solver_config():
     """Create a sample solver configuration."""
     return SolverConfig(
@@ -130,10 +119,10 @@ def sample_frequency_sweep_config():
 
 
 @pytest.fixture
-def sample_solver_job(sample_project, sample_frequency_config, sample_solver_config):
+def sample_solver_job(sample_frequency_config, sample_solver_config):
     """Create a sample solver job."""
     return SolverJob(
-        project_id=sample_project.id,
+        project_id=uuid4(),
         type=SolverJobType.SINGLE_FREQUENCY,
         frequency_config=sample_frequency_config,
         solver_config=sample_solver_config
