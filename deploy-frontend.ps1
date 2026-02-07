@@ -102,12 +102,7 @@ Write-Host "S3 sync completed successfully!" -ForegroundColor Green
 
 # Get CloudFront Distribution ID
 Write-Host "`nFetching CloudFront Distribution ID..." -ForegroundColor Cyan
-$distributionId = aws cloudfront list-distributions --profile $Profile --query "DistributionList.Items[?Origins.Items[?DomainName=='$bucketName.s3.$((Get-AWSRegion -ProfileName $Profile).Region).amazonaws.com']].Id | [0]" --output text 2>$null
-
-if (-not $distributionId -or $distributionId -eq "None") {
-    # Try alternative query
-    $distributionId = aws cloudfront list-distributions --profile $Profile --query "DistributionList.Items[?contains(Origins.Items[0].DomainName, '$bucketName')].Id | [0]" --output text 2>$null
-}
+$distributionId = aws cloudfront list-distributions --profile $Profile --query "DistributionList.Items[?contains(Origins.Items[0].DomainName, '$bucketName')].Id | [0]" --output text 2>$null
 
 if ($distributionId -and $distributionId -ne "None") {
     Write-Host "CloudFront Distribution ID: $distributionId" -ForegroundColor Green
