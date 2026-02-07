@@ -11,7 +11,10 @@ import numpy as np
 from backend.common.constants import Z_0
 
 # NumPy 2.0 renamed trapz → trapezoid; support both
-_trapezoid = getattr(np, "trapezoid", np.trapz)
+try:
+    _trapezoid = np.trapezoid  # NumPy >= 2.0
+except AttributeError:
+    _trapezoid = np.trapz  # NumPy < 2.0
 
 
 def compute_radiation_intensity(E_theta: np.ndarray, E_phi: np.ndarray) -> np.ndarray:

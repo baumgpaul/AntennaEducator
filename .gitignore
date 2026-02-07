@@ -90,8 +90,8 @@ test_outputs/
 *.npz
 *.hdf5
 *.h5
-data/
-results/
+/data/
+/results/
 
 # Archived docs (completed-phase artifacts)
 docs/archive/
