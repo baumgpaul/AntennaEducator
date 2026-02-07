@@ -8,7 +8,7 @@ Changes from v1:
 
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -84,7 +84,7 @@ class DynamoDBProjectRepository(ProjectRepository):
         description: Optional[str] = None,
     ) -> Dict[str, Any]:
         project_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         item = {
             "PK": f"USER#{user_id}",
@@ -147,7 +147,7 @@ class DynamoDBProjectRepository(ProjectRepository):
             raise ValueError(f"Project {project_id} not found")
 
         user_id = project["user_id"]
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         parts = ["SET UpdatedAt = :updated"]
         values: Dict[str, Any] = {":updated": now}

@@ -46,13 +46,13 @@ if not os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
 
 @app.get("/health")
 async def health_check():
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     provider = create_auth_provider()
     return {
         "status": "healthy",
         "service": "auth",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "auth_mode": type(provider).__name__,
     }
 

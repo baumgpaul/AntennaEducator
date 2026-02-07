@@ -1,5 +1,7 @@
 """
-Test the complete flow: solve with multi-antenna, then compute far-field
+Test the complete flow: solve with multi-antenna, then compute far-field.
+
+Requires solver (port 8002) and postprocessor (port 8003) services running.
 """
 import pytest
 import numpy as np
@@ -8,6 +10,16 @@ import requests
 SOLVER_URL = "http://localhost:8002"
 POSTPROCESSOR_URL = "http://localhost:8003"
 
+
+def _solver_available() -> bool:
+    try:
+        requests.get(f"{SOLVER_URL}/health", timeout=2)
+        return True
+    except Exception:
+        return False
+
+
+@pytest.mark.skipif(not _solver_available(), reason="Solver service not running on port 8002")
 def test_complete_dipole_farfield_flow():
     """Test complete flow from solve to far-field computation"""
     
