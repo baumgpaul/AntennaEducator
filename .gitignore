@@ -93,6 +93,9 @@ test_outputs/
 data/
 results/
 
+# Archived docs (completed-phase artifacts)
+docs/archive/
+
 # Node (root-level, from accidental npx)
 /node_modules/
 
@@ -102,9 +105,6 @@ Thumbs.db
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
-
-# MATLAB (keeping reference code)
-Matlab/
 
 # Images (generated plots)
 *.png

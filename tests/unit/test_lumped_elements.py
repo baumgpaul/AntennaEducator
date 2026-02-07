@@ -2,7 +2,7 @@
 Unit tests for lumped element models.
 
 Tests the new LumpedElement model and enhanced Source/AntennaElement models
-to ensure they correctly support MATLAB-style circuit definitions.
+to ensure they correctly support standard PEEC circuit definitions.
 """
 
 import pytest
@@ -132,7 +132,7 @@ class TestEnhancedSource:
         assert source.series_C_inv == 0.0
     
     def test_voltage_source_with_series_impedance(self):
-        """Test voltage source with series impedance (matches MATLAB)."""
+        """Test voltage source with series impedance (matches PEEC convention)."""
         source = Source(
             type="voltage",
             amplitude=complex(1.0, 0.0),
@@ -212,7 +212,7 @@ class TestAntennaElementWithLumpedElements:
     
     def test_antenna_element_with_matching_network(self):
         """Test antenna element with multiple lumped elements (matching network)."""
-        # Example: Calibration coil with matching network (like MATLAB createCalCoil)
+        # Example: Calibration coil with matching network (reference createCalCoil)
         element = AntennaElement(
             name="Cal coil with matching",
             type="custom",
@@ -322,12 +322,12 @@ class TestAntennaElementWithLumpedElements:
         assert dipole2.lumped_elements[0].type == "capacitor"
 
 
-class TestMATLABCompatibility:
-    """Test that models match MATLAB structure examples."""
+class TestPEECCompatibility:
+    """Test that models match reference PEEC structure examples."""
     
-    def test_matlab_dipole_example(self):
-        """Test equivalent to MATLAB createDipole.m voltage source."""
-        # MATLAB: Antenna.Circuit.Voltage_Source(1).node_start=0;
+    def test_peec_dipole_example(self):
+        """Test equivalent to reference createDipole voltage source."""
+        # Reference: Antenna.Circuit.Voltage_Source(1).node_start=0;
         #         Antenna.Circuit.Voltage_Source(1).node_end=1;
         #         Antenna.Circuit.Voltage_Source(1).value=voltage_excitation;
         #         Antenna.Circuit.Voltage_Source(1).L=0;
@@ -335,7 +335,7 @@ class TestMATLABCompatibility:
         #         Antenna.Circuit.Voltage_Source(1).C_inv=0;
         
         dipole = AntennaElement(
-            name="MATLAB-style dipole",
+            name="standard dipole",
             type="dipole",
             parameters={"length": 1.0, "gap": 0.01},
             sources=[Source(
@@ -354,9 +354,9 @@ class TestMATLABCompatibility:
         assert dipole.sources[0].node_end == 1
         assert dipole.sources[0].series_R == 0.0
     
-    def test_matlab_calcoil_load_example(self):
-        """Test equivalent to MATLAB createCalCoil.m Load structure."""
-        # MATLAB: Antenna.Circuit.Load(1).R=R_s;
+    def test_peec_calcoil_load_example(self):
+        """Test equivalent to reference createCalCoil Load structure."""
+        # Reference: Antenna.Circuit.Load(1).R=R_s;
         #         Antenna.Circuit.Load(1).L=0;
         #         Antenna.Circuit.Load(1).C_inv=0;
         #         Antenna.Circuit.Load(1).node_start=feedpoint2;
@@ -367,7 +367,7 @@ class TestMATLABCompatibility:
         feedpoint2 = 5
         
         cal_coil = AntennaElement(
-            name="MATLAB-style cal coil",
+            name="standard cal coil",
             type="custom",
             parameters={"custom": "cal_coil"},
             lumped_elements=[

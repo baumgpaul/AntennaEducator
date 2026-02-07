@@ -1,8 +1,8 @@
 """
 Tests for PEEC system matrix assembly.
 
-These tests verify the system assembly following the MATLAB implementation
-in solvePEEC_harmonic.m.
+These tests verify the system assembly following the reference PEEC implementation
+in solvePEEC_harmonic.
 """
 
 import numpy as np
@@ -424,9 +424,9 @@ class TestIntegration:
         assert S.shape[0] == len(source)
         assert Z.shape == (3, 3)  # 2 edges + 1 voltage source
         
-    def test_compare_with_matlab_structure(self):
-        """Test that assembly follows MATLAB structure."""
-        # Following MATLAB: SYSTEM = [Z A_app'; -A_app 0]
+    def test_compare_with_peec_reference_structure(self):
+        """Test that assembly follows reference PEEC structure."""
+        # Following PEEC: SYSTEM = [Z A_app'; -A_app 0]
         # and Source = [V - (1/jω)A'P*I; I_app]
         
         # Simple case
@@ -446,7 +446,7 @@ class TestIntegration:
         S = assemble_system_matrix(Z, A_app)
         source = assemble_source_vector(vsrc, isrc, A_full, P, omega, n_edges=1, n_appended=n_app)
         
-        # Verify MATLAB-style block structure
+        # Verify PEEC block structure
         n_branches = Z.shape[0]
         assert S[:n_branches, :n_branches].shape == Z.shape
         if n_app > 0:

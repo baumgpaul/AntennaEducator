@@ -18,7 +18,7 @@ def compute_self_inductance(length: float, radius: float) -> float:
     """
     Compute self-inductance of a straight wire segment.
     
-    Uses the classical formula matching MATLAB implementation:
+    Uses the classical formula matching the reference PEEC implementation:
     L_self = (μ₀/(2π)) * 2*l * [ln(l/r + sqrt((l/r)² + 1)) - sqrt(1 + (r/l)²) + r/l]
     
     Where μ₀/(2π) = 2×10⁻⁷ H/m
@@ -48,7 +48,7 @@ def compute_self_inductance(length: float, radius: float) -> float:
     if radius >= length:
         raise ValueError(f"Radius {radius} must be less than length {length} (thin wire approximation)")
 
-    # MATLAB: L = 10^-7 * 2 * Length * (aa - bb + cc)
+    # Reference: L = 10^-7 * 2 * Length * (aa - bb + cc)
     # Where 10^-7 = μ₀/(4π), so 10^-7 * 2 = μ₀/(2π) = 2e-7
     
     l_over_r = length / radius
@@ -58,7 +58,7 @@ def compute_self_inductance(length: float, radius: float) -> float:
     bb = np.sqrt(1 + r_over_l**2)
     cc = r_over_l
     
-    # Match MATLAB: 10^-7 * 2 * Length * (aa - bb + cc)
+    # Reference PEEC: 10^-7 * 2 * Length * (aa - bb + cc)
     L_self = 1e-7 * 2 * length * (aa - bb + cc)
     
     return L_self
@@ -101,7 +101,7 @@ def compute_mutual_inductance_1d(
         >>> points, weights = np.polynomial.legendre.leggauss(10)
         >>> M = compute_mutual_inductance_1d(edge1, edge2, points, weights)
     """
-    # MATLAB: Lcoeff = 10^-7 * cos_e * l_Y * 0.5 * Gauss.w' * Aabs
+    # Reference PEEC: Lcoeff = 10^-7 * cos_e * l_Y * 0.5 * Gauss.w' * Aabs
     mu_0_over_4pi = 1e-7
     
     eps = edge2.length / 1e6
@@ -155,7 +155,7 @@ def compute_mutual_inductance_1d(
     # Numerical integration using Gaussian quadrature
     integral = np.sum(gauss_weights * A_abs)
     
-    # Final mutual inductance - match MATLAB: 10^-7 * cos_e * l_Y * 0.5 * integral
+    # Final mutual inductance - reference PEEC: 10^-7 * cos_e * l_Y * 0.5 * integral
     M = mu_0_over_4pi * cos_theta * edge2.length * 0.5 * integral
     
     return M
@@ -247,7 +247,7 @@ def assemble_inductance_matrix(
     if len(radii) != n_edges:
         raise ValueError(f"Radii array has length {len(radii)}, expected {n_edges}")
     
-    # Use MATLAB-compatible Gaussian quadrature if not provided
+    # Use standard Gaussian quadrature if not provided
     if gauss_points is None or gauss_weights is None:
         gauss_points, gauss_weights = get_gauss_points(n_gauss)
     
@@ -270,7 +270,7 @@ def assemble_inductance_matrix(
             L[i, j] = M_ij
             L[j, i] = M_ij  # Symmetry
             
-            # Distance between midpoints (matching MATLAB)
+            # Distance between midpoints
             dist_ij = edges[i].distance_to(edges[j])
             dist_L[i, j] = dist_ij
             dist_L[j, i] = dist_ij  # Symmetry

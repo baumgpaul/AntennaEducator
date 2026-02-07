@@ -69,7 +69,7 @@ def main():
         print()
         print("Debug steps:")
         print("  1. Review failed test output above")
-        print("  2. Compare against MATLAB reference implementation")
+        print("  2. Compare against reference PEEC implementation")
         print("  3. Check recent solver changes")
         print("  4. Verify system matrix calculations")
         return 1

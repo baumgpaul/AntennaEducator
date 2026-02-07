@@ -2,7 +2,7 @@
 Tests for Gauss-Legendre quadrature module.
 
 These tests verify the extracted quadrature points and weights from the
-MATLAB PEEC solver match expected properties.
+PEEC solver match expected properties.
 """
 
 import numpy as np

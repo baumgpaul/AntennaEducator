@@ -80,7 +80,7 @@ def test_halfwave_dipole_complete():
     print(" GOLD STANDARD TEST: LAMBDA/2 DIPOLE")
     print("="*80)
     
-    # Setup (matching your MATLAB)
+    # Setup (matching the reference PEEC test case)
     frequency = 299.792458e6
     gap = 0.05
     radius = 0.001
@@ -104,7 +104,7 @@ def test_halfwave_dipole_complete():
     radii = np.full(10, radius)
 
     # 2 voltage sources: FROM ground (node 0) TO nodes 1 and 7
-    # Order matters to match MATLAB source vector [+1, -1]
+    # Order matters to match reference source vector [+1, -1]
     vs_upper = VoltageSource(node_start=0, node_end=1, value=1.0, R=0.0, L=0.0, C_inv=0.0)   # First
     vs_lower = VoltageSource(node_start=0, node_end=7, value=-1.0, R=0.0, L=0.0, C_inv=0.0)  # Second
 

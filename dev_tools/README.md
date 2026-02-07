@@ -25,7 +25,7 @@ dev_tools/
 ├── deploy_api_gateway.ps1           # Deploy API Gateway (may be superseded by Terraform)
 ├── deploy_cognito.ps1               # Deploy Cognito resources (may be superseded by Terraform)
 ├── test_aws_pipeline.py             # End-to-end AWS smoke test (preprocessor → solver → postprocessor)
-├── test_current_source_golden.py    # MATLAB golden-standard validation test
+├── test_current_source_golden.py    # Reference PEEC golden-standard validation test
 ├── test_incremental_postprocessing.py # Integration test using FastAPI TestClient
 ├── test_backend_quick.ps1           # Quick backend smoke test
 ├── test_cognito.ps1                 # Cognito integration test
@@ -83,7 +83,7 @@ visualize_mesh(mesh, element, console=True, plot=True, save_path="antenna.png")
 ### Validation
 
 ```powershell
-# Run MATLAB golden-standard comparison
+# Run reference PEEC golden-standard comparison
 python dev_tools/test_current_source_golden.py
 
 # Quick backend smoke test

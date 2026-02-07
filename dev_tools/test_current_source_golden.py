@@ -1,13 +1,11 @@
 """
-Golden standard test: Current source dipole matching MATLAB createDipole.m
+Golden standard test: Current source dipole matching reference createDipole implementation
 
 This test verifies that a dipole with current source excitation produces
-results matching the MATLAB implementation in createDipole.m
+results matching the reference PEEC implementation.
 
-MATLAB Reference:
-    File: Matlab/Code/+PEECAntenna/createDipole.m
-    
-    For current excitation, MATLAB creates:
+Reference Implementation:
+    For current excitation, the reference creates:
     - Current_Source(1).node = 1 (first node of upper half)
     - Current_Source(1).value = current_excitation
     - Current_Source(2).node = N_p/2+1 (first node of lower half)
@@ -26,7 +24,7 @@ from backend.postprocessor.pattern import compute_directivity, compute_total_rad
 
 def test_current_source_dipole_golden_standard():
     """
-    Golden standard test matching MATLAB createDipole.m with current excitation.
+    Golden standard test matching reference createDipole with current excitation.
     
     Test Parameters:
     - Length: 1.0 m
@@ -43,14 +41,14 @@ def test_current_source_dipole_golden_standard():
     - Current source 2: node=7, value=-1.0
     """
     print("="*80)
-    print("Golden Standard Test: Current Source Dipole (matching MATLAB)")
+    print("Golden Standard Test: Current Source Dipole")
     print("="*80)
     
-    # Define parameters matching MATLAB test case
+    # Define parameters matching reference test case
     length = 1.0  # meters
     radius = 0.001  # 1 mm
     gap = 0.01  # 10 mm
-    segments = 5  # segments per half (N_half in MATLAB)
+    segments = 5  # segments per half (N_half in reference)
     current_amplitude = 1.0  # 1 Ampere
     frequency = 100e6  # 100 MHz
     
@@ -92,7 +90,7 @@ def test_current_source_dipole_golden_standard():
     print(f"  Expected edges: {2*segments} (2 halves × {segments} segments/half)")
     
     # Verify source configuration
-    print(f"\nSource configuration (matching MATLAB):")
+    print(f"\nSource configuration (matching reference):")
     for i, source in enumerate(element.sources, 1):
         print(f"  Source {i}:")
         print(f"    Type: {source.type}")
@@ -109,7 +107,7 @@ def test_current_source_dipole_golden_standard():
     assert element.sources[0].amplitude == complex(current_amplitude, 0.0), "Source 1 amplitude mismatch"
     assert element.sources[1].amplitude == complex(-current_amplitude, 0.0), "Source 2 amplitude should be negative"
     
-    print(f"\n✓ Source configuration matches MATLAB createDipole.m!")
+    print(f"\n✓ Source configuration matches reference createDipole!")
     
     # Convert to solver format
     nodes_array = np.array(mesh.nodes)
@@ -191,7 +189,7 @@ def test_current_source_dipole_golden_standard():
     assert not np.any(np.isinf(branch_currents)), "Branch currents contain Inf"
     
     print(f"\n{'='*80}")
-    print("✓ Golden standard test PASSED - Current source dipole matches MATLAB!")
+    print("✓ Golden standard test PASSED - Current source dipole matches reference implementation!")
     print(f"{'='*80}")
     
     # Compute far-field pattern and directivity

@@ -58,7 +58,7 @@ aws = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["backend*"]
-exclude = ["Matlab*", "deployment*", "tests*", "docs*"]
+exclude = ["deployment*", "tests*", "docs*"]
 
 [tool.black]
 line-length = 100

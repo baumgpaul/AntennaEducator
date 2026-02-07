@@ -200,7 +200,7 @@ class TestDipoleToMesh:
         assert element.sources[1].node_end == 7
         assert element.sources[1].amplitude == -element.sources[0].amplitude  # Opposite polarity
     def test_dipole_to_mesh_with_gap_current_source(self):
-        """Test that current source with gap uses node injection (MATLAB style)."""
+        """Test that current source with gap uses node injection (PEEC style)."""
         source_dict = {
             "type": "current",
             "amplitude": {"real": 1.0, "imag": 0.0},

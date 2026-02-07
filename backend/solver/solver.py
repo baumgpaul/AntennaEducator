@@ -16,7 +16,7 @@ Workflow:
     5. Return frequency sweep results
 
 References:
-    - MATLAB implementation in PEECSolver/solvePEEC_harmonic.m
+    - Reference PEEC implementation: solvePEEC_harmonic
     - Ruehli, A.E., "Partial Element Equivalent Circuit (PEEC) Models"
 
 Author: PEEC Solver Development
@@ -240,7 +240,7 @@ def solve_peec_frequency_sweep(
     max_node = max(max(e) for e in edges)
     
     # Compute node-based potential matrix P (required for A'PA coupling)
-    # This is (n_nodes × n_nodes) following MATLAB implementation
+    # This is (n_nodes × n_nodes) following the reference PEEC implementation
     # Uses Cap_Elem representation for each node
     n_nodes = len(nodes)
     if n_physical_edges > 0:
@@ -284,7 +284,7 @@ def solve_peec_frequency_sweep(
         omega = 2 * np.pi * freq
         
         # Apply retarded potential phase correction to inductance
-        # Following MATLAB: retardation applied only to off-diagonal terms
+        # Following the reference implementation: retardation applied only to off-diagonal terms
         # Ret_L =  exp(-1i*beta*dist_L);
         # L = diag(diag(L))+triu(L,1)+triu(L,1).';
         # Ret_L = triu(Ret_L,1)+triu(Ret_L,1).';
@@ -300,7 +300,7 @@ def solve_peec_frequency_sweep(
             L_physical_retarded = L_physical
         
         # Apply retarded potential phase correction to nodal potential matrix
-        # Following MATLAB: retardation applied only to off-diagonal terms
+        # Following the reference implementation: retardation applied only to off-diagonal terms
         # Ret_P = exp(-1i*beta*dist_P);
         # P = diag(diag(P))+triu(P,1)+triu(P,1).';
         # Ret_P = triu(Ret_P,1)+triu(Ret_P,1).';
@@ -348,7 +348,7 @@ def solve_peec_frequency_sweep(
             loads=loads
         )
         
-        # Assemble system matrix (only use A_app, following MATLAB)
+        # Assemble system matrix (only use A_app, per PEEC formulation)
         system_matrix = assemble_system_matrix(Z, A_app)
         
         # Assemble source vector with capacitive coupling (use retarded P)
@@ -366,7 +366,7 @@ def solve_peec_frequency_sweep(
                 vsrc_current = I[vsrc_branch_idx]
                 logger.debug(f"First voltage source current: {vsrc_current} A")
         
-        # Compute node voltages (following MATLAB: V = (1/jω)*(P*I_source + P*A*I))
+        # Compute node voltages (per PEEC: V = (1/jω)*(P*I_source + P*A*I))
         V = compute_node_voltages(I, I_source, A, P_nodal_retarded, omega)
         
         # Compute input impedance/admittance
@@ -708,7 +708,7 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
     Merge multiple antennas into a unified system.
     
     Combines geometry, renumbers nodes with offsets, tracks per-antenna metadata.
-    Follows Matlab solvePEECLinear.m lines 26-154.
+    Follows the reference PEEC multi-antenna merge implementation.
     
     Args:
         antennas: List of AntennaInput objects from schemas
@@ -908,7 +908,7 @@ def distribute_solution(
     Distribute combined solution back to individual antennas.
     
     Slices solution vectors using stored offsets.
-    Follows Matlab solvePEECLinear.m lines 162-230.
+    Follows the reference PEEC solution distribution implementation.
     
     Args:
         solution: FrequencyPoint from combined system solve
