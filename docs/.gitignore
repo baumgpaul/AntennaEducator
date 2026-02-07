@@ -1,1 +1,4 @@
-/*.md
+# Archive folder (old/completed docs)
+archive/
+
+# Allow all other .md files in docs/
