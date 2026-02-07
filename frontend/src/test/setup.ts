@@ -51,6 +51,7 @@ global.ResizeObserver = vi.fn().mockImplementation(() => ({
 // Mock mui-color-input to avoid ESM import issues
 vi.mock('mui-color-input', () => ({
   MuiColorInput: vi.fn(({ value, onChange, label, ...props }) => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const React = require('react');
     return React.createElement('input', {
       'data-testid': 'color-input',

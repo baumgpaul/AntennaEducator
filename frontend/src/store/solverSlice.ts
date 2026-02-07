@@ -961,6 +961,7 @@ const solverSlice = createSlice({
               imag: -totalSourceCurrent.imag / I_mag_sq
             };
           } else {
+            // No significant source current — impedance left as default
           }
         }
 

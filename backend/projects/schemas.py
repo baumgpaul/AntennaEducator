@@ -10,12 +10,12 @@ Changes from v1:
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ── Project Schemas ───────────────────────────────────────────────────────────
+
 
 class ProjectBase(BaseModel):
     """Fields shared by create / update / response."""
@@ -54,6 +54,7 @@ class ProjectBase(BaseModel):
 
 class ProjectCreate(ProjectBase):
     """Schema for creating a project."""
+
     pass
 
 

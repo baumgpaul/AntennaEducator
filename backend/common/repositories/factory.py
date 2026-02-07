@@ -23,8 +23,7 @@ def get_project_repository() -> ProjectRepository:
         from backend.common.repositories.dynamodb_repository import (
             DynamoDBProjectRepository,
         )
+
         return DynamoDBProjectRepository()
 
-    raise NotImplementedError(
-        "Only DynamoDB is supported. Set USE_DYNAMODB=true."
-    )
+    raise NotImplementedError("Only DynamoDB is supported. Set USE_DYNAMODB=true.")

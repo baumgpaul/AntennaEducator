@@ -2,12 +2,19 @@
 Test for the common constants module.
 """
 
-import pytest
 import numpy as np
+
 from backend.common.constants import (
-    MU_0, EPSILON_0, C_0, Z_0,
-    wavelength, wavenumber, skin_depth, segments_for_wavelength,
-    DEFAULT_WIRE_RADIUS, DEFAULT_SEGMENTS_PER_WAVELENGTH
+    C_0,
+    DEFAULT_SEGMENTS_PER_WAVELENGTH,
+    DEFAULT_WIRE_RADIUS,
+    EPSILON_0,
+    MU_0,
+    Z_0,
+    segments_for_wavelength,
+    skin_depth,
+    wavelength,
+    wavenumber,
 )
 
 
@@ -16,7 +23,7 @@ def test_physical_constants():
     # Speed of light check: c = 1 / sqrt(mu_0 * epsilon_0)
     c_calculated = 1.0 / np.sqrt(MU_0 * EPSILON_0)
     assert abs(c_calculated - C_0) < 1.0  # Within 1 m/s
-    
+
     # Impedance of free space: Z_0 = sqrt(mu_0 / epsilon_0)
     z_calculated = np.sqrt(MU_0 / EPSILON_0)
     assert abs(z_calculated - Z_0) < 0.1  # Within 0.1 Ohm

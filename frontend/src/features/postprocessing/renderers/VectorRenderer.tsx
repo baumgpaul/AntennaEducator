@@ -25,24 +25,18 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   const fieldId = item.fieldId;
   const field = fieldId ? requestedFields?.find((f) => f.id === fieldId) : requestedFields?.[0];
 
-  if (!field || !fieldData || !frequencyHz) {
-    return null;
-  }
-
-  // Get field data for this frequency
-  const dataForFrequency = fieldData[field.id]?.[frequencyHz];
-
-  if (!dataForFrequency) {
-    return null;
-  }
+  // Get field data for this frequency (safe access before early return)
+  const dataForFrequency = (field && fieldData && frequencyHz)
+    ? fieldData[field.id]?.[frequencyHz]
+    : undefined;
 
   // Determine which vectors to use (E or H field)
-  const vectors = field.fieldType === 'E' ? dataForFrequency.E_vectors : dataForFrequency.H_vectors;
-  const magnitudes = field.fieldType === 'E' ? dataForFrequency.E_mag : dataForFrequency.H_mag;
-
-  if (!vectors || !magnitudes) {
-    return null;
-  }
+  const vectors = dataForFrequency
+    ? (field?.fieldType === 'E' ? dataForFrequency.E_vectors : dataForFrequency.H_vectors)
+    : undefined;
+  const magnitudes = dataForFrequency
+    ? (field?.fieldType === 'E' ? dataForFrequency.E_mag : dataForFrequency.H_mag)
+    : undefined;
 
   // Get visualization properties
   const colorMap = item.colorMap || 'jet';
@@ -51,20 +45,22 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   const valueRangeMode = item.valueRangeMode || 'auto';
 
   // Calculate value range
-  const min = valueRangeMode === 'manual' 
-    ? item.valueRangeMin || 0 
-    : Math.min(...magnitudes);
-  const max = valueRangeMode === 'manual' 
-    ? item.valueRangeMax || 1 
-    : Math.max(...magnitudes);
+  const min = (magnitudes && magnitudes.length > 0)
+    ? (valueRangeMode === 'manual' ? item.valueRangeMin || 0 : Math.min(...magnitudes))
+    : 0;
+  const max = (magnitudes && magnitudes.length > 0)
+    ? (valueRangeMode === 'manual' ? item.valueRangeMax || 1 : Math.max(...magnitudes))
+    : 1;
 
   // Create colors for each vector
   const colors = useMemo(() => {
+    if (!magnitudes) return new Float32Array(0);
     return createColorArray(magnitudes, colorMap as any, min, max);
   }, [magnitudes, colorMap, min, max]);
 
   // Create arrow helpers
   const arrows = useMemo(() => {
+    if (!dataForFrequency || !vectors || !magnitudes) return [];
     return dataForFrequency.points.map((point, index) => {
       if (index >= vectors.length) return null;
 
@@ -101,7 +97,11 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
         color,
       };
     }).filter(Boolean);
-  }, [dataForFrequency.points, vectors, magnitudes, colors, arrowSize, min, max]);
+  }, [dataForFrequency?.points, vectors, magnitudes, colors, arrowSize, min, max]);
+
+  if (!field || !fieldData || !frequencyHz || !dataForFrequency || !vectors || !magnitudes) {
+    return null;
+  }
 
   return (
     <group>

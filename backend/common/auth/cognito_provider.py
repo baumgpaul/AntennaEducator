@@ -7,9 +7,8 @@ verified** against Cognito's public JWKS keys instead of being merely
 base64-decoded.
 """
 
-import os
-import json
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from typing import Dict, Optional
@@ -17,9 +16,9 @@ from typing import Dict, Optional
 import boto3
 import requests
 from botocore.exceptions import ClientError
-from jose import jwt, jwk, JWTError
+from jose import JWTError, jwt
 
-from backend.common.auth.identity import UserIdentity, TokenResponse, TokenData
+from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity
 from backend.common.auth.provider import AuthProvider
 
 logger = logging.getLogger(__name__)
@@ -34,9 +33,7 @@ JWKS_URL = (
     f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com"
     f"/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
 )
-ISSUER = (
-    f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}"
-)
+ISSUER = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}"
 
 # Cache JWKS keys for 1 hour
 _jwks_cache: Dict = {}
@@ -214,9 +211,7 @@ class CognitoAuthProvider(AuthProvider):
         if user_sub:
             profile = await self.get_user_profile(user_sub)
             if profile and profile.is_locked:
-                raise ValueError(
-                    "Account is locked. Please contact an administrator."
-                )
+                raise ValueError("Account is locked. Please contact an administrator.")
 
         return TokenResponse(
             access_token=auth["AccessToken"],
@@ -228,9 +223,7 @@ class CognitoAuthProvider(AuthProvider):
 
     async def get_user_profile(self, user_id: str) -> Optional[UserIdentity]:
         try:
-            resp = self._table.get_item(
-                Key={"PK": f"USER#{user_id}", "SK": "METADATA"}
-            )
+            resp = self._table.get_item(Key={"PK": f"USER#{user_id}", "SK": "METADATA"})
         except ClientError as exc:
             logger.error("DynamoDB error looking up user %s: %s", user_id, exc)
             return None

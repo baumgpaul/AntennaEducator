@@ -1,20 +1,21 @@
 """FastAPI application for the Postprocessor service."""
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
-from datetime import datetime, timezone
-import numpy as np
 import base64
 import logging
+from datetime import datetime, timezone
+
+import numpy as np
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 from .config import settings
-from .models import FieldRequest, FarFieldRequest, RadiationPatternResponse
 from .field import (
-    compute_far_field,
-    compute_near_field as compute_near_field_impl,
     compute_directivity_from_pattern,
+    compute_far_field,
 )
+from .field import compute_near_field as compute_near_field_impl
+from .models import FarFieldRequest, FieldRequest, RadiationPatternResponse
 
 logger = logging.getLogger(__name__)
 

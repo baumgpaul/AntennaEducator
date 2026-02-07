@@ -5,12 +5,13 @@ and JSON blobs for design state, simulation config, results, and UI state.
 The actual physics lives in the preprocessor / solver / postprocessor services.
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from typing import List
 import logging
 import os
+from typing import List
+
 from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
@@ -21,19 +22,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from backend.common.auth import UserIdentity, get_current_user, create_auth_provider
-from backend.common.repositories.factory import get_project_repository
-from backend.common.repositories.base import ProjectRepository
-from backend.projects.schemas import (
-    ProjectCreate,
-    ProjectUpdate,
-    ProjectResponse,
-    ProjectListResponse,
-)
+import backend.auth.schemas
 
 # Auth service endpoint handlers (re-mounted for combined Lambda deployment)
-from backend.auth.main import register, login, get_current_user_info
-import backend.auth.schemas
+from backend.auth.main import get_current_user_info, login, register
+from backend.common.auth import UserIdentity, get_current_user
+from backend.common.repositories.base import ProjectRepository
+from backend.common.repositories.factory import get_project_repository
+from backend.projects.schemas import (
+    ProjectCreate,
+    ProjectListResponse,
+    ProjectResponse,
+    ProjectUpdate,
+)
 
 app = FastAPI(
     title="Antenna Simulator — Projects Service",
@@ -60,6 +61,7 @@ def get_repository() -> ProjectRepository:
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
+
 
 @app.get("/health")
 async def health_check():
@@ -88,12 +90,11 @@ app.post(
     status_code=status.HTTP_201_CREATED,
 )(register)
 app.post("/api/auth/login", response_model=backend.auth.schemas.Token)(login)
-app.get("/api/auth/me", response_model=backend.auth.schemas.UserResponse)(
-    get_current_user_info
-)
+app.get("/api/auth/me", response_model=backend.auth.schemas.UserResponse)(get_current_user_info)
 
 
 # ── Project CRUD ──────────────────────────────────────────────────────────────
+
 
 @app.post(
     "/api/projects",
@@ -112,12 +113,14 @@ async def create_project(
     )
 
     # Set optional JSON blobs if provided on create
-    update_needed = any([
-        data.design_state,
-        data.simulation_config,
-        data.simulation_results,
-        data.ui_state,
-    ])
+    update_needed = any(
+        [
+            data.design_state,
+            data.simulation_config,
+            data.simulation_results,
+            data.ui_state,
+        ]
+    )
     if update_needed:
         project = await repo.update_project(
             project_id=project["id"],

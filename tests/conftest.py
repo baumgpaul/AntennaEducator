@@ -2,8 +2,9 @@
 Shared test fixtures and configuration.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from backend.common.models.geometry import AntennaElement, Mesh, Source
 
 
@@ -18,12 +19,9 @@ def sample_dipole_element():
             "center": [0.0, 0.0, 0.0],
             "orientation": [0.0, 0.0, 1.0],
             "radius": 0.001,
-            "segments": 10
+            "segments": 10,
         },
-        sources=[Source(
-            type="voltage",
-            amplitude=complex(1.0, 0.0)
-        )]
+        sources=[Source(type="voltage", amplitude=complex(1.0, 0.0))],
     )
 
 
@@ -38,12 +36,9 @@ def sample_loop_element():
             "center": [0.0, 0.0, 0.0],
             "normal": [0.0, 0.0, 1.0],
             "wire_radius": 0.001,
-            "segments": 20
+            "segments": 20,
         },
-        sources=[Source(
-            type="current",
-            amplitude=complex(1.0, 0.0)
-        )]
+        sources=[Source(type="current", amplitude=complex(1.0, 0.0))],
     )
 
 
@@ -66,34 +61,34 @@ def sample_mesh():
         [4, 5],
     ]
     radii = [0.001] * 5
-    
-    return Mesh(
-        nodes=nodes,
-        edges=edges,
-        radii=radii,
-        source_edges=[2]  # Middle segment
-    )
+
+    return Mesh(nodes=nodes, edges=edges, radii=radii, source_edges=[2])  # Middle segment
 
 
 # NumPy test utilities
 
+
 @pytest.fixture
 def simple_dipole_nodes():
     """Simple dipole node coordinates."""
-    return np.array([
-        [0.0, 0.0, -0.25],
-        [0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.25],
-    ])
+    return np.array(
+        [
+            [0.0, 0.0, -0.25],
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.25],
+        ]
+    )
 
 
 @pytest.fixture
 def simple_dipole_edges():
     """Simple dipole edge connectivity."""
-    return np.array([
-        [0, 1],
-        [1, 2],
-    ])
+    return np.array(
+        [
+            [0, 1],
+            [1, 2],
+        ]
+    )
 
 
 @pytest.fixture
@@ -103,6 +98,7 @@ def simple_dipole_radii():
 
 
 # Helper functions for tests
+
 
 def assert_vectors_close(v1, v2, rtol=1e-9, atol=1e-12):
     """Assert that two vectors are close."""

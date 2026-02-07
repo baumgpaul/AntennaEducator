@@ -1,5 +1,8 @@
 """
 Physical constants and default configuration values.
+
+All electromagnetic constants follow SI units.
+Import from here — never hardcode physical constants elsewhere.
 """
 
 import numpy as np
@@ -86,13 +89,14 @@ POSTPROCESSOR_TIMEOUT = 60  # 1 minute
 # Helper Functions
 # ===========================
 
+
 def wavelength(frequency: float) -> float:
     """
     Calculate wavelength for a given frequency.
-    
+
     Args:
         frequency: Frequency in Hz
-        
+
     Returns:
         Wavelength in meters
     """
@@ -102,10 +106,10 @@ def wavelength(frequency: float) -> float:
 def wavenumber(frequency: float) -> float:
     """
     Calculate wavenumber (k = 2π/λ) for a given frequency.
-    
+
     Args:
         frequency: Frequency in Hz
-        
+
     Returns:
         Wavenumber in rad/m
     """
@@ -115,11 +119,11 @@ def wavenumber(frequency: float) -> float:
 def skin_depth(frequency: float, conductivity: float = CONDUCTIVITY_COPPER) -> float:
     """
     Calculate skin depth for a conductor at a given frequency.
-    
+
     Args:
         frequency: Frequency in Hz
         conductivity: Conductivity in S/m (default: copper)
-        
+
     Returns:
         Skin depth in meters
     """
@@ -128,16 +132,15 @@ def skin_depth(frequency: float, conductivity: float = CONDUCTIVITY_COPPER) -> f
 
 
 def segments_for_wavelength(
-    frequency: float,
-    segments_per_wavelength: int = DEFAULT_SEGMENTS_PER_WAVELENGTH
+    frequency: float, segments_per_wavelength: int = DEFAULT_SEGMENTS_PER_WAVELENGTH
 ) -> float:
     """
     Calculate recommended segment length for a given frequency.
-    
+
     Args:
         frequency: Frequency in Hz
         segments_per_wavelength: Number of segments per wavelength
-        
+
     Returns:
         Recommended segment length in meters
     """
