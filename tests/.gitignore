@@ -1,1 +1,3 @@
-*.md
+# Ignore generated output files
+*.png
+*.html

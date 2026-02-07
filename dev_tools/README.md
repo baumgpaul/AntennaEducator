@@ -21,14 +21,12 @@ dev_tools/
 ├── start_all_services.ps1           # Start all backend services (Windows)
 ├── start_backend.ps1                # Start backend services (Linux / macOS)
 ├── start_backend_windows.ps1        # Start backend services (Windows, alternate)
-├── start_solver_service.ps1         # Start solver service only
-├── deploy_api_gateway.ps1           # Deploy API Gateway (may be superseded by Terraform)
-├── deploy_cognito.ps1               # Deploy Cognito resources (may be superseded by Terraform)
+├── deploy_api_gateway.ps1           # Deploy API Gateway via Terraform
+├── deploy_cognito.ps1               # Deploy Cognito resources via Terraform
 ├── test_aws_pipeline.py             # End-to-end AWS smoke test (preprocessor → solver → postprocessor)
-├── test_current_source_golden.py    # Reference PEEC golden-standard validation test
-├── test_incremental_postprocessing.py # Integration test using FastAPI TestClient
 ├── test_backend_quick.ps1           # Quick backend smoke test
 ├── test_cognito.ps1                 # Cognito integration test
+├── test_dynamodb.py                 # Ad-hoc DynamoDB repository test script
 ├── lumped_element_examples.py       # Lumped element API usage examples
 └── README.md                        # This file
 ```

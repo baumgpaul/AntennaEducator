@@ -7,7 +7,7 @@ name = "antenna-simulator"
 version = "0.1.0"
 description = "Cloud-native antenna simulation platform"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Paul Baumgartner", email = "baumg.paul@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.11"
@@ -43,16 +43,8 @@ dev = [
     "isort>=5.12.0",
 ]
 
-standalone = [
-    "psycopg[binary]>=3.1.0",
-    "sqlalchemy>=2.0.0",
-    "alembic>=1.12.0",
-    "minio>=7.1.0",
-]
-
 aws = [
     "boto3>=1.28.0",
-    "aioboto3>=12.0.0",
 ]
 
 [tool.setuptools.packages.find]
