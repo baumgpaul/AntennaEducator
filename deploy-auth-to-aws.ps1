@@ -35,10 +35,11 @@ Write-Host "  ✓ ECR login successful" -ForegroundColor Green
 
 # Build Docker image
 Write-Host "`n3. Building Docker image with unified authentication..." -ForegroundColor Yellow
-Write-Host "  Including new files:" -ForegroundColor Cyan
-Write-Host "    - backend/projects/local_auth_service.py" -ForegroundColor Cyan
-Write-Host "    - backend/projects/jwt_middleware.py" -ForegroundColor Cyan
-Write-Host "    - Updated auth.py, main.py, cognito_service.py" -ForegroundColor Cyan
+Write-Host "  Auth components (backend/common/auth/):" -ForegroundColor Cyan
+Write-Host "    - local_provider.py (standalone JWT auth)" -ForegroundColor Cyan
+Write-Host "    - cognito_provider.py (AWS Cognito auth)" -ForegroundColor Cyan
+Write-Host "    - dependencies.py (FastAPI get_current_user)" -ForegroundColor Cyan
+Write-Host "    - factory.py (provider selection via USE_COGNITO)" -ForegroundColor Cyan
 
 docker build -t $ECR_REPO -f backend/projects/Dockerfile.lambda .
 
@@ -149,11 +150,11 @@ if ($FUNCTION_URL) {
 
 # Summary
 Write-Host "`n=== Deployment Summary ===" -ForegroundColor Cyan
-Write-Host "✓ New authentication components deployed:" -ForegroundColor Green
-Write-Host "  - local_auth_service.py (Docker mode JWT authentication)" -ForegroundColor White
-Write-Host "  - jwt_middleware.py (Unified token validation)" -ForegroundColor White
-Write-Host "  - Updated auth.py with is_locked field check" -ForegroundColor White
-Write-Host "  - Unified /auth/login and /auth/register endpoints" -ForegroundColor White
+Write-Host "✓ Projects + Auth service deployed:" -ForegroundColor Green
+Write-Host "  - backend/common/auth/ (strategy-pattern auth provider)" -ForegroundColor White
+Write-Host "  - LocalAuthProvider (bcrypt + HS256 JWT for standalone mode)" -ForegroundColor White
+Write-Host "  - CognitoAuthProvider (Cognito SDK + JWKS verification)" -ForegroundColor White
+Write-Host "  - Unified /api/auth/login and /api/auth/register endpoints" -ForegroundColor White
 Write-Host ""
 Write-Host "Environment Configuration Required:" -ForegroundColor Yellow
 Write-Host "  To enable AWS Cognito mode, set Lambda environment variables:" -ForegroundColor White
@@ -164,7 +165,7 @@ Write-Host "    COGNITO_CLIENT_ID=<your-client-id>" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Next Steps:" -ForegroundColor Yellow
 Write-Host "  1. Configure Cognito environment variables in Lambda" -ForegroundColor White
-Write-Host "  2. Run: .\test-auth-aws.ps1 to test authentication" -ForegroundColor White
+Write-Host "  2. Run: python dev_tools/test_aws_pipeline.py to verify" -ForegroundColor White
 Write-Host "  3. Test registration: POST /api/auth/register" -ForegroundColor White
 Write-Host "  4. Test login: POST /api/auth/login" -ForegroundColor White
 Write-Host ""
