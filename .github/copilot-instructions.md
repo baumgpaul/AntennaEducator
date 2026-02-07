@@ -113,8 +113,8 @@ uvicorn backend.preprocessor.main:app --port 8001 --reload
 uvicorn backend.solver.main:app --port 8002 --reload
 uvicorn backend.projects.main:app --port 8010 --reload
 
-# Full stack via Docker (future local testing)
-docker-compose up --build          # All services + Postgres + MinIO + DynamoDB Local
+# Full stack via Docker (standalone / on-prem)
+docker-compose up --build          # All services + DynamoDB Local
 
 # Frontend dev server
 cd frontend && npm run dev         # Vite on :5173
