@@ -19,16 +19,10 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
 }) => {
   const radiationPattern = useAppSelector((state) => state.solver.radiationPattern);
 
-  if (!radiationPattern || !frequencyHz) {
-    return null;
-  }
-
-  // Extract directivity data
-  const { theta_angles, phi_angles, pattern_db } = radiationPattern;
-
-  if (!theta_angles || !phi_angles || !pattern_db) {
-    return null;
-  }
+  // Extract directivity data (may be undefined before early return check)
+  const theta_angles = radiationPattern?.theta_angles;
+  const phi_angles = radiationPattern?.phi_angles;
+  const pattern_db = radiationPattern?.pattern_db;
 
   // Get scale and value range properties
   const scaleMode = item.scale || 'logarithmic';
@@ -39,6 +33,7 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
 
   // Use pattern_db (already in dB) or convert if linear scale requested
   const processedDirectivity = useMemo(() => {
+    if (!pattern_db) return [];
     if (scaleMode === 'linear') {
       // Convert dB back to linear
       return pattern_db.map((db) => Math.pow(10, db / 10));
@@ -49,18 +44,20 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
   // Calculate value range
   const min = valueRangeMode === 'manual' 
     ? item.valueRangeMin || 0 
-    : Math.min(...processedDirectivity);
+    : processedDirectivity.length > 0 ? Math.min(...processedDirectivity) : 0;
   const max = valueRangeMode === 'manual' 
     ? item.valueRangeMax || 1 
-    : Math.max(...processedDirectivity);
+    : processedDirectivity.length > 0 ? Math.max(...processedDirectivity) : 1;
 
   // Create colors for each point
   const colors = useMemo(() => {
+    if (processedDirectivity.length === 0) return new Float32Array(0);
     return createColorArray(processedDirectivity, colorMap as any, min, max);
   }, [processedDirectivity, colorMap, min, max]);
 
   // Create sphere geometry with vertices matching theta/phi sampling
   const geometry = useMemo(() => {
+    if (!theta_angles || !phi_angles || processedDirectivity.length === 0) return null;
     console.log('[DirectivityRenderer] Creating geometry:', {
       totalPoints: theta_angles.length * phi_angles.length,
       thetaAngles: theta_angles.length,
@@ -124,6 +121,10 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
 
     return sphereGeometry;
   }, [theta_angles, phi_angles, processedDirectivity, colors, sizeFactor, min, max, scaleMode]);
+
+  if (!radiationPattern || !frequencyHz || !theta_angles || !phi_angles || !pattern_db || !geometry) {
+    return null;
+  }
 
   return (
     <mesh geometry={geometry}>

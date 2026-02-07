@@ -3,15 +3,15 @@
 Used for standalone / Docker / on-prem deployments (``USE_COGNITO=false``).
 """
 
-import os
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from jose import jwt, JWTError
+from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from backend.common.auth.identity import UserIdentity, TokenResponse, TokenData
+from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity
 from backend.common.auth.provider import AuthProvider
 from backend.common.repositories.user_repository import UserRepository
 
@@ -65,9 +65,7 @@ class LocalAuthProvider(AuthProvider):
         password: str,
     ) -> UserIdentity:
         if len(password) < MIN_PASSWORD_LENGTH:
-            raise ValueError(
-                f"Password must be at least {MIN_PASSWORD_LENGTH} characters"
-            )
+            raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters")
 
         # First user becomes admin
         is_first = self._user_repo.get_user_count() == 0

@@ -1,7 +1,8 @@
 """Pydantic models for Postprocessor service."""
 
-from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Union
+
+from pydantic import BaseModel, Field
 
 
 class FieldRequest(BaseModel):

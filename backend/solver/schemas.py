@@ -1,19 +1,16 @@
 """Pydantic models for Solver service API."""
 
-from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class SolverConfiguration(BaseModel):
     """Solver configuration parameters."""
 
     gauss_order: int = Field(6, description="Gauss quadrature order (2, 4, 6, 8, 10)")
-    include_skin_effect: bool = Field(
-        True, description="Include frequency-dependent skin effect"
-    )
-    resistivity: float = Field(
-        1.68e-8, description="Material resistivity [Ω·m] (copper default)"
-    )
+    include_skin_effect: bool = Field(True, description="Include frequency-dependent skin effect")
+    resistivity: float = Field(1.68e-8, description="Material resistivity [Ω·m] (copper default)")
     permeability: float = Field(1.0, description="Relative permeability μ_r")
 
     @field_validator("gauss_order")
@@ -62,12 +59,8 @@ class LoadInput(BaseModel):
 class SingleFrequencyRequest(BaseModel):
     """Request for single frequency solution."""
 
-    nodes: List[List[float]] = Field(
-        ..., description="Node coordinates [[x,y,z], ...] [m]"
-    )
-    edges: List[List[int]] = Field(
-        ..., description="Edge connectivity [[n1,n2], ...]"
-    )
+    nodes: List[List[float]] = Field(..., description="Node coordinates [[x,y,z], ...] [m]")
+    edges: List[List[int]] = Field(..., description="Edge connectivity [[n1,n2], ...]")
     radii: List[float] = Field(..., description="Wire radii [m]")
     frequency: float = Field(..., description="Frequency [Hz]", gt=0)
     voltage_sources: List[VoltageSourceInput] = Field(default_factory=list)
@@ -86,12 +79,8 @@ class SingleFrequencyRequest(BaseModel):
 class FrequencySweepRequest(BaseModel):
     """Request for frequency sweep solution."""
 
-    nodes: List[List[float]] = Field(
-        ..., description="Node coordinates [[x,y,z], ...] [m]"
-    )
-    edges: List[List[int]] = Field(
-        ..., description="Edge connectivity [[n1,n2], ...]"
-    )
+    nodes: List[List[float]] = Field(..., description="Node coordinates [[x,y,z], ...] [m]")
+    edges: List[List[int]] = Field(..., description="Edge connectivity [[n1,n2], ...]")
     radii: List[float] = Field(..., description="Wire radii [m]")
     frequencies: List[float] = Field(..., description="Frequencies [Hz]")
     voltage_sources: List[VoltageSourceInput] = Field(default_factory=list)
@@ -121,16 +110,12 @@ class FrequencyPointResponse(BaseModel):
     # Currents and voltages
     branch_currents: List[complex] = Field(..., description="Branch currents [A]")
     node_voltages: List[complex] = Field(..., description="Node voltages [V]")
-    appended_voltages: List[complex] = Field(
-        ..., description="Appended node voltages [V]"
-    )
+    appended_voltages: List[complex] = Field(..., description="Appended node voltages [V]")
 
     # Port characteristics
     input_impedance: complex = Field(..., description="Input impedance [Ω]")
     input_current: complex = Field(..., description="Input current [A]")
-    reflection_coefficient: complex = Field(
-        ..., description="Reflection coefficient Γ"
-    )
+    reflection_coefficient: complex = Field(..., description="Reflection coefficient Γ")
     return_loss: float = Field(..., description="Return loss |S11| [dB]")
 
     # Power quantities
@@ -197,9 +182,7 @@ class MultiAntennaRequest(BaseModel):
     """Request for solving multiple antennas at a single frequency."""
 
     frequency: float = Field(..., gt=0, description="Frequency [Hz]")
-    antennas: List[AntennaInput] = Field(
-        ..., min_length=1, description="List of antennas to solve"
-    )
+    antennas: List[AntennaInput] = Field(..., min_length=1, description="List of antennas to solve")
     config: SolverConfiguration = Field(default_factory=SolverConfiguration)
 
 
@@ -211,16 +194,12 @@ class AntennaSolution(BaseModel):
     voltage_source_currents: List[complex] = Field(
         default_factory=list, description="Voltage source currents [A]"
     )
-    load_currents: List[complex] = Field(
-        default_factory=list, description="Load currents [A]"
-    )
+    load_currents: List[complex] = Field(default_factory=list, description="Load currents [A]")
     node_voltages: List[complex] = Field(..., description="Node potentials [V]")
     appended_voltages: List[complex] = Field(
         default_factory=list, description="Appended node potentials [V]"
     )
-    input_impedance: Optional[complex] = Field(
-        None, description="Input impedance Z = V/I [Ω]"
-    )
+    input_impedance: Optional[complex] = Field(None, description="Input impedance Z = V/I [Ω]")
 
 
 class MultiAntennaSolutionResponse(BaseModel):
@@ -228,9 +207,7 @@ class MultiAntennaSolutionResponse(BaseModel):
 
     frequency: float = Field(..., description="Frequency [Hz]")
     converged: bool = Field(..., description="Whether solver converged")
-    antenna_solutions: List[AntennaSolution] = Field(
-        ..., description="Solutions for each antenna"
-    )
+    antenna_solutions: List[AntennaSolution] = Field(..., description="Solutions for each antenna")
     n_total_nodes: int = Field(..., description="Total nodes in combined system")
     n_total_edges: int = Field(..., description="Total edges in combined system")
     solve_time: float = Field(..., description="Computation time [s]")

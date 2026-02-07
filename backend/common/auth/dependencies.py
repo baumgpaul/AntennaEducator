@@ -12,11 +12,12 @@ The dependency extracts the Bearer token, validates it via the configured
 """
 
 import logging
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from backend.common.auth.identity import UserIdentity
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from backend.common.auth.factory import create_auth_provider
+from backend.common.auth.identity import UserIdentity
 
 logger = logging.getLogger(__name__)
 

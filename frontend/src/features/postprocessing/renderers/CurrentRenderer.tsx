@@ -49,11 +49,11 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
 
   if (!currentData || !elements || elements.length === 0) {
     console.log('[CurrentRenderer] ❌ Early exit - currentData:', !!currentData, 'elements:', elements?.length);
-    return null;
   }
 
   // Extract edge geometry from elements
   const edges = useMemo(() => {
+    if (!elements || elements.length === 0) return [];
     console.log('[CurrentRenderer] === EDGE EXTRACTION ===');
     console.log('[CurrentRenderer] Total antenna elements:', elements.length);
     
@@ -94,7 +94,9 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
             
             // Calculate offset perpendicular to edge (to avoid z-fighting)
             // Use cross product with a reference vector to get perpendicular direction
-            let offsetX = 0, offsetY = 0, offsetZ = 0;
+            let offsetX = 0;
+            const offsetY = 0;
+            let offsetZ = 0;
             if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
               // Vertical wire - offset in X direction
               offsetX = offsetMagnitude;
@@ -131,6 +133,7 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
 
   // Calculate current magnitudes
   const magnitudes = useMemo(() => {
+    if (!currentData) return [];
     console.log('[CurrentRenderer] === MAGNITUDE CALCULATION ===');
     const mags = currentData.map((current, idx) => {
       const real = current.real || 0;
@@ -183,6 +186,10 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
     console.log(`  Edge ${lastIdx}: RGB(${safeToFixed(r, 3)}, ${safeToFixed(g, 3)}, ${safeToFixed(b, 3)}) = #${color.getHexString()} | magnitude: ${safeToFixed(magnitudes[lastIdx], 6)}`);
     return cols;
   }, [magnitudes, colorMap, min, max]);
+
+  if (!currentData || !elements || elements.length === 0) {
+    return null;
+  }
 
   // Get edge size and opacity
   const edgeSize = item.edgeSize || 8.0; // Increased for better visibility over wire geometry

@@ -16,7 +16,7 @@ def test_health_check(client):
     """Test the health check endpoint."""
     response = client.get("/health")
     assert response.status_code == 200
-    
+
     data = response.json()
     assert data["status"] == "healthy"
     assert data["service"] == "preprocessor"
@@ -29,21 +29,21 @@ def test_create_dipole_basic(client):
     request_data = {
         "length": 1.0,
     }
-    
+
     response = client.post("/api/antenna/dipole", json=request_data)
     assert response.status_code == 200
-    
+
     data = response.json()
     assert "element" in data
     assert "mesh" in data
     assert "message" in data
-    
+
     # Check element
     element = data["element"]
     assert element["type"] == "dipole"
     assert element["parameters"]["length"] == 1.0
     assert element["parameters"]["segments"] == 21
-    
+
     # Check mesh
     mesh = data["mesh"]
     assert len(mesh["nodes"]) == 22  # 21 segments + 1
@@ -62,13 +62,13 @@ def test_create_dipole_with_source(client):
         },
         "name": "Test Dipole",
     }
-    
+
     response = client.post("/api/antenna/dipole", json=request_data)
     assert response.status_code == 200
-    
+
     data = response.json()
     element = data["element"]
-    
+
     assert element["name"] == "Test Dipole"
     assert len(element["sources"]) > 0
     assert element["sources"][0]["type"] == "voltage"
@@ -83,7 +83,7 @@ def test_create_dipole_invalid_length(client):
     request_data = {
         "length": -1.0,
     }
-    
+
     response = client.post("/api/antenna/dipole", json=request_data)
     assert response.status_code == 422  # Validation error
 
@@ -93,7 +93,7 @@ def test_create_dipole_zero_length(client):
     request_data = {
         "length": 0.0,
     }
-    
+
     response = client.post("/api/antenna/dipole", json=request_data)
     assert response.status_code == 422  # Validation error
 
@@ -103,21 +103,21 @@ def test_create_loop_basic(client):
     request_data = {
         "radius": 0.1,
     }
-    
+
     response = client.post("/api/antenna/loop", json=request_data)
     assert response.status_code == 200
-    
+
     data = response.json()
     assert "element" in data
     assert "mesh" in data
     assert "message" in data
-    
+
     # Check element
     element = data["element"]
     assert element["type"] == "loop"
     assert element["parameters"]["radius"] == 0.1
     assert element["parameters"]["segments"] == 36
-    
+
     # Check mesh
     mesh = data["mesh"]
     assert len(mesh["nodes"]) == 36  # Circular loop
@@ -157,7 +157,7 @@ def test_create_loop_invalid_radius(client):
     request_data = {
         "radius": -0.1,
     }
-    
+
     response = client.post("/api/antenna/loop", json=request_data)
     assert response.status_code == 422  # Validation error
 
@@ -167,21 +167,21 @@ def test_create_rod_basic(client):
     request_data = {
         "length": 0.25,
     }
-    
+
     response = client.post("/api/antenna/rod", json=request_data)
     assert response.status_code == 200
-    
+
     data = response.json()
     assert "element" in data
     assert "mesh" in data
     assert "message" in data
-    
+
     # Check element
     element = data["element"]
     assert element["type"] == "rod"
     assert element["parameters"]["length"] == 0.25
     assert element["parameters"]["segments"] == 21
-    
+
     # Check mesh
     mesh = data["mesh"]
     assert len(mesh["nodes"]) == 22  # 21 segments + 1
@@ -201,13 +201,13 @@ def test_create_rod_with_source(client):
         },
         "name": "Test Rod",
     }
-    
+
     response = client.post("/api/antenna/rod", json=request_data)
     assert response.status_code == 200
-    
+
     data = response.json()
     element = data["element"]
-    
+
     assert element["name"] == "Test Rod"
     assert len(element["sources"]) > 0
     assert element["sources"][0]["type"] == "current"
@@ -222,7 +222,7 @@ def test_create_rod_invalid_length(client):
     request_data = {
         "length": 0.0,
     }
-    
+
     response = client.post("/api/antenna/rod", json=request_data)
     assert response.status_code == 422  # Validation error
 
@@ -234,15 +234,15 @@ def test_create_helix_basic(client):
         "pitch": 0.1,
         "turns": 5.0,
     }
-    
+
     response = client.post("/api/antenna/helix", json=request_data)
     assert response.status_code == 200
-    
+
     data = response.json()
     assert "element" in data
     assert "mesh" in data
     assert "message" in data
-    
+
     # Check element
     element = data["element"]
     assert element["type"] == "helix"
@@ -250,7 +250,7 @@ def test_create_helix_basic(client):
     assert element["parameters"]["pitch"] == 0.1
     assert element["parameters"]["turns"] == 5.0
     assert element["parameters"]["segments_per_turn"] == 24
-    
+
     # Check mesh (5 turns * 24 segments/turn = 120 segments)
     mesh = data["mesh"]
     assert len(mesh["nodes"]) == 121  # 120 segments + 1
@@ -272,13 +272,13 @@ def test_create_helix_with_source(client):
         },
         "name": "Test Helix",
     }
-    
+
     response = client.post("/api/antenna/helix", json=request_data)
     assert response.status_code == 200
-    
+
     data = response.json()
     element = data["element"]
-    
+
     assert element["name"] == "Test Helix"
     assert len(element["sources"]) > 0
     assert element["sources"][0]["type"] == "voltage"
@@ -288,7 +288,7 @@ def test_create_helix_with_source(client):
     assert element["parameters"]["axis"] == [0.0, 0.0, 1.0]
     assert element["parameters"]["wire_radius"] == 0.001
     assert element["parameters"]["segments_per_turn"] == 16
-    
+
     # Check mesh (3 turns * 16 segments/turn = 48 segments)
     mesh = data["mesh"]
     assert len(mesh["nodes"]) == 49  # 48 segments + 1
@@ -302,7 +302,7 @@ def test_create_helix_invalid_radius(client):
         "pitch": 0.1,
         "turns": 5.0,
     }
-    
+
     response = client.post("/api/antenna/helix", json=request_data)
     assert response.status_code == 422  # Validation error
 
@@ -314,6 +314,6 @@ def test_create_helix_invalid_pitch(client):
         "pitch": 0.0,
         "turns": 5.0,
     }
-    
+
     response = client.post("/api/antenna/helix", json=request_data)
     assert response.status_code == 422  # Validation error

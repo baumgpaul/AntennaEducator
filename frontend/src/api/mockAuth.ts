@@ -8,7 +8,7 @@ interface MockUser {
   name: string;
 }
 
-let mockUsers: MockUser[] = [
+const mockUsers: MockUser[] = [
   {
     id: '1',
     email: 'demo@example.com',

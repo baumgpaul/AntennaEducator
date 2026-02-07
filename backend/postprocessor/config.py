@@ -1,8 +1,9 @@
 """Configuration for the Postprocessor service."""
 
+from typing import List
+
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
-from typing import List
 
 
 class Settings(BaseSettings):

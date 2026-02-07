@@ -8,7 +8,7 @@ Concrete implementations:
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from backend.common.auth.identity import UserIdentity, TokenResponse, TokenData
+from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity
 
 
 class AuthProvider(ABC):
