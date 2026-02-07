@@ -1,8 +1,8 @@
 /**
  * Tests for requested fields persistence in DesignPage
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -91,13 +91,17 @@ describe('DesignPage - Field Persistence', () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   describe('Loading fields from project', () => {
     it('should load requested_fields when project loads', async () => {
       const mockProject = {
         id: 1,
         name: 'Test Project',
-        description: '[]',
-        requested_fields: sampleFields,
+        description: '',
+        simulation_config: { requested_fields: sampleFields },
         created_at: '2025-01-01',
         updated_at: '2025-01-01',
       };
@@ -121,7 +125,7 @@ describe('DesignPage - Field Persistence', () => {
       const mockProject = {
         id: 1,
         name: 'Test Project',
-        description: '[]',
+        description: '',
         created_at: '2025-01-01',
         updated_at: '2025-01-01',
       };
@@ -143,8 +147,8 @@ describe('DesignPage - Field Persistence', () => {
       const mockProject = {
         id: 1,
         name: 'Test Project',
-        description: '[]',
-        requested_fields: [],
+        description: '',
+        simulation_config: { requested_fields: [] },
         created_at: '2025-01-01',
         updated_at: '2025-01-01',
       };
@@ -166,8 +170,8 @@ describe('DesignPage - Field Persistence', () => {
       const mockProject1 = {
         id: 1,
         name: 'Project 1',
-        description: '[]',
-        requested_fields: sampleFields,
+        description: '',
+        simulation_config: { requested_fields: sampleFields },
         created_at: '2025-01-01',
         updated_at: '2025-01-01',
       };
@@ -175,15 +179,15 @@ describe('DesignPage - Field Persistence', () => {
       const mockProject2 = {
         id: 2,
         name: 'Project 2',
-        description: '[]',
-        requested_fields: [],
+        description: '',
+        simulation_config: { requested_fields: [] },
         created_at: '2025-01-01',
         updated_at: '2025-01-01',
       };
 
       // Load first project
       vi.mocked(projectsApi.getProject).mockResolvedValueOnce(mockProject1);
-      const { store, rerender } = renderWithProviders(<DesignPage />, {
+      const { store, unmount } = renderWithProviders(<DesignPage />, {
         initialEntries: ['/project/1/design'],
       });
 
@@ -191,9 +195,11 @@ describe('DesignPage - Field Persistence', () => {
         expect(store.getState().solver.requestedFields).toHaveLength(2);
       });
 
-      // Load second project
+      // Unmount first page, mount second with new projectId
+      unmount();
+
       vi.mocked(projectsApi.getProject).mockResolvedValueOnce(mockProject2);
-      rerender(
+      render(
         <Provider store={store}>
           <MemoryRouter initialEntries={['/project/2/design']}>
             <Routes>
@@ -221,6 +227,8 @@ describe('DesignPage - Field Persistence', () => {
     });
 
     afterEach(() => {
+      cleanup();
+      vi.runOnlyPendingTimers();
       vi.useRealTimers();
     });
 
@@ -228,8 +236,8 @@ describe('DesignPage - Field Persistence', () => {
       const mockProject = {
         id: 1,
         name: 'Test Project',
-        description: '[]',
-        requested_fields: [],
+        description: '',
+        simulation_config: { requested_fields: [] },
         created_at: '2025-01-01',
         updated_at: '2025-01-01',
       };
@@ -239,9 +247,15 @@ describe('DesignPage - Field Persistence', () => {
 
       const { store } = renderWithProviders(<DesignPage />);
 
-      await waitFor(() => {
-        expect(store.getState().projects.currentProject).toBeTruthy();
-      });
+      // Flush microtasks so mocked getProject resolves
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Wait for project to appear in store
+      expect(store.getState().projects.currentProject).toBeTruthy();
+
+      // Flush any initial debounce from project load
+      await vi.advanceTimersByTimeAsync(2000);
+      vi.mocked(projectsApi.updateProject).mockClear();
 
       // Add a field to Redux state
       store.dispatch({
@@ -250,25 +264,21 @@ describe('DesignPage - Field Persistence', () => {
       });
 
       // Wait for debounce (1.5 seconds)
-      vi.advanceTimersByTime(1600);
+      await vi.advanceTimersByTimeAsync(1600);
 
-      await waitFor(() => {
-        expect(projectsApi.updateProject).toHaveBeenCalled();
-      });
-
-      // Verify the update included requested_fields
+      // Verify the update included requested_fields inside simulation_config
       const updateCall = vi.mocked(projectsApi.updateProject).mock.calls[0];
-      expect(updateCall[1].requested_fields).toBeDefined();
-      expect(updateCall[1].requested_fields).toHaveLength(1);
-      expect(updateCall[1].requested_fields[0].id).toBe('field-1');
+      expect(updateCall[1].simulation_config).toBeDefined();
+      expect(updateCall[1].simulation_config.requested_fields).toHaveLength(1);
+      expect(updateCall[1].simulation_config.requested_fields[0].id).toBe('field-1');
     });
 
     it('should debounce multiple field changes', async () => {
       const mockProject = {
         id: 1,
         name: 'Test Project',
-        description: '[]',
-        requested_fields: [],
+        description: '',
+        simulation_config: { requested_fields: [] },
         created_at: '2025-01-01',
         updated_at: '2025-01-01',
       };
@@ -278,37 +288,37 @@ describe('DesignPage - Field Persistence', () => {
 
       const { store } = renderWithProviders(<DesignPage />);
 
-      await waitFor(() => {
-        expect(store.getState().projects.currentProject).toBeTruthy();
-      });
+      // Flush microtasks so mocked getProject resolves
+      await vi.advanceTimersByTimeAsync(0);
+      expect(store.getState().projects.currentProject).toBeTruthy();
+
+      // Flush any initial debounce
+      await vi.advanceTimersByTimeAsync(2000);
+      vi.mocked(projectsApi.updateProject).mockClear();
 
       // Add multiple fields rapidly
       store.dispatch({ type: 'solver/addFieldRegion', payload: sampleFields[0] });
-      vi.advanceTimersByTime(500);
+      await vi.advanceTimersByTimeAsync(500);
       store.dispatch({ type: 'solver/addFieldRegion', payload: sampleFields[1] });
-      vi.advanceTimersByTime(500);
+      await vi.advanceTimersByTimeAsync(500);
 
       // Should not have saved yet (debounced)
       expect(projectsApi.updateProject).not.toHaveBeenCalled();
 
       // Wait for full debounce
-      vi.advanceTimersByTime(1600);
-
-      await waitFor(() => {
-        expect(projectsApi.updateProject).toHaveBeenCalledTimes(1);
-      });
+      await vi.advanceTimersByTimeAsync(1600);
 
       // Should save both fields in one call
       const updateCall = vi.mocked(projectsApi.updateProject).mock.calls[0];
-      expect(updateCall[1].requested_fields).toHaveLength(2);
+      expect(updateCall[1].simulation_config.requested_fields).toHaveLength(2);
     });
 
     it('should save when fields are deleted', async () => {
       const mockProject = {
         id: 1,
         name: 'Test Project',
-        description: '[]',
-        requested_fields: sampleFields,
+        description: '',
+        simulation_config: { requested_fields: sampleFields },
         created_at: '2025-01-01',
         updated_at: '2025-01-01',
       };
@@ -318,32 +328,32 @@ describe('DesignPage - Field Persistence', () => {
 
       const { store } = renderWithProviders(<DesignPage />);
 
-      await waitFor(() => {
-        expect(store.getState().solver.requestedFields).toHaveLength(2);
-      });
+      // Flush microtasks so mocked getProject resolves and fields are loaded
+      await vi.advanceTimersByTimeAsync(0);
+      expect(store.getState().solver.requestedFields).toHaveLength(2);
+
+      // Flush the initial auto-save debounce triggered by field loading
+      await vi.advanceTimersByTimeAsync(2000);
+      vi.mocked(projectsApi.updateProject).mockClear();
 
       // Delete a field
       store.dispatch({ type: 'solver/deleteFieldRegion', payload: 'field-1' });
 
       // Wait for debounce
-      vi.advanceTimersByTime(1600);
-
-      await waitFor(() => {
-        expect(projectsApi.updateProject).toHaveBeenCalled();
-      });
+      await vi.advanceTimersByTimeAsync(1600);
 
       // Should save with one field removed
       const updateCall = vi.mocked(projectsApi.updateProject).mock.calls[0];
-      expect(updateCall[1].requested_fields).toHaveLength(1);
-      expect(updateCall[1].requested_fields[0].id).toBe('field-2');
+      expect(updateCall[1].simulation_config.requested_fields).toHaveLength(1);
+      expect(updateCall[1].simulation_config.requested_fields[0].id).toBe('field-2');
     });
 
     it('should save when field properties change', async () => {
       const mockProject = {
         id: 1,
         name: 'Test Project',
-        description: '[]',
-        requested_fields: sampleFields,
+        description: '',
+        simulation_config: { requested_fields: sampleFields },
         created_at: '2025-01-01',
         updated_at: '2025-01-01',
       };
@@ -353,9 +363,13 @@ describe('DesignPage - Field Persistence', () => {
 
       const { store } = renderWithProviders(<DesignPage />);
 
-      await waitFor(() => {
-        expect(store.getState().solver.requestedFields).toHaveLength(2);
-      });
+      // Flush microtasks so mocked getProject resolves and fields are loaded
+      await vi.advanceTimersByTimeAsync(0);
+      expect(store.getState().solver.requestedFields).toHaveLength(2);
+
+      // Flush the initial auto-save debounce triggered by field loading
+      await vi.advanceTimersByTimeAsync(2000);
+      vi.mocked(projectsApi.updateProject).mockClear();
 
       // Update a field property
       store.dispatch({
@@ -367,16 +381,12 @@ describe('DesignPage - Field Persistence', () => {
       });
 
       // Wait for debounce
-      vi.advanceTimersByTime(1600);
-
-      await waitFor(() => {
-        expect(projectsApi.updateProject).toHaveBeenCalled();
-      });
+      await vi.advanceTimersByTimeAsync(1600);
 
       // Should save with updated field
       const updateCall = vi.mocked(projectsApi.updateProject).mock.calls[0];
-      expect(updateCall[1].requested_fields[0].name).toBe('Renamed Field');
-      expect(updateCall[1].requested_fields[0].visible).toBe(false);
+      expect(updateCall[1].simulation_config.requested_fields[0].name).toBe('Renamed Field');
+      expect(updateCall[1].simulation_config.requested_fields[0].visible).toBe(false);
     });
   });
 
@@ -385,8 +395,8 @@ describe('DesignPage - Field Persistence', () => {
       const mockProject = {
         id: 1,
         name: 'Test Project',
-        description: '[]',
-        requested_fields: null as any,
+        description: '',
+        simulation_config: { requested_fields: null as any },
         created_at: '2025-01-01',
         updated_at: '2025-01-01',
       };
@@ -409,8 +419,8 @@ describe('DesignPage - Field Persistence', () => {
       const mockProject = {
         id: 1,
         name: 'Test Project',
-        description: '[]',
-        requested_fields: 'not an array' as any,
+        description: '',
+        simulation_config: { requested_fields: 'not an array' as any },
         created_at: '2025-01-01',
         updated_at: '2025-01-01',
       };

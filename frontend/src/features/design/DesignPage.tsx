@@ -141,7 +141,16 @@ function DesignPage() {
   useEffect(() => {
     if (!currentProject) return;
 
-    // Load requested fields from simulation_config
+    // Load solver state from simulation_results (FIRST — resetSolver clears requestedFields)
+    if (currentProject.simulation_results && Object.keys(currentProject.simulation_results).length > 0) {
+      console.log('Loading solver state from simulation_results');
+      dispatch(loadSolverState(currentProject.simulation_results));
+    } else {
+      console.log('No simulation results — resetting solver');
+      dispatch(resetSolver());
+    }
+
+    // Load requested fields from simulation_config (AFTER solver reset so they aren't clobbered)
     const simConfig = currentProject.simulation_config;
     if (simConfig?.requested_fields && Array.isArray(simConfig.requested_fields)) {
       console.log('Loading requested fields from simulation_config:', simConfig.requested_fields);
@@ -157,15 +166,6 @@ function DesignPage() {
       dispatch(loadViewConfigurations(uiState.view_configurations));
     } else {
       dispatch(clearViewConfigurations());
-    }
-
-    // Load solver state from simulation_results
-    if (currentProject.simulation_results && Object.keys(currentProject.simulation_results).length > 0) {
-      console.log('Loading solver state from simulation_results');
-      dispatch(loadSolverState(currentProject.simulation_results));
-    } else {
-      console.log('No simulation results — resetting solver');
-      dispatch(resetSolver());
     }
 
     // Restore design elements from design_state
