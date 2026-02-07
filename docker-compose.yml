@@ -41,14 +41,7 @@ services:
     expose:
       - "8001"
     environment:
-      - DATABASE_URL=postgresql://antenna:antenna123@postgres:5432/antenna_db
-      - STORAGE_URL=http://minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
       - SERVICE_NAME=preprocessor
-    depends_on:
-      - postgres
-      - minio
     networks:
       - antenna-network
     restart: unless-stopped
@@ -62,10 +55,7 @@ services:
     expose:
       - "8002"
     environment:
-      - DATABASE_URL=postgresql://antenna:antenna123@postgres:5432/antenna_db
       - SERVICE_NAME=solver
-    depends_on:
-      - postgres
     networks:
       - antenna-network
     restart: unless-stopped
@@ -84,14 +74,7 @@ services:
     expose:
       - "8003"
     environment:
-      - DATABASE_URL=postgresql://antenna:antenna123@postgres:5432/antenna_db
-      - STORAGE_URL=http://minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
       - SERVICE_NAME=postprocessor
-    depends_on:
-      - postgres
-      - minio
     networks:
       - antenna-network
     restart: unless-stopped
@@ -130,11 +113,6 @@ services:
     ports:
       - "8010:8010"
     environment:
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
-      - MINIO_BUCKET=antenna-data
-      - MINIO_SECURE=false
       - JWT_SECRET_KEY=your-secret-key-change-in-production-use-openssl-rand-hex-32
       # Database: DynamoDB Local (same as AWS production)
       - USE_DYNAMODB=true
@@ -148,7 +126,6 @@ services:
       # Note: First registered user becomes admin automatically
       # All users are auto-approved in Docker mode
     depends_on:
-      - minio
       - dynamodb-local
     networks:
       - antenna-network
@@ -164,73 +141,9 @@ services:
       - antenna-network
     restart: unless-stopped
 
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=antenna
-      - POSTGRES_PASSWORD=antenna123
-      - POSTGRES_DB=antenna_db
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./deployment/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    networks:
-      - antenna-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U antenna"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # MinIO - S3-compatible object storage
-  minio:
-    image: minio/minio:latest
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio-data:/data
-    networks:
-      - antenna-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-
-  # MinIO Client - Initialize buckets
-  minio-init:
-    image: minio/mc:latest
-    depends_on:
-      - minio
-    entrypoint: >
-      /bin/sh -c "
-      sleep 5;
-      mc alias set myminio http://minio:9000 minioadmin minioadmin;
-      mc mb myminio/antenna-geometries --ignore-existing;
-      mc mb myminio/antenna-results --ignore-existing;
-      mc mb myminio/antenna-data --ignore-existing;
-      mc anonymous set download myminio/antenna-geometries;
-      mc anonymous set download myminio/antenna-results;
-      mc anonymous set download myminio/antenna-data;
-      exit 0;
-      "
-    networks:
-      - antenna-network
-
 networks:
   antenna-network:
     driver: bridge
 
 volumes:
-  postgres-data:
-  minio-data:
   dynamodb-data:
