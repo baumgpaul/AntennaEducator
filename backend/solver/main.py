@@ -3,10 +3,10 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from datetime import datetime
 import numpy as np
 import time
 import logging
+from datetime import datetime, timezone
 
 # Configure logging
 logging.basicConfig(
@@ -59,30 +59,9 @@ async def health_check():
             "status": "healthy",
             "service": settings.service_name,
             "version": settings.version,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     )
-
-
-@app.get(f"{settings.api_prefix}/status")
-async def get_status():
-    """Get service status and configuration."""
-    return {
-        "service": settings.service_name,
-        "version": settings.version,
-        "debug": settings.debug,
-        "limits": {
-            "max_frequency_points": settings.max_frequency_points,
-            "max_edges": settings.max_edges,
-            "max_branches": settings.max_branches,
-            "timeout_seconds": settings.timeout_seconds,
-        },
-        "endpoints": {
-            "health": "/health",
-            "docs": f"{settings.api_prefix}/docs",
-            "openapi": f"{settings.api_prefix}/openapi.json",
-        },
-    }
 
 
 def _convert_sources(request):
@@ -92,31 +71,29 @@ def _convert_sources(request):
             node_start=vs.node_start,
             node_end=vs.node_end,
             value=vs.value,
-            # Backward compatibility: if impedance provided, use as R
-            R=vs.R if vs.impedance is None else vs.impedance,
+            R=vs.R,
             L=vs.L,
-            C_inv=vs.C_inv
+            C_inv=vs.C_inv,
         )
         for vs in request.voltage_sources
     ]
-    
+
     current_sources = [
         CurrentSource(node=cs.node, value=cs.value)
         for cs in request.current_sources
     ]
-    
+
     loads = [
         Load(
             node_start=ld.node_start,
             node_end=ld.node_end,
-            # Backward compatibility: if impedance provided, use as R
-            R=ld.R if ld.impedance is None else ld.impedance.real,
+            R=ld.R,
             L=ld.L,
-            C_inv=ld.C_inv
+            C_inv=ld.C_inv,
         )
         for ld in request.loads
     ]
-    
+
     return voltage_sources, current_sources, loads
 
 
@@ -140,21 +117,7 @@ def _get_solver_config(request_config):
     summary="Solve at single frequency",
 )
 async def solve_single_frequency_endpoint(request: SingleFrequencyRequest):
-    """
-    Solve PEEC system at a single frequency.
-    
-    Computes current distribution, input impedance, and power dissipation
-    for the given antenna geometry and excitation.
-    
-    Args:
-        request: Single frequency solve request
-    
-    Returns:
-        Solution including currents, voltages, and input impedance
-    
-    Raises:
-        HTTPException: If validation or solving fails
-    """
+    """Solve PEEC system at a single frequency."""
     try:
         # Validate inputs
         if len(request.nodes) < 2:
@@ -244,21 +207,7 @@ async def solve_single_frequency_endpoint(request: SingleFrequencyRequest):
     summary="Solve frequency sweep",
 )
 async def solve_frequency_sweep_endpoint(request: FrequencySweepRequest):
-    """
-    Solve PEEC system across multiple frequencies.
-    
-    Performs frequency sweep analysis, computing impedance, VSWR,
-    and other parameters across the specified frequency range.
-    
-    Args:
-        request: Frequency sweep request
-    
-    Returns:
-        Solutions at all frequencies with derived parameters
-    
-    Raises:
-        HTTPException: If validation or solving fails
-    """
+    """Solve PEEC system across multiple frequencies."""
     try:
         # Validate inputs
         if len(request.nodes) < 2:
@@ -376,21 +325,7 @@ async def solve_frequency_sweep_endpoint(request: FrequencySweepRequest):
     summary="Solve multiple antennas at single frequency",
 )
 async def solve_multi_antenna_endpoint(request: MultiAntennaRequest):
-    """
-    Solve multiple antennas at a single frequency.
-    
-    Combines antennas into unified system, solves together,
-    then distributes solution back to individual antennas.
-    
-    Args:
-        request: Multi-antenna request with list of antennas
-    
-    Returns:
-        Solutions for each antenna with currents, voltages, and impedances
-    
-    Raises:
-        HTTPException: If validation or solving fails
-    """
+    """Solve multiple antennas at a single frequency."""
     try:
         # Validate inputs
         if len(request.antennas) < 1:
@@ -503,25 +438,7 @@ async def get_materials():
     summary="Estimate solve time",
 )
 async def estimate_complexity(request: dict):
-    """
-    Estimate solve time based on problem complexity.
-    
-    Warns users before Lambda timeout (15 minutes). Returns estimated time
-    and recommendations for problem size optimization.
-    
-    Args:
-        request: Can be either:
-            - Full mesh data structure with 'edges', 'frequencies', etc.
-            - Simple parameters: {'n_edges': int, 'n_frequencies': int}
-    
-    Returns:
-        Estimation dictionary with:
-        - estimated_seconds: Predicted solve time
-        - warning: True if > 10 minutes
-        - will_timeout: True if likely to exceed Lambda timeout
-        - recommendation: User-facing suggestion if problem is large
-        - complexity_class: Problem size classification
-    """
+    """Estimate solve time based on problem complexity."""
     try:
         # Check if this is a full mesh structure or simple parameters
         if "edges" in request:

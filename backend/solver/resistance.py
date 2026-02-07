@@ -20,12 +20,10 @@ Author: PEEC Solver Development
 import numpy as np
 from typing import List, Optional
 
+from backend.common.constants import MU_0
 from backend.solver.geometry import EdgeGeometry
 
-
-# Physical constants
 PI = np.pi
-MU_0 = 4 * PI * 1e-7  # Permeability of free space [H/m]
 
 # Material resistivities [Ω·m]
 COPPER_RESISTIVITY = 1.68e-8  # Copper at 20°C

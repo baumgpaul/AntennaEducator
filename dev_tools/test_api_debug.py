@@ -30,7 +30,7 @@ try:
     # Test 1: Basic dipole
     print("\n### Test 1: Creating basic dipole ###")
     response = requests.post(
-        "http://localhost:8001/api/v1/antenna/dipole",
+        "http://localhost:8001/api/antenna/dipole",
         json={"length": 0.5, "segments": 5}
     )
     print(f"Response: {response.status_code}")
@@ -40,7 +40,7 @@ try:
     # Test 2: Dipole with gap
     print("\n### Test 2: Creating dipole with gap ###")
     response = requests.post(
-        "http://localhost:8001/api/v1/antenna/dipole",
+        "http://localhost:8001/api/antenna/dipole",
         json={
             "length": 1.0,
             "gap": 0.01,

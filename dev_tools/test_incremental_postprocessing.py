@@ -32,7 +32,7 @@ def test_incremental_field_computation():
         "lumped_impedances": []
     }
     
-    solve_response = solver_client.post("/api/v1/solver/solve", json=solve_request)
+    solve_response = solver_client.post("/api/solver/solve", json=solve_request)
     assert solve_response.status_code == 200, f"Solve failed: {solve_response.text}"
     solve_data = solve_response.json()
     print(f"   ✓ Solved with {len(solve_data['branch_currents'][0])} branches")
@@ -48,7 +48,7 @@ def test_incremental_field_computation():
         "observation_points": [[0, 0, 25], [0, 0, 50], [0, 0, 75]]
     }
     
-    field1_response = postprocessor_client.post("/api/v1/fields/near", json=field1_request)
+    field1_response = postprocessor_client.post("/api/fields/near", json=field1_request)
     assert field1_response.status_code == 200, f"Field 1 failed: {field1_response.text}"
     field1_data = field1_response.json()
     print(f"   ✓ Computed {field1_data['num_points']} points")
@@ -61,7 +61,7 @@ def test_incremental_field_computation():
         "observation_points": [[10, 0, 25], [10, 0, 50], [10, 0, 75]]
     }
     
-    field2_response = postprocessor_client.post("/api/v1/fields/near", json=field2_request)
+    field2_response = postprocessor_client.post("/api/fields/near", json=field2_request)
     assert field2_response.status_code == 200, f"Field 2 failed: {field2_response.text}"
     field2_data = field2_response.json()
     print(f"   ✓ Computed {field2_data['num_points']} points")
@@ -85,7 +85,7 @@ def test_incremental_field_computation():
         "phi_points": 50
     }
     
-    directivity_response = postprocessor_client.post("/api/v1/fields/far", json=directivity_request)
+    directivity_response = postprocessor_client.post("/api/fields/far", json=directivity_request)
     assert directivity_response.status_code == 200, f"Directivity failed: {directivity_response.text}"
     directivity_data = directivity_response.json()
     print(f"   ✓ Directivity: {directivity_data['directivity']:.2f} dBi")
@@ -118,7 +118,7 @@ def test_field_computation_validation():
         # Missing: branch_currents, edges, radii, observation_points
     }
     
-    response = postprocessor_client.post("/api/v1/fields/near", json=invalid_request)
+    response = postprocessor_client.post("/api/fields/near", json=invalid_request)
     assert response.status_code == 422, "Should reject missing fields"
     print("   ✓ Correctly rejects missing required fields")
     
@@ -134,7 +134,7 @@ def test_field_computation_validation():
     }
     
     # Should accept dict format with {real, imag}
-    response = postprocessor_client.post("/api/v1/fields/near", json=request_with_complex)
+    response = postprocessor_client.post("/api/fields/near", json=request_with_complex)
     assert response.status_code == 200, f"Should accept dict format: {response.text}"
     print("   ✓ Accepts {real, imag} dict format")
     
@@ -149,7 +149,7 @@ def test_field_computation_validation():
         "observation_points": []
     }
     
-    response = postprocessor_client.post("/api/v1/fields/near", json=empty_obs_request)
+    response = postprocessor_client.post("/api/fields/near", json=empty_obs_request)
     # Should handle gracefully
     if response.status_code == 200:
         data = response.json()
@@ -179,7 +179,7 @@ def test_progress_tracking():
         "lumped_impedances": []
     }
     
-    solve_response = solver_client.post("/api/v1/solver/solve", json=solve_request)
+    solve_response = solver_client.post("/api/solver/solve", json=solve_request)
     solve_data = solve_response.json()
     
     # Simulate computing multiple fields
@@ -197,7 +197,7 @@ def test_progress_tracking():
             "observation_points": [[i*10, 0, 25]]  # Different observation point for each
         }
         
-        response = postprocessor_client.post("/api/v1/fields/near", json=field_request)
+        response = postprocessor_client.post("/api/fields/near", json=field_request)
         assert response.status_code == 200
         
         completed += 1

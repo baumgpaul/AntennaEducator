@@ -151,10 +151,6 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         z_start_upper = gap / 2.0
         z_end_upper = (length - gap) / 2.0
         
-        print(f"DEBUG: Creating dipole - length={length}, gap={gap}")
-        print(f"DEBUG: Upper half: {z_start_upper} to {z_end_upper} (length={(z_end_upper-z_start_upper)})")
-        print(f"DEBUG: Lower half: {-z_start_upper} to {-z_end_upper} (length={(z_end_upper-z_start_upper)})")
-        
         # Create nodes for upper half
         for i in range(n_segments_per_half + 1):
             t = i / n_segments_per_half

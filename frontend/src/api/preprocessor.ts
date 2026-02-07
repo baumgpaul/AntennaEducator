@@ -33,7 +33,7 @@ export const checkHealth = async (): Promise<{ status: string }> => {
 export const createDipole = async (
   config: DipoleConfig
 ): Promise<PreprocessorResponse> => {
-  const response = await preprocessorClient.post('/api/v1/antenna/dipole', config)
+  const response = await preprocessorClient.post('/api/antenna/dipole', config)
   return handleApiResponse(response)
 }
 
@@ -41,7 +41,7 @@ export const createDipole = async (
  * Create a loop antenna (circular, rectangular, or polygon)
  */
 export const createLoop = async (config: LoopConfig): Promise<PreprocessorResponse> => {
-  const response = await preprocessorClient.post('/api/v1/antenna/loop', config)
+  const response = await preprocessorClient.post('/api/antenna/loop', config)
   return handleApiResponse(response)
 }
 
@@ -49,7 +49,7 @@ export const createLoop = async (config: LoopConfig): Promise<PreprocessorRespon
  * Create a helical antenna
  */
 export const createHelix = async (config: HelixConfig): Promise<PreprocessorResponse> => {
-  const response = await preprocessorClient.post('/api/v1/antenna/helix', config)
+  const response = await preprocessorClient.post('/api/antenna/helix', config)
   return handleApiResponse(response)
 }
 
@@ -57,58 +57,13 @@ export const createHelix = async (config: HelixConfig): Promise<PreprocessorResp
  * Create a rod (monopole) antenna
  */
 export const createRod = async (config: RodConfig): Promise<PreprocessorResponse> => {
-  const response = await preprocessorClient.post('/api/v1/antenna/rod', config)
+  const response = await preprocessorClient.post('/api/antenna/rod', config)
   return handleApiResponse(response)
 }
 
 // ============================================================================
 // Mesh Operations
 // ============================================================================
-
-/**
- * Validate antenna geometry
- */
-export const validateGeometry = async (mesh: any): Promise<{ valid: boolean; errors?: string[] }> => {
-  const response = await preprocessorClient.post('/api/v1/validate', mesh)
-  return handleApiResponse(response)
-}
-
-/**
- * Add lumped element to existing mesh
- * NOTE: This endpoint does not exist in the current backend.
- * Lumped elements should be added when creating the antenna via source/lumped_elements fields.
- * This function is kept for future extensibility.
- */
-export const addLumpedElement = async (element: any): Promise<PreprocessorResponse> => {
-  const response = await preprocessorClient.post('/lumped-element', element)
-  return handleApiResponse(response)
-}
-
-/**
- * Add source to existing mesh
- * NOTE: This endpoint does not exist in the current backend.
- * Sources should be added when creating the antenna via source field.
- * This function is kept for future extensibility.
- */
-export const addSource = async (source: any): Promise<PreprocessorResponse> => {
-  const response = await preprocessorClient.post('/source', source)
-  return handleApiResponse(response)
-}
-
-/**
- * Export geometry to file
- */
-export const exportGeometry = async (
-  mesh: any,
-  format: 'json' | 'vtk'
-): Promise<Blob> => {
-  const response = await preprocessorClient.post(
-    '/export',
-    { mesh, format },
-    { responseType: 'blob' }
-  )
-  return response.data
-}
 
 // ============================================================================
 // Convenience wrappers for dialogs
@@ -365,8 +320,6 @@ const preprocessorApi = {
   createLoop,
   createHelix,
   createRod,
-  validateGeometry,
-  exportGeometry,
   generateDipoleMesh,
   generateLoopMesh,
   generateHelixMesh,

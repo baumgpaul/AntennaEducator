@@ -15,7 +15,7 @@ if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8')
 
 # Solver service endpoint
-SOLVER_URL = "http://localhost:8002/api/v1"
+SOLVER_URL = "http://localhost:8002/api"
 
 def test_single_dipole_voltage_source():
     """Test simple dipole with voltage source."""

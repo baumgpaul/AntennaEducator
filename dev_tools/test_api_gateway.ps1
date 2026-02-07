@@ -34,10 +34,10 @@ try {
     
     # Test 2: Projects Service List
     Write-Host "`n2. Testing Projects List..." -ForegroundColor Yellow
-    Write-Host "   GET $apiInvokeUrl/api/v1/projects" -ForegroundColor Gray
+    Write-Host "   GET $apiInvokeUrl/api/projects" -ForegroundColor Gray
     
     try {
-        $response = Invoke-WebRequest -Uri "$apiInvokeUrl/api/v1/projects" -Method GET -UseBasicParsing
+        $response = Invoke-WebRequest -Uri "$apiInvokeUrl/api/projects" -Method GET -UseBasicParsing
         Write-Host "   ✓ Status: $($response.StatusCode)" -ForegroundColor Green
         Write-Host "   Response: $($response.Content)" -ForegroundColor Gray
     } catch {
@@ -46,10 +46,10 @@ try {
     
     # Test 3: CORS headers
     Write-Host "`n3. Testing CORS Configuration..." -ForegroundColor Yellow
-    Write-Host "   GET $apiInvokeUrl/api/v1/projects (checking CORS headers)" -ForegroundColor Gray
+    Write-Host "   GET $apiInvokeUrl/api/projects (checking CORS headers)" -ForegroundColor Gray
     
     try {
-        $response = Invoke-WebRequest -Uri "$apiInvokeUrl/api/v1/projects" -Method GET -UseBasicParsing
+        $response = Invoke-WebRequest -Uri "$apiInvokeUrl/api/projects" -Method GET -UseBasicParsing
         
         if ($response.Headers.ContainsKey('Access-Control-Allow-Origin')) {
             Write-Host "   ✓ CORS headers present" -ForegroundColor Green

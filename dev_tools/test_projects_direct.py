@@ -21,11 +21,11 @@ from fastapi.testclient import TestClient
 client = TestClient(app)
 
 print("\n" + "="*80)
-print("Testing GET /api/v1/projects endpoint")
+print("Testing GET /api/projects endpoint")
 print("="*80)
 
 try:
-    response = client.get("/api/v1/projects")
+    response = client.get("/api/projects")
     print(f"\nStatus Code: {response.status_code}")
     print(f"Headers: {dict(response.headers)}")
     print(f"Content: {response.text}")

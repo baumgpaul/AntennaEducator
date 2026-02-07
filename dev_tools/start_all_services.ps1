@@ -41,9 +41,9 @@ Start-Sleep -Seconds 3
 
 Write-Host "`n✅ All services started!" -ForegroundColor Green
 Write-Host "`nService URLs:" -ForegroundColor Cyan
-Write-Host "  • Preprocessor: http://localhost:8001/api/v1/docs" -ForegroundColor White
-Write-Host "  • Solver:       http://localhost:8002/api/v1/docs" -ForegroundColor White
-Write-Host "  • Postprocessor: http://localhost:8003/api/v1/docs" -ForegroundColor White
+Write-Host "  • Preprocessor: http://localhost:8001/api/docs" -ForegroundColor White
+Write-Host "  • Solver:       http://localhost:8002/api/docs" -ForegroundColor White
+Write-Host "  • Postprocessor: http://localhost:8003/api/docs" -ForegroundColor White
 
 Write-Host "`nMonitoring service logs (Ctrl+C to stop)...`n" -ForegroundColor Yellow
 

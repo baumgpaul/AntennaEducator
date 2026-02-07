@@ -1,5 +1,5 @@
 """
-Integration tests for /api/v1/solve/multi endpoint.
+Integration tests for /api/solve/multi endpoint.
 
 Tests the complete HTTP API for multi-antenna solving.
 """
@@ -10,7 +10,7 @@ import numpy as np
 
 
 BASE_URL = "http://localhost:8002"
-API_PREFIX = "/api/v1"
+API_PREFIX = "/api"
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def solver_client():
 
 
 class TestMultiAntennaEndpoint:
-    """Test /api/v1/solve/multi endpoint."""
+    """Test /api/solve/multi endpoint."""
     
     def test_single_antenna_via_api(self, solver_client):
         """Test solving single antenna via multi-antenna endpoint."""

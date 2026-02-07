@@ -91,28 +91,28 @@ $projectData1 = @{
     name        = "Dipole Antenna"
     description = "Basic dipole antenna design for integration testing"
 }
-$createdProject1 = Test-Endpoint -TestName "Create Dipole Project" -Method "POST" -Endpoint "/api/v1/projects" -Body $projectData1 -ExpectedStatusCode 201
+$createdProject1 = Test-Endpoint -TestName "Create Dipole Project" -Method "POST" -Endpoint "/api/projects" -Body $projectData1 -ExpectedStatusCode 201
 $project1Id = $createdProject1.id
 
 $projectData2 = @{
     name        = "Loop Antenna"
     description = "Loop antenna design"
 }
-$createdProject2 = Test-Endpoint -TestName "Create Loop Project" -Method "POST" -Endpoint "/api/v1/projects" -Body $projectData2 -ExpectedStatusCode 201
+$createdProject2 = Test-Endpoint -TestName "Create Loop Project" -Method "POST" -Endpoint "/api/projects" -Body $projectData2 -ExpectedStatusCode 201
 $project2Id = $createdProject2.id
 
 $projectData3 = @{
     name        = "Helix Antenna"
     description = "Helical antenna design"
 }
-$createdProject3 = Test-Endpoint -TestName "Create Helix Project" -Method "POST" -Endpoint "/api/v1/projects" -Body $projectData3 -ExpectedStatusCode 201
+$createdProject3 = Test-Endpoint -TestName "Create Helix Project" -Method "POST" -Endpoint "/api/projects" -Body $projectData3 -ExpectedStatusCode 201
 $project3Id = $createdProject3.id
 
 # Test 3: Read/List Projects
 Write-Info ""
 Write-Info "=== Project Retrieval Tests ==="
 
-$projectsList = Test-Endpoint -TestName "List All Projects" -Method "GET" -Endpoint "/api/v1/projects" -ExpectedStatusCode 200
+$projectsList = Test-Endpoint -TestName "List All Projects" -Method "GET" -Endpoint "/api/projects" -ExpectedStatusCode 200
 
 if ($projectsList -and $projectsList.Count -ge 3) {
     Write-Success "Retrieved $($projectsList.Count) projects"
@@ -123,8 +123,8 @@ if ($projectsList -and $projectsList.Count -ge 3) {
 }
 
 # Get individual projects
-Test-Endpoint -TestName "Get Dipole Project by ID" -Method "GET" -Endpoint "/api/v1/projects/$project1Id" -ExpectedStatusCode 200
-Test-Endpoint -TestName "Get Loop Project by ID" -Method "GET" -Endpoint "/api/v1/projects/$project2Id" -ExpectedStatusCode 200
+Test-Endpoint -TestName "Get Dipole Project by ID" -Method "GET" -Endpoint "/api/projects/$project1Id" -ExpectedStatusCode 200
+Test-Endpoint -TestName "Get Loop Project by ID" -Method "GET" -Endpoint "/api/projects/$project2Id" -ExpectedStatusCode 200
 
 # Test 4: Update Projects
 Write-Info ""
@@ -134,18 +134,18 @@ $updateData = @{
     name        = "Dipole Antenna (Updated)"
     description = "Updated description for dipole"
 }
-Test-Endpoint -TestName "Update Dipole Project" -Method "PUT" -Endpoint "/api/v1/projects/$project1Id" -Body $updateData -ExpectedStatusCode 200
+Test-Endpoint -TestName "Update Dipole Project" -Method "PUT" -Endpoint "/api/projects/$project1Id" -Body $updateData -ExpectedStatusCode 200
 
 $partialUpdate = @{
     description = "Partial update - description only"
 }
-Test-Endpoint -TestName "Partial Update Loop Project" -Method "PUT" -Endpoint "/api/v1/projects/$project2Id" -Body $partialUpdate -ExpectedStatusCode 200
+Test-Endpoint -TestName "Partial Update Loop Project" -Method "PUT" -Endpoint "/api/projects/$project2Id" -Body $partialUpdate -ExpectedStatusCode 200
 
 # Test 5: Duplicate Projects
 Write-Info ""
 Write-Info "=== Project Duplication Tests ==="
 
-$duplicateResponse = Test-Endpoint -TestName "Duplicate Dipole Project" -Method "POST" -Endpoint "/api/v1/projects/$project1Id/duplicate" -ExpectedStatusCode 201
+$duplicateResponse = Test-Endpoint -TestName "Duplicate Dipole Project" -Method "POST" -Endpoint "/api/projects/$project1Id/duplicate" -ExpectedStatusCode 201
 
 if ($duplicateResponse) {
     $duplicateId = $duplicateResponse.id
@@ -157,7 +157,7 @@ Write-Info ""
 Write-Info "=== Project Deletion Tests ==="
 
 # Delete via DELETE endpoint (expects 204 No Content)
-$deleteUri = "$BackendUrl/api/v1/projects/$project3Id"
+$deleteUri = "$BackendUrl/api/projects/$project3Id"
 try {
     Write-Info "Testing: Delete Helix Project"
     $null = Invoke-WebRequest -Uri $deleteUri -Method "DELETE" -TimeoutSec $RequestTimeoutSecs -Headers @{"Content-Type" = "application/json"}
@@ -170,7 +170,7 @@ catch {
 }
 
 # Verify deletion
-$getDeletedUri = "$BackendUrl/api/v1/projects/$project3Id"
+$getDeletedUri = "$BackendUrl/api/projects/$project3Id"
 try {
     Write-Info "Testing: Verify Deleted Project Returns 404"
     $null = Invoke-WebRequest -Uri $getDeletedUri -Method "GET" -TimeoutSec $RequestTimeoutSecs -Headers @{"Content-Type" = "application/json"}
@@ -191,7 +191,7 @@ catch {
 Write-Info ""
 Write-Info "=== CORS Tests ==="
 
-$optionsUri = "$BackendUrl/api/v1/projects"
+$optionsUri = "$BackendUrl/api/projects"
 try {
     Write-Info "Testing: CORS Preflight (OPTIONS)"
     $response = Invoke-WebRequest -Uri $optionsUri -Method "OPTIONS" -TimeoutSec $RequestTimeoutSecs -Headers @{
@@ -219,7 +219,7 @@ Write-Info "=== Error Handling Tests ==="
 
 try {
     Write-Info "Testing: Get Non-existent Project (404)"
-    $null = Invoke-WebRequest -Uri "$BackendUrl/api/v1/projects/99999" -Method "GET" -TimeoutSec $RequestTimeoutSecs
+    $null = Invoke-WebRequest -Uri "$BackendUrl/api/projects/99999" -Method "GET" -TimeoutSec $RequestTimeoutSecs
     Write-Error-Color "Should have returned 404"
     $script:testsFailed++
 }

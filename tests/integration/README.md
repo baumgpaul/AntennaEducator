@@ -206,7 +206,7 @@ def test_new_antenna_type(self):
     """Test description."""
     # 1. Generate geometry via preprocessor
     response = requests.post(
-        f"{PREPROCESSOR_URL}/api/v1/build/your_antenna",
+        f"{PREPROCESSOR_URL}/api/build/your_antenna",
         json={"param": value}
     )
     assert response.status_code == 200
@@ -221,7 +221,7 @@ def test_new_antenna_type(self):
         "voltage_sources": [...]
     }
     response = requests.post(
-        f"{SOLVER_URL}/api/v1/solve/single",
+        f"{SOLVER_URL}/api/solve/single",
         json=solver_request
     )
     assert response.status_code == 200

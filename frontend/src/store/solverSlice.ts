@@ -8,7 +8,7 @@ import type { RootState } from './store';
 import type { SolverRequest, SolverResult, Mesh, Source } from '@/types/models';
 import type { MultiAntennaRequest, MultiAntennaSolutionResponse, FrequencySweepParams, FrequencySweepResult } from '@/types/api';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
-import { solveSingle, solveAsync, getJobStatus, cancelJob, solveMultiAntenna } from '@/api/solver';
+import { solveSingle, solveMultiAntenna } from '@/api/solver';
 import { computeFarField, computeNearField } from '@/api/postprocessor';
 import { generateObservationPoints } from '@/utils/fieldGeneration';
 
@@ -92,7 +92,6 @@ interface SolverState {
   status: SimulationStatus;
   progress: number; // 0-100
   error: string | null;
-  jobId: string | null;
   
   // Current simulation parameters
   currentRequest: SolverRequest | null;
@@ -157,7 +156,6 @@ const initialState: SolverState = {
   status: 'idle',
   progress: 0,
   error: null,
-  jobId: null,
   currentRequest: null,
   results: null,
   currentDistribution: null,
@@ -183,134 +181,6 @@ const initialState: SolverState = {
 // ============================================================================
 
 /**
- * Run a single frequency simulation
- */
-export const runSimulation = createAsyncThunk<
-  SolverResult,
-  {
-    mesh: Mesh;
-    frequency: number;
-    source: Source;
-    projectId?: string;
-  },
-  { state: RootState }
->('solver/runSimulation', async ({ mesh, frequency, source, projectId = 'default' }, { rejectWithValue }) => {
-  try {
-    // Prepare solver request
-    const request: SolverRequest = {
-      project_id: projectId,
-      frequency,
-      nodes: mesh.nodes,
-      edges: mesh.edges,
-      radii: mesh.radii,
-      source_node_start: source.node_start,
-      source_node_end: source.node_end,
-      source_type: source.type,
-      source_amplitude: typeof source.amplitude === 'object' && 'real' in source.amplitude 
-        ? source.amplitude 
-        : { real: typeof source.amplitude === 'number' ? source.amplitude : parseFloat(source.amplitude as string), imag: 0 },
-    };
-
-    console.log('Running simulation:', { frequency, sourceNodes: [source.node_start, source.node_end] });
-
-    // Call solver API
-    const result = await solveSingle(request);
-
-    console.log('Simulation complete:', { converged: result.converged, iterations: result.iterations });
-
-    return result;
-  } catch (error: any) {
-    console.error('Simulation failed:', error);
-    return rejectWithValue(error.message || 'Simulation failed');
-  }
-});
-
-/**
- * Run async simulation with progress tracking
- */
-export const runAsyncSimulation = createAsyncThunk<
-  SolverResult,
-  {
-    mesh: Mesh;
-    frequency: number;
-    source: Source;
-    projectId?: string;
-  },
-  { state: RootState }
->('solver/runAsyncSimulation', async ({ mesh, frequency, source, projectId = 'default' }, { dispatch, rejectWithValue }) => {
-  try {
-    // Prepare solver request
-    const request: SolverRequest = {
-      project_id: projectId,
-      frequency,
-      nodes: mesh.nodes,
-      edges: mesh.edges,
-      radii: mesh.radii,
-      source_node_start: source.node_start,
-      source_node_end: source.node_end,
-      source_type: source.type,
-      source_amplitude: typeof source.amplitude === 'object' && 'real' in source.amplitude 
-        ? source.amplitude 
-        : { real: typeof source.amplitude === 'number' ? source.amplitude : parseFloat(source.amplitude as string), imag: 0 },
-    };
-
-    console.log('Starting async simulation:', { frequency });
-
-    // Start async job
-    const { job_id } = await solveAsync(request);
-    dispatch(setJobId(job_id));
-
-    // Poll for status
-    let status = 'running';
-    let result: SolverResult | null = null;
-
-    while (status === 'running' || status === 'pending') {
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Poll every 1 second
-      
-      const jobStatus = await getJobStatus(job_id);
-      status = jobStatus.status;
-      
-      if (jobStatus.progress !== undefined) {
-        dispatch(setProgress(jobStatus.progress));
-      }
-      
-      if (jobStatus.result) {
-        result = jobStatus.result;
-      }
-    }
-
-    if (status === 'completed' && result) {
-      console.log('Async simulation complete');
-      return result;
-    } else {
-      throw new Error(`Simulation ${status}`);
-    }
-  } catch (error: any) {
-    console.error('Async simulation failed:', error);
-    return rejectWithValue(error.message || 'Async simulation failed');
-  }
-});
-
-/**
- * Cancel running simulation
- */
-export const cancelSimulation = createAsyncThunk<void, void, { state: RootState }>(
-  'solver/cancelSimulation',
-  async (_, { getState, rejectWithValue }) => {
-    try {
-      const { jobId } = getState().solver;
-      if (jobId) {
-        await cancelJob(jobId);
-        console.log('Simulation cancelled:', jobId);
-      }
-    } catch (error: any) {
-      console.error('Failed to cancel simulation:', error);
-      return rejectWithValue(error.message || 'Failed to cancel simulation');
-    }
-  }
-);
-
-/**
  * Run multi-antenna simulation
  * This is the preferred method for all simulations (single or multiple elements)
  */
@@ -320,29 +190,9 @@ export const runMultiAntennaSimulation = createAsyncThunk<
   { state: RootState }
 >('solver/runMultiAntennaSimulation', async (request, { rejectWithValue }) => {
   try {
-    console.log('Running multi-antenna simulation:', {
-      frequency: request.frequency,
-      antennaCount: request.antennas.length,
-      totalNodes: request.antennas.reduce((sum, ant) => sum + ant.nodes.length, 0),
-      totalEdges: request.antennas.reduce((sum, ant) => sum + ant.edges.length, 0),
-    });
-    
-    console.log('Full request payload:', JSON.stringify(request, null, 2));
-
     const result = await solveMultiAntenna(request);
-
-    console.log('Multi-antenna simulation complete:', {
-      converged: result.converged,
-      antennas: result.antenna_solutions.length,
-      solveTime: result.solve_time,
-    });
-
     return result;
   } catch (error: any) {
-    console.error('Multi-antenna simulation failed:', error);
-    console.error('Error response:', error.response?.data);
-    console.error('Error status:', error.response?.status);
-    
     const errorMessage = error.response?.data?.detail || error.message || 'Multi-antenna simulation failed';
     return rejectWithValue(errorMessage);
   }
@@ -363,13 +213,6 @@ export const runFrequencySweep = createAsyncThunk<
   try {
     const { startFrequency, stopFrequency, numPoints, spacing } = params;
 
-    console.log('Starting frequency sweep:', {
-      start: startFrequency / 1e6 + ' MHz',
-      stop: stopFrequency / 1e6 + ' MHz',
-      points: numPoints,
-      spacing,
-    });
-
     // Generate frequency array
     const frequencies: number[] = [];
     if (spacing === 'linear') {
@@ -387,8 +230,6 @@ export const runFrequencySweep = createAsyncThunk<
       }
     }
 
-    console.log('Generated frequencies:', frequencies.map(f => (f / 1e6).toFixed(2) + ' MHz'));
-
     // Run simulations for each frequency
     const results: MultiAntennaSolutionResponse[] = [];
     const currentDistributions: Array<{
@@ -401,8 +242,6 @@ export const runFrequencySweep = createAsyncThunk<
       
       // Update progress
       dispatch(setProgress(Math.round((i / frequencies.length) * 100)));
-
-      console.log(`Solving frequency ${i + 1}/${frequencies.length}: ${(frequency / 1e6).toFixed(2)} MHz`);
 
       // Create request for this frequency
       const freqRequest: MultiAntennaRequest = {
@@ -427,12 +266,6 @@ export const runFrequencySweep = createAsyncThunk<
         frequency,
         currents: antennaCurrents,
       });
-
-      console.log(`Frequency ${(frequency / 1e6).toFixed(2)} MHz solved:`, {
-        converged: result.converged,
-        numAntennas: result.antenna_solutions.length,
-        solveTime: result.solve_time + 's',
-      });
     }
 
     // Reset progress
@@ -447,14 +280,8 @@ export const runFrequencySweep = createAsyncThunk<
       currentDistributions,
     };
 
-    console.log('Frequency sweep complete:', {
-      numFrequencies: frequencies.length,
-      allConverged: results.every(r => r.converged),
-    });
-
     return sweepResult;
   } catch (error: any) {
-    console.error('Frequency sweep failed:', error);
     return rejectWithValue(error.message || 'Frequency sweep failed');
   }
 });
@@ -478,8 +305,6 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
 
     // Convert frequency to MHz
     const frequencyMHz = unit === 'GHz' ? frequency * 1000 : frequency;
-
-    console.log('Solving at frequency:', frequencyMHz, 'MHz');
 
     // Prepare multi-antenna request
     const antennaRequests = elements.map((element) => {
@@ -543,12 +368,6 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
     dispatch(setSolverState('solved'));
     dispatch(setCurrentFrequency(frequencyMHz));
 
-    console.log('Solver workflow complete:', {
-      frequency: frequencyMHz,
-      converged: result.converged,
-      solutions: result.antenna_solutions.length,
-    });
-
     // Return first solution for compatibility
     if (result.antenna_solutions.length > 0) {
       const solution = result.antenna_solutions[0];
@@ -576,7 +395,6 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
 
     throw new Error('No antenna solutions returned');
   } catch (error: any) {
-    console.error('Single frequency solve workflow failed:', error);
     return rejectWithValue(error.message || 'Solve failed');
   }
 });
@@ -603,17 +421,6 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
     const hasResults = results || (isSweepMode && frequencySweep.results && frequencySweep.results.length > 0);
     
-    console.log('Postprocessing workflow - state check:', {
-      hasFrequencySweep: !!frequencySweep,
-      hasFrequencies: !!(frequencySweep?.frequencies),
-      frequenciesLength: frequencySweep?.frequencies?.length,
-      hasSingleResults: !!results,
-      hasSweepResults: !!(frequencySweep?.results),
-      sweepResultsLength: frequencySweep?.results?.length,
-      isSweepMode,
-      hasAnyResults: hasResults,
-    });
-    
     if (!hasResults) {
       return rejectWithValue('No solver results available. Run solver first.');
     }
@@ -635,17 +442,6 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     const referenceBranchCurrents = isSweepMode && isMultiAntenna && (referenceResult as any).antenna_solutions?.length 
       ? (referenceResult as any).antenna_solutions[0].branch_currents 
       : (referenceResult as any).branch_currents;
-    
-    console.log('Postprocessing workflow - frequency mode:', {
-      isSweepMode,
-      isMultiAntenna,
-      numFrequencies: frequencies.length,
-      frequencies: frequencies.slice(0, 3), // Show first 3
-      hasReferenceResult: !!referenceResult,
-      hasAntennaSolutions: isMultiAntenna,
-      numAntennaSolutions: isMultiAntenna ? (referenceResult as any).antenna_solutions?.length : 0,
-      hasBranchCurrents: !!referenceBranchCurrents,
-    });
 
     const response: {
       directivity?: any;
@@ -658,17 +454,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     const fieldsToCompute = requestedFields.filter(field => !existingFieldResults[field.id]?.computed);
     const directivityNeedsComputing = directivityRequested && !existingFieldResults['directivity']?.computed;
     
-    console.log('Postprocessing check:', {
-      totalFieldsRequested: requestedFields.length,
-      fieldsAlreadyComputed: requestedFields.length - fieldsToCompute.length,
-      fieldsToCompute: fieldsToCompute.length,
-      directivityRequested,
-      directivityAlreadyComputed: existingFieldResults['directivity']?.computed,
-      directivityNeedsComputing,
-    });
-    
     if (fieldsToCompute.length === 0 && !directivityNeedsComputing) {
-      console.log('All requested fields already computed, nothing to do');
       return {
         message: 'All fields already computed',
         fields: Object.entries(existingFieldResults).map(([fieldId, result]) => ({
@@ -688,10 +474,8 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 
     // Compute directivity if requested
     if (directivityNeedsComputing) {
-      console.log('Computing directivity...');
       const pattern = await dispatch(computeRadiationPattern()).unwrap();
       response.directivity = pattern;
-      console.log('Directivity computed:', pattern.directivity, 'dBi');
       
       // Mark as completed
       completedWork++;
@@ -705,8 +489,6 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 
     // Compute requested field regions
     if (fieldsToCompute.length > 0) {
-      console.log(`Computing ${fieldsToCompute.length} new fields (${requestedFields.length - fieldsToCompute.length} already computed)`);
-      
       // Get mesh data
       const element = elements[0];
       if (!element.mesh) {
@@ -718,41 +500,20 @@ export const computePostprocessingWorkflow = createAsyncThunk<
       // Ensure radii exists - if not, create from element edges or use default
       let radii = mesh.radii;
       if (!radii || radii.length === 0) {
-        console.warn('Mesh missing radii, using default 0.001m for all edges');
         radii = mesh.edges.map(() => 0.001); // Default 1mm radius
       }
-      
-      console.log('Mesh data for field computation:', {
-        nodes: mesh.nodes.length,
-        edges: mesh.edges.length,
-        radii: radii.length,
-      });
       
       // Compute fields for each requested region
       const fieldResults = [];
       
       for (const field of fieldsToCompute) {
-        console.log(`Computing field region: ${field.id} (${field.type} ${field.shape})`);
-        
         // Generate observation points based on field definition
         const observation_points = generateObservationPoints(field);
-        console.log(`  Generated ${observation_points.length} observation points`);
         
         // Validate mesh data
         if (!radii || radii.length === 0) {
-          console.error('Missing radii after fallback:', { radii, mesh });
           return rejectWithValue('Unable to determine edge radii for field computation');
         }
-        
-        console.log('Field computation request data:', {
-          numFrequencies: frequencies.length,
-          firstFrequency: frequencies[0],
-          branch_currents_length: referenceBranchCurrents?.length,
-          nodes_length: mesh.nodes.length,
-          edges_length: mesh.edges.length,
-          radii_length: radii.length,
-          observation_points_length: observation_points.length,
-        });
         
         // Prepare branch currents for all frequencies
         let branch_currents_array;
@@ -765,20 +526,10 @@ export const computePostprocessingWorkflow = createAsyncThunk<
             }
             return [];
           });
-          console.log(`Using sweep mode: ${branch_currents_array.length} frequencies, first array length: ${branch_currents_array[0]?.length}`);
         } else if (results && results.branch_currents) {
           // For single frequency: use current results
           branch_currents_array = [results.branch_currents];
-          console.log(`Using single frequency mode, branch_currents length: ${results.branch_currents.length}`);
         } else {
-          console.error('No branch currents available:', { 
-            isSweepMode, 
-            hasFrequencySweep: !!frequencySweep,
-            hasSweepResults: !!(frequencySweep?.results),
-            hasResults: !!results,
-            hasBranchCurrents: !!(results?.branch_currents),
-            firstSweepResultHasAntennaSolutions: !!(frequencySweep?.results?.[0]?.antenna_solutions)
-          });
           return rejectWithValue('No branch currents available for field computation');
         }
         
@@ -792,21 +543,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           observation_points,
         };
         
-        console.log('Calling computeNearField with request:', {
-          num_frequencies: fieldRequest.frequencies.length,
-          num_branch_current_sets: fieldRequest.branch_currents.length,
-          branch_currents: `[${fieldRequest.branch_currents.length} frequencies]`,
-          nodes: `[${fieldRequest.nodes.length} nodes]`,
-        });
-        
-        // Debug: Log first few branch currents to check format
-        console.log('Sample branch_currents:', {
-          first_frequency_length: fieldRequest.branch_currents[0]?.length,
-          first_3_currents: fieldRequest.branch_currents[0]?.slice(0, 3),
-        });
-        
         const fieldData = await computeNearField(fieldRequest);
-        console.log(`  Field computation complete: ${fieldData.num_points} points computed`);
         
         // Store field data for all frequencies
         for (let freqIdx = 0; freqIdx < frequencies.length; freqIdx++) {
@@ -829,8 +566,6 @@ export const computePostprocessingWorkflow = createAsyncThunk<
             },
           }));
         }
-        
-        console.log(`  Field data stored for ${frequencies.length} frequencies`);
         
         // Update field result immediately
         completedWork++;
@@ -866,16 +601,8 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     // Update workflow state
     dispatch(setSolverState('postprocessing-ready'));
 
-    console.log('Postprocessing workflow complete:', response);
     return { ...response, totalFieldDataSizeMB };
   } catch (error: any) {
-    console.error('Postprocessing workflow failed:', error);
-    
-    // Log detailed validation errors from FastAPI
-    if (error.response?.data?.detail) {
-      console.error('Backend validation errors:', JSON.stringify(error.response.data.detail, null, 2));
-    }
-    
     return rejectWithValue(error.message || 'Postprocessing failed');
   }
 });
@@ -931,14 +658,12 @@ export const computeRadiationPattern = createAsyncThunk<
     let combinedBranchCurrents: any[] = [];
     
     if (isMultiAntenna) {
-      console.log('Multi-antenna radiation pattern - combining meshes from all elements');
       const antenna_solutions = (results as any).antenna_solutions;
       
       let nodeOffset = 0;
       for (let i = 0; i < elements.length; i++) {
         const element = elements[i];
         if (!element.mesh) {
-          console.warn(`Element ${i} has no mesh, skipping`);
           continue;
         }
         
@@ -969,13 +694,6 @@ export const computeRadiationPattern = createAsyncThunk<
         
         nodeOffset += mesh.nodes.length;
       }
-      
-      console.log('Combined mesh for radiation pattern:', {
-        totalNodes: combinedNodes.length,
-        totalEdges: combinedEdges.length,
-        totalRadii: combinedRadii.length,
-        totalBranchCurrents: combinedBranchCurrents.length
-      });
     } else {
       // Single antenna: use first element's mesh
       const element = elements[0];
@@ -1007,31 +725,10 @@ export const computeRadiationPattern = createAsyncThunk<
       phi_points: directivitySettings.phi_points,
     };
 
-    console.log('Computing far-field radiation pattern:', {
-      isSweepMode,
-      isMultiAntenna,
-      numFrequencies: frequencies.length,
-      firstFrequency: frequencies[0],
-      nodes: combinedNodes.length,
-      edges: combinedEdges.length,
-      radii: combinedRadii.length,
-      branch_currents_arrays: branch_currents_array.length,
-      first_array_length: branch_currents_array[0]?.length,
-    });
-
     const pattern = await computeFarField(request);
-
-    console.log('Far-field computation complete:', {
-      directivity: pattern.directivity,
-      gain: pattern.gain,
-      efficiency: pattern.efficiency,
-      theta_points: pattern.theta_angles.length,
-      phi_points: pattern.phi_angles.length,
-    });
 
     return pattern;
   } catch (error: any) {
-    console.error('Far-field computation failed:', error);
     const errorMessage = error.response?.data?.detail || error.message || 'Far-field computation failed';
     return rejectWithValue(errorMessage);
   }
@@ -1045,11 +742,6 @@ const solverSlice = createSlice({
   name: 'solver',
   initialState,
   reducers: {
-    // Set job ID for async operations
-    setJobId: (state, action: PayloadAction<string>) => {
-      state.jobId = action.payload;
-    },
-
     // Update progress
     setProgress: (state, action: PayloadAction<number>) => {
       state.progress = Math.min(100, Math.max(0, action.payload));
@@ -1213,113 +905,6 @@ const solverSlice = createSlice({
   },
   extraReducers: (builder) => {
     // ========================================================================
-    // Run Simulation
-    // ========================================================================
-    builder.addCase(runSimulation.pending, (state, action) => {
-      state.status = 'preparing';
-      state.progress = 0;
-      state.error = null;
-      state.currentRequest = action.meta.arg as any; // Store request parameters
-    });
-
-    builder.addCase(runSimulation.fulfilled, (state, action) => {
-      state.status = 'completed';
-      state.progress = 100;
-      state.results = action.payload;
-      
-      console.log('Solver response received:', {
-        frequency: action.payload.frequency,
-        input_impedance: action.payload.input_impedance,
-        branch_currents_length: action.payload.branch_currents?.length,
-        branch_currents_sample: action.payload.branch_currents?.slice(0, 3),
-      });
-      
-      // Calculate current magnitude for visualization
-      state.currentDistribution = action.payload.branch_currents.map((current) => {
-        const parsed = parseComplex(current);
-        const magnitude = Math.sqrt(parsed.real * parsed.real + parsed.imag * parsed.imag);
-        return magnitude;
-      });
-
-      console.log('Current distribution computed:', {
-        length: state.currentDistribution?.length,
-        sample: state.currentDistribution?.slice(0, 5),
-        min: Math.min(...state.currentDistribution.filter(c => isFinite(c))),
-        max: Math.max(...state.currentDistribution.filter(c => isFinite(c))),
-        hasNaN: state.currentDistribution.some(c => !isFinite(c))
-      });
-
-      // Add to history
-      state.resultsHistory.push({
-        timestamp: new Date().toISOString(),
-        frequency: action.payload.frequency,
-        result: action.payload,
-      });
-
-      // Keep only last 10 results in history
-      if (state.resultsHistory.length > 10) {
-        state.resultsHistory.shift();
-      }
-
-      console.log('Results stored, current distribution length:', state.currentDistribution?.length);
-    });
-
-    builder.addCase(runSimulation.rejected, (state, action) => {
-      state.status = 'failed';
-      state.error = action.payload as string || 'Simulation failed';
-      state.progress = 0;
-      console.error('Simulation rejected:', state.error);
-    });
-
-    // ========================================================================
-    // Run Async Simulation
-    // ========================================================================
-    builder.addCase(runAsyncSimulation.pending, (state) => {
-      state.status = 'preparing';
-      state.progress = 0;
-      state.error = null;
-    });
-
-    builder.addCase(runAsyncSimulation.fulfilled, (state, action) => {
-      state.status = 'completed';
-      state.progress = 100;
-      state.results = action.payload;
-      
-      // Calculate current magnitude for visualization
-      state.currentDistribution = action.payload.branch_currents.map((current) => {
-        const real = current.real || current[0];
-        const imag = current.imag || current[1];
-        return Math.sqrt(real * real + imag * imag);
-      });
-
-      // Add to history
-      state.resultsHistory.push({
-        timestamp: new Date().toISOString(),
-        frequency: action.payload.frequency,
-        result: action.payload,
-      });
-
-      if (state.resultsHistory.length > 10) {
-        state.resultsHistory.shift();
-      }
-    });
-
-    builder.addCase(runAsyncSimulation.rejected, (state, action) => {
-      state.status = 'failed';
-      state.error = action.payload as string || 'Async simulation failed';
-      state.progress = 0;
-    });
-
-    // ========================================================================
-    // Cancel Simulation
-    // ========================================================================
-    builder.addCase(cancelSimulation.fulfilled, (state) => {
-      state.status = 'cancelled';
-      state.progress = 0;
-      state.jobId = null;
-    });
-
-    // ========================================================================
     // Run Multi-Antenna Simulation
     // ========================================================================
     builder.addCase(runMultiAntennaSimulation.pending, (state) => {
@@ -1349,48 +934,24 @@ const solverSlice = createSlice({
       state.postprocessingStatus = 'idle';
       
       // For backward compatibility: if single antenna, also populate results field
-      console.log('Multi-antenna solver response:', {
-        converged: action.payload.converged,
-        num_solutions: action.payload.antenna_solutions.length,
-        frequency: action.payload.frequency,
-        first_solution: action.payload.antenna_solutions[0]
-      });
-
       if (action.payload.antenna_solutions.length === 1) {
         const solution = action.payload.antenna_solutions[0];
-        
-        console.log('Single antenna solution:', {
-          input_impedance: solution.input_impedance,
-          branch_currents_length: solution.branch_currents?.length,
-          branch_currents_sample: solution.branch_currents?.slice(0, 3),
-          voltage_source_currents_length: solution.voltage_source_currents?.length,
-          voltage_source_currents: solution.voltage_source_currents,
-          has_load_currents: !!solution.load_currents
-        });
 
         // Calculate input impedance from voltage source currents if not provided
         let inputImpedance = parseComplex(solution.input_impedance);
         
-        console.log('Parsed input_impedance from backend:', inputImpedance);
-        
         if ((!solution.input_impedance || (inputImpedance.real === 0 && inputImpedance.imag === 0)) 
             && solution.voltage_source_currents && solution.voltage_source_currents.length > 0) {
-          console.log('Backend impedance is null/zero, calculating from voltage_source_currents...');
-          
           // Sum all voltage source currents (for split sources)
           const sourceCurrents = parseComplexArray(solution.voltage_source_currents);
-          console.log('Parsed voltage source currents:', sourceCurrents);
           
           const totalSourceCurrent = sourceCurrents.reduce((sum, current) => ({
             real: sum.real + current.real,
             imag: sum.imag + current.imag
           }), { real: 0, imag: 0 });
           
-          console.log('Total source current (sum):', totalSourceCurrent);
-          
           // Z = V / I, assuming V = 1V (normalized)
           const I_mag_sq = totalSourceCurrent.real ** 2 + totalSourceCurrent.imag ** 2;
-          console.log('|I|^2:', I_mag_sq);
           
           if (I_mag_sq > 1e-20) {
             // Z = V / I = 1 / I for normalized voltage
@@ -1399,9 +960,7 @@ const solverSlice = createSlice({
               real: totalSourceCurrent.real / I_mag_sq,
               imag: -totalSourceCurrent.imag / I_mag_sq
             };
-            console.log('Calculated input impedance from source currents:', inputImpedance);
           } else {
-            console.warn('Source current magnitude too small:', Math.sqrt(I_mag_sq));
           }
         }
 
@@ -1433,8 +992,6 @@ const solverSlice = createSlice({
       } else {
         // Multiple antennas: store the full multi-antenna response for postprocessing
         // and combine all branch currents for visualization
-        console.log('Multiple antennas detected, storing multi-antenna results');
-        
         state.results = {
           project_id: 'default',
           frequency: action.payload.frequency,
@@ -1457,33 +1014,24 @@ const solverSlice = createSlice({
         }
         state.currentDistribution = allCurrents;
       }
-
-      console.log('Multi-antenna results stored, distribution length:', state.currentDistribution?.length);
     });
 
     builder.addCase(runMultiAntennaSimulation.rejected, (state, action) => {
       state.status = 'failed';
       state.error = action.payload as string || 'Multi-antenna simulation failed';
       state.progress = 0;
-      console.error('Multi-antenna simulation rejected:', state.error);
     });
 
     // computeRadiationPattern
     builder.addCase(computeRadiationPattern.pending, (state) => {
-      console.log('Computing radiation pattern...');
+      // No-op: progress tracked by parent workflow
     });
 
     builder.addCase(computeRadiationPattern.fulfilled, (state, action) => {
       state.radiationPattern = action.payload;
-      console.log('Radiation pattern computed:', {
-        directivity: action.payload.directivity,
-        gain: action.payload.gain,
-        efficiency: action.payload.efficiency,
-      });
     });
 
     builder.addCase(computeRadiationPattern.rejected, (state, action) => {
-      console.error('Radiation pattern computation failed:', action.payload);
       state.radiationPattern = null;
     });
 
@@ -1505,8 +1053,6 @@ const solverSlice = createSlice({
       state.fieldResults = null;
       state.fieldData = null;
       state.resultsStale = false; // New results incoming
-      
-      console.log('Frequency sweep started...');
     });
 
     builder.addCase(runFrequencySweep.fulfilled, (state, action) => {
@@ -1516,10 +1062,6 @@ const solverSlice = createSlice({
       state.frequencySweep = action.payload;
       state.solverState = 'solved'; // Enable postprocessing after sweep
       state.resultsStale = false; // Fresh results, not stale
-      console.log('Frequency sweep completed:', {
-        numFrequencies: action.payload.frequencies.length,
-        allConverged: action.payload.results.every(r => r.converged),
-      });
     });
 
     builder.addCase(runFrequencySweep.rejected, (state, action) => {
@@ -1527,7 +1069,6 @@ const solverSlice = createSlice({
       state.status = 'failed';
       state.error = action.payload as string || 'Frequency sweep failed';
       state.progress = 0;
-      console.error('Frequency sweep rejected:', state.error);
     });
 
     // ========================================================================
@@ -1537,17 +1078,11 @@ const solverSlice = createSlice({
       state.status = 'running';
       state.progress = 0;
       state.error = null;
-      console.log('Solve single frequency workflow started...');
     });
 
     builder.addCase(solveSingleFrequencyWorkflow.fulfilled, (state, action) => {
       state.status = 'completed';
       state.progress = 100;
-      console.log('Solve single frequency workflow completed:', {
-        frequency: action.payload.frequency,
-        converged: action.payload.converged,
-        impedance: action.payload.input_impedance,
-      });
     });
 
     builder.addCase(solveSingleFrequencyWorkflow.rejected, (state, action) => {
@@ -1555,7 +1090,6 @@ const solverSlice = createSlice({
       state.error = action.payload as string || 'Solve workflow failed';
       state.progress = 0;
       state.solverState = 'idle'; // Reset workflow state on error
-      console.error('Solve single frequency workflow rejected:', state.error);
     });
 
     // ========================================================================
@@ -1563,10 +1097,9 @@ const solverSlice = createSlice({
     // ========================================================================
     builder.addCase(computePostprocessingWorkflow.pending, (state) => {
       state.postprocessingStatus = 'running';
-      state.progress = 50; // Arbitrary progress indicator
+      state.progress = 50;
       state.error = null;
       state.postprocessingProgress = { completed: 0, total: 0 };
-      console.log('Compute postprocessing workflow started...');
     });
 
     builder.addCase(computePostprocessingWorkflow.fulfilled, (state, action) => {
@@ -1587,7 +1120,6 @@ const solverSlice = createSlice({
         }
       }
       
-      console.log('Compute postprocessing workflow completed:', action.payload.message);
     });
 
     builder.addCase(computePostprocessingWorkflow.rejected, (state, action) => {
@@ -1595,7 +1127,6 @@ const solverSlice = createSlice({
       state.error = action.payload as string || 'Postprocessing workflow failed';
       state.progress = 0;
       state.postprocessingProgress = null;
-      console.error('Compute postprocessing workflow rejected:', state.error);
     });
     
     // ========================================================================
@@ -1620,7 +1151,6 @@ const solverSlice = createSlice({
         // Only mark stale if we have results
         if (state.results || state.multiAntennaResults || state.frequencySweep) {
           state.resultsStale = true;
-          console.log(`[solverSlice] Results marked stale due to: ${action.type}`);
         }
       }
     );
@@ -1632,7 +1162,6 @@ const solverSlice = createSlice({
 // ============================================================================
 
 export const { 
-  setJobId, 
   setProgress, 
   clearResults, 
   resetSolver,

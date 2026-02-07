@@ -3,18 +3,29 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .config import settings
-from .schemas import DipoleRequest, LoopRequest, RodRequest, HelixRequest, GeometryResponse
+from .schemas import (
+    DipoleRequest,
+    LoopRequest,
+    RodRequest,
+    HelixRequest,
+    SourceRequest,
+    LumpedElementRequest,
+    GeometryResponse,
+)
 from .builders import (
-    create_dipole, dipole_to_mesh,
-    create_loop, loop_to_mesh,
-    create_rod, rod_to_mesh,
-    create_helix, helix_to_mesh,
+    create_dipole,
+    dipole_to_mesh,
+    create_loop,
+    loop_to_mesh,
+    create_rod,
+    rod_to_mesh,
+    create_helix,
+    helix_to_mesh,
 )
 
-# Initialize FastAPI application
 app = FastAPI(
     title="PEEC Antenna Simulator - Preprocessor Service",
     description="Geometry definition and mesh generation service",
@@ -24,7 +35,6 @@ app = FastAPI(
     openapi_url=f"{settings.api_prefix}/openapi.json",
 )
 
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -32,6 +42,51 @@ app.add_middleware(
     allow_methods=settings.cors_methods,
     allow_headers=settings.cors_headers,
 )
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _convert_source(source: SourceRequest | None) -> dict | None:
+    """Convert a SourceRequest schema to the dict format expected by builders."""
+    if source is None:
+        return None
+    return {
+        "type": source.type,
+        "amplitude": {"real": source.amplitude.real, "imag": source.amplitude.imag},
+        "position": source.position,
+        "series_R": source.series_R,
+        "series_L": source.series_L,
+        "series_C_inv": source.series_C_inv,
+        "tag": source.tag,
+    }
+
+
+def _convert_lumped_elements(
+    elements: list[LumpedElementRequest],
+) -> list[dict] | None:
+    """Convert LumpedElementRequest list to builder dict format."""
+    if not elements:
+        return None
+    return [
+        {
+            "type": le.type,
+            "R": le.R,
+            "L": le.L,
+            "C_inv": le.C_inv,
+            "node_start": le.node_start,
+            "node_end": le.node_end,
+            "tag": le.tag,
+        }
+        for le in elements
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
 
 
 @app.get("/health")
@@ -43,24 +98,9 @@ async def health_check():
             "status": "healthy",
             "service": settings.service_name,
             "version": settings.version,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     )
-
-
-@app.get(f"{settings.api_prefix}/status")
-async def get_status():
-    """Get service status and configuration."""
-    return {
-        "service": settings.service_name,
-        "version": settings.version,
-        "debug": settings.debug,
-        "endpoints": {
-            "health": "/health",
-            "docs": f"{settings.api_prefix}/docs",
-            "openapi": f"{settings.api_prefix}/openapi.json",
-        },
-    }
 
 
 @app.post(
@@ -69,52 +109,8 @@ async def get_status():
     tags=["Antenna Builders"],
 )
 async def create_dipole_antenna(request: DipoleRequest):
-    """
-    Create a dipole antenna element and generate its mesh.
-    
-    The dipole is a linear antenna with current flowing along its length.
-    An odd number of segments is recommended for center feeding.
-    
-    Args:
-        request: Dipole configuration parameters
-    
-    Returns:
-        GeometryResponse with created element and mesh
-    """
+    """Create a dipole antenna element and generate its mesh."""
     try:
-        # Convert source request to dict if present
-        source_dict = None
-        if request.source:
-            source_dict = {
-                "type": request.source.type,
-                "amplitude": {
-                    "real": request.source.amplitude.real,
-                    "imag": request.source.amplitude.imag,
-                },
-                "position": request.source.position,
-                "series_R": request.source.series_R,
-                "series_L": request.source.series_L,
-                "series_C_inv": request.source.series_C_inv,
-                "tag": request.source.tag,
-            }
-        
-        # Convert lumped elements request to list of dicts
-        lumped_elements_list = None
-        if request.lumped_elements:
-            lumped_elements_list = [
-                {
-                    "type": le.type,
-                    "R": le.R,
-                    "L": le.L,
-                    "C_inv": le.C_inv,
-                    "node_start": le.node_start,
-                    "node_end": le.node_end,
-                    "tag": le.tag,
-                }
-                for le in request.lumped_elements
-            ]
-        
-        # Create dipole element
         element = create_dipole(
             length=request.length,
             center_position=request.center_position,
@@ -122,20 +118,16 @@ async def create_dipole_antenna(request: DipoleRequest):
             wire_radius=request.wire_radius,
             gap=request.gap,
             segments=request.segments,
-            source=source_dict,
-            lumped_elements=lumped_elements_list,
+            source=_convert_source(request.source),
+            lumped_elements=_convert_lumped_elements(request.lumped_elements),
             name=request.name,
         )
-        
-        # Generate mesh
         mesh = dipole_to_mesh(element)
-        
         return GeometryResponse(
             element=element.model_dump(),
             mesh=mesh.model_dump(),
             message=f"Dipole antenna created: {element.name}",
         )
-    
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -148,52 +140,8 @@ async def create_dipole_antenna(request: DipoleRequest):
     tags=["Antenna Builders"],
 )
 async def create_loop_antenna(request: LoopRequest):
-    """
-    Create a circular loop antenna element and generate its mesh.
-    
-    The loop is a circular wire antenna lying in a plane perpendicular
-    to the normal vector. Current flows around the circumference.
-    
-    Args:
-        request: Loop configuration parameters
-    
-    Returns:
-        GeometryResponse with created element and mesh
-    """
+    """Create a circular loop antenna element and generate its mesh."""
     try:
-        # Convert source request to dict if present
-        source_dict = None
-        if request.source:
-            source_dict = {
-                "type": request.source.type,
-                "amplitude": {
-                    "real": request.source.amplitude.real,
-                    "imag": request.source.amplitude.imag,
-                },
-                "position": request.source.position,
-                "series_R": request.source.series_R,
-                "series_L": request.source.series_L,
-                "series_C_inv": request.source.series_C_inv,
-                "tag": request.source.tag,
-            }
-        
-        # Convert lumped elements request to list of dicts
-        lumped_elements_list = None
-        if request.lumped_elements:
-            lumped_elements_list = [
-                {
-                    "type": le.type,
-                    "R": le.R,
-                    "L": le.L,
-                    "C_inv": le.C_inv,
-                    "node_start": le.node_start,
-                    "node_end": le.node_end,
-                    "tag": le.tag,
-                }
-                for le in request.lumped_elements
-            ]
-        
-        # Create loop element
         element = create_loop(
             radius=request.radius,
             center_position=request.center_position,
@@ -201,20 +149,16 @@ async def create_loop_antenna(request: LoopRequest):
             wire_radius=request.wire_radius,
             gap=request.gap,
             segments=request.segments,
-            source=source_dict,
-            lumped_elements=lumped_elements_list,
+            source=_convert_source(request.source),
+            lumped_elements=_convert_lumped_elements(request.lumped_elements),
             name=request.name,
         )
-        
-        # Generate mesh
         mesh = loop_to_mesh(element)
-        
         return GeometryResponse(
             element=element.model_dump(),
             mesh=mesh.model_dump(),
             message=f"Loop antenna created: {element.name}",
         )
-    
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -227,72 +171,24 @@ async def create_loop_antenna(request: LoopRequest):
     tags=["Antenna Builders"],
 )
 async def create_rod_antenna(request: RodRequest):
-    """
-    Create a rod (monopole) antenna element and generate its mesh.
-    
-    The rod is a straight wire extending from a base position
-    (typically a ground plane). Current flows along its length.
-    
-    Args:
-        request: Rod configuration parameters
-    
-    Returns:
-        GeometryResponse with created element and mesh
-    """
+    """Create a rod (monopole) antenna element and generate its mesh."""
     try:
-        # Convert source request to dict if present
-        source_dict = None
-        if request.source:
-            source_dict = {
-                "type": request.source.type,
-                "amplitude": {
-                    "real": request.source.amplitude.real,
-                    "imag": request.source.amplitude.imag,
-                },
-                "position": request.source.position,
-                "series_R": request.source.series_R,
-                "series_L": request.source.series_L,
-                "series_C_inv": request.source.series_C_inv,
-                "tag": request.source.tag,
-            }
-        
-        # Convert lumped elements request to list of dicts
-        lumped_elements_list = None
-        if request.lumped_elements:
-            lumped_elements_list = [
-                {
-                    "type": le.type,
-                    "R": le.R,
-                    "L": le.L,
-                    "C_inv": le.C_inv,
-                    "node_start": le.node_start,
-                    "node_end": le.node_end,
-                    "tag": le.tag,
-                }
-                for le in request.lumped_elements
-            ]
-        
-        # Create rod element
         element = create_rod(
             length=request.length,
             base_position=request.base_position,
             orientation=request.orientation,
             wire_radius=request.wire_radius,
             segments=request.segments,
-            source=source_dict,
-            lumped_elements=lumped_elements_list,
+            source=_convert_source(request.source),
+            lumped_elements=_convert_lumped_elements(request.lumped_elements),
             name=request.name,
         )
-        
-        # Generate mesh
         mesh = rod_to_mesh(element)
-        
         return GeometryResponse(
             element=element.model_dump(),
             mesh=mesh.model_dump(),
             message=f"Rod antenna created: {element.name}",
         )
-    
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -305,52 +201,8 @@ async def create_rod_antenna(request: RodRequest):
     tags=["Antenna Builders"],
 )
 async def create_helix_antenna(request: HelixRequest):
-    """
-    Create a helix antenna element and generate its mesh.
-    
-    The helix is a spiral antenna that wraps around a cylindrical surface.
-    Commonly used for circular polarization and wide bandwidth.
-    
-    Args:
-        request: Helix configuration parameters
-    
-    Returns:
-        GeometryResponse with created element and mesh
-    """
+    """Create a helix antenna element and generate its mesh."""
     try:
-        # Convert source request to dict if present
-        source_dict = None
-        if request.source:
-            source_dict = {
-                "type": request.source.type,
-                "amplitude": {
-                    "real": request.source.amplitude.real,
-                    "imag": request.source.amplitude.imag,
-                },
-                "position": request.source.position,
-                "series_R": request.source.series_R,
-                "series_L": request.source.series_L,
-                "series_C_inv": request.source.series_C_inv,
-                "tag": request.source.tag,
-            }
-        
-        # Convert lumped elements request to list of dicts
-        lumped_elements_list = None
-        if request.lumped_elements:
-            lumped_elements_list = [
-                {
-                    "type": le.type,
-                    "R": le.R,
-                    "L": le.L,
-                    "C_inv": le.C_inv,
-                    "node_start": le.node_start,
-                    "node_end": le.node_end,
-                    "tag": le.tag,
-                }
-                for le in request.lumped_elements
-            ]
-        
-        # Create helix element
         element = create_helix(
             radius=request.radius,
             pitch=request.pitch,
@@ -359,20 +211,16 @@ async def create_helix_antenna(request: HelixRequest):
             axis=request.axis,
             wire_radius=request.wire_radius,
             segments_per_turn=request.segments_per_turn,
-            source=source_dict,
-            lumped_elements=lumped_elements_list,
+            source=_convert_source(request.source),
+            lumped_elements=_convert_lumped_elements(request.lumped_elements),
             name=request.name,
         )
-        
-        # Generate mesh
         mesh = helix_to_mesh(element)
-        
         return GeometryResponse(
             element=element.model_dump(),
             mesh=mesh.model_dump(),
             message=f"Helix antenna created: {element.name}",
         )
-    
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -381,7 +229,7 @@ async def create_helix_antenna(request: HelixRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "backend.preprocessor.main:app",
         host=settings.host,

@@ -78,7 +78,7 @@ $solveRequest = @{
 }
 
 try {
-    $solveResponse = Invoke-RestMethod -Uri "$solverUrl/api/v1/solve/multi" -Method Post -Body ($solveRequest | ConvertTo-Json -Depth 10) -ContentType "application/json" -TimeoutSec 30
+    $solveResponse = Invoke-RestMethod -Uri "$solverUrl/api/solve/multi" -Method Post -Body ($solveRequest | ConvertTo-Json -Depth 10) -ContentType "application/json" -TimeoutSec 30
     
     Write-Host "  ✓ Solver completed" -ForegroundColor Green
     Write-Host "    Impedance (upper): $($solveResponse.antenna_solutions[0].input_impedance)"
@@ -134,7 +134,7 @@ try {
         phi_points = 37
     }
     
-    $farFieldResponse = Invoke-RestMethod -Uri "$postprocessorUrl/api/v1/fields/far" -Method Post -Body ($farFieldRequest | ConvertTo-Json -Depth 10) -ContentType "application/json" -TimeoutSec 30 -ErrorAction Stop
+    $farFieldResponse = Invoke-RestMethod -Uri "$postprocessorUrl/api/fields/far" -Method Post -Body ($farFieldRequest | ConvertTo-Json -Depth 10) -ContentType "application/json" -TimeoutSec 30 -ErrorAction Stop
     
     Write-Host "  ✓ Far-field computed" -ForegroundColor Green
     Write-Host "    Directivity: $($farFieldResponse.directivity.ToString('F2')) dBi"

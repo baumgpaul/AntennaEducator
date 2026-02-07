@@ -80,7 +80,7 @@ describe('ProjectsPage', () => {
   it('should display error alert with retry button when fetch fails', async () => {
     // Override MSW to return error response
     server.use(
-      http.get('http://localhost:8010/api/v1/projects', () => {
+      http.get('http://localhost:8010/api/projects', () => {
         return HttpResponse.json(
           { detail: 'Failed to load projects' },
           { status: 500 }
@@ -103,7 +103,7 @@ describe('ProjectsPage', () => {
   it('should display empty state when no projects exist', async () => {
     // Override MSW to return empty projects array
     server.use(
-      http.get('http://localhost:8010/api/v1/projects', () => {
+      http.get('http://localhost:8010/api/projects', () => {
         return HttpResponse.json([]);
       })
     );
@@ -237,7 +237,7 @@ describe('ProjectsPage', () => {
   it('should sort projects by different criteria', async () => {
     // Override MSW to return specific projects for sorting
     server.use(
-      http.get('http://localhost:8010/api/v1/projects', () => {
+      http.get('http://localhost:8010/api/projects', () => {
         return HttpResponse.json([
           {
             id: 1,

@@ -18,11 +18,11 @@ $dipoleRequest = @{
 } | ConvertTo-Json -Depth 10
 
 Write-Host "`nSending request to preprocessor..." -ForegroundColor Yellow
-Write-Host "Endpoint: http://localhost:8001/api/v1/geometry/dipole" -ForegroundColor Gray
+Write-Host "Endpoint: http://localhost:8001/api/geometry/dipole" -ForegroundColor Gray
 
 try {
     $response = Invoke-RestMethod `
-        -Uri "http://localhost:8001/api/v1/geometry/dipole" `
+        -Uri "http://localhost:8001/api/geometry/dipole" `
         -Method POST `
         -Body $dipoleRequest `
         -ContentType "application/json" `

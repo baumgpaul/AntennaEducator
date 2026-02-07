@@ -65,7 +65,7 @@ export async function exportToVTU(
   try {
     // Call backend API to generate VTU file
     const response = await postprocessorClient.post(
-      '/api/v1/export/vtu',
+      '/api/export/vtu',
       requestPayload,
       {
         responseType: 'blob', // Important: tell axios to treat response as binary

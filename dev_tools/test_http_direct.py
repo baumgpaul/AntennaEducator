@@ -3,7 +3,7 @@ import requests
 import json
 
 # Start with preprocessor to get real geometry
-preprocessor_url = "http://localhost:8001/api/v1/antenna/dipole"
+preprocessor_url = "http://localhost:8001/api/antenna/dipole"
 dipole_request = {
     "length": 1.5,
     "wire_radius": 0.001,
@@ -21,7 +21,7 @@ geometry = response.json()["mesh"]
 print(f"  ✓ Got geometry: {len(geometry['nodes'])} nodes, {len(geometry['edges'])} edges")
 
 # Now call solver
-solver_url = "http://localhost:8002/api/v1/solve/single"
+solver_url = "http://localhost:8002/api/solve/single"
 solver_request = {
     "nodes": geometry["nodes"],
     "edges": geometry["edges"],

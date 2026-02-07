@@ -4,9 +4,7 @@ Shared test fixtures and configuration.
 
 import pytest
 import numpy as np
-from uuid import uuid4
-from backend.common.models.geometry import Geometry, AntennaElement, Mesh, Source
-from backend.common.models.solver import SolverJob, SolverConfig, FrequencyConfig, SolverJobType
+from backend.common.models.geometry import AntennaElement, Mesh, Source
 
 
 @pytest.fixture
@@ -74,58 +72,6 @@ def sample_mesh():
         edges=edges,
         radii=radii,
         source_edges=[2]  # Middle segment
-    )
-
-
-@pytest.fixture
-def sample_geometry(sample_dipole_element, sample_mesh):
-    """Create a sample geometry with element and mesh."""
-    project_id = uuid4()
-    geometry = Geometry(
-        project_id=project_id,
-        elements=[sample_dipole_element]
-    )
-    geometry.mesh = sample_mesh
-    return geometry
-
-
-@pytest.fixture
-def sample_solver_config():
-    """Create a sample solver configuration."""
-    return SolverConfig(
-        method="direct",
-        tolerance=1e-6,
-        max_iterations=1000
-    )
-
-
-@pytest.fixture
-def sample_frequency_config():
-    """Create a sample frequency configuration (single frequency)."""
-    return FrequencyConfig(
-        frequency=1e9  # 1 GHz
-    )
-
-
-@pytest.fixture
-def sample_frequency_sweep_config():
-    """Create a sample frequency sweep configuration."""
-    return FrequencyConfig(
-        frequency_start=500e6,  # 500 MHz
-        frequency_stop=1500e6,  # 1.5 GHz
-        num_points=11,
-        scale="linear"
-    )
-
-
-@pytest.fixture
-def sample_solver_job(sample_frequency_config, sample_solver_config):
-    """Create a sample solver job."""
-    return SolverJob(
-        project_id=uuid4(),
-        type=SolverJobType.SINGLE_FREQUENCY,
-        frequency_config=sample_frequency_config,
-        solver_config=sample_solver_config
     )
 
 

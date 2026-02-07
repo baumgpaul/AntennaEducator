@@ -6,30 +6,25 @@ like directivity, beamwidth, and polarization characteristics.
 
 import numpy as np
 from typing import Tuple, Optional
-from backend.common.constants import C_0
+from backend.common.constants import C_0, Z_0
 
 
 def compute_radiation_intensity(E_theta: np.ndarray, E_phi: np.ndarray) -> np.ndarray:
     """
     Compute radiation intensity U(θ,φ) = r²S_avg where S_avg is Poynting vector.
-    
+
     For far-field:
         U = r²/(2η₀) * (|E_θ|² + |E_φ|²)
-    
+
     Args:
         E_theta: E_θ component [V/m], shape (..., n_theta, n_phi)
         E_phi: E_φ component [V/m], shape (..., n_theta, n_phi)
-    
+
     Returns:
         Radiation intensity [W/sr], same shape as inputs
     """
-    eta_0 = 376.73  # Intrinsic impedance of free space [Ω]
-    
-    # |E|² = |E_θ|² + |E_φ|²
     E_magnitude_sq = np.abs(E_theta)**2 + np.abs(E_phi)**2
-    
-    # U = |E|²/(2η₀) (r² factor cancels in pattern normalization)
-    U = E_magnitude_sq / (2 * eta_0)
+    U = E_magnitude_sq / (2 * Z_0)
     
     return U
 
@@ -61,7 +56,7 @@ def compute_total_radiated_power(
     for i, theta in enumerate(theta_angles):
         sin_theta = np.sin(theta)
         # Integrate over φ at this θ
-        P_theta = np.trapz(radiation_intensity[i, :], phi_angles) * sin_theta
+        P_theta = np.trapezoid(radiation_intensity[i, :], phi_angles) * sin_theta
         P_rad += P_theta
     
     P_rad *= dtheta

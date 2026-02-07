@@ -79,7 +79,7 @@ async function testMultiAntennaSolver() {
   }
 
   try {
-    console.log('\nSending request to /api/v1/solve/multi...')
+    console.log('\nSending request to /api/solve/multi...')
     console.log(`Frequency: ${frequency / 1e6} MHz`)
     console.log(`Upper monopole: ${nodes_upper.length} nodes`)
     console.log(`Lower monopole: ${nodes_lower.length} nodes`)

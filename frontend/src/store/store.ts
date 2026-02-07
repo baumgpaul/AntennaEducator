@@ -24,7 +24,7 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         // Ignore these action types
-        ignoredActions: ['design/setMesh', 'solver/runSimulation/fulfilled', 'solver/runAsyncSimulation/fulfilled'],
+        ignoredActions: ['design/setMesh'],
         // Ignore these field paths in all actions
         ignoredActionPaths: ['payload.mesh', 'payload.results', 'payload.branch_currents', 'meta.arg'],
         // Ignore these paths in the state
