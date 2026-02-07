@@ -1,72 +1,91 @@
 # Development Tools
 
-This directory contains debugging, testing, and development utilities that are **not part of the production code**.
+Utilities for local development, debugging, deployment, and testing.
+**Not part of the production code.**
 
-## Structure
+## Directory Structure
 
 ```
 dev_tools/
-├── visualization/          # Visualization and geometry debugging tools
-│   ├── visualization.py    # Core visualization utilities
-│   ├── save_dipole_plot.py # Quick script to generate visualization PNG
-│   ├── view_dipole.py      # Interactive visualization example
-│   ├── visualize_example.py # Multiple visualization examples
-│   ├── run_visualization_demo.py # Visualization demo
-│   └── test_3d_viz.py      # 3D visualization test
-├── test_api_debug.py       # API testing with debug mode
-└── README.md               # This file
+├── visualization/                  # Geometry visualization & plotting
+│   ├── visualization.py            # Core visualization utilities
+│   ├── save_dipole_plot.py          # Generate PNG of antenna geometry
+│   ├── view_dipole.py               # Interactive 3D viewer
+│   ├── visualize_example.py         # Multiple visualization examples
+│   ├── run_visualization_demo.py    # Visualization demo
+│   └── test_3d_viz.py               # 3D viz sanity check
+├── check_services.ps1               # Verify all backend services are running
+├── rebuild_lambda_images.ps1        # Build + push Docker images → ECR → update Lambdas
+├── run_integration_tests.ps1        # Run integration test suite
+├── setup_dynamodb_local.py          # Create DynamoDB Local tables
+├── start_all_services.ps1           # Start all backend services (Windows)
+├── start_backend.ps1                # Start backend services (Linux / macOS)
+├── start_backend_windows.ps1        # Start backend services (Windows, alternate)
+├── start_solver_service.ps1         # Start solver service only
+├── deploy_api_gateway.ps1           # Deploy API Gateway (may be superseded by Terraform)
+├── deploy_cognito.ps1               # Deploy Cognito resources (may be superseded by Terraform)
+├── test_aws_pipeline.py             # End-to-end AWS smoke test (preprocessor → solver → postprocessor)
+├── test_current_source_golden.py    # MATLAB golden-standard validation test
+├── test_incremental_postprocessing.py # Integration test using FastAPI TestClient
+├── test_backend_quick.ps1           # Quick backend smoke test
+├── test_cognito.ps1                 # Cognito integration test
+├── lumped_element_examples.py       # Lumped element API usage examples
+└── README.md                        # This file
 ```
 
-## Visualization Tools
+## Quick Reference
 
-### Quick Start - Generate Visualization
+### Local Development
 
-```bash
-cd dev_tools/visualization
-python save_dipole_plot.py
+```powershell
+# Start all backend services (one terminal per service)
+.\dev_tools\start_all_services.ps1
+
+# Or start individual services
+uvicorn backend.preprocessor.main:app --port 8001 --reload
+uvicorn backend.solver.main:app --port 8002 --reload
+uvicorn backend.postprocessor.main:app --port 8003 --reload
+uvicorn backend.projects.main:app --port 8010 --reload
+
+# Verify services are running
+.\dev_tools\check_services.ps1
 ```
 
-This creates `dipole_visualization.png` showing the antenna geometry.
+### DynamoDB Local Setup
 
-### Visualization Functions
+```powershell
+# Start DynamoDB Local container
+docker run -d -p 8000:8000 amazon/dynamodb-local -jar DynamoDBLocal.jar -inMemory
 
-Located in `visualization/visualization.py`:
+# Create required tables
+python dev_tools/setup_dynamodb_local.py
+```
 
-- **`print_mesh_info(mesh, element)`** - Print detailed node/edge information
-- **`plot_mesh_3d(mesh, element)`** - Create 3D matplotlib plot
-- **`visualize_mesh(mesh, element, console=True, plot=False, save_path=None)`** - All-in-one visualization
+### AWS Deployment
 
-### Example Usage
+```powershell
+# Deploy all 4 Lambda services (build → ECR push → Lambda update)
+.\dev_tools\rebuild_lambda_images.ps1
+
+# Verify AWS deployment
+python dev_tools/test_aws_pipeline.py
+```
+
+### Visualization
 
 ```python
-from backend.preprocessor.builders import create_dipole, dipole_to_mesh
-from dev_tools.visualization import visualize_mesh
+from dev_tools.visualization.visualization import visualize_mesh
 
-# Create antenna
-element = create_dipole(length=1.0, gap=0.01, segments=10)
-mesh = dipole_to_mesh(element)
-
-# Visualize (console output + save to file)
-visualize_mesh(mesh, element, console=True, save_path="my_antenna.png")
+# All-in-one: console output + 3D plot + PNG export
+visualize_mesh(mesh, element, console=True, plot=True, save_path="antenna.png")
 ```
 
-## API Testing
+### Validation
 
-### Debug Mode Testing
+```powershell
+# Run MATLAB golden-standard comparison
+python dev_tools/test_current_source_golden.py
 
-```bash
-cd dev_tools
-python test_api_debug.py
+# Quick backend smoke test
+.\dev_tools\test_backend_quick.ps1
 ```
-
-This starts the preprocessor service with debug visualization enabled (automatically prints mesh info for each request).
-
-## Important Notes
-
-⚠️ **These tools are for development only:**
-- Not imported by production code
-- Can use heavyweight dependencies (matplotlib, etc.)
-- May have blocking operations (plt.show())
-- Outputs are for human inspection, not production use
-
-The production preprocessor service (`backend/preprocessor/`) only generates JSON geometry data and does **not** include any visualization dependencies.

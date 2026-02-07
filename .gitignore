@@ -71,6 +71,10 @@ logs/
 
 # AWS
 .aws-sam/
+.aws/
+
+# Generated test outputs
+test_outputs/
 
 # Terraform - IMPORTANT SECURITY (state files contain secrets!)
 **/.terraform/
@@ -114,3 +118,5 @@ Matlab/
 !README.md
 !QUICK_START.md
 !PROJECT_OVERVIEW.md
+!ACTION_PLAN.md
+!CONTRIBUTING.md
