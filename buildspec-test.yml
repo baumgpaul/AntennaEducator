@@ -1,0 +1,47 @@
+# CodeBuild buildspec — Test stage
+# Runs linting + unit tests for both backend and frontend.
+# Used by the CodePipeline Test stage.
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+      nodejs: 18
+    commands:
+      - echo "Installing Python dependencies..."
+      - pip install -e ".[dev,aws]"
+      - echo "Installing frontend dependencies..."
+      - cd frontend && npm ci && cd ..
+
+  build:
+    commands:
+      # ── Python linting ──
+      - echo "=== Python Linting ==="
+      - black --check backend/ tests/
+      - isort --check-only backend/ tests/
+      - ruff check backend/ tests/
+
+      # ── Python unit tests ──
+      - echo "=== Python Unit Tests ==="
+      - pytest tests/unit/ -x -q --tb=short --junitxml=reports/pytest.xml
+
+      # ── Frontend checks ──
+      - echo "=== Frontend Checks ==="
+      - cd frontend
+      - npx tsc --noEmit
+      - npm run lint
+      - npx vitest run --reporter=verbose
+      - cd ..
+
+reports:
+  pytest-reports:
+    files:
+      - "reports/pytest.xml"
+    file-format: JUNITXML
+
+cache:
+  paths:
+    - "/root/.cache/pip/**/*"
+    - "frontend/node_modules/**/*"

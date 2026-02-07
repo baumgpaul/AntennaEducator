@@ -1,0 +1,75 @@
+# CI — runs on every pull request to main
+# Blocks merging until all checks pass (configure via GitHub branch protection)
+
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Backend: lint + unit tests ──────────────────────────────────────
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,aws]"
+
+      - name: Black (formatting)
+        run: black --check backend/ tests/
+
+      - name: isort (imports)
+        run: isort --check-only backend/ tests/
+
+      - name: Ruff (linting)
+        run: ruff check backend/ tests/
+
+      - name: Unit tests
+        run: pytest tests/unit/ -x -q --tb=short --junitxml=junit-backend.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: junit-backend.xml
+
+  # ── Frontend: lint + typecheck + tests ──────────────────────────────
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript type-check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npx vitest run --reporter=verbose

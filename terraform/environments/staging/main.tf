@@ -31,7 +31,7 @@ provider "aws" {
       Project     = "antenna-simulator"
       Environment = "staging"
       ManagedBy   = "terraform"
-      Repository  = "github.com/yourusername/antenna-simulator"
+      Repository  = "github.com/baumgpaul/AntennaEducator"
     }
   }
 }
@@ -47,7 +47,7 @@ provider "aws" {
       Project     = "antenna-simulator"
       Environment = "staging"
       ManagedBy   = "terraform"
-      Repository  = "github.com/yourusername/antenna-simulator"
+      Repository  = "github.com/baumgpaul/AntennaEducator"
     }
   }
 }
@@ -405,3 +405,28 @@ module "api_gateway" {
 }
 
 # ============================================================================
+# CI/CD — CodePipeline + CodeBuild
+# ============================================================================
+
+module "cicd" {
+  source = "../../modules/cicd"
+
+  environment    = var.environment
+  aws_region     = var.aws_region
+  aws_account_id = data.aws_caller_identity.current.account_id
+
+  # GitHub
+  github_owner      = "baumgpaul"
+  github_repository = "AntennaEducator"
+  branch_name       = "main"
+
+  # Deployment targets
+  s3_frontend_bucket         = module.s3_frontend.bucket_name
+  cloudfront_distribution_id = module.cloudfront.distribution_id
+  domain_name                = var.domain_name
+
+  # Notifications
+  approval_email = "baumg.paul@gmail.com"
+
+  tags = { Component = "cicd" }
+}

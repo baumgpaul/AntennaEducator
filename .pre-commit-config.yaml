@@ -1,9 +1,9 @@
 # Pre-commit hooks for the Antenna Simulator project.
-# Install: pip install pre-commit && pre-commit install
-# Run manually: pre-commit run --all-files
+# Install:  pip install pre-commit && pre-commit install
+# Run all:  pre-commit run --all-files
 
 repos:
-  # General file hygiene
+  # ── General file hygiene ──────────────────────────────────────────────
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
@@ -16,22 +16,57 @@ repos:
         args: [--maxkb=500]
       - id: check-merge-conflict
 
-  # Python — Black formatter (line-length 100, configured in pyproject.toml)
+  # ── Python — Black formatter ─────────────────────────────────────────
   - repo: https://github.com/psf/black
     rev: 24.4.2
     hooks:
       - id: black
         language_version: python3
 
-  # Python — isort import sorter (profile=black, configured in pyproject.toml)
+  # ── Python — isort import sorter ─────────────────────────────────────
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:
       - id: isort
 
-  # Python — Ruff linter (fast, replaces flake8/pylint)
+  # ── Python — Ruff linter ─────────────────────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.8
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+
+  # ── Local hooks — tests (enforced locally before every commit) ───────
+  - repo: local
+    hooks:
+      # Python unit tests (~1.5 s — fast enough for every commit)
+      - id: pytest-unit
+        name: pytest unit tests
+        language: system
+        entry: python -m pytest tests/unit/ -x -q --tb=line --no-header
+        types: [python]
+        pass_filenames: false
+
+      # Frontend — ESLint
+      - id: frontend-lint
+        name: frontend eslint
+        language: system
+        entry: npm --prefix frontend run lint
+        files: ^frontend/src/
+        pass_filenames: false
+
+      # Frontend — TypeScript type-check
+      - id: frontend-typecheck
+        name: frontend typecheck
+        language: system
+        entry: npx --prefix frontend tsc --noEmit
+        files: ^frontend/src/
+        pass_filenames: false
+
+      # Frontend — Vitest unit tests
+      - id: frontend-test
+        name: frontend tests
+        language: system
+        entry: npx --prefix frontend vitest run --reporter=dot
+        files: ^frontend/
+        pass_filenames: false

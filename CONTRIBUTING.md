@@ -52,20 +52,44 @@ Configuration lives in [pyproject.toml](pyproject.toml).
 
 ## Pre-commit Hooks
 
-We use [pre-commit](https://pre-commit.com/) to enforce style before commits:
+We use [pre-commit](https://pre-commit.com/) to enforce quality **before every commit**:
 
 ```bash
 pip install pre-commit
 pre-commit install
 ```
 
-This runs Black, isort, Ruff, and general checks (trailing whitespace, YAML validation) automatically on `git commit`.
+Every `git commit` will automatically run:
+- **Python:** Black, isort, Ruff, pytest unit tests
+- **Frontend:** ESLint, TypeScript type-check, Vitest unit tests
+- **General:** trailing whitespace, YAML/JSON validation, large file check
+
+> **You must fix all issues before your commit is accepted.** This ensures broken code never reaches the remote.
 
 To run hooks on all files manually:
 
 ```bash
 pre-commit run --all-files
 ```
+
+## CI/CD Pipeline
+
+### On Pull Request → GitHub Actions (automatic)
+
+Every PR to `main` runs two parallel jobs:
+1. **Backend** — Black, isort, Ruff, pytest unit tests
+2. **Frontend** — ESLint, TypeScript type-check, Vitest
+
+PRs cannot be merged unless all checks pass (enforced by branch protection).
+
+### On Merge to main → AWS CodePipeline (automatic)
+
+When code is merged to `main`, the AWS CodePipeline triggers:
+
+1. **Source** — pulls latest `main` from GitHub
+2. **Test** — runs full lint + test suite in CodeBuild
+3. **Deploy** — builds 4 Docker images, pushes to ECR, updates Lambda functions, deploys frontend to S3, invalidates CloudFront
+4. **Manual Approval** — email notification sent; reviewer tests staging and approves
 
 ## Testing Requirements
 
