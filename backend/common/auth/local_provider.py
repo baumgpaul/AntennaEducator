@@ -5,7 +5,7 @@ Used for standalone / Docker / on-prem deployments (``USE_COGNITO=false``).
 
 import os
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from jose import jwt, JWTError
@@ -136,7 +136,7 @@ class LocalAuthProvider(AuthProvider):
 
     @staticmethod
     def _create_jwt(user_id: str, email: str) -> str:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         return jwt.encode(
             {"sub": user_id, "email": email, "exp": expire},
             JWT_SECRET,

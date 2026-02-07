@@ -2,7 +2,7 @@
 
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict
 import boto3
 from botocore.exceptions import ClientError
@@ -150,7 +150,7 @@ class UserRepository:
             'is_admin': is_admin,
             'is_approved': is_approved,  # Keep for backward compatibility
             'is_locked': is_locked,  # New field - users unlocked by default
-            'created_at': datetime.utcnow().isoformat(),
+            'created_at': datetime.now(timezone.utc).isoformat(),
             'entity_type': 'user'
         }
         

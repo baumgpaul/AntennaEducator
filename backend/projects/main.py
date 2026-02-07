@@ -63,7 +63,7 @@ def get_repository() -> ProjectRepository:
 
 @app.get("/health")
 async def health_check():
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     db_status = "unknown"
     try:
@@ -75,7 +75,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "projects",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "database": db_status,
         "environment": os.getenv("ENVIRONMENT", "unknown"),
     }

@@ -11,7 +11,7 @@ import os
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional
 
 import boto3
@@ -159,7 +159,7 @@ class CognitoAuthProvider(AuthProvider):
             logger.warning("Could not auto-confirm user %s", email)
 
         # Create DynamoDB profile record
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         self._table.put_item(
             Item={
                 "PK": f"USER#{user_sub}",
@@ -254,7 +254,7 @@ class CognitoAuthProvider(AuthProvider):
     async def _lazy_init_profile(self, user_id: str) -> UserIdentity:
         """Create a DynamoDB record for a Cognito user on first API call."""
         logger.info("Lazy-init: creating DynamoDB profile for %s", user_id)
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         # We don't have the email here — caller should enrich from token claims
         item = {

@@ -3,7 +3,7 @@ Geometry-related data models.
 """
 
 from typing import Optional, List, Dict, Any, Literal
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 import numpy as np
@@ -60,9 +60,10 @@ class Source(BaseModel):
         description="Human-readable label for the source"
     )
 
-    model_config = ConfigDict(
-        json_encoders={complex: lambda v: {"real": v.real, "imag": v.imag}}
-    )
+    @field_serializer("amplitude")
+    @classmethod
+    def serialize_complex(cls, v: complex) -> dict:
+        return {"real": v.real, "imag": v.imag}
 
 
 class LumpedElement(BaseModel):
