@@ -72,14 +72,14 @@ logs/
 # AWS
 .aws-sam/
 
-# Terraform - IMPORTANT SECURITY
-.terraform/             # Provider plugins (anywhere in tree)
-**/terraform.tfstate    # State files contain SECRETS!
-**/terraform.tfstate.*  # State backups
-*.tfvars                # Variable files with secrets
+# Terraform - IMPORTANT SECURITY (state files contain secrets!)
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.*
+*.tfvars
 .terraformrc
-**/crash.log            # Terraform crash logs
-**/override.tf          # Local overrides
+**/crash.log
+**/override.tf
 **/override.tf.json
 
 # Data files
@@ -88,6 +88,9 @@ logs/
 *.h5
 data/
 results/
+
+# Node (root-level, from accidental npx)
+/node_modules/
 
 # OS
 Thumbs.db
@@ -98,10 +101,16 @@ Thumbs.db
 
 # MATLAB (keeping reference code)
 Matlab/
+
+# Images (generated plots)
 *.png
-/TESTING_QUICK_REF.md
-/PROJECT_OVERVIEW.md
-*.md
-terraform.tfstate
-.terraform/
+
+# Terraform plan files
 *.tfplan
+
+# Scratchpad markdown (root-level session notes)
+# Tracked docs: README.md, QUICK_START.md, PROJECT_OVERVIEW.md, docs/, backend/README.md etc.
+/*.md
+!README.md
+!QUICK_START.md
+!PROJECT_OVERVIEW.md
