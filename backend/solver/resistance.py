@@ -226,7 +226,7 @@ def assemble_resistance_matrix(edges: List[EdgeGeometry], radii: np.ndarray,
     The resistance matrix R is diagonal, with each diagonal element representing
     the resistance of one wire segment.
     
-    By default (include_skin_effect=False), uses simple DC formula to match MATLAB:
+    By default (include_skin_effect=False), uses simple DC formula to match the reference implementation:
         R[i,i] = ρ × L / (π × r²)
     
     With include_skin_effect=True and frequency > 0, uses AC resistance:
@@ -292,7 +292,7 @@ def assemble_resistance_matrix(edges: List[EdgeGeometry], radii: np.ndarray,
             R[i, i] = compute_ac_resistance(length, radius, frequency, 
                                            resistivity, permeability)
         else:
-            # DC resistance (matches MATLAB)
+            # DC resistance (matches reference implementation)
             R[i, i] = resistivity * length / (PI * radius**2)
     
     return R

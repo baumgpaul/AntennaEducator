@@ -2,13 +2,13 @@
 
 ## Overview
 
-A modern, cloud-native electromagnetic simulation platform based on the Partial Element Equivalent Circuit (PEEC) method for antenna analysis. This project ports a proven 1D PEEC MATLAB implementation into a scalable Python-based microservice architecture with a React web interface, enabling both standalone and cloud-based high-frequency antenna simulations.
+A modern, cloud-native electromagnetic simulation platform based on the Partial Element Equivalent Circuit (PEEC) method for antenna analysis. This project implements a proven 1D PEEC solver as a scalable Python-based microservice architecture with a React web interface, enabling both standalone and cloud-based high-frequency antenna simulations.
 
 **Current Status:** Phase 1 (Backend) complete, Phase 2 (Frontend) 50% complete
 
 ## Project Origin
 
-This project builds upon 4 years of research on lightweight HF simulation using 1D wire elements. The original MATLAB implementation demonstrated the effectiveness of PEEC methodology for rapid antenna design and analysis. This new implementation modernizes the approach with cloud-native architecture and web-based accessibility.
+This project builds upon 4 years of research on lightweight HF simulation using 1D wire elements. The original reference implementation demonstrated the effectiveness of PEEC methodology for rapid antenna design and analysis. This new implementation modernizes the approach with cloud-native architecture and web-based accessibility.
 
 ## Key Features
 
@@ -156,7 +156,6 @@ AntennaEducator/
 │   ├── BACKEND_IMPLEMENTATION.md
 │   ├── SOLVER_SERVICE_COMPLETE.md
 │   └── TESTING_COMPLETE.md
-├── Matlab/                   # Original MATLAB implementation
 ├── docker-compose.yml        # Full-stack orchestration
 ├── PROJECT_OVERVIEW.md       # Comprehensive project documentation
 └── README.md                 # This file

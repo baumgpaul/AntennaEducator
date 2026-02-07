@@ -2,7 +2,7 @@
 Example: Creating antennas with lumped elements
 
 This script demonstrates the new lumped element functionality,
-showing how to create antennas with matching networks similar to MATLAB.
+showing how to create antennas with matching networks following PEEC conventions.
 """
 
 import sys
@@ -114,13 +114,13 @@ def example_2_antenna_with_matching_network():
     print()
 
 
-def example_3_matlab_style_calibration_coil():
-    """Example 3: Calibration coil matching MATLAB's createCalCoil structure."""
+def example_3_calibration_coil():
+    """Example 3: Calibration coil matching the reference createCalCoil structure."""
     print("=" * 70)
-    print("Example 3: Calibration Coil (MATLAB-style)")
+    print("Example 3: Calibration Coil (PEEC-style)")
     print("=" * 70)
     
-    # Parameters matching MATLAB example
+    # Parameters matching the reference example
     R_s = 10.0
     R_p = 100.0
     C_p = 0.1852e-9  # 0.1852 nF
@@ -141,7 +141,7 @@ def example_3_matlab_style_calibration_coil():
             tag="Excitation"
         ),
         lumped_elements=[
-            # R_series (MATLAB: Load(1))
+            # R_series (reference: Load(1))
             LumpedElement(
                 type="resistor",
                 R=R_s,
@@ -151,7 +151,7 @@ def example_3_matlab_style_calibration_coil():
                 node_end=-3,
                 tag="R5-8"
             ),
-            # R_parallel (MATLAB: Load(2))
+            # R_parallel (reference: Load(2))
             LumpedElement(
                 type="resistor",
                 R=R_p,
@@ -161,7 +161,7 @@ def example_3_matlab_style_calibration_coil():
                 node_end=-2,
                 tag="R1-4"
             ),
-            # C_parallel (MATLAB: Load(3))
+            # C_parallel (reference: Load(3))
             LumpedElement(
                 type="capacitor",
                 R=0.0,
@@ -260,18 +260,18 @@ def example_4_multiple_antennas():
             print(f"      Loads: None (passive)")
     
     print("\n  Note: Each antenna maintains its own circuit definition.")
-    print("  The solver will merge them following MATLAB's solvePEECLinear.m pattern.")
+    print("  The solver will merge them following the standard PEEC multi-antenna pattern.")
     print()
 
 
 if __name__ == "__main__":
     print("\n" + "="*70)
-    print("LUMPED ELEMENT EXAMPLES - MATLAB-Compatible Circuit Definitions")
+    print("LUMPED ELEMENT EXAMPLES - PEEC-Compatible Circuit Definitions")
     print("="*70 + "\n")
     
     example_1_dipole_with_load()
     example_2_antenna_with_matching_network()
-    example_3_matlab_style_calibration_coil()
+    example_3_calibration_coil()
     example_4_multiple_antennas()
     
     print("="*70)

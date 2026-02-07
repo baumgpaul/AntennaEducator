@@ -164,7 +164,7 @@ def build_capacitive_element_vectors(edges: List[EdgeGeometry],
     Returns both the 3×3×N tensor (Cap_Elem) and the reshaped 3×(3*N)
     matrix (Cap_Elem2) alongside the radii pair per node.
 
-    This mirrors the MATLAB snippet:
+    This mirrors the reference PEEC implementation:
         Cap_Elem = zeros(3,3,N_node_o);
         Radii_cap_el = zeros(N_node_o,2);
         ...
@@ -181,7 +181,7 @@ def compute_nodal_potential_coefficient(X: np.ndarray, Y: np.ndarray,
     """
     Compute potential coefficient between two 3-point segments using Gauss quadrature.
     
-    Matches MATLAB calcCoefficient function exactly.
+    Matches the reference calcCoefficient function exactly.
     
     Args:
         X: First segment (observer), shape (3, 3) - three xyz points
@@ -297,7 +297,7 @@ def assemble_nodal_potential_matrix(edges: List[EdgeGeometry],
     
     # Physical constants
     pi = np.pi
-    eps_0 = 8.8541878176e-12  # Permittivity of free space [F/m] - matches MATLAB
+    eps_0 = 8.8541878176e-12  # Permittivity of free space [F/m] - matches reference
     
     # Compute diagonal elements (self potential coefficients)
     for i in range(n_nodes):
@@ -336,17 +336,17 @@ def assemble_nodal_potential_matrix(edges: List[EdgeGeometry],
         P[i, i] = (1 / (4 * pi * eps_0)) / np.sum(M_inv)
     
     # Compute off-diagonal elements (mutual potential coefficients)
-    # MATLAB approach: el2 stays as second sub-segment from diagonal calculation
+    # Reference implementation approach: el2 stays as second sub-segment from diagonal calculation
     for i in range(n_nodes):
         x1 = cap_elem[0, :, i]
         x2 = cap_elem[1, :, i]
         x3 = cap_elem[2, :, i]
         
-        # el2 is second sub-segment (matches MATLAB el2 from diagonal calc)
+        # el2 is second sub-segment (matches reference el2 from diagonal calc)
         el2 = np.array([x2, (x2 + x3) * 0.5, x3])
         
         for j in range(i + 1, n_nodes):
-            # el1 = full node j (matches MATLAB: el1(1,:)=y1; el1(2,:)=y2; el1(3,:)=y3;)
+            # el1 = full node j (reference: el1(1,:)=y1; el1(2,:)=y2; el1(3,:)=y3;)
             Y = cap_elem[:, :, j]
             
             # calcCoefficient(el1, el2) where el1=node_j, el2=subsegment_i
@@ -396,7 +396,7 @@ def assemble_nodal_potential_matrix_with_cap_elem(
     if gauss_points is None or gauss_weights is None:
         gauss_points, gauss_weights = get_gauss_points(n_gauss)
     
-    # Build capacitive element representation (MATLAB: Cap_Elem, Radii_cap_el)
+    # Build capacitive element representation (Cap_Elem, Radii_cap_el)
     cap_elem, radii_cap = build_capacitive_elements(edges, edge_list, radii, n_nodes)
     
     # Initialize P and distance matrices
@@ -450,7 +450,7 @@ def assemble_nodal_potential_matrix_with_cap_elem(
         P[i, i] = (1 / (4 * pi * eps_0)) / np.sum(M_inv)
     
     # Compute off-diagonal elements (mutual potential coefficients)
-    # MATLAB uses the raw cap_elem 3-point structure directly
+    # The reference implementation uses the raw cap_elem 3-point structure directly
     for i in range(n_nodes):
         X_i = cap_elem[:, :, i]  # 3-point structure for node i
         

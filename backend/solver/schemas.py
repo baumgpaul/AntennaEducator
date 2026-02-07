@@ -178,7 +178,7 @@ class ErrorResponse(BaseModel):
 class AntennaInput(BaseModel):
     """Single antenna input for multi-antenna solver.
 
-    All indices are 1-based (MATLAB convention).
+    All indices are 1-based (PEEC convention).
     Node 0 = ground, negative indices = appended nodes.
     """
 

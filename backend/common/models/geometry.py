@@ -16,7 +16,7 @@ class Source(BaseModel):
     Note: Frequency is defined at the solver level, not per source.
     All sources in a project operate at the same frequency(ies).
     
-    In MATLAB/PEEC formulation, sources are always between two nodes:
+    In the PEEC formulation, sources are always between two nodes:
     - Voltage source: defined between node_start and node_end
     - Current source: flows from one node to another
     - Node 0 is typically the reference/ground node
@@ -38,7 +38,7 @@ class Source(BaseModel):
         description="Ending node index: 1-based for mesh nodes (1 to N), 0 for ground"
     )
     
-    # Series impedance for voltage sources (matches MATLAB's Voltage_Source structure)
+    # Series impedance for voltage sources (matches PEEC Voltage_Source structure)
     series_R: float = Field(
         default=0.0,
         description="Series resistance in Ohms",
@@ -70,22 +70,22 @@ class LumpedElement(BaseModel):
     """
     Lumped circuit element (resistor, inductor, capacitor, or RLC combination).
     
-    Corresponds to MATLAB's Antenna.Circuit.Load structure.
+    Lumped circuit element for the PEEC antenna model.
     Can be attached between any two nodes in the antenna to model:
     - Load impedances
     - Matching networks
     - Passive circuit elements
     
     The element impedance is: Z = R + jωL + 1/(jωC) where C = 1/C_inv
-    Using C_inv (inverse capacitance) avoids division by zero and matches MATLAB convention.
+    Using C_inv (inverse capacitance) avoids division by zero per PEEC convention.
     
-    Node numbering follows MATLAB convention (1-based indexing):
+    Node numbering follows PEEC convention (1-based indexing):
     - Positive indices: regular mesh nodes (1, 2, 3, ..., N)
     - 0: ground/reference node
     - Negative indices: appended/auxiliary nodes (-1, -2, -3, ...)
     
     Note: Internally, Python stores mesh nodes in 0-based arrays, but circuit
-    elements use 1-based node references for MATLAB compatibility.
+    elements use 1-based node references for consistency with the PEEC formulation.
     """
     type: Literal["resistor", "inductor", "capacitor", "rlc"] = Field(
         description="Type of lumped element (for documentation/visualization)"
@@ -120,7 +120,7 @@ class LumpedElement(BaseModel):
     def validate_type_matches_values(cls, v, info):
         """Validate that type descriptor roughly matches the RLC values."""
         # This is a soft validation - just for documentation purposes
-        # In MATLAB, all loads have R, L, C_inv fields regardless of type
+        # All loads have R, L, C_inv fields regardless of type
         return v
     
     @property
@@ -146,7 +146,7 @@ class AntennaElement(BaseModel):
     - Optional lumped circuit elements (resistors, inductors, capacitors)
     
     Multiple elements can be combined in a Geometry, and the solver will
-    merge them following MATLAB's solvePEECLinear.m pattern.
+    merge them following the standard PEEC multi-antenna merge pattern.
     """
     id: UUID = Field(default_factory=uuid4)
     name: str = Field(description="Human-readable name for the element")

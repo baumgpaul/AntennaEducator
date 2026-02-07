@@ -12,7 +12,7 @@
 |---|---|
 | Tracked source lines | ~57,500 (20K Python · 33K TypeScript · 1.8K PowerShell · 2.4K Terraform) |
 | Git commits | 223 on `master` |
-| Unit tests | 278 passing (1.2 s) |
+| Unit tests | All passing |
 | AWS (staging) | 4 Lambda functions deployed, S3 + CloudFront frontend |
 | CI/CD | **None** — manual PowerShell scripts |
 | Documentation | Scattered across README, QUICK_START, PROJECT_OVERVIEW, 15 docs/*.md |
@@ -59,7 +59,7 @@ Make the repo presentable and navigable for a new contributor who clones it for 
 - `setup_dynamodb_local.py` — DynamoDB Local setup
 - `start_all_services.ps1`, `start_backend.ps1`, `start_backend_windows.ps1`, `start_solver_service.ps1` — dev startup
 - `test_aws_pipeline.py` — AWS E2E smoke test
-- `test_current_source_golden.py` — MATLAB validation (golden standard)
+- `test_current_source_golden.py` — reference validation (golden standard)
 - `lumped_element_examples.py` — API usage examples
 - `visualization/` — geometry debugging/plotting tools
 - `deploy_api_gateway.ps1`, `deploy_cognito.ps1` — may still be useful (review if Terraform covers these)
@@ -85,7 +85,7 @@ Keep and review/update:
 - `COGNITO_DEPLOYMENT_CHECKLIST.md` — update status
 - `FRONTEND_GAP_ANALYSIS.md` — update with current state
 - `LUMPED_ELEMENTS_ANALYSIS.md` — still relevant domain doc
-- `MATLAB_VERIFICATION.md` — reference verification data
+- `REFERENCE_VERIFICATION.md` — reference verification data
 - `PORT_PARAMETERS.md` — engineering parameter documentation
 - `AWS_PHASE2_SCALING_PLAN.md` — future plan, still relevant
 - `COMPLETE_OUTPUTS.md` — describes output formats
@@ -145,9 +145,9 @@ Create `.pre-commit-config.yaml`:
 
 Document in CONTRIBUTING.md: `pip install pre-commit && pre-commit install`.
 
-### 1.8 Review `Matlab/` tracking (15 min)
+### 1.8 Review legacy reference code tracking (15 min)
 
-Delete all Matlab and mex references
+Delete all legacy reference code references
 
 ### 1.9 Tag baseline (15 min)
 

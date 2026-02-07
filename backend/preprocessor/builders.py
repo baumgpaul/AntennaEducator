@@ -119,7 +119,7 @@ def create_dipole(
 def dipole_to_mesh(element: AntennaElement) -> Mesh:
     """
     Convert a dipole antenna element to a computational mesh.
-    Creates two separate poles if gap > 0, matching MATLAB implementation.
+    Creates two separate poles if gap > 0, matching the reference PEEC implementation.
     Upper half: from gap/2 to (length-gap)/2
     Lower half: from -gap/2 to -(length-gap)/2
     
@@ -182,7 +182,7 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         total_segments = 2 * n_segments_per_half
         
         # Source is at the gap (balanced/differential feed for gap dipoles)
-        # Matching MATLAB createDipole.m:
+        # Matching the reference createDipole implementation:
         # - Voltage sources: ground→upper (+V) and ground→lower (-V)
         # - Current sources: inject at upper node (+I) and lower node (-I)
         if len(element.sources) > 0:
@@ -211,7 +211,7 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
             
             elif source_type == "current":
                 # Current sources: inject at node (no node_start/node_end)
-                # MATLAB: Current_Source(1).node=1, Current_Source(2).node=N_p/2+1
+                # Reference: Current_Source(1).node=1, Current_Source(2).node=N_p/2+1
                 element.sources[0].node_start = 1     # First node of upper half
                 element.sources[0].node_end = None    # Not used for current sources
                 
@@ -331,7 +331,7 @@ def create_loop(
         if source_type == "voltage":
             # Voltage source: connects between two nodes
             # For loop, source placement depends on whether there's a gap
-            # Use 1-based indexing (MATLAB convention)
+            # Use 1-based indexing (PEEC convention)
             if gap > 0:
                 # With gap: source across the gap (ground to first node)
                 node_start = 0
@@ -361,7 +361,7 @@ def create_loop(
             ))
         
         elif source_type == "current":
-            # Current source: injects at a single node (MATLAB style)
+            # Current source: injects at a single node (PEEC style)
             # For loop with gap: inject at first node
             # For closed loop: inject at first node
             node_start = 1  # First mesh node (1-based)
@@ -566,7 +566,7 @@ def create_rod(
     source_objs = []
     if source:
         # For rod, source is typically at base (between ground and first mesh node)
-        # Use 1-based indexing (MATLAB convention)
+        # Use 1-based indexing (PEEC convention)
         node_start = 0  # Ground node
         node_end = 1  # First mesh node (1-based)
         
@@ -758,7 +758,7 @@ def create_helix(
         if source_type == "voltage":
             # Voltage source: connects between two nodes
             # For helix, source is typically at start (between ground and first mesh node)
-            # Use 1-based indexing (MATLAB convention)
+            # Use 1-based indexing (PEEC convention)
             node_start = 0  # Ground node
             node_end = 1  # First mesh node (1-based)
             
@@ -781,7 +781,7 @@ def create_helix(
             ))
         
         elif source_type == "current":
-            # Current source: injects at a single node (MATLAB style)
+            # Current source: injects at a single node (PEEC style)
             # For helix, typically inject at first mesh node
             node_start = 1  # First mesh node (1-based)
             node_end = None  # Not used for current sources

@@ -21,7 +21,7 @@ The system is solved for:
 
 References:
     - Ruehli, A.E., "Partial Element Equivalent Circuit (PEEC) Models"
-    - MATLAB implementation in PEECSolver/solvePEEC_harmonic.m
+    - Reference PEEC implementation: solvePEEC_harmonic
 
 Author: PEEC Solver Development
 """
@@ -224,7 +224,7 @@ def assemble_impedance_matrix(R: np.ndarray, L: np.ndarray, P: np.ndarray,
     """
     Assemble the PEEC impedance matrix Z.
     
-    Following MATLAB implementation:
+    Following the reference PEEC implementation:
         Z = R + jωL + (1/jω)C_inv + (1/jω)A'PA
     
     where:
@@ -270,7 +270,7 @@ def assemble_impedance_matrix(R: np.ndarray, L: np.ndarray, P: np.ndarray,
     if A.shape[1] != n_branches:
         raise ValueError(f"Incidence matrix has {A.shape[1]} branches, expected {n_branches}")
     
-    # Initialize with zeros - build up Z term by term following MATLAB
+    # Initialize with zeros - build up Z term by term following reference PEEC implementation
     Z = np.zeros((n_branches, n_branches), dtype=complex)
     
     # Build full R, L, C_inv matrices for all branches
@@ -297,7 +297,7 @@ def assemble_impedance_matrix(R: np.ndarray, L: np.ndarray, P: np.ndarray,
         Matrix_L[branch_idx, branch_idx] = load.L
         Matrix_C_inv[branch_idx, branch_idx] = load.C_inv
     
-    # Assemble impedance following MATLAB formula exactly:
+    # Assemble impedance following PEEC formula exactly:
     # Z = Matrix_R + 1j*w*Matrix_L + (1/(1j*w))*Matrix_C_inv + (1/(1j*w))*Matrix_A.'*Matrix_P*Matrix_A
     Z = Matrix_R + 1j * omega * Matrix_L + (1 / (1j * omega)) * Matrix_C_inv + (1 / (1j * omega)) * (A.T @ P @ A)
     
@@ -308,11 +308,11 @@ def assemble_system_matrix(Z: np.ndarray, A_app: np.ndarray) -> np.ndarray:
     """
     Assemble the complete PEEC system matrix.
     
-    Following MATLAB implementation in solvePEEC_harmonic.m:
+    Following the reference PEEC implementation:
         SYSTEM = [Z        A_app']
                  [-A_app   0     ]
     
-    Key insight from MATLAB:
+    Key insight:
     - Only appended nodes (negative indices) need explicit KCL constraints
     - Regular nodes are handled implicitly through the A'PA term in Z
     - This avoids the redundant equation problem (ground reference)
@@ -426,7 +426,7 @@ def solve_peec_system(system_matrix: np.ndarray,
     Solves: SYSTEM * X = SOURCE
     where X = [I; V_app] contains branch currents and appended node voltages.
     
-    Following MATLAB formulation:
+    Following the reference PEEC formulation:
         [Z      A_app'] [I    ]   [V_source]
         [-A_app 0     ] [V_app] = [I_app  ]
     

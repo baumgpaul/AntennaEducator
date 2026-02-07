@@ -139,7 +139,7 @@ def validate_lumped_element_nodes(
     """
     Validate that lumped element node references are valid for the mesh.
     
-    Uses MATLAB-compatible 1-based indexing:
+    Uses PEEC-compatible 1-based indexing:
     - Positive indices: mesh nodes 1 to num_mesh_nodes
     - 0: ground/reference node (always valid)
     - Negative indices: appended/auxiliary nodes (always valid)
