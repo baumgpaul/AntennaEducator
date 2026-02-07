@@ -1,111 +1,47 @@
-# Backend - PEEC Antenna Simulator
+# Backend — Antenna Educator
 
-This directory contains the backend services for the PEEC Antenna Simulator.
+Python microservice backend using FastAPI + Pydantic v2.
 
 ## Structure
 
 ```
 backend/
-├── common/              # Shared utilities and data models
-│   ├── models/          # Pydantic data models
-│   │   ├── geometry.py  # Geometry, Mesh, Source models
-│   │   ├── project.py   # Project management models
-│   │   ├── solver.py    # Solver job and configuration
-│   │   └── postprocessor.py  # Postprocessor results
-│   ├── utils/           # Utility functions
-│   │   ├── validation.py     # Input validation
-│   │   └── serialization.py  # Data serialization
-│   └── constants.py     # Physical constants and defaults
-├── preprocessor/        # Preprocessor service (geometry definition)
-├── solver/              # Solver service (PEEC solver)
-└── postprocessor/       # Postprocessor service (field calculation)
+├── common/                  # Shared code
+│   ├── auth/                # Auth strategy (Cognito / local JWT)
+│   │   ├── provider.py      # AuthProvider ABC
+│   │   ├── cognito_provider.py
+│   │   ├── local_provider.py
+│   │   ├── factory.py       # Singleton factory (USE_COGNITO env var)
+│   │   ├── dependencies.py  # get_current_user() FastAPI dependency
+│   │   └── identity.py      # UserIdentity, TokenResponse models
+│   ├── models/
+│   │   └── geometry.py      # AntennaElement, Mesh, Source, LumpedElement
+│   ├── repositories/        # DynamoDB persistence
+│   │   ├── base.py          # Abstract interfaces
+│   │   ├── dynamodb_repository.py
+│   │   ├── user_repository.py
+│   │   └── factory.py
+│   ├── utils/               # Validation, serialization helpers
+│   └── constants.py         # Physical constants (MU_0, C_0, Z_0, ...)
+├── preprocessor/            # Geometry & mesh generation (:8001)
+├── solver/                  # PEEC electromagnetic solver (:8002)
+├── postprocessor/           # Far-field, near-field, patterns (:8003)
+├── projects/                # Project CRUD + auth endpoints (:8010)
+├── auth/                    # Standalone auth service (:8011, Docker only)
+└── Dockerfile               # Shared container image for docker-compose
 ```
 
-## Setup
+Each service has: `main.py` (FastAPI app), `config.py` (Pydantic BaseSettings), `schemas.py`, `lambda_handler.py` (Mangum wrapper), `Dockerfile.lambda`.
 
-### Prerequisites
-- Python 3.11 or higher
-- pip or Poetry for dependency management
-
-### Installation
-
-1. **Create virtual environment:**
-   ```bash
-   python -m venv venv
-   
-   # On Windows
-   venv\Scripts\activate
-   
-   # On Linux/Mac
-   source venv/bin/activate
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   pip install -r ../requirements.txt
-   ```
-
-3. **Install in development mode:**
-   ```bash
-   pip install -e ..
-   ```
-
-## Testing
-
-Run all tests:
-```bash
-pytest
-```
-
-Run tests with coverage:
-```bash
-pytest --cov=backend --cov-report=html
-```
-
-Run specific test categories:
-```bash
-pytest -m unit          # Unit tests only
-pytest -m integration   # Integration tests only
-pytest -m e2e          # End-to-end tests only
-```
-## Common Library
-
-The `common/` module provides shared functionality:
-
-### Data Models
-- **Geometry**: Antenna elements, mesh, sources
-- **Project**: Project management and status
-- **Solver**: Job configuration and execution
-- **Postprocessor**: Result types and calculations
-
-### Constants
-- Physical constants (μ₀, ε₀, c₀, Z₀)
-- Default configuration values
-- Helper functions (wavelength, wavenumber, skin depth)
-
-### Utilities
-- **Validation**: Input data validation (vectors, frequencies, segments)
-- **Serialization**: NumPy and complex number serialization
-
-## Code Quality
-
-Run linters and formatters:
+## Running
 
 ```bash
-# Format code with black
-black backend/
-
-# Sort imports
-isort backend/
-
-# Check types
-mypy backend/
-
-# Lint code
-flake8 backend/
+# From repo root, venv activated
+uvicorn backend.preprocessor.main:app --port 8001 --reload
+uvicorn backend.solver.main:app --port 8002 --reload
+uvicorn backend.postprocessor.main:app --port 8003 --reload
+uvicorn backend.projects.main:app --port 8010 --reload
 ```
 
-## Next Steps
-
-See [docs/BACKEND_IMPLEMENTATION.md](../docs/BACKEND_IMPLEMENTATION.md) for the complete implementation plan.
+See [docs/LOCAL_DEVELOPMENT.md](../docs/LOCAL_DEVELOPMENT.md) for full setup instructions.
 
