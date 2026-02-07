@@ -4,8 +4,8 @@ The choice is made once at import time via the ``USE_COGNITO`` env var.
 All services import ``get_auth_provider()`` and get the same singleton.
 """
 
-import os
 import logging
+import os
 from functools import lru_cache
 
 from backend.common.auth.provider import AuthProvider

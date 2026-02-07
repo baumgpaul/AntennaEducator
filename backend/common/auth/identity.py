@@ -4,9 +4,10 @@ This is a plain Pydantic model with NO ORM dependency.
 Every service that needs the current user receives this, not a SQLAlchemy model.
 """
 
-from pydantic import BaseModel, EmailStr, ConfigDict
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict
 
 
 class UserIdentity(BaseModel):

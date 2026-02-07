@@ -22,26 +22,29 @@ References:
 Author: PEEC Solver Development
 """
 
-import numpy as np
-from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass, field
-import time
 import logging
+import time
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
 
-from backend.common.constants import MU_0, EPSILON_0, C_0
-from backend.solver.geometry import build_edge_geometries, EdgeGeometry
-from backend.solver.resistance import assemble_resistance_matrix
+import numpy as np
+
+from backend.common.constants import C_0
+from backend.solver.geometry import build_edge_geometries
 from backend.solver.inductance import assemble_inductance_matrix
 from backend.solver.potential_nodal import assemble_nodal_potential_matrix_with_cap_elem
+from backend.solver.resistance import assemble_resistance_matrix
 from backend.solver.system import (
-    VoltageSource, CurrentSource, Load,
-    build_incidence_matrix,
-    build_appended_incidence_matrix,
+    CurrentSource,
+    Load,
+    VoltageSource,
     assemble_impedance_matrix,
-    assemble_system_matrix,
     assemble_source_vector,
+    assemble_system_matrix,
+    build_appended_incidence_matrix,
+    build_incidence_matrix,
+    compute_node_voltages,
     solve_peec_system,
-    compute_node_voltages
 )
 
 logger = logging.getLogger(__name__)
@@ -50,13 +53,14 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SolverConfiguration:
     """Solver configuration parameters.
-    
+
     Attributes:
         gauss_order: Gauss quadrature order for integration (2, 4, 6, 8, 10)
         include_skin_effect: Whether to include AC resistance skin effect
         resistivity: Material resistivity [Ω·m] (default: copper)
         permeability: Relative permeability (default: 1.0 for non-magnetic)
     """
+
     gauss_order: int = 6
     include_skin_effect: bool = True
     resistivity: float = 1.68e-8  # Copper
@@ -66,7 +70,7 @@ class SolverConfiguration:
 @dataclass
 class FrequencyPoint:
     """Solution at a single frequency.
-    
+
     Attributes:
         frequency: Frequency [Hz]
         omega: Angular frequency [rad/s]
@@ -83,6 +87,7 @@ class FrequencyPoint:
         accepted_power: Accepted power (input - reflected) [W]
         solve_time: Time to solve system [s]
     """
+
     frequency: float
     omega: float
     branch_currents: np.ndarray
@@ -102,7 +107,7 @@ class FrequencyPoint:
 @dataclass
 class SolverResult:
     """Complete solver results across frequency sweep.
-    
+
     Attributes:
         frequencies: Frequency points [Hz]
         frequency_solutions: List of FrequencyPoint solutions
@@ -121,6 +126,7 @@ class SolverResult:
         total_solve_time: Total computation time [s]
         configuration: Solver configuration used
     """
+
     frequencies: np.ndarray
     frequency_solutions: List[FrequencyPoint]
     impedance_real: np.ndarray
@@ -148,14 +154,14 @@ def solve_peec_frequency_sweep(
     current_sources: Optional[List[CurrentSource]] = None,
     loads: Optional[List[Load]] = None,
     config: Optional[SolverConfiguration] = None,
-    reference_impedance: float = 50.0
+    reference_impedance: float = 50.0,
 ) -> SolverResult:
     """
     Solve PEEC system across a frequency sweep.
-    
+
     This is the main entry point for the PEEC solver. It assembles the complete
     system and solves at each frequency point.
-    
+
     Args:
         nodes: Node coordinates [m], shape (n_nodes, 3)
         edges: Edge connectivity list [[node1, node2], ...] (1-based indexing)
@@ -166,14 +172,14 @@ def solve_peec_frequency_sweep(
         loads: Optional list of loads
         config: Optional solver configuration
         reference_impedance: Reference impedance for VSWR calculation [Ω]
-    
+
     Returns:
         SolverResult containing complete frequency sweep results
-    
+
     Raises:
         ValueError: If input dimensions are invalid
         np.linalg.LinAlgError: If system is singular at any frequency
-    
+
     Example:
         >>> nodes = np.array([[0, 0, 0], [0, 0, 0.05], [0, 0, 0.1]])
         >>> edges = [[1, 2], [2, 3]]
@@ -184,35 +190,35 @@ def solve_peec_frequency_sweep(
         >>> print(f"Input impedance at 100 MHz: {result.frequency_solutions[25].input_impedance}")
     """
     start_time = time.time()
-    
+
     # Set defaults
     config = config or SolverConfiguration()
     current_sources = current_sources or []
     voltage_sources = voltage_sources or []
     loads = loads or []
-    
+
     # Validate inputs
     n_nodes = len(nodes)
     n_edges = len(edges)
-    
+
     if len(radii) != n_edges:
         raise ValueError(f"radii length {len(radii)} doesn't match edges length {n_edges}")
-    
-    if len(voltage_sources) == 0 and len(current_sources) == 0: 
+
+    if len(voltage_sources) == 0 and len(current_sources) == 0:
         raise ValueError("At least one voltage source or current source is required")
-    
+
     # Step 1: Build edge geometries and handle edges to/from ground
     # Ground is node 0. For edges to/from ground, we can't build full EdgeGeometry
     # but we can estimate their length and use simplified formulas.
     physical_edge_indices = []  # Edges between two non-ground nodes
     physical_edges_0based = []
-    
+
     for i, edge in enumerate(edges):
         if edge[0] > 0 and edge[1] > 0:
             # Physical edge between two non-ground nodes
             physical_edge_indices.append(i)
-            physical_edges_0based.append([edge[0]-1, edge[1]-1])
-    
+            physical_edges_0based.append([edge[0] - 1, edge[1] - 1])
+
     # Build geometries for physical edges
     if len(physical_edges_0based) > 0:
         edge_geom_list = build_edge_geometries(nodes, physical_edges_0based)
@@ -220,9 +226,9 @@ def solve_peec_frequency_sweep(
     else:
         edge_geom_list = []
         physical_radii = np.array([])
-    
+
     n_physical_edges = len(edge_geom_list)
-    
+
     # Step 2: Assemble frequency-independent matrices
     # Inductance for physical edges (potential is node-based only)
     if n_physical_edges > 0:
@@ -230,15 +236,13 @@ def solve_peec_frequency_sweep(
     else:
         L_physical = np.zeros((0, 0))
         dist_L_physical = np.zeros((0, 0))
-    
+
     # For ground edges, use simplified formulas
-    mu0 = MU_0
-    eps0 = EPSILON_0
-        
+
     # Step 3: Build topology (frequency-independent)
     # Account for node indexing: mesh nodes are 1-based, with 0 as ground
     max_node = max(max(e) for e in edges)
-    
+
     # Compute node-based potential matrix P (required for A'PA coupling)
     # This is (n_nodes × n_nodes) following the reference PEEC implementation
     # Uses Cap_Elem representation for each node
@@ -252,37 +256,31 @@ def solve_peec_frequency_sweep(
     else:
         P_nodal = np.zeros((n_nodes, n_nodes))
         dist_P_nodal = np.zeros((n_nodes, n_nodes))
-        cap_elem = np.zeros((3, 3, n_nodes))
-        radii_cap = np.zeros((n_nodes, 2))
-    
-    A = build_incidence_matrix(
-        edges, max_node,
-        voltage_sources=voltage_sources,
-        loads=loads
-    )
-    
-    A_app, n_appended = build_appended_incidence_matrix(
-        voltage_sources, loads, n_edges
-    )
-    
+        np.zeros((3, 3, n_nodes))
+        np.zeros((n_nodes, 2))
+
+    A = build_incidence_matrix(edges, max_node, voltage_sources=voltage_sources, loads=loads)
+
+    A_app, n_appended = build_appended_incidence_matrix(voltage_sources, loads, n_edges)
+
     n_branches = A.shape[1]
-    
+
     # Prepare current source vector (frequency-independent positions)
     I_source = np.zeros(max_node, dtype=complex)
     for isrc in current_sources:
         if 0 < isrc.node <= max_node:
             I_source[isrc.node - 1] = isrc.value
-    
+
     # Step 4: Solve at each frequency
     frequency_solutions = []
-    
+
     # Speed of light for retarded potential calculation
     c0 = C_0
-    
+
     for freq in frequencies:
         freq_start = time.time()
         omega = 2 * np.pi * freq
-        
+
         # Apply retarded potential phase correction to inductance
         # Following the reference implementation: retardation applied only to off-diagonal terms
         # Ret_L =  exp(-1i*beta*dist_L);
@@ -295,10 +293,12 @@ def solve_peec_frequency_sweep(
             L_diag = np.diag(np.diag(L_physical))
             L_off_upper = np.triu(L_physical, 1)
             Ret_L_off_upper = np.triu(Ret_L, 1)
-            L_physical_retarded = L_diag + L_off_upper * Ret_L_off_upper + (L_off_upper * Ret_L_off_upper).T
+            L_physical_retarded = (
+                L_diag + L_off_upper * Ret_L_off_upper + (L_off_upper * Ret_L_off_upper).T
+            )
         else:
             L_physical_retarded = L_physical
-        
+
         # Apply retarded potential phase correction to nodal potential matrix
         # Following the reference implementation: retardation applied only to off-diagonal terms
         # Ret_P = exp(-1i*beta*dist_P);
@@ -310,77 +310,77 @@ def solve_peec_frequency_sweep(
             P_diag = np.diag(np.diag(P_nodal))
             P_off_upper = np.triu(P_nodal, 1)
             Ret_P_off_upper = np.triu(Ret_P, 1)
-            P_nodal_retarded = P_diag + P_off_upper * Ret_P_off_upper + (P_off_upper * Ret_P_off_upper).T
+            P_nodal_retarded = (
+                P_diag + P_off_upper * Ret_P_off_upper + (P_off_upper * Ret_P_off_upper).T
+            )
         else:
             P_nodal_retarded = P_nodal
-        
+
         # Assemble frequency-dependent inductance matrix with retardation
         L_full = np.zeros((n_edges, n_edges), dtype=complex)
-        
+
         # Place physical edge contributions (with retardation)
         if n_physical_edges > 0:
             for i, idx_i in enumerate(physical_edge_indices):
                 for j, idx_j in enumerate(physical_edge_indices):
                     L_full[idx_i, idx_j] = L_physical_retarded[i, j]
-        
-        
+
         # Assemble frequency-dependent resistance matrix
         R = np.zeros((n_edges, n_edges))
-        
+
         # Physical edges: use full PEEC resistance calculation
         if n_physical_edges > 0:
             R_physical = assemble_resistance_matrix(
-                edge_geom_list, physical_radii,
+                edge_geom_list,
+                physical_radii,
                 frequency=freq,
                 resistivity=config.resistivity,
                 permeability=config.permeability,
-                include_skin_effect=config.include_skin_effect
+                include_skin_effect=config.include_skin_effect,
             )
             for i, idx_i in enumerate(physical_edge_indices):
                 for j, idx_j in enumerate(physical_edge_indices):
                     R[idx_i, idx_j] = R_physical[i, j]
-        
-        # Assemble impedance matrix Z(ω) 
+
+        # Assemble impedance matrix Z(ω)
         # Pass node-based P matrix with retardation for A'PA coupling term
         Z = assemble_impedance_matrix(
-            R, L_full, P_nodal_retarded, A, omega,
-            voltage_sources=voltage_sources,
-            loads=loads
+            R, L_full, P_nodal_retarded, A, omega, voltage_sources=voltage_sources, loads=loads
         )
-        
+
         # Assemble system matrix (only use A_app, per PEEC formulation)
         system_matrix = assemble_system_matrix(Z, A_app)
-        
+
         # Assemble source vector with capacitive coupling (use retarded P)
         source_vector = assemble_source_vector(
             voltage_sources, current_sources, A, P_nodal_retarded, omega, n_edges, n_appended
         )
-        
+
         # Solve system
         I, V_app = solve_peec_system(system_matrix, source_vector, n_branches)
-        
+
         # Debug logging for voltage source currents
         if len(voltage_sources) > 0:
             vsrc_branch_idx = n_edges
             if vsrc_branch_idx < len(I):
                 vsrc_current = I[vsrc_branch_idx]
                 logger.debug(f"First voltage source current: {vsrc_current} A")
-        
+
         # Compute node voltages (per PEEC: V = (1/jω)*(P*I_source + P*A*I))
         V = compute_node_voltages(I, I_source, A, P_nodal_retarded, omega)
-        
+
         # Compute input impedance/admittance
         if len(voltage_sources) > 0:
             # Voltage source excitation: compute input impedance Z = V/I
             vsrc_branch_idx = n_edges  # First voltage source after edges
             input_current = I[vsrc_branch_idx]
             input_voltage = voltage_sources[0].value
-            
+
             if np.abs(input_current) > 1e-12:
                 input_impedance = input_voltage / input_current
             else:
                 input_impedance = np.inf + 0j
-        
+
         elif len(current_sources) > 0:
             # Current source excitation: compute input impedance Z = V/I
             # Use voltage at first current source node
@@ -389,48 +389,50 @@ def solve_peec_frequency_sweep(
                 input_voltage = V[isrc_node - 1]  # Convert to 0-based
             else:
                 input_voltage = 0.0 + 0j  # Ground
-            
+
             input_current = current_sources[0].value
-            
+
             if np.abs(input_current) > 1e-12:
                 input_impedance = input_voltage / input_current
             else:
                 input_impedance = np.inf + 0j
-        
+
         else:
             # No sources - undefined impedance
             input_impedance = np.nan + 0j
-        
+
         # Compute power dissipated in resistances
         # P = I^H * R * I (real part)
         R_full = np.zeros_like(Z)
         R_full[:n_edges, :n_edges] = R
         power_dissipated = np.real(np.conj(I) @ R_full @ I)
-        
+
         # Compute port parameters relative to reference impedance
         Z0 = reference_impedance
         reflection_coefficient = (input_impedance - Z0) / (input_impedance + Z0)
         gamma_mag = np.abs(reflection_coefficient)
-        
+
         # Return loss in dB: RL = -20*log10(|Γ|)
         return_loss = -20.0 * np.log10(gamma_mag + 1e-12)  # Add epsilon to avoid log(0)
         return_loss = np.clip(return_loss, 0.0, 100.0)  # Clip to reasonable range
-        
+
         # Power quantities
         # Input power: P_in = 0.5 * |V|² / Z0 (assuming voltage source with Z0)
         # Or more accurately: P_in = 0.5 * Re(V * I*)
         input_power = 0.5 * np.real(input_voltage * np.conj(input_current))
-        
+
         # Reflected power: P_refl = |Γ|² * P_in
         reflected_power = gamma_mag**2 * input_power
-        
+
         # Accepted power: P_acc = P_in - P_refl = (1 - |Γ|²) * P_in
         accepted_power = input_power - reflected_power
-        
+
         freq_time = time.time() - freq_start
-        
+
         # Store solution
-        logger.debug(f"Storing branch_currents: I.shape={I.shape}, n_edges={n_edges}, n_branches={n_branches}")
+        logger.debug(
+            f"Storing branch_currents: I.shape={I.shape}, n_edges={n_edges}, n_branches={n_branches}"
+        )
         solution = FrequencyPoint(
             frequency=freq,
             omega=omega,
@@ -445,35 +447,35 @@ def solve_peec_frequency_sweep(
             input_power=input_power,
             reflected_power=reflected_power,
             accepted_power=accepted_power,
-            solve_time=freq_time
+            solve_time=freq_time,
         )
-        
+
         frequency_solutions.append(solution)
-    
+
     # Step 5: Post-process results
     impedances = np.array([sol.input_impedance for sol in frequency_solutions])
     impedance_real = np.real(impedances)
     impedance_imag = np.imag(impedances)
     impedance_magnitude = np.abs(impedances)
     impedance_phase = np.angle(impedances, deg=True)
-    
+
     # Extract reflection coefficients and return loss
     reflection_coefficients = np.array([sol.reflection_coefficient for sol in frequency_solutions])
     return_losses = np.array([sol.return_loss for sol in frequency_solutions])
-    
+
     # Compute VSWR relative to reference impedance
     # VSWR = (1 + |Γ|) / (1 - |Γ|) where Γ = (Z - Z0) / (Z + Z0)
     gamma = (impedances - reference_impedance) / (impedances + reference_impedance)
     gamma_mag = np.abs(gamma)
     vswr = (1 + gamma_mag) / (1 - gamma_mag + 1e-10)  # Add epsilon to avoid division by zero
     vswr = np.clip(vswr, 1.0, 100.0)  # Clip extreme values
-    
+
     # Compute mismatch loss: ML = -10*log10(1 - |Γ|²) [dB]
     mismatch_loss = -10.0 * np.log10(1.0 - gamma_mag**2 + 1e-12)
     mismatch_loss = np.clip(mismatch_loss, 0.0, 50.0)  # Clip to reasonable range
-    
+
     total_time = time.time() - start_time
-    
+
     return SolverResult(
         frequencies=frequencies,
         frequency_solutions=frequency_solutions,
@@ -490,7 +492,7 @@ def solve_peec_frequency_sweep(
         n_edges=n_edges,
         n_branches=n_branches,
         total_solve_time=total_time,
-        configuration=config
+        configuration=config,
     )
 
 
@@ -502,13 +504,13 @@ def solve_single_frequency(
     voltage_sources: List[VoltageSource],
     current_sources: Optional[List[CurrentSource]] = None,
     loads: Optional[List[Load]] = None,
-    config: Optional[SolverConfiguration] = None
+    config: Optional[SolverConfiguration] = None,
 ) -> FrequencyPoint:
     """
     Solve PEEC system at a single frequency.
-    
+
     Convenience wrapper for single-frequency solutions.
-    
+
     Args:
         nodes: Node coordinates [m], shape (n_nodes, 3)
         edges: Edge connectivity list [[node1, node2], ...]
@@ -518,55 +520,54 @@ def solve_single_frequency(
         current_sources: Optional list of current sources
         loads: Optional list of loads
         config: Optional solver configuration
-    
+
     Returns:
         FrequencyPoint solution at specified frequency
     """
     result = solve_peec_frequency_sweep(
-        nodes, edges, radii,
-        np.array([frequency]),
-        voltage_sources, current_sources, loads,
-        config
+        nodes, edges, radii, np.array([frequency]), voltage_sources, current_sources, loads, config
     )
-    
+
     return result.frequency_solutions[0]
 
 
 def compute_resonant_frequency(result: SolverResult) -> Optional[float]:
     """
     Find resonant frequency where reactance crosses zero.
-    
+
     Args:
         result: Solver result from frequency sweep
-    
+
     Returns:
         Resonant frequency [Hz], or None if not found in sweep range
     """
     # Find zero crossings of reactance
     reactance = result.impedance_imag
-    
+
     # Look for sign changes
     for i in range(len(reactance) - 1):
         if reactance[i] * reactance[i + 1] < 0:
             # Linear interpolation to find zero crossing
             f1, f2 = result.frequencies[i], result.frequencies[i + 1]
             x1, x2 = reactance[i], reactance[i + 1]
-            
+
             # f_res = f1 - x1 * (f2 - f1) / (x2 - x1)
             f_res = f1 + (0 - x1) * (f2 - f1) / (x2 - x1)
             return f_res
-    
+
     return None
 
 
-def compute_bandwidth(result: SolverResult, vswr_limit: float = 2.0) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+def compute_bandwidth(
+    result: SolverResult, vswr_limit: float = 2.0
+) -> Tuple[Optional[float], Optional[float], Optional[float]]:
     """
     Compute bandwidth where VSWR < limit.
-    
+
     Args:
         result: Solver result from frequency sweep
         vswr_limit: VSWR threshold (default: 2.0)
-    
+
     Returns:
         Tuple of (f_low, f_high, bandwidth_pct):
             - f_low: Lower bandwidth edge [Hz]
@@ -576,66 +577,67 @@ def compute_bandwidth(result: SolverResult, vswr_limit: float = 2.0) -> Tuple[Op
     """
     # Find frequencies where VSWR < limit
     valid = result.vswr < vswr_limit
-    
+
     if not np.any(valid):
         return None, None, None
-    
+
     # Find continuous region
     # For simplicity, take the first continuous region
     valid_indices = np.where(valid)[0]
-    
+
     if len(valid_indices) == 0:
         return None, None, None
-    
+
     # Find continuous segments
     segments = []
     start = valid_indices[0]
-    
+
     for i in range(1, len(valid_indices)):
-        if valid_indices[i] != valid_indices[i-1] + 1:
+        if valid_indices[i] != valid_indices[i - 1] + 1:
             # Gap found, end current segment
-            segments.append((start, valid_indices[i-1]))
+            segments.append((start, valid_indices[i - 1]))
             start = valid_indices[i]
-    
+
     # Add final segment
     segments.append((start, valid_indices[-1]))
-    
+
     # Take the widest segment
     widest_segment = max(segments, key=lambda s: s[1] - s[0])
     i_low, i_high = widest_segment
-    
+
     f_low = result.frequencies[i_low]
     f_high = result.frequencies[i_high]
     f_center = (f_low + f_high) / 2
     bandwidth_pct = 100 * (f_high - f_low) / f_center
-    
+
     return f_low, f_high, bandwidth_pct
 
 
-def compute_radiation_efficiency(accepted_power: float, power_dissipated: float, 
-                                  radiated_power: Optional[float] = None) -> Optional[float]:
+def compute_radiation_efficiency(
+    accepted_power: float, power_dissipated: float, radiated_power: Optional[float] = None
+) -> Optional[float]:
     """
     Compute radiation efficiency.
-    
+
     Args:
         accepted_power: Power accepted by antenna (input - reflected) [W]
         power_dissipated: Power dissipated in resistance [W]
         radiated_power: Power radiated (from far-field integration) [W]
                        If None, efficiency cannot be computed
-    
+
     Returns:
         Radiation efficiency [0-1], or None if radiated_power not available
-        
+
     Note:
         η_rad = P_rad / P_accepted = P_rad / (P_rad + P_loss)
         Requires far-field computation to determine P_rad
     """
     if radiated_power is None:
         return None
-    
+
     if accepted_power < 1e-12:
         return None
-    
+
     efficiency = radiated_power / accepted_power
     return np.clip(efficiency, 0.0, 1.0)
 
@@ -643,14 +645,14 @@ def compute_radiation_efficiency(accepted_power: float, power_dissipated: float,
 def compute_antenna_gain(directivity: float, efficiency: float) -> float:
     """
     Compute antenna gain from directivity and efficiency.
-    
+
     Args:
         directivity: Directivity (dimensionless)
         efficiency: Radiation efficiency [0-1]
-    
+
     Returns:
         Gain (dimensionless): G = η * D
-        
+
     Note:
         - Gain in dBi: G_dBi = 10*log10(G)
         - Requires far-field computation for directivity
@@ -661,39 +663,40 @@ def compute_antenna_gain(directivity: float, efficiency: float) -> float:
 def compute_q_factor(f_resonant: float, bandwidth: float) -> float:
     """
     Compute quality factor (Q) of resonance.
-    
+
     Args:
         f_resonant: Resonant frequency [Hz]
         bandwidth: -3dB bandwidth [Hz]
-    
+
     Returns:
         Quality factor Q = f0 / BW
     """
     if bandwidth < 1e-6:
         return np.inf
-    
+
     return f_resonant / bandwidth
 
 
 # ========== Multi-Antenna Solver ==========
 
+
 @dataclass
 class MergedAntennaSystem:
     """Combined multi-antenna system ready for solving."""
-    
+
     # Combined geometry
     nodes: np.ndarray  # Combined node coordinates
     edges: List[List[int]]  # Combined edge connectivity (renumbered)
     radii: np.ndarray  # Combined radii
-    
+
     # Combined sources/loads (renumbered)
     voltage_sources: List[VoltageSource]
     current_sources: List[CurrentSource]
     loads: List[Load]
-    
+
     # Per-antenna offsets for solution distribution
     antenna_offsets: List[Dict]  # [{antenna_id, start_stick, n_sticks, start_point, n_points, ...}]
-    
+
     # Global counts
     n_total_sticks: int
     n_total_points: int
@@ -706,14 +709,14 @@ class MergedAntennaSystem:
 def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntennaSystem:
     """
     Merge multiple antennas into a unified system.
-    
+
     Combines geometry, renumbers nodes with offsets, tracks per-antenna metadata.
     Follows the reference PEEC multi-antenna merge implementation.
-    
+
     Args:
         antennas: List of AntennaInput objects from schemas
         config: Solver configuration
-    
+
     Returns:
         MergedAntennaSystem with combined geometry and offset tracking
     """
@@ -724,7 +727,7 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
     n_current_sources_total = 0
     n_loads_total = 0
     n_appended_total = 0
-    
+
     # Storage for combined system
     combined_nodes = []
     combined_edges = []
@@ -733,7 +736,7 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
     combined_current_sources = []
     combined_loads = []
     antenna_offsets = []
-    
+
     for antenna in antennas:
         # Get antenna dimensions
         n_sticks = len(antenna.edges)
@@ -741,13 +744,17 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
         n_voltage = len(antenna.voltage_sources)
         n_current = len(antenna.current_sources)
         n_load = len(antenna.loads)
-        
-        logger.debug(f"Antenna {antenna.antenna_id}: {n_sticks} edges, {n_points} nodes, "
-                   f"{n_voltage} voltage sources, {n_current} current sources, {n_load} loads")
+
+        logger.debug(
+            f"Antenna {antenna.antenna_id}: {n_sticks} edges, {n_points} nodes, "
+            f"{n_voltage} voltage sources, {n_current} current sources, {n_load} loads"
+        )
         if n_voltage > 0:
             for i, vs in enumerate(antenna.voltage_sources):
-                logger.debug(f"  Voltage source {i}: {vs.node_start} → {vs.node_end}, value={vs.value}")
-        
+                logger.debug(
+                    f"  Voltage source {i}: {vs.node_start} → {vs.node_end}, value={vs.value}"
+                )
+
         # Count appended nodes (negative indices in sources/loads)
         appended_nodes = set()
         for vs in antenna.voltage_sources:
@@ -766,111 +773,112 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
             if ld.node_end < 0:
                 appended_nodes.add(ld.node_end)
         n_appended = len(appended_nodes)
-        
+
         # Store offsets for this antenna (1-based)
         offset = {
-            'antenna_id': antenna.antenna_id,
-            'start_stick': n_sticks_total + 1,
-            'n_sticks': n_sticks,
-            'start_point': n_points_total + 1,
-            'n_points': n_points,
-            'start_voltage': n_voltage_sources_total + 1,
-            'n_voltage': n_voltage,
-            'start_current': n_current_sources_total + 1,
-            'n_current': n_current,
-            'start_load': n_loads_total + 1,
-            'n_load': n_load,
-            'start_appended': n_appended_total + 1,
-            'n_appended': n_appended
+            "antenna_id": antenna.antenna_id,
+            "start_stick": n_sticks_total + 1,
+            "n_sticks": n_sticks,
+            "start_point": n_points_total + 1,
+            "n_points": n_points,
+            "start_voltage": n_voltage_sources_total + 1,
+            "n_voltage": n_voltage,
+            "start_current": n_current_sources_total + 1,
+            "n_current": n_current,
+            "start_load": n_loads_total + 1,
+            "n_load": n_load,
+            "start_appended": n_appended_total + 1,
+            "n_appended": n_appended,
         }
         antenna_offsets.append(offset)
-        
+
         # Add nodes (convert from list to array if needed)
         nodes_array = np.array(antenna.nodes)
         combined_nodes.append(nodes_array)
-        
+
         # Renumber edges: positive indices += (start_point - 1)
         for edge in antenna.edges:
             node_start = edge[0]
             node_end = edge[1]
-            
+
             # Renumber positive indices
             if node_start > 0:
-                node_start += (offset['start_point'] - 1)
+                node_start += offset["start_point"] - 1
             else:  # Negative: appended nodes
-                node_start -= (offset['start_appended'] - 1)
-            
+                node_start -= offset["start_appended"] - 1
+
             if node_end > 0:
-                node_end += (offset['start_point'] - 1)
+                node_end += offset["start_point"] - 1
             else:
-                node_end -= (offset['start_appended'] - 1)
-            
+                node_end -= offset["start_appended"] - 1
+
             combined_edges.append([node_start, node_end])
-        
+
         # Add radii
         combined_radii.extend(antenna.radii)
-        
+
         # Renumber voltage sources
         for vs in antenna.voltage_sources:
             node_start = vs.node_start
             node_end = vs.node_end
-            
+
             if node_start > 0:
-                node_start += (offset['start_point'] - 1)
+                node_start += offset["start_point"] - 1
             else:
-                node_start -= (offset['start_appended'] - 1)
-            
+                node_start -= offset["start_appended"] - 1
+
             if node_end > 0:
-                node_end += (offset['start_point'] - 1)
+                node_end += offset["start_point"] - 1
             else:
-                node_end -= (offset['start_appended'] - 1)
-            
-            combined_voltage_sources.append(VoltageSource(
-                node_start=node_start,
-                node_end=node_end,
-                value=vs.value,
-                R=getattr(vs, 'R', 0.0),
-                L=getattr(vs, 'L', 0.0),
-                C_inv=getattr(vs, 'C_inv', 0.0)
-            ))
-        
+                node_end -= offset["start_appended"] - 1
+
+            combined_voltage_sources.append(
+                VoltageSource(
+                    node_start=node_start,
+                    node_end=node_end,
+                    value=vs.value,
+                    R=getattr(vs, "R", 0.0),
+                    L=getattr(vs, "L", 0.0),
+                    C_inv=getattr(vs, "C_inv", 0.0),
+                )
+            )
+
         # Renumber current sources
         for cs in antenna.current_sources:
             node = cs.node
-            
+
             if node > 0:
-                node += (offset['start_point'] - 1)
+                node += offset["start_point"] - 1
             else:
-                node -= (offset['start_appended'] - 1)
-            
-            combined_current_sources.append(CurrentSource(
-                node=node,
-                value=cs.value
-            ))
-        
+                node -= offset["start_appended"] - 1
+
+            combined_current_sources.append(CurrentSource(node=node, value=cs.value))
+
         # Renumber loads
         for ld in antenna.loads:
             node_start = ld.node_start
             node_end = ld.node_end
-            
+
             if node_start > 0:
-                node_start += (offset['start_point'] - 1)
+                node_start += offset["start_point"] - 1
             else:
-                node_start -= (offset['start_appended'] - 1)
-            
+                node_start -= offset["start_appended"] - 1
+
             if node_end > 0:
-                node_end += (offset['start_point'] - 1)
+                node_end += offset["start_point"] - 1
             else:
-                node_end -= (offset['start_appended'] - 1)
-            
-            combined_loads.append(Load(
-                node_start=node_start,
-                node_end=node_end,
-                R=getattr(ld, 'R', 0.0),
-                L=getattr(ld, 'L', 0.0),
-                C=getattr(ld, 'C', 0.0)
-            ))
-        
+                node_end -= offset["start_appended"] - 1
+
+            combined_loads.append(
+                Load(
+                    node_start=node_start,
+                    node_end=node_end,
+                    R=getattr(ld, "R", 0.0),
+                    L=getattr(ld, "L", 0.0),
+                    C=getattr(ld, "C", 0.0),
+                )
+            )
+
         # Update global counters
         n_sticks_total += n_sticks
         n_points_total += n_points
@@ -878,11 +886,11 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
         n_current_sources_total += n_current
         n_loads_total += n_load
         n_appended_total += n_appended
-    
+
     # Combine nodes array
     combined_nodes_array = np.vstack(combined_nodes) if combined_nodes else np.array([])
     combined_radii_array = np.array(combined_radii)
-    
+
     return MergedAntennaSystem(
         nodes=combined_nodes_array,
         edges=combined_edges,
@@ -896,128 +904,141 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
         n_total_voltage_sources=n_voltage_sources_total,
         n_total_current_sources=n_current_sources_total,
         n_total_loads=n_loads_total,
-        n_total_appended=n_appended_total
+        n_total_appended=n_appended_total,
     )
 
 
-def distribute_solution(
-    solution: FrequencyPoint,
-    merged_system: MergedAntennaSystem
-) -> List[Dict]:
+def distribute_solution(solution: FrequencyPoint, merged_system: MergedAntennaSystem) -> List[Dict]:
     """
     Distribute combined solution back to individual antennas.
-    
+
     Slices solution vectors using stored offsets.
     Follows the reference PEEC solution distribution implementation.
-    
+
     Args:
         solution: FrequencyPoint from combined system solve
         merged_system: MergedAntennaSystem with offset tracking
-    
+
     Returns:
         List of per-antenna solution dicts matching AntennaSolution schema
     """
     # Extract solution vectors
-    X_I = solution.branch_currents  # [edge_currents, voltage_source_currents, current_source_currents, load_currents]
-    X_V = np.concatenate([solution.node_voltages, solution.appended_voltages])  # [node_voltages, appended_voltages]
-    
+    X_I = (
+        solution.branch_currents
+    )  # [edge_currents, voltage_source_currents, current_source_currents, load_currents]
+    X_V = np.concatenate(
+        [solution.node_voltages, solution.appended_voltages]
+    )  # [node_voltages, appended_voltages]
+
     # Debug logging
     logger.debug(f"distribute_solution: X_I.shape={X_I.shape}, X_V.shape={X_V.shape}")
-    logger.debug(f"  n_total_sticks={merged_system.n_total_sticks}, "
-                f"n_total_voltage_sources={merged_system.n_total_voltage_sources}")
-    
+    logger.debug(
+        f"  n_total_sticks={merged_system.n_total_sticks}, "
+        f"n_total_voltage_sources={merged_system.n_total_voltage_sources}"
+    )
+
     # Slice indices (convert to 0-based for Python)
     i_voltage_start = merged_system.n_total_sticks
     i_current_start = i_voltage_start + merged_system.n_total_voltage_sources
     i_load_start = i_current_start + merged_system.n_total_current_sources
     i_appended_start = merged_system.n_total_points
-    
+
     antenna_solutions = []
-    
+
     for offset in merged_system.antenna_offsets:
-        antenna_id = offset['antenna_id']
-        
+        offset["antenna_id"]
+
         # Extract edge currents (0-based slicing)
-        start_stick_0 = offset['start_stick'] - 1
-        end_stick_0 = start_stick_0 + offset['n_sticks']
+        start_stick_0 = offset["start_stick"] - 1
+        end_stick_0 = start_stick_0 + offset["n_sticks"]
         branch_currents = X_I[start_stick_0:end_stick_0]
-        
+
         # Extract voltage source currents
-        start_voltage_0 = i_voltage_start + offset['start_voltage'] - 1
-        end_voltage_0 = start_voltage_0 + offset['n_voltage']
-        voltage_source_currents = X_I[start_voltage_0:end_voltage_0] if offset['n_voltage'] > 0 else []
+        start_voltage_0 = i_voltage_start + offset["start_voltage"] - 1
+        end_voltage_0 = start_voltage_0 + offset["n_voltage"]
+        voltage_source_currents = (
+            X_I[start_voltage_0:end_voltage_0] if offset["n_voltage"] > 0 else []
+        )
 
         # Extract current source currents
-        start_current_0 = i_current_start + offset['start_current'] - 1
-        end_current_0 = start_current_0 + offset['n_current']
-        current_source_currents = X_I[start_current_0:end_current_0] if offset['n_current'] > 0 else []
-        
+        start_current_0 = i_current_start + offset["start_current"] - 1
+        end_current_0 = start_current_0 + offset["n_current"]
+        current_source_currents = (
+            X_I[start_current_0:end_current_0] if offset["n_current"] > 0 else []
+        )
+
         # Extract load currents
-        start_load_0 = i_load_start + offset['start_load'] - 1
-        end_load_0 = start_load_0 + offset['n_load']
-        load_currents = X_I[start_load_0:end_load_0] if offset['n_load'] > 0 else []
-        
+        start_load_0 = i_load_start + offset["start_load"] - 1
+        end_load_0 = start_load_0 + offset["n_load"]
+        load_currents = X_I[start_load_0:end_load_0] if offset["n_load"] > 0 else []
+
         # Extract node voltages
-        start_point_0 = offset['start_point'] - 1
-        end_point_0 = start_point_0 + offset['n_points']
+        start_point_0 = offset["start_point"] - 1
+        end_point_0 = start_point_0 + offset["n_points"]
         node_voltages = X_V[start_point_0:end_point_0]
-        
+
         # Extract appended voltages
-        start_appended_0 = i_appended_start + offset['start_appended'] - 1
-        end_appended_0 = start_appended_0 + offset['n_appended']
-        appended_voltages = X_V[start_appended_0:end_appended_0] if offset['n_appended'] > 0 else []
-        
+        start_appended_0 = i_appended_start + offset["start_appended"] - 1
+        end_appended_0 = start_appended_0 + offset["n_appended"]
+        appended_voltages = X_V[start_appended_0:end_appended_0] if offset["n_appended"] > 0 else []
+
         # Compute input impedance from first voltage source (if exists)
         input_impedance = None
-        if offset['n_voltage'] > 0 and len(voltage_source_currents) > 0:
+        if offset["n_voltage"] > 0 and len(voltage_source_currents) > 0:
             # Z = V / I for first voltage source
             I_source = voltage_source_currents[0]
             if abs(I_source) > 1e-12:
                 # Get voltage from first voltage source
                 # Assume voltage sources have value 1.0 for impedance calc
                 input_impedance = complex(1.0) / I_source
-        
-        antenna_solutions.append({
-            'antenna_id': offset['antenna_id'],
-            'branch_currents': branch_currents.tolist(),
-            'voltage_source_currents': voltage_source_currents.tolist() if len(voltage_source_currents) > 0 else [],
-            'current_source_currents': current_source_currents.tolist() if len(current_source_currents) > 0 else [],
-            'load_currents': load_currents.tolist() if len(load_currents) > 0 else [],
-            'node_voltages': node_voltages.tolist(),
-            'appended_voltages': appended_voltages.tolist() if len(appended_voltages) > 0 else [],
-            'input_impedance': input_impedance
-        })
-    
+
+        antenna_solutions.append(
+            {
+                "antenna_id": offset["antenna_id"],
+                "branch_currents": branch_currents.tolist(),
+                "voltage_source_currents": (
+                    voltage_source_currents.tolist() if len(voltage_source_currents) > 0 else []
+                ),
+                "current_source_currents": (
+                    current_source_currents.tolist() if len(current_source_currents) > 0 else []
+                ),
+                "load_currents": load_currents.tolist() if len(load_currents) > 0 else [],
+                "node_voltages": node_voltages.tolist(),
+                "appended_voltages": (
+                    appended_voltages.tolist() if len(appended_voltages) > 0 else []
+                ),
+                "input_impedance": input_impedance,
+            }
+        )
+
     return antenna_solutions
 
 
 def solve_multi_antenna(
-    antennas: List,
-    frequency: float,
-    config: Optional[SolverConfiguration] = None
+    antennas: List, frequency: float, config: Optional[SolverConfiguration] = None
 ) -> Dict:
     """
     Solve multiple antennas at a single frequency.
-    
+
     Main entry point for multi-antenna solving. Merges antennas,
     solves combined system, distributes solution.
-    
+
     Args:
         antennas: List of AntennaInput objects from schemas
         frequency: Frequency [Hz]
         config: Optional solver configuration
-    
+
     Returns:
         Dict matching MultiAntennaSolutionResponse schema
     """
     if config is None:
         config = SolverConfiguration()
-    
+
     start_time = time.time()
-    
+
     # Merge antennas into unified system
     merged = merge_antennas(antennas, config)
-    
+
     # Solve combined system at single frequency
     solution = solve_single_frequency(
         nodes=merged.nodes,
@@ -1027,19 +1048,19 @@ def solve_multi_antenna(
         voltage_sources=merged.voltage_sources,
         current_sources=merged.current_sources,
         loads=merged.loads,
-        config=config
+        config=config,
     )
-    
+
     # Distribute solution back to individual antennas
     antenna_solutions = distribute_solution(solution, merged)
-    
+
     solve_time = time.time() - start_time
-    
+
     return {
-        'frequency': frequency,
-        'converged': True,  # solve_single_frequency doesn't return convergence status
-        'antenna_solutions': antenna_solutions,
-        'n_total_nodes': merged.n_total_points,
-        'n_total_edges': merged.n_total_sticks,
-        'solve_time': solve_time
+        "frequency": frequency,
+        "converged": True,  # solve_single_frequency doesn't return convergence status
+        "antenna_solutions": antenna_solutions,
+        "n_total_nodes": merged.n_total_points,
+        "n_total_edges": merged.n_total_sticks,
+        "solve_time": solve_time,
     }

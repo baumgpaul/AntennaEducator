@@ -1,29 +1,30 @@
 """FastAPI application for the Preprocessor service."""
 
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from datetime import datetime, timezone
 
+from .builders import (
+    create_dipole,
+    create_helix,
+    create_loop,
+    create_rod,
+    dipole_to_mesh,
+    helix_to_mesh,
+    loop_to_mesh,
+    rod_to_mesh,
+)
 from .config import settings
 from .schemas import (
     DipoleRequest,
-    LoopRequest,
-    RodRequest,
-    HelixRequest,
-    SourceRequest,
-    LumpedElementRequest,
     GeometryResponse,
-)
-from .builders import (
-    create_dipole,
-    dipole_to_mesh,
-    create_loop,
-    loop_to_mesh,
-    create_rod,
-    rod_to_mesh,
-    create_helix,
-    helix_to_mesh,
+    HelixRequest,
+    LoopRequest,
+    LumpedElementRequest,
+    RodRequest,
+    SourceRequest,
 )
 
 app = FastAPI(

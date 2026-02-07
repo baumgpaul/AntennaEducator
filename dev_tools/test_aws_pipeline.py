@@ -1,7 +1,9 @@
 """Quick end-to-end smoke test against AWS Lambda services."""
-import requests
+
 import json
 import sys
+
+import requests
 
 PREPROCESSOR = "https://xfwks3en2lvlj5iepkgh7x2ioy0gpbpz.lambda-url.eu-west-1.on.aws"
 SOLVER = "https://znawgmfq7tzgavilfvrxw2mqqe0rgpnx.lambda-url.eu-west-1.on.aws"
@@ -14,8 +16,12 @@ def main():
 
     # 0. Health checks
     print("=== Health Checks ===")
-    for name, url in [("preprocessor", PREPROCESSOR), ("solver", SOLVER),
-                      ("postprocessor", POSTPROCESSOR), ("projects", PROJECTS)]:
+    for name, url in [
+        ("preprocessor", PREPROCESSOR),
+        ("solver", SOLVER),
+        ("postprocessor", POSTPROCESSOR),
+        ("projects", PROJECTS),
+    ]:
         try:
             r = requests.get(f"{url}/health", timeout=30)
             r.raise_for_status()
@@ -30,8 +36,13 @@ def main():
     try:
         r = requests.post(
             f"{PREPROCESSOR}/api/antenna/dipole",
-            json={"length": 0.5, "radius": 0.001, "segments": 10,
-                  "center": [0, 0, 0], "orientation": [0, 0, 1]},
+            json={
+                "length": 0.5,
+                "radius": 0.001,
+                "segments": 10,
+                "center": [0, 0, 0],
+                "orientation": [0, 0, 1],
+            },
             timeout=30,
         )
         r.raise_for_status()
@@ -49,14 +60,15 @@ def main():
     try:
         solve_req = {
             "frequency": 300e6,
-            "antennas": [{
-                "antenna_id": "dipole1",
-                "nodes": mesh["nodes"],
-                "edges": mesh["edges"],
-                "radii": mesh["radii"],
-                "voltage_sources": [{"value": 1.0,
-                                     "node_start": 5, "node_end": 6}],
-            }],
+            "antennas": [
+                {
+                    "antenna_id": "dipole1",
+                    "nodes": mesh["nodes"],
+                    "edges": mesh["edges"],
+                    "radii": mesh["radii"],
+                    "voltage_sources": [{"value": 1.0, "node_start": 5, "node_end": 6}],
+                }
+            ],
         }
         r = requests.post(f"{SOLVER}/api/solve/multi", json=solve_req, timeout=60)
         if r.status_code != 200:

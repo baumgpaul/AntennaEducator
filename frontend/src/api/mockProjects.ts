@@ -1,7 +1,7 @@
 import type { Project } from '@/types/models';
 
 // Mock data storage
-let mockProjects: Project[] = [
+const mockProjects: Project[] = [
   {
     id: '1',
     name: 'Dipole Antenna',

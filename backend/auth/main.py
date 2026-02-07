@@ -5,11 +5,12 @@ In AWS mode this is NOT deployed — Cognito handles registration/login
 and the projects Lambda re-mounts the /me endpoint.
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
+
 from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
@@ -20,7 +21,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from backend.auth.schemas import UserCreate, UserLogin, UserResponse, Token
+from backend.auth.schemas import Token, UserCreate, UserLogin, UserResponse
 from backend.common.auth import (
     UserIdentity,
     create_auth_provider,

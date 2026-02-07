@@ -31,12 +31,9 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
     return results.node_voltages;
   }, [results, frequencyHz]);
 
-  if (!voltageData || !elements || elements.length === 0) {
-    return null;
-  }
-
   // Extract node positions from elements
   const nodes = useMemo(() => {
+    if (!elements || elements.length === 0) return [];
     const allNodes: Array<[number, number, number]> = [];
     
     // Get nodes from antenna element meshes
@@ -54,6 +51,7 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
 
   // Calculate voltage magnitudes
   const magnitudes = useMemo(() => {
+    if (!voltageData) return [];
     return voltageData.map((voltage) => {
       const real = voltage.real || 0;
       const imag = voltage.imag || 0;
@@ -64,11 +62,16 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
   // Get color map and value range
   const colorMap = item.colorMap || 'jet';
   const valueRangeMode = item.valueRangeMode || 'auto';
-  const min = valueRangeMode === 'manual' ? item.valueRangeMin || 0 : Math.min(...magnitudes);
-  const max = valueRangeMode === 'manual' ? item.valueRangeMax || 1 : Math.max(...magnitudes);
+  const min = magnitudes.length > 0
+    ? (valueRangeMode === 'manual' ? item.valueRangeMin || 0 : Math.min(...magnitudes))
+    : 0;
+  const max = magnitudes.length > 0
+    ? (valueRangeMode === 'manual' ? item.valueRangeMax || 1 : Math.max(...magnitudes))
+    : 1;
 
   // Create colors for each node
   const colors = useMemo(() => {
+    if (magnitudes.length === 0) return new Float32Array(0);
     return createColorArray(magnitudes, colorMap as any, min, max);
   }, [magnitudes, colorMap, min, max]);
 
@@ -78,6 +81,10 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
 
   // Create sphere geometry and material (shared for performance)
   const sphereGeometry = useMemo(() => new THREE.SphereGeometry(0.5 * nodeSize, 16, 16), [nodeSize]);
+
+  if (!voltageData || !elements || elements.length === 0) {
+    return null;
+  }
 
   return (
     <group>

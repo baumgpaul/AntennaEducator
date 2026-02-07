@@ -59,6 +59,67 @@ interface FrequencySweepDialogProps {
 }
 
 // ============================================================================
+// Extracted sub-component for frequency input (hooks must be in a component)
+// ============================================================================
+
+interface FrequencyInputFieldProps {
+  fieldValue: number;
+  onFieldChange: (value: number) => void;
+  label: string;
+  error?: boolean;
+  helperText?: string;
+  disabled?: boolean;
+}
+
+const FrequencyInputField: React.FC<FrequencyInputFieldProps> = ({
+  fieldValue,
+  onFieldChange,
+  label,
+  error,
+  helperText,
+  disabled,
+}) => {
+  const [displayValue, setDisplayValue] = React.useState(
+    (fieldValue / 1e6).toString()
+  );
+
+  // Sync display value when field value changes (e.g., on reset)
+  React.useEffect(() => {
+    setDisplayValue((fieldValue / 1e6).toString());
+  }, [fieldValue]);
+
+  return (
+    <TextField
+      label={label}
+      type="text"
+      fullWidth
+      error={error}
+      helperText={helperText}
+      disabled={disabled}
+      value={displayValue}
+      onChange={(e) => {
+        const value = e.target.value.replace(',', '.');
+        setDisplayValue(value);
+      }}
+      onBlur={() => {
+        const numValue = parseFloat(displayValue.replace(',', '.'));
+        if (!isNaN(numValue) && numValue > 0) {
+          onFieldChange(numValue * 1e6);
+          setDisplayValue(numValue.toString());
+        } else {
+          // Reset to current field value if invalid
+          setDisplayValue((fieldValue / 1e6).toString());
+        }
+      }}
+      inputProps={{
+        inputMode: 'decimal',
+        pattern: '[0-9]*[.,]?[0-9]*'
+      }}
+    />
+  );
+};
+
+// ============================================================================
 // Component
 // ============================================================================
 
@@ -131,92 +192,32 @@ export const FrequencySweepDialog: React.FC<FrequencySweepDialogProps> = ({
           <Controller
             name="startFrequency"
             control={control}
-            render={({ field }) => {
-              const [displayValue, setDisplayValue] = React.useState(
-                (field.value / 1e6).toString()
-              );
-
-              // Sync display value when field value changes (e.g., on reset)
-              React.useEffect(() => {
-                setDisplayValue((field.value / 1e6).toString());
-              }, [field.value]);
-
-              return (
-                <TextField
-                  label="Start Frequency (MHz)"
-                  type="text"
-                  fullWidth
-                  error={!!errors.startFrequency}
-                  helperText={errors.startFrequency?.message}
-                  disabled={isLoading}
-                  value={displayValue}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(',', '.');
-                    setDisplayValue(value);
-                  }}
-                  onBlur={() => {
-                    const numValue = parseFloat(displayValue.replace(',', '.'));
-                    if (!isNaN(numValue) && numValue > 0) {
-                      field.onChange(numValue * 1e6);
-                      setDisplayValue(numValue.toString());
-                    } else {
-                      // Reset to current field value if invalid
-                      setDisplayValue((field.value / 1e6).toString());
-                    }
-                  }}
-                  inputProps={{ 
-                    inputMode: 'decimal',
-                    pattern: '[0-9]*[.,]?[0-9]*'
-                  }}
-                />
-              );
-            }}
+            render={({ field }) => (
+              <FrequencyInputField
+                fieldValue={field.value}
+                onFieldChange={field.onChange}
+                label="Start Frequency (MHz)"
+                error={!!errors.startFrequency}
+                helperText={errors.startFrequency?.message}
+                disabled={isLoading}
+              />
+            )}
           />
 
           {/* Stop Frequency */}
           <Controller
             name="stopFrequency"
             control={control}
-            render={({ field }) => {
-              const [displayValue, setDisplayValue] = React.useState(
-                (field.value / 1e6).toString()
-              );
-
-              // Sync display value when field value changes (e.g., on reset)
-              React.useEffect(() => {
-                setDisplayValue((field.value / 1e6).toString());
-              }, [field.value]);
-
-              return (
-                <TextField
-                  label="Stop Frequency (MHz)"
-                  type="text"
-                  fullWidth
-                  error={!!errors.stopFrequency}
-                  helperText={errors.stopFrequency?.message}
-                  disabled={isLoading}
-                  value={displayValue}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(',', '.');
-                    setDisplayValue(value);
-                  }}
-                  onBlur={() => {
-                    const numValue = parseFloat(displayValue.replace(',', '.'));
-                    if (!isNaN(numValue) && numValue > 0) {
-                      field.onChange(numValue * 1e6);
-                      setDisplayValue(numValue.toString());
-                    } else {
-                      // Reset to current field value if invalid
-                      setDisplayValue((field.value / 1e6).toString());
-                    }
-                  }}
-                  inputProps={{ 
-                    inputMode: 'decimal',
-                    pattern: '[0-9]*[.,]?[0-9]*'
-                  }}
-                />
-              );
-            }}
+            render={({ field }) => (
+              <FrequencyInputField
+                fieldValue={field.value}
+                onFieldChange={field.onChange}
+                label="Stop Frequency (MHz)"
+                error={!!errors.stopFrequency}
+                helperText={errors.stopFrequency?.message}
+                disabled={isLoading}
+              />
+            )}
           />
 
           {/* Number of Points */}

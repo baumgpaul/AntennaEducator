@@ -4,6 +4,7 @@ Simple visualization - saves plot to PNG file.
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from backend.preprocessor.builders import create_dipole, dipole_to_mesh
@@ -15,7 +16,7 @@ element = create_dipole(
     gap=0.01,
     segments=10,
     source={"type": "voltage", "amplitude": {"real": 1.0, "imag": 0.0}},
-    name="Dipole Antenna 1m"
+    name="Dipole Antenna 1m",
 )
 
 mesh = dipole_to_mesh(element)

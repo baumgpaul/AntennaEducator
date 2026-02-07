@@ -38,8 +38,7 @@ dev = [
     "pytest-cov>=4.1.0",
     "pytest-asyncio>=0.21.0",
     "black>=23.7.0",
-    "flake8>=6.1.0",
-    "mypy>=1.5.0",
+    "ruff>=0.4.0",
     "isort>=5.12.0",
 ]
 
@@ -51,6 +50,22 @@ aws = [
 where = ["."]
 include = ["backend*"]
 exclude = ["deployment*", "tests*", "docs*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = [
+    "E741",   # ambiguous variable name — physics convention (I, l, Z, etc.)
+    "E402",   # module-import-not-at-top — needed in tests with sys.path manipulation
+    "E501",   # line-too-long — Black handles line length
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["F841"]   # unused variables common in test setup
+"dev_tools/**" = ["F841", "E402"]
 
 [tool.black]
 line-length = 100

@@ -76,26 +76,19 @@ function PlaneRegion({
     normalVector: field.type === '2D' ? field.normalVector : undefined,
     fullField: field
   });
-  
-  if (field.type !== '2D' || field.shape !== 'plane') {
-    console.log('[PlaneRegion] Type or shape mismatch, returning null');
-    return null;
-  }
 
-  // Convert dimensions from mm to meters
-  const width = (field.dimensions?.width ?? 100) / 1000;
-  const height = (field.dimensions?.height ?? 100) / 1000;
+  // Convert dimensions from mm to meters (safe defaults for non-2D types)
+  const width = field.type === '2D' ? ((field.dimensions?.width ?? 100) / 1000) : 0.1;
+  const height = field.type === '2D' ? ((field.dimensions?.height ?? 100) / 1000) : 0.1;
   // Convert center point from mm to meters
   const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
-  
-  console.log('[PlaneRegion] Calculated values:', { width, height, cx, cy, cz });
 
   // Get normal vector
-  const normal = field.normalPreset
-    ? getNormalFromPreset(field.normalPreset)
-    : field.normalVector ?? [0, 0, 1];
-    
-  console.log('[PlaneRegion] Normal vector:', normal);
+  const normal: [number, number, number] = field.type === '2D'
+    ? (field.normalPreset
+      ? getNormalFromPreset(field.normalPreset)
+      : (field.normalVector ?? [0, 0, 1]) as [number, number, number])
+    : [0, 0, 1];
 
   // Create plane geometry
   const planeGeometry = useMemo(() => {
@@ -115,6 +108,14 @@ function PlaneRegion({
   const edgesGeometry = useMemo(() => {
     return new THREE.EdgesGeometry(planeGeometry);
   }, [planeGeometry]);
+
+  if (field.type !== '2D' || field.shape !== 'plane') {
+    console.log('[PlaneRegion] Type or shape mismatch, returning null');
+    return null;
+  }
+
+  console.log('[PlaneRegion] Calculated values:', { width, height, cx, cy, cz });
+  console.log('[PlaneRegion] Normal vector:', normal);
 
   const finalOpacity = isSelected ? Math.min(opacity * 1.5, 1) : opacity;
   const lineColor = isSelected ? '#FFFFFF' : color;
@@ -166,17 +167,17 @@ function CircleRegion({
   opacity: number;
   isSelected: boolean;
 }) {
-  if (field.type !== '2D' || field.shape !== 'circle') return null;
-
-  // Convert radius from mm to meters
-  const radius = (field.dimensions?.radius ?? 50) / 1000;
+  // Convert radius from mm to meters (safe default for non-2D types)
+  const radius = field.type === '2D' ? ((field.dimensions?.radius ?? 50) / 1000) : 0.05;
   // Convert center point from mm to meters
   const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
 
   // Get normal vector
-  const normal = field.normalPreset
-    ? getNormalFromPreset(field.normalPreset)
-    : field.normalVector ?? [0, 0, 1];
+  const normal: [number, number, number] = field.type === '2D'
+    ? (field.normalPreset
+      ? getNormalFromPreset(field.normalPreset)
+      : (field.normalVector ?? [0, 0, 1]) as [number, number, number])
+    : [0, 0, 1];
 
   // Create circle geometry
   const circleGeometry = useMemo(() => {
@@ -196,6 +197,8 @@ function CircleRegion({
   const edgesGeometry = useMemo(() => {
     return new THREE.EdgesGeometry(circleGeometry);
   }, [circleGeometry]);
+
+  if (field.type !== '2D' || field.shape !== 'circle') return null;
 
   const finalOpacity = isSelected ? Math.min(opacity * 1.5, 1) : opacity;
   const lineColor = isSelected ? '#FFFFFF' : color;
@@ -247,10 +250,8 @@ function SphereRegion({
   opacity: number;
   isSelected: boolean;
 }) {
-  if (field.type !== '3D' || field.shape !== 'sphere') return null;
-
-  // Convert radius from mm to meters
-  const radius = (field.sphereRadius ?? 50) / 1000;
+  // Convert radius from mm to meters (safe default for non-3D types)
+  const radius = field.type === '3D' ? ((field.sphereRadius ?? 50) / 1000) : 0.05;
   // Convert center point from mm to meters
   const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
 
@@ -262,6 +263,8 @@ function SphereRegion({
   const wireframeGeometry = useMemo(() => {
     return new THREE.WireframeGeometry(sphereGeometry);
   }, [sphereGeometry]);
+
+  if (field.type !== '3D' || field.shape !== 'sphere') return null;
 
   const finalOpacity = isSelected ? Math.min(opacity * 1.5, 1) : opacity;
   const lineColor = isSelected ? '#FFFFFF' : color;
@@ -312,12 +315,10 @@ function CubeRegion({
   opacity: number;
   isSelected: boolean;
 }) {
-  if (field.type !== '3D' || field.shape !== 'cube') return null;
-
-  // Convert dimensions from mm to meters
-  const Lx = (field.cubeDimensions?.Lx ?? 100) / 1000;
-  const Ly = (field.cubeDimensions?.Ly ?? 100) / 1000;
-  const Lz = (field.cubeDimensions?.Lz ?? 100) / 1000;
+  // Convert dimensions from mm to meters (safe defaults for non-3D types)
+  const Lx = field.type === '3D' ? ((field.cubeDimensions?.Lx ?? 100) / 1000) : 0.1;
+  const Ly = field.type === '3D' ? ((field.cubeDimensions?.Ly ?? 100) / 1000) : 0.1;
+  const Lz = field.type === '3D' ? ((field.cubeDimensions?.Lz ?? 100) / 1000) : 0.1;
   // Convert center point from mm to meters
   const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
 
@@ -329,6 +330,8 @@ function CubeRegion({
   const wireframeGeometry = useMemo(() => {
     return new THREE.WireframeGeometry(boxGeometry);
   }, [boxGeometry]);
+
+  if (field.type !== '3D' || field.shape !== 'cube') return null;
 
   const finalOpacity = isSelected ? Math.min(opacity * 1.5, 1) : opacity;
   const lineColor = isSelected ? '#FFFFFF' : color;
