@@ -8,6 +8,9 @@ import numpy as np
 from typing import Tuple, Optional
 from backend.common.constants import C_0, Z_0
 
+# NumPy 2.0 renamed trapz → trapezoid; support both
+_trapezoid = getattr(np, "trapezoid", np.trapz)
+
 
 def compute_radiation_intensity(E_theta: np.ndarray, E_phi: np.ndarray) -> np.ndarray:
     """
@@ -56,7 +59,7 @@ def compute_total_radiated_power(
     for i, theta in enumerate(theta_angles):
         sin_theta = np.sin(theta)
         # Integrate over φ at this θ
-        P_theta = np.trapezoid(radiation_intensity[i, :], phi_angles) * sin_theta
+        P_theta = _trapezoid(radiation_intensity[i, :], phi_angles) * sin_theta
         P_rad += P_theta
     
     P_rad *= dtheta
