@@ -1,0 +1,14 @@
+# Default owner for everything
+* @baumgpaul
+
+# Backend
+/backend/ @baumgpaul
+/tests/ @baumgpaul
+
+# Frontend
+/frontend/ @baumgpaul
+
+# Infrastructure
+/terraform/ @baumgpaul
+/buildspec-*.yml @baumgpaul
+/.github/ @baumgpaul

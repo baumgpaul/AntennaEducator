@@ -111,6 +111,7 @@ Thumbs.db
 
 # Terraform plan files
 *.tfplan
+tfplan
 
 # Scratchpad markdown (root-level session notes)
 # Tracked docs: README.md, QUICK_START.md, PROJECT_OVERVIEW.md, docs/, backend/README.md etc.
@@ -120,4 +121,3 @@ Thumbs.db
 !PROJECT_OVERVIEW.md
 !ACTION_PLAN.md
 !CONTRIBUTING.md
-*.tfplan
