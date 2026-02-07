@@ -120,3 +120,4 @@ Thumbs.db
 !PROJECT_OVERVIEW.md
 !ACTION_PLAN.md
 !CONTRIBUTING.md
+*.tfplan

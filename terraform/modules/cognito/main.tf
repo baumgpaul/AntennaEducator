@@ -59,6 +59,11 @@ resource "aws_cognito_user_pool" "main" {
     }
   }
   
+  # Auto-confirm Lambda trigger
+  lambda_config {
+    pre_sign_up = aws_lambda_function.auto_confirm_user.arn
+  }
+
   # Ignore schema changes - schema cannot be modified after user pool creation
   lifecycle {
     ignore_changes = [schema]
