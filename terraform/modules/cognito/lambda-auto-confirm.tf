@@ -63,14 +63,4 @@ resource "aws_lambda_permission" "allow_cognito" {
   source_arn    = aws_cognito_user_pool.main.arn
 }
 
-# Attach Lambda trigger to Cognito User Pool
-resource "aws_cognito_user_pool" "main_with_trigger" {
-  # This updates the existing user pool with the PreSignUp trigger
-  # Note: You might need to add this to the existing aws_cognito_user_pool.main resource
-  
-  lambda_config {
-    pre_sign_up = aws_lambda_function.auto_confirm_user.arn
-  }
-  
-  depends_on = [aws_lambda_permission.allow_cognito]
-}
+# Lambda trigger is attached via lambda_config in main.tf
