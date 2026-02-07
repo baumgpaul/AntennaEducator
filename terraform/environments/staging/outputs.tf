@@ -165,3 +165,14 @@ output "api_gateway_custom_domain" {
   description = "Custom domain URL (if configured)"
   value       = module.api_gateway.custom_domain_url
 }
+
+# CI/CD outputs
+output "pipeline_name" {
+  description = "CodePipeline name"
+  value       = module.cicd.pipeline_name
+}
+
+output "codestar_connection_status" {
+  description = "CodeStar connection status (PENDING until manually completed in AWS Console)"
+  value       = module.cicd.codestar_connection_status
+}
