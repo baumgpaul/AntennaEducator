@@ -150,6 +150,29 @@ resource "aws_iam_role_policy" "codebuild_cloudfront" {
   })
 }
 
+# CodeBuild Reports — create/update test report groups
+resource "aws_iam_role_policy" "codebuild_reports" {
+  name = "codebuild-reports"
+  role = aws_iam_role.codebuild.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "codebuild:CreateReportGroup",
+        "codebuild:CreateReport",
+        "codebuild:UpdateReport",
+        "codebuild:BatchPutTestCases",
+        "codebuild:BatchPutCodeCoverages"
+      ]
+      Resource = [
+        "arn:aws:codebuild:${var.aws_region}:${var.aws_account_id}:report-group/antenna-simulator-*"
+      ]
+    }]
+  })
+}
+
 # ─── CodePipeline Service Role ────────────────────────────────────────
 resource "aws_iam_role" "codepipeline" {
   name = "antenna-simulator-codepipeline-${var.environment}"
