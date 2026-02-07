@@ -70,7 +70,7 @@ describe('ParaViewExporter', () => {
       }, mockState);
 
       expect(postprocessorClient.post).toHaveBeenCalledWith(
-        '/api/v1/export/vtu',
+        '/api/export/vtu',
         expect.objectContaining({
           observation_points: [[0, 0, 0], [1, 0, 0]],
           E_field: [[1, 0, 0], [0, 1, 0]],

@@ -24,26 +24,13 @@ def test_health_check(client):
     assert "timestamp" in data
 
 
-def test_get_status(client):
-    """Test the status endpoint."""
-    response = client.get("/api/v1/status")
-    assert response.status_code == 200
-    
-    data = response.json()
-    assert data["service"] == "preprocessor"
-    assert data["version"] == "0.1.0"
-    assert "endpoints" in data
-    assert data["endpoints"]["health"] == "/health"
-    assert data["endpoints"]["docs"] == "/api/v1/docs"
-
-
 def test_create_dipole_basic(client):
     """Test creating a basic dipole antenna."""
     request_data = {
         "length": 1.0,
     }
     
-    response = client.post("/api/v1/antenna/dipole", json=request_data)
+    response = client.post("/api/antenna/dipole", json=request_data)
     assert response.status_code == 200
     
     data = response.json()
@@ -76,7 +63,7 @@ def test_create_dipole_with_source(client):
         "name": "Test Dipole",
     }
     
-    response = client.post("/api/v1/antenna/dipole", json=request_data)
+    response = client.post("/api/antenna/dipole", json=request_data)
     assert response.status_code == 200
     
     data = response.json()
@@ -97,7 +84,7 @@ def test_create_dipole_invalid_length(client):
         "length": -1.0,
     }
     
-    response = client.post("/api/v1/antenna/dipole", json=request_data)
+    response = client.post("/api/antenna/dipole", json=request_data)
     assert response.status_code == 422  # Validation error
 
 
@@ -107,7 +94,7 @@ def test_create_dipole_zero_length(client):
         "length": 0.0,
     }
     
-    response = client.post("/api/v1/antenna/dipole", json=request_data)
+    response = client.post("/api/antenna/dipole", json=request_data)
     assert response.status_code == 422  # Validation error
 
 
@@ -117,7 +104,7 @@ def test_create_loop_basic(client):
         "radius": 0.1,
     }
     
-    response = client.post("/api/v1/antenna/loop", json=request_data)
+    response = client.post("/api/antenna/loop", json=request_data)
     assert response.status_code == 200
     
     data = response.json()
@@ -150,7 +137,7 @@ def test_create_loop_with_source(client):
         "name": "Test Loop",
     }
 
-    response = client.post("/api/v1/antenna/loop", json=request_data)
+    response = client.post("/api/antenna/loop", json=request_data)
     assert response.status_code == 200
 
     data = response.json()
@@ -171,7 +158,7 @@ def test_create_loop_invalid_radius(client):
         "radius": -0.1,
     }
     
-    response = client.post("/api/v1/antenna/loop", json=request_data)
+    response = client.post("/api/antenna/loop", json=request_data)
     assert response.status_code == 422  # Validation error
 
 
@@ -181,7 +168,7 @@ def test_create_rod_basic(client):
         "length": 0.25,
     }
     
-    response = client.post("/api/v1/antenna/rod", json=request_data)
+    response = client.post("/api/antenna/rod", json=request_data)
     assert response.status_code == 200
     
     data = response.json()
@@ -215,7 +202,7 @@ def test_create_rod_with_source(client):
         "name": "Test Rod",
     }
     
-    response = client.post("/api/v1/antenna/rod", json=request_data)
+    response = client.post("/api/antenna/rod", json=request_data)
     assert response.status_code == 200
     
     data = response.json()
@@ -236,7 +223,7 @@ def test_create_rod_invalid_length(client):
         "length": 0.0,
     }
     
-    response = client.post("/api/v1/antenna/rod", json=request_data)
+    response = client.post("/api/antenna/rod", json=request_data)
     assert response.status_code == 422  # Validation error
 
 
@@ -248,7 +235,7 @@ def test_create_helix_basic(client):
         "turns": 5.0,
     }
     
-    response = client.post("/api/v1/antenna/helix", json=request_data)
+    response = client.post("/api/antenna/helix", json=request_data)
     assert response.status_code == 200
     
     data = response.json()
@@ -286,7 +273,7 @@ def test_create_helix_with_source(client):
         "name": "Test Helix",
     }
     
-    response = client.post("/api/v1/antenna/helix", json=request_data)
+    response = client.post("/api/antenna/helix", json=request_data)
     assert response.status_code == 200
     
     data = response.json()
@@ -316,7 +303,7 @@ def test_create_helix_invalid_radius(client):
         "turns": 5.0,
     }
     
-    response = client.post("/api/v1/antenna/helix", json=request_data)
+    response = client.post("/api/antenna/helix", json=request_data)
     assert response.status_code == 422  # Validation error
 
 
@@ -328,5 +315,5 @@ def test_create_helix_invalid_pitch(client):
         "turns": 5.0,
     }
     
-    response = client.post("/api/v1/antenna/helix", json=request_data)
+    response = client.post("/api/antenna/helix", json=request_data)
     assert response.status_code == 422  # Validation error

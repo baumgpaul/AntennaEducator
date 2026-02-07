@@ -30,7 +30,7 @@ def test_incremental_field_computation():
         }]
     }
     
-    response = requests.post(f"{SOLVER_URL}/api/v1/solve/multi-antenna", json=solver_request, timeout=30)
+    response = requests.post(f"{SOLVER_URL}/api/solve/multi-antenna", json=solver_request, timeout=30)
     assert response.status_code == 200, f"Solver failed: {response.text}"
     solve_data = response.json()
     print(f"   ✓ Solved with {len(solve_data['branch_currents'])} branches")
@@ -46,7 +46,7 @@ def test_incremental_field_computation():
         "observation_points": [[x, 0, 0.5] for x in [-0.5, 0, 0.5]]
     }
     
-    response = requests.post(f"{POSTPROCESSOR_URL}/api/v1/fields/near", json=field1_request, timeout=30)
+    response = requests.post(f"{POSTPROCESSOR_URL}/api/fields/near", json=field1_request, timeout=30)
     assert response.status_code == 200, f"Field 1 failed: {response.text}"
     field1_data = response.json()
     print(f"   ✓ Field 1: {field1_data['num_points']} points, E_max={max(field1_data['E_magnitudes']):.3f} V/m")
@@ -58,7 +58,7 @@ def test_incremental_field_computation():
         "observation_points": [[x, 0, 1.0] for x in [-0.5, 0, 0.5]]
     }
     
-    response = requests.post(f"{POSTPROCESSOR_URL}/api/v1/fields/near", json=field2_request, timeout=30)
+    response = requests.post(f"{POSTPROCESSOR_URL}/api/fields/near", json=field2_request, timeout=30)
     assert response.status_code == 200, f"Field 2 failed: {response.text}"
     field2_data = response.json()
     print(f"   ✓ Field 2: {field2_data['num_points']} points, E_max={max(field2_data['E_magnitudes']):.3f} V/m")
@@ -93,7 +93,7 @@ def test_custom_directivity_discretization():
         }]
     }
     
-    response = requests.post(f"{SOLVER_URL}/api/v1/solve/multi-antenna", json=solver_request, timeout=30)
+    response = requests.post(f"{SOLVER_URL}/api/solve/multi-antenna", json=solver_request, timeout=30)
     assert response.status_code == 200
     solve_data = response.json()
     print(f"   ✓ Solved")
@@ -110,7 +110,7 @@ def test_custom_directivity_discretization():
         "phi_points": 60
     }
     
-    response = requests.post(f"{POSTPROCESSOR_URL}/api/v1/fields/far", json=directivity_request, timeout=30)
+    response = requests.post(f"{POSTPROCESSOR_URL}/api/fields/far", json=directivity_request, timeout=30)
     assert response.status_code == 200, f"Directivity failed: {response.text}"
     directivity_data = response.json()
     print(f"   ✓ Directivity: {directivity_data['directivity']:.2f} dBi")
@@ -148,7 +148,7 @@ def test_mixed_field_and_directivity():
         }]
     }
     
-    response = requests.post(f"{SOLVER_URL}/api/v1/solve/multi-antenna", json=solver_request, timeout=30)
+    response = requests.post(f"{SOLVER_URL}/api/solve/multi-antenna", json=solver_request, timeout=30)
     solve_data = response.json()
     print("   ✓ Solved")
     
@@ -163,7 +163,7 @@ def test_mixed_field_and_directivity():
         "observation_points": [[0, 0, z] for z in [0.5, 1.0, 1.5]]
     }
     
-    response = requests.post(f"{POSTPROCESSOR_URL}/api/v1/fields/near", json=near_field_request, timeout=30)
+    response = requests.post(f"{POSTPROCESSOR_URL}/api/fields/near", json=near_field_request, timeout=30)
     near_field_data = response.json()
     print(f"   ✓ Near field: {near_field_data['num_points']} points")
     
@@ -179,7 +179,7 @@ def test_mixed_field_and_directivity():
         "phi_points": 37
     }
     
-    response = requests.post(f"{POSTPROCESSOR_URL}/api/v1/fields/far", json=directivity_request, timeout=30)
+    response = requests.post(f"{POSTPROCESSOR_URL}/api/fields/far", json=directivity_request, timeout=30)
     directivity_data = response.json()
     print(f"   ✓ Directivity: {directivity_data['directivity']:.2f} dBi")
     print(f"   ✓ Both near field and directivity computed successfully")

@@ -1,12 +1,12 @@
 # Test Multi-Antenna Solver Frontend Integration
-# Tests that the new /api/v1/solve/multi endpoint works through the frontend API
+# Tests that the new /api/solve/multi endpoint works through the frontend API
 
 Write-Host "=" * 80
 Write-Host "Testing Multi-Antenna Solver Frontend Integration"
 Write-Host "=" * 80
 
 $baseUrl = "http://localhost:8002"
-$endpoint = "/api/v1/solve/multi"
+$endpoint = "/api/solve/multi"
 
 # Build test request - two monopoles forming a dipole
 $request = @{

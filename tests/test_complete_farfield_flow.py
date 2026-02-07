@@ -39,7 +39,7 @@ def test_complete_dipole_farfield_flow():
         "config": {"gauss_order": 6}
     }
     
-    response = requests.post(f"{SOLVER_URL}/api/v1/solve/multi", json=solve_request, timeout=30)
+    response = requests.post(f"{SOLVER_URL}/api/solve/multi", json=solve_request, timeout=30)
     assert response.status_code == 200, f"Solver failed: {response.text}"
     
     solve_result = response.json()
@@ -91,7 +91,7 @@ def test_complete_dipole_farfield_flow():
         json.dump(farfield_request, f, indent=2)
     print(f"  Saved request to farfield_request_debug.json")
     
-    response = requests.post(f"{POSTPROCESSOR_URL}/api/v1/fields/far", json=farfield_request, timeout=30)
+    response = requests.post(f"{POSTPROCESSOR_URL}/api/fields/far", json=farfield_request, timeout=30)
     
     if response.status_code != 200:
         print(f"  [ERROR] Far-field failed: {response.status_code}")

@@ -5,7 +5,7 @@ import json
 
 # Service URL
 BASE_URL = "http://localhost:8002"
-API_PREFIX = "/api/v1"
+API_PREFIX = "/api"
 
 def test_health():
     """Test health endpoint."""

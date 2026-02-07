@@ -2,7 +2,7 @@
 import requests
 import json
 
-url = "http://localhost:8004/api/v1/fields/far"
+url = "http://localhost:8004/api/fields/far"
 
 with open('farfield_request_debug.json', 'r') as f:
     data = json.load(f)

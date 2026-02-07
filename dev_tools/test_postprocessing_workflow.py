@@ -53,7 +53,7 @@ def test_postprocessing_workflow():
     }
     
     response = requests.post(
-        f"{SOLVER_URL}/api/v1/solve/multi",
+        f"{SOLVER_URL}/api/solve/multi",
         json=solver_request,
         timeout=30
     )
@@ -90,7 +90,7 @@ def test_postprocessing_workflow():
     }
     
     response = requests.post(
-        f"{POSTPROCESSOR_URL}/api/v1/fields/far",
+        f"{POSTPROCESSOR_URL}/api/fields/far",
         json=far_field_request,
         timeout=30
     )

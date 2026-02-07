@@ -31,7 +31,7 @@ from backend.common.constants import C_0, Z_0
 
 
 BASE_URL = "http://localhost:8002"
-API_PREFIX = "/api/v1"
+API_PREFIX = "/api"
 
 
 @pytest.fixture
@@ -214,7 +214,7 @@ def test_two_monopoles_vs_dipole_gold_standard(solver_running):
         }
     }
     
-    print(f"\nCalling /api/v1/solve/multi...")
+    print(f"\nCalling /api/solve/multi...")
     response = requests.post(
         f"{BASE_URL}{API_PREFIX}/solve/multi",
         json=request_data,

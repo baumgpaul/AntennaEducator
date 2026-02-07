@@ -192,7 +192,7 @@ Phase 2 (Async + Fargate):
 
 ```yaml
 # Submit async job
-POST /api/v1/jobs/submit
+POST /api/jobs/submit
 Request:
   {
     "project_id": "uuid",
@@ -207,11 +207,11 @@ Response:
     "job_id": "uuid",
     "status": "queued",
     "estimated_time_seconds": 45,
-    "poll_url": "/api/v1/jobs/{job_id}/status"
+    "poll_url": "/api/jobs/{job_id}/status"
   }
 
 # Poll job status
-GET /api/v1/jobs/{job_id}/status
+GET /api/jobs/{job_id}/status
 Response:
   {
     "job_id": "uuid",
@@ -223,7 +223,7 @@ Response:
   }
 
 # Get job results (when completed)
-GET /api/v1/jobs/{job_id}/results
+GET /api/jobs/{job_id}/results
 Response:
   {
     "job_id": "uuid",
@@ -235,7 +235,7 @@ Response:
   }
 
 # Cancel job
-DELETE /api/v1/jobs/{job_id}
+DELETE /api/jobs/{job_id}
 Response:
   {
     "job_id": "uuid",

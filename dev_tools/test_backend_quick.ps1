@@ -35,9 +35,9 @@ Write-Host ""
 if ($allHealthy) {
     Write-Host "✅ All services are healthy!" -ForegroundColor Green
     Write-Host "`nAPI Documentation:" -ForegroundColor Cyan
-    Write-Host "  • http://localhost:8001/api/v1/docs" -ForegroundColor White
-    Write-Host "  • http://localhost:8002/api/v1/docs" -ForegroundColor White
-    Write-Host "  • http://localhost:8003/api/v1/docs" -ForegroundColor White
+    Write-Host "  • http://localhost:8001/api/docs" -ForegroundColor White
+    Write-Host "  • http://localhost:8002/api/docs" -ForegroundColor White
+    Write-Host "  • http://localhost:8003/api/docs" -ForegroundColor White
     exit 0
 } else {
     Write-Host "❌ Some services are not responding!" -ForegroundColor Red

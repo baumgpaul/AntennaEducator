@@ -48,7 +48,7 @@ solver_request = {
 }
 
 response = requests.post(
-    f"{SOLVER_URL}/api/v1/solve/multi",
+    f"{SOLVER_URL}/api/solve/multi",
     json=solver_request,
     timeout=30
 )
@@ -99,7 +99,7 @@ field_request = {
 }
 
 response = requests.post(
-    f"{POSTPROCESSOR_URL}/api/v1/fields/near",
+    f"{POSTPROCESSOR_URL}/api/fields/near",
     json=field_request,
     timeout=30
 )

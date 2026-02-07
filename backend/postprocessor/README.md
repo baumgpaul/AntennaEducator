@@ -75,7 +75,7 @@ uvicorn backend.postprocessor.main:app --port 8003
 curl http://localhost:8003/health
 
 # Compute radiation pattern
-curl -X POST http://localhost:8003/api/v1/pattern/radiation \
+curl -X POST http://localhost:8003/api/pattern/radiation \
   -H "Content-Type: application/json" \
   -d @solver_results.json
 ```

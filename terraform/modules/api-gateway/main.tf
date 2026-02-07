@@ -102,7 +102,7 @@ resource "aws_apigatewayv2_integration" "postprocessor" {
 # ============================================================================
 # 
 # Route configuration for MVP:
-# - Projects service handles: /health, /api/v1/projects/*, /api/v1/auth/*
+# - Projects service handles: /health, /api/projects/*, /api/auth/*
 # - Other services accessed via Lambda Function URLs (no API Gateway routes yet)
 # - Future: Add API Gateway routes with path rewriting for other services
 
@@ -118,7 +118,7 @@ resource "aws_apigatewayv2_route" "health" {
 # Auth routes - projects service (must be public)
 resource "aws_apigatewayv2_route" "auth" {
   api_id    = aws_apigatewayv2_api.main.id
-  route_key = "ANY /api/v1/auth/{proxy+}"
+  route_key = "ANY /api/auth/{proxy+}"
   target    = "integrations/${aws_apigatewayv2_integration.projects.id}"
   
   authorization_type = "NONE"  # Auth endpoints must be public
@@ -127,7 +127,7 @@ resource "aws_apigatewayv2_route" "auth" {
 # Projects routes - projects service
 resource "aws_apigatewayv2_route" "projects" {
   api_id    = aws_apigatewayv2_api.main.id
-  route_key = "ANY /api/v1/projects/{proxy+}"
+  route_key = "ANY /api/projects/{proxy+}"
   target    = "integrations/${aws_apigatewayv2_integration.projects.id}"
   
   authorization_type = var.enable_auth ? "JWT" : "NONE"
@@ -136,7 +136,7 @@ resource "aws_apigatewayv2_route" "projects" {
 
 resource "aws_apigatewayv2_route" "projects_root" {
   api_id    = aws_apigatewayv2_api.main.id
-  route_key = "ANY /api/v1/projects"
+  route_key = "ANY /api/projects"
   target    = "integrations/${aws_apigatewayv2_integration.projects.id}"
   
   authorization_type = var.enable_auth ? "JWT" : "NONE"

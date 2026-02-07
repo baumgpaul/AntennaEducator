@@ -4,7 +4,7 @@ Quick test for far-field postprocessor endpoint
 import requests
 import json
 
-url = "http://localhost:8004/api/v1/fields/far"
+url = "http://localhost:8004/api/fields/far"
 
 # Simple test data
 data = {

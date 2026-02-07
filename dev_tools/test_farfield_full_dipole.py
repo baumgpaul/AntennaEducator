@@ -3,7 +3,7 @@ import requests
 import json
 
 # This mimics the integration test data
-url = "http://localhost:8004/api/v1/fields/far"
+url = "http://localhost:8004/api/fields/far"
 
 # Geometry from combined dipole (2 monopoles)
 nodes = [

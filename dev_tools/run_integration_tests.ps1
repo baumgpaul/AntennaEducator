@@ -148,8 +148,8 @@ try {
         Write-Host "✓ Services stopped`n" -ForegroundColor Green
     } else {
         Write-Host "`nServices left running (use Stop-Job to terminate)" -ForegroundColor Yellow
-        Write-Host "  Preprocessor: http://localhost:8001/api/v1/docs" -ForegroundColor Gray
-        Write-Host "  Solver: http://localhost:8002/api/v1/docs`n" -ForegroundColor Gray
+        Write-Host "  Preprocessor: http://localhost:8001/api/docs" -ForegroundColor Gray
+        Write-Host "  Solver: http://localhost:8002/api/docs`n" -ForegroundColor Gray
         Write-Host "  Stop with: Get-Job | Stop-Job; Get-Job | Remove-Job" -ForegroundColor Gray
     }
 }

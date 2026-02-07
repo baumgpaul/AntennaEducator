@@ -13,24 +13,24 @@ Project management and persistence API for the PEEC Antenna Simulator.
 ## API Endpoints
 
 ### Authentication
-- `POST /api/v1/auth/register` - Register new user
-- `POST /api/v1/auth/login` - Login and get access token
-- `GET /api/v1/auth/me` - Get current user information
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login and get access token
+- `GET /api/auth/me` - Get current user information
 
 ### Projects
-- `POST /api/v1/projects` - Create new project
-- `GET /api/v1/projects` - List user's projects
-- `GET /api/v1/projects/:id` - Get project details
-- `PUT /api/v1/projects/:id` - Update project
-- `DELETE /api/v1/projects/:id` - Delete project
+- `POST /api/projects` - Create new project
+- `GET /api/projects` - List user's projects
+- `GET /api/projects/:id` - Get project details
+- `PUT /api/projects/:id` - Update project
+- `DELETE /api/projects/:id` - Delete project
 
 ### Project Elements
-- `POST /api/v1/projects/:id/elements` - Add element to project
-- `DELETE /api/v1/projects/:id/elements/:element_id` - Remove element
+- `POST /api/projects/:id/elements` - Add element to project
+- `DELETE /api/projects/:id/elements/:element_id` - Remove element
 
 ### Results
-- `POST /api/v1/projects/:id/results` - Save simulation result
-- `GET /api/v1/projects/:id/results` - List project results
+- `POST /api/projects/:id/results` - Save simulation result
+- `GET /api/projects/:id/results` - List project results
 
 ## Environment Variables
 

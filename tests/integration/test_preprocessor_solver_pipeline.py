@@ -14,7 +14,7 @@ from typing import Dict, Any
 # Service URLs
 PREPROCESSOR_URL = "http://localhost:8001"
 SOLVER_URL = "http://localhost:8002"
-API_PREFIX = "/api/v1"
+API_PREFIX = "/api"
 
 
 def extract_mesh_from_preprocessor_response(response):
@@ -103,7 +103,7 @@ class TestPreprocessorSolverPipeline:
         }
         
         response = requests.post(
-            f"{SOLVER_URL}/api/v1/solve/single",
+            f"{SOLVER_URL}/api/solve/single",
             json=solver_request
         )
         assert response.status_code == 200, f"Solver failed: {response.text}"
@@ -142,7 +142,7 @@ class TestPreprocessorSolverPipeline:
         }
         
         response = requests.post(
-            f"{PREPROCESSOR_URL}/api/v1/antenna/dipole",
+            f"{PREPROCESSOR_URL}/api/antenna/dipole",
             json=dipole_request
         )
         assert response.status_code == 200
@@ -164,7 +164,7 @@ class TestPreprocessorSolverPipeline:
         }
         
         response = requests.post(
-            f"{SOLVER_URL}/api/v1/solve/sweep",
+            f"{SOLVER_URL}/api/solve/sweep",
             json=solver_request
         )
         assert response.status_code == 200, f"Sweep failed: {response.text}"
@@ -218,7 +218,7 @@ class TestPreprocessorSolverPipeline:
         }
         
         response = requests.post(
-            f"{SOLVER_URL}/api/v1/solve/single",
+            f"{SOLVER_URL}/api/solve/single",
             json=solver_request
         )
         assert response.status_code == 200
@@ -259,7 +259,7 @@ class TestPreprocessorSolverPipeline:
         }
         
         response = requests.post(
-            f"{SOLVER_URL}/api/v1/solve/single",
+            f"{SOLVER_URL}/api/solve/single",
             json=solver_request
         )
         assert response.status_code == 200
@@ -286,7 +286,7 @@ class TestPreprocessorSolverPipeline:
         }
         
         response = requests.post(
-            f"{SOLVER_URL}/api/v1/solve/single",
+            f"{SOLVER_URL}/api/solve/single",
             json=bad_request
         )
         # Should fail with validation error
@@ -303,7 +303,7 @@ class TestPreprocessorSolverPipeline:
         }
         
         response = requests.post(
-            f"{PREPROCESSOR_URL}/api/v1/antenna/dipole",
+            f"{PREPROCESSOR_URL}/api/antenna/dipole",
             json=dipole_request
         )
         assert response.status_code == 200
@@ -326,7 +326,7 @@ class TestPreprocessorSolverPipeline:
         }
         
         response = requests.post(
-            f"{SOLVER_URL}/api/v1/solve/single",
+            f"{SOLVER_URL}/api/solve/single",
             json=solver_request
         )
         
@@ -358,7 +358,7 @@ class TestPreprocessorSolverPipeline:
         }
         
         response = requests.post(
-            f"{PREPROCESSOR_URL}/api/v1/antenna/dipole",
+            f"{PREPROCESSOR_URL}/api/antenna/dipole",
             json=dipole_request
         )
         assert response.status_code == 200
@@ -378,7 +378,7 @@ class TestPreprocessorSolverPipeline:
         }
         
         response = requests.post(
-            f"{SOLVER_URL}/api/v1/solve/single",
+            f"{SOLVER_URL}/api/solve/single",
             json=solver_request
         )
         assert response.status_code == 200
@@ -393,7 +393,7 @@ class TestPreprocessorSolverPipeline:
         
         # Check that results are reproducible (should be deterministic)
         response2 = requests.post(
-            f"{SOLVER_URL}/api/v1/solve/single",
+            f"{SOLVER_URL}/api/solve/single",
             json=solver_request
         )
         result2 = response2.json()
@@ -424,7 +424,7 @@ class TestServiceIntegration:
         """Verify API documentation is accessible."""
         for name, url in [("Preprocessor", PREPROCESSOR_URL), ("Solver", SOLVER_URL)]:
             try:
-                response = requests.get(f"{url}/api/v1/docs", timeout=2)
+                response = requests.get(f"{url}/api/docs", timeout=2)
                 # Should return HTML (or redirect to docs)
                 assert response.status_code in [200, 307, 308]
                 print(f"✓ {name} API docs available")

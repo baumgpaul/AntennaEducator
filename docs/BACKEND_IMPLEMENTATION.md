@@ -101,16 +101,16 @@
 #### High-Level API Endpoints
 
 ```
-POST   /api/v1/preprocessor/antenna/dipole
-POST   /api/v1/preprocessor/antenna/loop
-POST   /api/v1/preprocessor/antenna/helix
-POST   /api/v1/preprocessor/antenna/rod
-POST   /api/v1/preprocessor/antenna/grid
-POST   /api/v1/preprocessor/antenna/custom
-GET    /api/v1/preprocessor/project/{project_id}/geometry
-PUT    /api/v1/preprocessor/project/{project_id}/geometry
-POST   /api/v1/preprocessor/project/{project_id}/validate
-POST   /api/v1/preprocessor/project/{project_id}/mesh
+POST   /api/preprocessor/antenna/dipole
+POST   /api/preprocessor/antenna/loop
+POST   /api/preprocessor/antenna/helix
+POST   /api/preprocessor/antenna/rod
+POST   /api/preprocessor/antenna/grid
+POST   /api/preprocessor/antenna/custom
+GET    /api/preprocessor/project/{project_id}/geometry
+PUT    /api/preprocessor/project/{project_id}/geometry
+POST   /api/preprocessor/project/{project_id}/validate
+POST   /api/preprocessor/project/{project_id}/mesh
 ```
 
 #### Core Functionality
@@ -208,9 +208,9 @@ Output:
 
 Multiple antenna elements can be combined:
 ```python
-POST /api/v1/preprocessor/project/{project_id}/add-element
-DELETE /api/v1/preprocessor/project/{project_id}/element/{element_id}
-POST /api/v1/preprocessor/project/{project_id}/transform
+POST /api/preprocessor/project/{project_id}/add-element
+DELETE /api/preprocessor/project/{project_id}/element/{element_id}
+POST /api/preprocessor/project/{project_id}/transform
   - translate: [dx, dy, dz]
   - rotate: {axis, angle}
   - element_ids: [...]
@@ -260,11 +260,11 @@ User Input (High-Level) → Builder Functions → Geometry Objects
 #### API Endpoints
 
 ```
-POST   /api/v1/solver/solve/{project_id}
-GET    /api/v1/solver/status/{job_id}
-GET    /api/v1/solver/results/{job_id}
-POST   /api/v1/solver/sweep/{project_id}
-DELETE /api/v1/solver/job/{job_id}
+POST   /api/solver/solve/{project_id}
+GET    /api/solver/status/{job_id}
+GET    /api/solver/results/{job_id}
+POST   /api/solver/sweep/{project_id}
+DELETE /api/solver/job/{job_id}
 ```
 
 #### Core Functionality
@@ -412,11 +412,11 @@ SolverConfig:
 #### API Endpoints
 
 ```
-POST   /api/v1/postprocessor/impedance/{job_id}
-POST   /api/v1/postprocessor/field/{job_id}
-POST   /api/v1/postprocessor/directivity/{job_id}
-POST   /api/v1/postprocessor/power/{job_id}
-GET    /api/v1/postprocessor/results/{result_id}
+POST   /api/postprocessor/impedance/{job_id}
+POST   /api/postprocessor/field/{job_id}
+POST   /api/postprocessor/directivity/{job_id}
+POST   /api/postprocessor/power/{job_id}
+GET    /api/postprocessor/results/{result_id}
 ```
 
 #### Core Functionality
@@ -1021,7 +1021,7 @@ Resources:
         CreateAntenna:
           Type: Api
           Properties:
-            Path: /api/v1/preprocessor/antenna/{type}
+            Path: /api/preprocessor/antenna/{type}
             Method: POST
             RestApiId: !Ref PEECApi
             
@@ -1319,7 +1319,7 @@ def client():
 
 def test_create_dipole_endpoint(client):
     response = client.post(
-        "/api/v1/preprocessor/antenna/dipole",
+        "/api/preprocessor/antenna/dipole",
         json={
             "project_id": "test-project",
             "length": 0.5,
@@ -1344,22 +1344,22 @@ Full workflow validation:
 # tests/e2e/test_full_workflow.py
 def test_dipole_simulation_workflow(api_client):
     # 1. Create project
-    project = api_client.post("/api/v1/projects", json={"name": "Test"})
+    project = api_client.post("/api/projects", json={"name": "Test"})
     project_id = project.json()['id']
     
     # 2. Add dipole
     dipole = api_client.post(
-        f"/api/v1/preprocessor/antenna/dipole",
+        f"/api/preprocessor/antenna/dipole",
         json={"project_id": project_id, ...}
     )
     
     # 3. Generate mesh
-    mesh = api_client.post(f"/api/v1/preprocessor/project/{project_id}/mesh")
+    mesh = api_client.post(f"/api/preprocessor/project/{project_id}/mesh")
     assert mesh.status_code == 200
     
     # 4. Solve
     job = api_client.post(
-        f"/api/v1/solver/solve/{project_id}",
+        f"/api/solver/solve/{project_id}",
         json={"frequency": 1e9}
     )
     job_id = job.json()['job_id']
@@ -1370,7 +1370,7 @@ def test_dipole_simulation_workflow(api_client):
     
     # 6. Get impedance
     impedance = api_client.post(
-        f"/api/v1/postprocessor/impedance/{job_id}"
+        f"/api/postprocessor/impedance/{job_id}"
     )
     assert impedance.status_code == 200
     Z = impedance.json()['impedance']

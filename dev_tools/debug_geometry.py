@@ -2,7 +2,7 @@
 import requests
 
 PREPROCESSOR_URL = "http://localhost:8001"
-API_PREFIX = "/api/v1"
+API_PREFIX = "/api"
 
 # Test dipole
 dipole_request = {

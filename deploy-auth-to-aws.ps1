@@ -165,8 +165,8 @@ Write-Host ""
 Write-Host "Next Steps:" -ForegroundColor Yellow
 Write-Host "  1. Configure Cognito environment variables in Lambda" -ForegroundColor White
 Write-Host "  2. Run: .\test-auth-aws.ps1 to test authentication" -ForegroundColor White
-Write-Host "  3. Test registration: POST /api/v1/auth/register" -ForegroundColor White
-Write-Host "  4. Test login: POST /api/v1/auth/login" -ForegroundColor White
+Write-Host "  3. Test registration: POST /api/auth/register" -ForegroundColor White
+Write-Host "  4. Test login: POST /api/auth/login" -ForegroundColor White
 Write-Host ""
 
 if ($FUNCTION_URL) {

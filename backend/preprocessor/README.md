@@ -47,33 +47,11 @@ Returns service health status.
 }
 ```
 
-### Service Status
-
-```bash
-GET /api/v1/status
-```
-
-Returns service configuration and available endpoints.
-
-**Response:**
-```json
-{
-  "service": "preprocessor",
-  "version": "0.1.0",
-  "debug": false,
-  "endpoints": {
-    "health": "/health",
-    "docs": "/api/v1/docs",
-    "openapi": "/api/v1/openapi.json"
-  }
-}
-```
-
 ### API Documentation
 
-- **Swagger UI**: http://localhost:8001/api/v1/docs
-- **ReDoc**: http://localhost:8001/api/v1/redoc
-- **OpenAPI Schema**: http://localhost:8001/api/v1/openapi.json
+- **Swagger UI**: http://localhost:8001/api/docs
+- **ReDoc**: http://localhost:8001/api/redoc
+- **OpenAPI Schema**: http://localhost:8001/api/openapi.json
 
 ## Configuration
 

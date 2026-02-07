@@ -29,7 +29,7 @@ def test_incremental_field_computation():
     }
     
     try:
-        response = requests.post(f"{SOLVER_URL}/api/v1/solve/single", json=solve_request, timeout=30)
+        response = requests.post(f"{SOLVER_URL}/api/solve/single", json=solve_request, timeout=30)
         if response.status_code != 200:
             print(f"   ✗ Solve failed ({response.status_code}): {response.text}")
             return False
@@ -51,7 +51,7 @@ def test_incremental_field_computation():
     }
     
     try:
-        response = requests.post(f"{POSTPROCESSOR_URL}/api/v1/fields/near", json=field1_request, timeout=30)
+        response = requests.post(f"{POSTPROCESSOR_URL}/api/fields/near", json=field1_request, timeout=30)
         response.raise_for_status()
         field1_data = response.json()
         print(f"   ✓ Computed {field1_data['num_points']} points")
@@ -68,7 +68,7 @@ def test_incremental_field_computation():
     }
     
     try:
-        response = requests.post(f"{POSTPROCESSOR_URL}/api/v1/fields/near", json=field2_request, timeout=30)
+        response = requests.post(f"{POSTPROCESSOR_URL}/api/fields/near", json=field2_request, timeout=30)
         response.raise_for_status()
         field2_data = response.json()
         print(f"   ✓ Computed {field2_data['num_points']} points")
@@ -97,7 +97,7 @@ def test_incremental_field_computation():
     }
     
     try:
-        response = requests.post(f"{POSTPROCESSOR_URL}/api/v1/fields/far", json=directivity_request, timeout=30)
+        response = requests.post(f"{POSTPROCESSOR_URL}/api/fields/far", json=directivity_request, timeout=30)
         response.raise_for_status()
         directivity_data = response.json()
         print(f"   ✓ Directivity: {directivity_data['directivity']:.2f} dBi")
@@ -140,7 +140,7 @@ def test_validation():
     }
     
     try:
-        response = requests.post(f"{POSTPROCESSOR_URL}/api/v1/fields/near", json=request, timeout=10)
+        response = requests.post(f"{POSTPROCESSOR_URL}/api/fields/near", json=request, timeout=10)
         if response.status_code == 200:
             print("   ✓ Accepts {real, imag} dict format")
             return True
