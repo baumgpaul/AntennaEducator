@@ -29,7 +29,7 @@ function Header() {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
   const { mode } = useAppSelector((state) => state.ui.theme);
-  
+
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(anchorEl);
 

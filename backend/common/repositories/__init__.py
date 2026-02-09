@@ -1,12 +1,7 @@
 """Common repositories package."""
 
-from backend.common.repositories.base import (
-    ProjectRepository,
-    UserRepository,
-)
-from backend.common.repositories.factory import (
-    get_project_repository,
-)
+from backend.common.repositories.base import ProjectRepository, UserRepository
+from backend.common.repositories.factory import get_project_repository
 
 __all__ = [
     "UserRepository",

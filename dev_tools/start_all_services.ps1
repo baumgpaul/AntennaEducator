@@ -57,7 +57,7 @@ try {
             }
         }
         Start-Sleep -Milliseconds 500
-        
+
         # Check if any job has failed
         if ($preprocessor.State -eq 'Failed' -or $solver.State -eq 'Failed' -or $postprocessor.State -eq 'Failed') {
             Write-Host "`nERROR: One or more services have failed!" -ForegroundColor Red

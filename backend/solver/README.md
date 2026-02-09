@@ -119,7 +119,7 @@ DC and AC resistance with frequency-dependent skin effect.
   - AC: Increases with frequency due to skin effect
   - Skin depth: Decreases with √f (current concentrates near surface)
 - **Test Coverage**: 36 tests (96%)
-- **Typical Values**: 
+- **Typical Values**:
   - DC: ~0.1-1 Ω/m for thin wires
   - AC: 1.5-2× DC at 1 MHz for typical geometries
 
@@ -159,7 +159,7 @@ Assembles complex impedance matrix **Z** combining all physical effects.
 ##### `assemble_system_matrix(Z, A_app)`
 Assembles full system block matrix.
 - **Structure**: $$\begin{bmatrix} Z & A_{app}^T \\ -A_{app} & 0 \end{bmatrix}$$
-- **Interpretation**: 
+- **Interpretation**:
   - Top-left: Impedance equations
   - Top-right/bottom-left: Appended node coupling
   - Bottom-right: Zero block (appended node constraints)
@@ -327,7 +327,7 @@ A_app, n_appended = build_appended_incidence_matrix([vsource], [], n_edges=len(e
 # 6. Assemble system
 Z = assemble_impedance_matrix(R, L, P, A, omega, voltage_sources=[vsource])
 SYSTEM = assemble_system_matrix(Z, A_app)
-SOURCE = assemble_source_vector([vsource], [], A, P, omega, 
+SOURCE = assemble_source_vector([vsource], [], A, P, omega,
                                  n_edges=len(edges), n_appended=n_appended)
 
 # 7. Solve

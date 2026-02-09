@@ -13,7 +13,7 @@ $allHealthy = $true
 
 foreach ($service in $services) {
     Write-Host "`nTesting $($service.Name)..." -ForegroundColor Yellow -NoNewline
-    
+
     try {
         $response = Invoke-WebRequest -Uri $service.URL -Method GET -TimeoutSec 5 -UseBasicParsing
         if ($response.StatusCode -eq 200) {

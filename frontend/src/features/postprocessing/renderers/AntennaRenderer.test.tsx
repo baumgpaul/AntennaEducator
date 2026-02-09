@@ -37,7 +37,7 @@ describe('AntennaRenderer', () => {
 
       vi.mocked(hooks.useAppSelector).mockReturnValue(mockElements);
       const { getAllByTestId } = render(<AntennaRenderer item={item} />);
-      
+
       const geometries = getAllByTestId('wire-geometry');
       expect(geometries).toHaveLength(2);
     });

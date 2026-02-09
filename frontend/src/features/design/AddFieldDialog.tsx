@@ -36,7 +36,7 @@ interface AddFieldDialogProps {
 
 /**
  * AddFieldDialog - Multi-step wizard for creating field regions
- * 
+ *
  * Steps:
  * 1. Select 2D or 3D region
  * 2. Select shape (plane/circle for 2D, sphere/cube for 3D)
@@ -204,27 +204,27 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 onChange={(e) => setShape(e.target.value as any)}
               >
                 {/* 2D options */}
-                <MenuItem 
+                <MenuItem
                   value="plane"
                   sx={{ display: regionType === '2D' ? 'block' : 'none' }}
                 >
                   Rectangular Plane
                 </MenuItem>
-                <MenuItem 
+                <MenuItem
                   value="circle"
                   sx={{ display: regionType === '2D' ? 'block' : 'none' }}
                 >
                   Circle
                 </MenuItem>
-                
+
                 {/* 3D options */}
-                <MenuItem 
+                <MenuItem
                   value="sphere"
                   sx={{ display: regionType === '3D' ? 'block' : 'none' }}
                 >
                   Sphere
                 </MenuItem>
-                <MenuItem 
+                <MenuItem
                   value="cube"
                   sx={{ display: regionType === '3D' ? 'block' : 'none' }}
                 >

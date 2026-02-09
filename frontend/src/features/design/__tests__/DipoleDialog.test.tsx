@@ -96,7 +96,7 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
 
       const nameInput = screen.getByLabelText(/Antenna Name/i);
       await user.clear(nameInput);
-      
+
       // Try to submit with empty name
       const generateButton = screen.getByRole('button', { name: /Generate Mesh/i });
       await user.click(generateButton);
@@ -119,7 +119,7 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       const lengthInput = screen.getByLabelText(/Total Length/i);
       await user.clear(lengthInput);
       await user.type(lengthInput, '0.15');
-      
+
       // Should accept positive value
       expect((lengthInput as HTMLInputElement).value).toBe('0.15');
     });
@@ -138,7 +138,7 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       const radiusInput = screen.getByLabelText(/Wire Radius/i);
       await user.clear(radiusInput);
       await user.type(radiusInput, '0.002');
-      
+
       // Should accept positive value
       expect((radiusInput as HTMLInputElement).value).toBe('0.002');
     });
@@ -157,7 +157,7 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       const segmentsInput = screen.getByLabelText(/Segments/i);
       await user.clear(segmentsInput);
       await user.type(segmentsInput, '25');
-      
+
       // Should accept valid segment count
       expect((segmentsInput as HTMLInputElement).value).toBe('25');
     });

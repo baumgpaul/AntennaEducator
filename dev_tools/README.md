@@ -81,8 +81,8 @@ visualize_mesh(mesh, element, console=True, plot=True, save_path="antenna.png")
 ### Validation
 
 ```powershell
-# Run reference PEEC golden-standard comparison
-python dev_tools/test_current_source_golden.py
+# Run reference PEEC golden-standard comparison (promoted to tests/integration/)
+pytest tests/integration/test_current_source_golden.py -v
 
 # Quick backend smoke test
 .\dev_tools\test_backend_quick.ps1

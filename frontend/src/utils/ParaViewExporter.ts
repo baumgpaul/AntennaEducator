@@ -39,7 +39,7 @@ export async function exportToVTU(
 
   // Get geometry data from solver state
   const elements = state.design.elements;
-  
+
   if (!elements || elements.length === 0) {
     throw new Error('No antenna elements found');
   }
@@ -47,7 +47,7 @@ export async function exportToVTU(
   // Extract nodes and edges from first element's mesh (simplified for MVP)
   // In production, this should merge all elements' meshes
   const firstMesh = elements[0]?.mesh;
-  
+
   if (!firstMesh || !firstMesh.nodes || !firstMesh.edges) {
     throw new Error('Mesh data not available');
   }
@@ -93,7 +93,7 @@ export async function exportToVTU(
 
     // Extract error message from API response
     let errorMessage = 'Failed to export VTU file';
-    
+
     if (error.response?.data) {
       // Try to parse error from blob
       try {

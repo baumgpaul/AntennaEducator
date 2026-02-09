@@ -1,8 +1,26 @@
-import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/react';
-import { Canvas } from '@react-three/fiber';
+import { describe, it, expect, vi } from 'vitest';
 import { FieldRegionVisualization } from '../FieldRegionVisualization';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
+
+// Mock Three.js — jsdom has no WebGL support
+vi.mock('three', () => {
+  const actual = {
+    PlaneGeometry: vi.fn(),
+    CircleGeometry: vi.fn(),
+    SphereGeometry: vi.fn(),
+    BoxGeometry: vi.fn(),
+    EdgesGeometry: vi.fn(),
+    WireframeGeometry: vi.fn(),
+    Quaternion: vi.fn(() => ({ setFromUnitVectors: vi.fn() })),
+    Vector3: vi.fn(() => ({ normalize: vi.fn().mockReturnThis() })),
+    DoubleSide: 2,
+    AdditiveBlending: 2,
+  };
+  return { ...actual, default: actual };
+});
+
+// We test that the component renders (returns non-null JSX) or returns null
+// based on visibility and field definitions, without actually rendering R3F elements.
 
 describe('FieldRegionVisualization', () => {
   const mockPlaneField: FieldDefinition = {
@@ -37,82 +55,52 @@ describe('FieldRegionVisualization', () => {
     fieldType: 'poynting',
   };
 
-  it('renders without crashing when no fields provided', () => {
-    const { container } = render(
-      <Canvas>
-        <FieldRegionVisualization
-          fieldDefinitions={[]}
-          opacity={0.3}
-          visible={true}
-        />
-      </Canvas>
-    );
-    expect(container).toBeTruthy();
+  it('returns null when no fields provided', () => {
+    const result = FieldRegionVisualization({
+      fieldDefinitions: [],
+      visible: true,
+    });
+    expect(result).toBeNull();
   });
 
-  it('renders when visible is false', () => {
-    const { container } = render(
-      <Canvas>
-        <FieldRegionVisualization
-          fieldDefinitions={[mockPlaneField]}
-          opacity={0.3}
-          visible={false}
-        />
-      </Canvas>
-    );
-    expect(container).toBeTruthy();
+  it('returns null when visible is false', () => {
+    const result = FieldRegionVisualization({
+      fieldDefinitions: [mockPlaneField],
+      visible: false,
+    });
+    expect(result).toBeNull();
   });
 
-  it('renders 2D plane field region', () => {
-    const { container } = render(
-      <Canvas>
-        <FieldRegionVisualization
-          fieldDefinitions={[mockPlaneField]}
-          opacity={0.3}
-          visible={true}
-        />
-      </Canvas>
-    );
-    expect(container).toBeTruthy();
+  it('returns JSX when visible with plane field', () => {
+    const result = FieldRegionVisualization({
+      fieldDefinitions: [mockPlaneField],
+      visible: true,
+    });
+    expect(result).not.toBeNull();
   });
 
-  it('renders 3D sphere field region', () => {
-    const { container } = render(
-      <Canvas>
-        <FieldRegionVisualization
-          fieldDefinitions={[mockSphereField]}
-          opacity={0.3}
-          visible={true}
-        />
-      </Canvas>
-    );
-    expect(container).toBeTruthy();
+  it('returns JSX when visible with sphere field', () => {
+    const result = FieldRegionVisualization({
+      fieldDefinitions: [mockSphereField],
+      visible: true,
+    });
+    expect(result).not.toBeNull();
   });
 
-  it('renders multiple field regions with different colors', () => {
-    const { container } = render(
-      <Canvas>
-        <FieldRegionVisualization
-          fieldDefinitions={[mockPlaneField, mockSphereField]}
-          opacity={0.3}
-          visible={true}
-        />
-      </Canvas>
-    );
-    expect(container).toBeTruthy();
+  it('returns JSX with multiple fields', () => {
+    const result = FieldRegionVisualization({
+      fieldDefinitions: [mockPlaneField, mockSphereField],
+      visible: true,
+    });
+    expect(result).not.toBeNull();
   });
 
-  it('highlights selected field region', () => {
-    const { container } = render(
-      <Canvas>
-        <FieldRegionVisualization
-          fieldDefinitions={[mockPlaneField, mockSphereField]}
-          selectedFieldId="field-1"
-          opacity={0.3}
-          visible={true}
-        />
-      </Canvas>
-    );
-    expect(container).toBeTruthy();
+  it('accepts selectedFieldId prop', () => {
+    const result = FieldRegionVisualization({
+      fieldDefinitions: [mockPlaneField, mockSphereField],
+      selectedFieldId: 'field-1',
+      visible: true,
+    });
+    expect(result).not.toBeNull();
   });
 });

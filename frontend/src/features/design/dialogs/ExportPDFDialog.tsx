@@ -46,7 +46,7 @@ function ExportPDFDialog({ projectName, onExport }: ExportPDFDialogProps) {
   const viewConfigurations = useAppSelector(selectViewConfigurations);
   const selectedViewId = useAppSelector(selectSelectedViewId);
   const currentFrequency = useAppSelector(selectCurrentFrequency);
-  
+
   const [includeMetadata, setIncludeMetadata] = useState(true);
   const [resolution, setResolution] = useState<Resolution>('1080p');
   const [filename, setFilename] = useState('');
@@ -69,7 +69,7 @@ function ExportPDFDialog({ projectName, onExport }: ExportPDFDialogProps) {
 
   const handleExport = () => {
     let finalFilename = filename.trim();
-    
+
     // Add .pdf extension if not present
     if (!finalFilename.toLowerCase().endsWith('.pdf')) {
       finalFilename = `${finalFilename}.pdf`;
@@ -77,13 +77,13 @@ function ExportPDFDialog({ projectName, onExport }: ExportPDFDialogProps) {
       // Remove .pdf and let onExport handler add it
       finalFilename = finalFilename.slice(0, -4);
     }
-    
+
     onExport({
       includeMetadata,
       resolution,
       filename: finalFilename,
     });
-    
+
     handleClose();
   };
 

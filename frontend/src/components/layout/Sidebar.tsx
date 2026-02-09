@@ -34,7 +34,7 @@ function Sidebar() {
   const location = useLocation();
   const sidebarOpen = useAppSelector((state) => state.ui.layout.sidebarOpen);
   const projects = useAppSelector((state) => state.projects.items);
-  
+
   const [projectsExpanded, setProjectsExpanded] = useState(true);
 
   const handleSidebarClose = () => {

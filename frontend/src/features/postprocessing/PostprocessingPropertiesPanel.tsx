@@ -36,7 +36,7 @@ import {
 
 /**
  * PostprocessingPropertiesPanel - Right-side properties editor for postprocessing views and items
- * 
+ *
  * Displays:
  * - Empty state when no view selected
  * - View-level properties (name, type, frequency slider, delete)
@@ -48,7 +48,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   const selectedItem = useAppSelector(selectSelectedItem);
   const solverResults = useAppSelector((state) => state.solver.results);
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
-  
+
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [viewName, setViewName] = React.useState('');
   const [itemLabel, setItemLabel] = React.useState('');
@@ -102,10 +102,10 @@ const PostprocessingPropertiesPanel: React.FC = () => {
     : [];
   const hasMultipleFrequencies = computedFrequenciesMHz.length > 1;
   const hasAnyFrequencies = computedFrequenciesMHz.length > 0;
-  
+
   // Get current frequency, defaulting to first computed frequency if not set
-  const currentFrequencyMHz = selectedView?.selectedFrequencyHz 
-    ? selectedView.selectedFrequencyHz / 1e6 
+  const currentFrequencyMHz = selectedView?.selectedFrequencyHz
+    ? selectedView.selectedFrequencyHz / 1e6
     : (computedFrequenciesMHz.length > 0 ? computedFrequenciesMHz[0] : null);
 
   // Handlers
@@ -748,7 +748,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
         <Typography variant="subtitle2" color="text.secondary" gutterBottom>
           View Properties
         </Typography>
-        
+
         {/* View Name */}
         <TextField
           fullWidth

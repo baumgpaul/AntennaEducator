@@ -2,7 +2,7 @@
  * Tests for setFieldDefinitions action in solverSlice
  */
 import { describe, it, expect } from 'vitest';
-import solverReducer, { 
+import solverReducer, {
   setFieldDefinitions,
   addFieldRegion,
   deleteFieldRegion,

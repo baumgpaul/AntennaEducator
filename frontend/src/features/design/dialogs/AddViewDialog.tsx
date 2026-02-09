@@ -29,7 +29,7 @@ import type { ViewType } from '@/types/postprocessing';
 function AddViewDialog() {
   const dispatch = useAppDispatch();
   const open = useAppSelector(selectAddViewDialogOpen);
-  
+
   const [name, setName] = useState('');
   const [viewType, setViewType] = useState<ViewType>('3D');
 

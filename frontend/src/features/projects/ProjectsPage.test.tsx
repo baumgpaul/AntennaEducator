@@ -114,7 +114,7 @@ describe('ProjectsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('No projects yet')).toBeInTheDocument();
     }, { timeout: 3000 });
-    
+
     expect(screen.getByText(/create your first antenna simulation/i)).toBeInTheDocument();
   });
 
@@ -219,14 +219,14 @@ describe('ProjectsPage', () => {
     renderWithRedux(<ProjectsPage />, { preloadedState });
 
     const searchInput = screen.getByPlaceholderText('Search projects...');
-    
+
     // Both projects should be visible initially
     expect(screen.getByText('Dipole Test')).toBeInTheDocument();
     expect(screen.getByText('Loop Test')).toBeInTheDocument();
-    
+
     // Search for "dipole"
     await userEvent.type(searchInput, 'dipole');
-    
+
     // After searching, only Dipole Test should be visible
     await waitFor(() => {
       expect(screen.getByText('Dipole Test')).toBeInTheDocument();
@@ -262,15 +262,15 @@ describe('ProjectsPage', () => {
     // Wait for both projects to load and be visible
     await screen.findByText('Zebra Antenna');
     await screen.findByText('Alpha Antenna');
-    
+
     // Click the Sort by select using combobox role
     const sortSelect = screen.getByRole('combobox');
     fireEvent.mouseDown(sortSelect);
-    
+
     // Select "Name" option from the menu
     const nameOption = await screen.findByRole('option', { name: 'Name' });
     fireEvent.click(nameOption);
-    
+
     // After sorting by name, both projects should still be visible
     // (we can't easily test order without inspecting DOM structure deeply)
     await waitFor(() => {

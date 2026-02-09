@@ -31,7 +31,7 @@
 - Client Type: Public (no client secret)
 - Token validity: 1h access, 1h ID, 30d refresh
 - Auth flows: SRP, Password, Refresh Token
-- Callback URLs: 
+- Callback URLs:
   - https://antennaeducator.nyakyagyawa.com/auth/callback
   - http://localhost:3000/auth/callback
   - http://localhost:5173/auth/callback

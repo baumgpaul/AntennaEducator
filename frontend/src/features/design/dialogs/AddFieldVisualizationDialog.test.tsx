@@ -73,25 +73,25 @@ describe('AddFieldVisualizationDialog', () => {
 
   it('displays field list in step 1', () => {
     renderDialog();
-    
+
     const select = screen.getByLabelText(/Select Field/i);
     fireEvent.mouseDown(select);
-    
+
     expect(screen.getByText(/E-field Plane/)).toBeInTheDocument();
   });
 
   it('navigates to step 2 after field selection', async () => {
     renderDialog();
-    
+
     const select = screen.getByLabelText(/Select Field/i);
     fireEvent.mouseDown(select);
-    
+
     const option = screen.getByText(/E-field Plane/);
     fireEvent.click(option);
-    
+
     const nextButton = screen.getByRole('button', { name: /next/i });
     fireEvent.click(nextButton);
-    
+
     await waitFor(() => {
       expect(screen.getByText('Choose Mode')).toBeInTheDocument();
     });
@@ -99,7 +99,7 @@ describe('AddFieldVisualizationDialog', () => {
 
   it('navigates back from step 2 to step 1', async () => {
     renderDialog();
-    
+
     // Go to step 2
     const select = screen.getByLabelText(/Select Field/i);
     fireEvent.mouseDown(select);
@@ -107,15 +107,15 @@ describe('AddFieldVisualizationDialog', () => {
     fireEvent.click(option);
     const nextButton = screen.getByRole('button', { name: /next/i });
     fireEvent.click(nextButton);
-    
+
     await waitFor(() => {
       expect(screen.getByText('Choose Mode')).toBeInTheDocument();
     });
-    
+
     // Go back
     const backButton = screen.getByRole('button', { name: /back/i });
     fireEvent.click(backButton);
-    
+
     await waitFor(() => {
       expect(screen.getByText('Select Field')).toBeInTheDocument();
     });
@@ -123,7 +123,7 @@ describe('AddFieldVisualizationDialog', () => {
 
   it('adds field magnitude visualization', async () => {
     renderDialog();
-    
+
     // Step 1: Select field
     const select = screen.getByLabelText(/Select Field/i);
     fireEvent.mouseDown(select);
@@ -131,18 +131,18 @@ describe('AddFieldVisualizationDialog', () => {
     fireEvent.click(option);
     const nextButton = screen.getByRole('button', { name: /next/i });
     fireEvent.click(nextButton);
-    
+
     await waitFor(() => {
       expect(screen.getByText('Choose Mode')).toBeInTheDocument();
     });
-    
+
     // Step 2: Select magnitude mode
     const magnitudeRadio = screen.getByLabelText(/Magnitude/i);
     fireEvent.click(magnitudeRadio);
-    
+
     const addButton = screen.getByRole('button', { name: /add/i });
     fireEvent.click(addButton);
-    
+
     await waitFor(() => {
       const state = store.getState();
       const view = state.postprocessing.viewConfigurations[0];

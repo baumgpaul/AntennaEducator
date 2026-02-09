@@ -46,28 +46,28 @@ const uiSlice = createSlice({
       state.theme.mode = newMode
       localStorage.setItem('theme', newMode)
     },
-    
+
     // Layout
     toggleSidebar: (state) => {
       state.layout.sidebarOpen = !state.layout.sidebarOpen
     },
-    
+
     togglePropertiesPanel: (state) => {
       state.layout.propertiesPanelOpen = !state.layout.propertiesPanelOpen
     },
-    
+
     // Visualization
     toggleVisualizationMode: (state) => {
-      state.visualization.mode = 
-        state.visualization.mode === 'element-colors' 
-          ? 'current-distribution' 
+      state.visualization.mode =
+        state.visualization.mode === 'element-colors'
+          ? 'current-distribution'
           : 'element-colors'
     },
-    
+
     setVisualizationMode: (state, action: PayloadAction<'element-colors' | 'current-distribution'>) => {
       state.visualization.mode = action.payload
     },
-    
+
     // Notifications
     addNotification: (
       state,
@@ -75,17 +75,17 @@ const uiSlice = createSlice({
     ) => {
       state.notifications.push(action.payload)
     },
-    
+
     removeNotification: (state, action: PayloadAction<number>) => {
       state.notifications = state.notifications.filter(
         (n) => n.id !== action.payload
       )
     },
-    
+
     clearNotifications: (state) => {
       state.notifications = []
     },
-    
+
     // Modals
     openModal: (
       state,
@@ -93,7 +93,7 @@ const uiSlice = createSlice({
     ) => {
       state.modals[action.payload.modalId] = true
     },
-    
+
     closeModal: (state, action: PayloadAction<string>) => {
       state.modals[action.payload] = false
     },

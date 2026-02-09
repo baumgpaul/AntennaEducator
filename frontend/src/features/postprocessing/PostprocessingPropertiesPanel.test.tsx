@@ -390,7 +390,7 @@ describe('PostprocessingPropertiesPanel', () => {
       );
 
       expect(screen.getByText('Item Properties')).toBeInTheDocument();
-      
+
       // Label input
       const labelInput = screen.getByLabelText('Label') as HTMLInputElement;
       expect(labelInput.value).toBe('Antenna System');

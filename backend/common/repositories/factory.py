@@ -20,9 +20,7 @@ def get_project_repository() -> ProjectRepository:
     use_dynamodb = os.getenv("USE_DYNAMODB", "true").lower() == "true"
 
     if use_dynamodb:
-        from backend.common.repositories.dynamodb_repository import (
-            DynamoDBProjectRepository,
-        )
+        from backend.common.repositories.dynamodb_repository import DynamoDBProjectRepository
 
         return DynamoDBProjectRepository()
 

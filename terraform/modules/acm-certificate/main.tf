@@ -13,15 +13,15 @@ terraform {
 
 resource "aws_acm_certificate" "main" {
   provider = aws.us_east_1
-  
+
   domain_name               = var.domain_name
   subject_alternative_names = var.subject_alternative_names
   validation_method         = "DNS"
-  
+
   lifecycle {
     create_before_destroy = true
   }
-  
+
   tags = merge(
     var.tags,
     {
@@ -40,7 +40,7 @@ resource "aws_route53_record" "validation" {
       record = dvo.resource_record_value
     }
   }
-  
+
   zone_id         = var.route53_zone_id
   name            = each.value.name
   type            = each.value.type
@@ -52,10 +52,10 @@ resource "aws_route53_record" "validation" {
 # Wait for certificate validation to complete
 resource "aws_acm_certificate_validation" "main" {
   provider = aws.us_east_1
-  
+
   certificate_arn         = aws_acm_certificate.main.arn
   validation_record_fqdns = [for record in aws_route53_record.validation : record.fqdn]
-  
+
   timeouts {
     create = "15m"
   }

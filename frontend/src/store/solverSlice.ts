@@ -57,26 +57,26 @@ function parseComplexArray(arr: any[]): Array<{ real: number; imag: number }> {
  */
 function calculateFieldDataSize(fieldData: SolverState['fieldData']): number {
   if (!fieldData) return 0;
-  
+
   let totalBytes = 0;
-  
+
   for (const fieldId in fieldData) {
     for (const freqHz in fieldData[fieldId]) {
       const data = fieldData[fieldId][freqHz];
-      
+
       // Points: 3 numbers × 8 bytes each
       totalBytes += (data.points?.length || 0) * 3 * 8;
-      
+
       // Magnitudes: 1 number × 8 bytes each
       totalBytes += (data.E_mag?.length || 0) * 8;
       totalBytes += (data.H_mag?.length || 0) * 8;
-      
+
       // Complex vectors: 3 components × 2 values (real/imag) × 8 bytes each
       totalBytes += (data.E_vectors?.length || 0) * 3 * 2 * 8;
       totalBytes += (data.H_vectors?.length || 0) * 3 * 2 * 8;
     }
   }
-  
+
   return totalBytes / (1024 * 1024); // Convert to MB
 }
 
@@ -92,10 +92,10 @@ interface SolverState {
   status: SimulationStatus;
   progress: number; // 0-100
   error: string | null;
-  
+
   // Current simulation parameters
   currentRequest: SolverRequest | null;
-  
+
   // Results
   results: SolverResult | null;
   currentDistribution: number[] | null; // Magnitude of branch currents for visualization
@@ -114,21 +114,21 @@ interface SolverState {
     beamwidth_phi?: number;
     max_direction: [number, number];
   } | null;
-  
+
   // Multi-antenna results
   multiAntennaResults: MultiAntennaSolutionResponse | null;
-  
+
   // Frequency sweep results
   frequencySweep: FrequencySweepResult | null;
   sweepInProgress: boolean;
-  
+
   // History
   resultsHistory: Array<{
     timestamp: string;
     frequency: number;
     result: SolverResult;
   }>;
-  
+
   // Field definitions and postprocessing
   requestedFields: FieldDefinition[];
   directivityRequested: boolean;
@@ -138,7 +138,7 @@ interface SolverState {
   fieldResults: Record<string, { computed: boolean; num_points: number }> | null; // Track which fields have been computed
   postprocessingStatus: 'idle' | 'running' | 'completed' | 'failed'; // Separate status for postprocessing
   postprocessingProgress: { completed: number; total: number } | null; // Track field computation progress
-  
+
   // Field data storage (in-memory for fast frequency switching)
   fieldData: Record<string, Record<number, {
     points: Array<[number, number, number]>; // Observation points [x, y, z] in meters
@@ -147,7 +147,7 @@ interface SolverState {
     E_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>; // Complex E-field vectors
     H_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>; // Complex H-field vectors
   }>> | null; // fieldData[fieldId][frequencyHz] = { points, magnitudes, vectors }
-  
+
   // Results validity tracking
   resultsStale: boolean; // True when geometry/sources changed and results are outdated
 }
@@ -239,7 +239,7 @@ export const runFrequencySweep = createAsyncThunk<
 
     for (let i = 0; i < frequencies.length; i++) {
       const frequency = frequencies[i];
-      
+
       // Update progress
       dispatch(setProgress(Math.round((i / frequencies.length) * 100)));
 
@@ -319,8 +319,8 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
         .map((s) => ({
           node_start: s.node_start,
           node_end: s.node_end,
-          value: typeof s.amplitude === 'number' ? s.amplitude : 
-                 typeof s.amplitude === 'string' ? parseFloat(s.amplitude) : 
+          value: typeof s.amplitude === 'number' ? s.amplitude :
+                 typeof s.amplitude === 'string' ? parseFloat(s.amplitude) :
                  (s.amplitude as any).real || 1.0,
           R: s.series_R || 0,
           L: s.series_L || 0,
@@ -331,8 +331,8 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
         .filter((s) => s.type === 'current')
         .map((s) => ({
           node: s.node_start,  // Use primary node for current source
-          value: typeof s.amplitude === 'number' ? s.amplitude : 
-                 typeof s.amplitude === 'string' ? parseFloat(s.amplitude) : 
+          value: typeof s.amplitude === 'number' ? s.amplitude :
+                 typeof s.amplitude === 'string' ? parseFloat(s.amplitude) :
                  (s.amplitude as any).real || 1.0,
         }));
 
@@ -372,7 +372,7 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
     if (result.antenna_solutions.length > 0) {
       const solution = result.antenna_solutions[0];
       const inputImpedance = parseComplex(solution.input_impedance);
-      
+
       return {
         project_id: 'default', // Placeholder until projects system implemented
         frequency: result.frequency,
@@ -420,7 +420,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     // Check for either single solve results or sweep results
     const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
     const hasResults = results || (isSweepMode && frequencySweep.results && frequencySweep.results.length > 0);
-    
+
     if (!hasResults) {
       return rejectWithValue('No solver results available. Run solver first.');
     }
@@ -432,15 +432,15 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     // Determine frequencies and get a reference result for mesh data
     const frequencies = isSweepMode ? frequencySweep!.frequencies : (currentFrequency ? [currentFrequency * 1e6] : [results!.frequency]);
     const referenceResult = isSweepMode && frequencySweep?.results?.length ? frequencySweep.results[0] : results!;
-    
+
     if (!referenceResult) {
       return rejectWithValue('No reference result available for postprocessing');
     }
-    
+
     // For sweep mode, branch_currents are in antenna_solutions, not at top level
     const isMultiAntenna = (referenceResult as any).antenna_solutions !== undefined;
-    const referenceBranchCurrents = isSweepMode && isMultiAntenna && (referenceResult as any).antenna_solutions?.length 
-      ? (referenceResult as any).antenna_solutions[0].branch_currents 
+    const referenceBranchCurrents = isSweepMode && isMultiAntenna && (referenceResult as any).antenna_solutions?.length
+      ? (referenceResult as any).antenna_solutions[0].branch_currents
       : (referenceResult as any).branch_currents;
 
     const response: {
@@ -453,7 +453,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     const existingFieldResults = getState().solver.fieldResults || {};
     const fieldsToCompute = requestedFields.filter(field => !existingFieldResults[field.id]?.computed);
     const directivityNeedsComputing = directivityRequested && !existingFieldResults['directivity']?.computed;
-    
+
     if (fieldsToCompute.length === 0 && !directivityNeedsComputing) {
       return {
         message: 'All fields already computed',
@@ -476,7 +476,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     if (directivityNeedsComputing) {
       const pattern = await dispatch(computeRadiationPattern()).unwrap();
       response.directivity = pattern;
-      
+
       // Mark as completed
       completedWork++;
       dispatch(updateFieldResult({
@@ -496,25 +496,25 @@ export const computePostprocessingWorkflow = createAsyncThunk<
       }
 
       const mesh = element.mesh;
-      
+
       // Ensure radii exists - if not, create from element edges or use default
       let radii = mesh.radii;
       if (!radii || radii.length === 0) {
         radii = mesh.edges.map(() => 0.001); // Default 1mm radius
       }
-      
+
       // Compute fields for each requested region
       const fieldResults = [];
-      
+
       for (const field of fieldsToCompute) {
         // Generate observation points based on field definition
         const observation_points = generateObservationPoints(field);
-        
+
         // Validate mesh data
         if (!radii || radii.length === 0) {
           return rejectWithValue('Unable to determine edge radii for field computation');
         }
-        
+
         // Prepare branch currents for all frequencies
         let branch_currents_array;
         if (isSweepMode && frequencySweep && frequencySweep.results && frequencySweep.results.length > 0) {
@@ -532,7 +532,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
         } else {
           return rejectWithValue('No branch currents available for field computation');
         }
-        
+
         // Call postprocessor API
         const fieldRequest = {
           frequencies: frequencies,
@@ -542,18 +542,18 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           radii: radii,
           observation_points,
         };
-        
+
         const fieldData = await computeNearField(fieldRequest);
-        
+
         // Store field data for all frequencies
         for (let freqIdx = 0; freqIdx < frequencies.length; freqIdx++) {
           const freqHz = frequencies[freqIdx];
-          
+
           // Note: Backend currently returns data for first frequency only
           // In future, backend should return array of results for each frequency
           // For now, we store the same data for all frequencies
           // TODO: Update when backend supports multi-frequency field computation
-          
+
           dispatch(setFieldData({
             fieldId: field.id,
             frequencyHz: freqHz,
@@ -566,7 +566,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
             },
           }));
         }
-        
+
         // Update field result immediately
         completedWork++;
         dispatch(updateFieldResult({
@@ -575,7 +575,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           num_points: fieldData.num_points,
         }));
         dispatch(updatePostprocessingProgress({ completed: completedWork, total: totalWork }));
-        
+
         fieldResults.push({
           fieldId: field.id,
           computed: true,
@@ -586,10 +586,10 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           // In production, would upload large arrays to S3/MinIO and return URL
         });
       }
-      
+
       response.fields = fieldResults;
     }
-    
+
     // Check total field data size and warn if > 50 MB
     const totalFieldDataSizeMB = calculateFieldDataSize(getState().solver.fieldData);
     if (totalFieldDataSizeMB > 50) {
@@ -637,7 +637,7 @@ export const computeRadiationPattern = createAsyncThunk<
     // Check for either single solve results or sweep results
     const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
     const hasResults = results || (isSweepMode && frequencySweep.results && frequencySweep.results.length > 0);
-    
+
     if (!hasResults || !elements || elements.length === 0) {
       return rejectWithValue('No solver results or mesh data available');
     }
@@ -647,28 +647,28 @@ export const computeRadiationPattern = createAsyncThunk<
 
     // Determine frequencies and branch currents
     const frequencies = isSweepMode ? frequencySweep.frequencies : (currentFrequency ? [currentFrequency * 1e6] : [results!.frequency]);
-    
+
     // Check if results is multi-antenna format
     const isMultiAntenna = (results as any)?.antenna_solutions !== undefined;
-    
+
     // For multi-antenna: combine all meshes into one (concatenate nodes/edges/radii)
     let combinedNodes: number[][] = [];
     let combinedEdges: number[][] = [];
     let combinedRadii: number[] = [];
     let combinedBranchCurrents: any[] = [];
-    
+
     if (isMultiAntenna) {
       const antenna_solutions = (results as any).antenna_solutions;
-      
+
       let nodeOffset = 0;
       for (let i = 0; i < elements.length; i++) {
         const element = elements[i];
         if (!element.mesh) {
           continue;
         }
-        
+
         const mesh = element.mesh;
-        
+
         // Add nodes (with position offset already applied)
         const offsetNodes = mesh.nodes.map(node => [
           node[0] + element.position[0],
@@ -676,22 +676,22 @@ export const computeRadiationPattern = createAsyncThunk<
           node[2] + element.position[2]
         ]);
         combinedNodes.push(...offsetNodes);
-        
+
         // Add edges (adjusting indices by nodeOffset)
         const offsetEdges = mesh.edges.map(edge => [
           edge[0] + nodeOffset,
           edge[1] + nodeOffset
         ]);
         combinedEdges.push(...offsetEdges);
-        
+
         // Add radii
         combinedRadii.push(...mesh.radii);
-        
+
         // Add branch currents from corresponding antenna solution
         if (antenna_solutions[i]) {
           combinedBranchCurrents.push(...antenna_solutions[i].branch_currents);
         }
-        
+
         nodeOffset += mesh.nodes.length;
       }
     } else {
@@ -700,17 +700,17 @@ export const computeRadiationPattern = createAsyncThunk<
       if (!element.mesh) {
         return rejectWithValue('No mesh data available');
       }
-      
+
       const mesh = element.mesh;
       combinedNodes = mesh.nodes;
       combinedEdges = mesh.edges;
       combinedRadii = mesh.radii;
       combinedBranchCurrents = results!.branch_currents;
     }
-    
+
     // For sweep, extract branch_currents from antenna_solutions[0] in each result
     // For single solve, use the combined branch currents
-    const branch_currents_array = isSweepMode 
+    const branch_currents_array = isSweepMode
       ? frequencySweep.results.map(r => r.antenna_solutions?.[0]?.branch_currents || [])
       : [combinedBranchCurrents];
 
@@ -759,12 +759,12 @@ const solverSlice = createSlice({
 
     // Reset solver state
     resetSolver: () => initialState,
-    
+
     // Field definition management
     addFieldRegion: (state, action: PayloadAction<FieldDefinition>) => {
       state.requestedFields.push(action.payload);
     },
-    
+
     deleteFieldRegion: (state, action: PayloadAction<string>) => {
       state.requestedFields = state.requestedFields.filter(
         field => field.id !== action.payload
@@ -774,7 +774,7 @@ const solverSlice = createSlice({
         delete state.fieldResults[action.payload];
       }
     },
-    
+
     updateFieldRegion: (state, action: PayloadAction<{ id: string; updates: Partial<FieldDefinition> }>) => {
       const index = state.requestedFields.findIndex(f => f.id === action.payload.id);
       if (index !== -1) {
@@ -784,21 +784,21 @@ const solverSlice = createSlice({
         } as FieldDefinition;
       }
     },
-    
+
     clearFieldRegions: (state) => {
       state.requestedFields = [];
     },
-    
+
     setFieldDefinitions: (state, action: PayloadAction<FieldDefinition[]>) => {
       state.requestedFields = action.payload;
     },
-    
+
     loadSolverState: (state, action: PayloadAction<Partial<SolverState> | undefined>) => {
       if (!action.payload) return;
-      
+
       // Restore solver state from database, preserving runtime-only state
       const savedState = action.payload;
-      
+
       // Restore results and computed data
       if (savedState.results !== undefined) state.results = savedState.results;
       if (savedState.currentDistribution !== undefined) state.currentDistribution = savedState.currentDistribution;
@@ -806,7 +806,7 @@ const solverSlice = createSlice({
       if (savedState.multiAntennaResults !== undefined) state.multiAntennaResults = savedState.multiAntennaResults;
       if (savedState.frequencySweep !== undefined) state.frequencySweep = savedState.frequencySweep;
       if (savedState.resultsHistory !== undefined) state.resultsHistory = savedState.resultsHistory;
-      
+
       // Restore field data and state
       if (savedState.requestedFields !== undefined) state.requestedFields = savedState.requestedFields;
       if (savedState.directivityRequested !== undefined) {
@@ -820,30 +820,30 @@ const solverSlice = createSlice({
       if (savedState.currentFrequency !== undefined) state.currentFrequency = savedState.currentFrequency;
       if (savedState.fieldResults !== undefined) state.fieldResults = savedState.fieldResults;
       if (savedState.fieldData !== undefined) state.fieldData = savedState.fieldData;
-      
+
       // Don't restore status/progress/error/jobId - these are runtime state
       // Don't restore currentRequest - this is transient
       // Don't restore sweepInProgress - this is runtime state
       // Don't restore postprocessingStatus/postprocessingProgress - these are runtime state
       // Don't restore resultsStale - we assume restored results are valid
     },
-    
+
     setDirectivityRequested: (state, action: PayloadAction<boolean>) => {
       state.directivityRequested = action.payload;
     },
-    
+
     setDirectivitySettings: (state, action: PayloadAction<{ theta_points: number; phi_points: number }>) => {
       state.directivitySettings = action.payload;
     },
-    
+
     setSolverState: (state, action: PayloadAction<SolverWorkflowState>) => {
       state.solverState = action.payload;
     },
-    
+
     setCurrentFrequency: (state, action: PayloadAction<number>) => {
       state.currentFrequency = action.payload;
     },
-    
+
   updateFieldResult: (state, action: PayloadAction<{ fieldId: string; computed: boolean; num_points: number }>) => {
     if (!state.fieldResults) {
       state.fieldResults = {};
@@ -856,13 +856,13 @@ const solverSlice = createSlice({
   updatePostprocessingProgress: (state, action: PayloadAction<{ completed: number; total: number }>) => {
     state.postprocessingProgress = action.payload;
   },
-  
+
   cancelPostprocessing: (state) => {
     state.postprocessingStatus = 'idle';
     state.postprocessingProgress = null;
     state.progress = 0;
   },
-  
+
   // Field data storage actions
   setFieldData: (state, action: PayloadAction<{
     fieldId: string;
@@ -883,22 +883,22 @@ const solverSlice = createSlice({
     }
     state.fieldData[action.payload.fieldId][action.payload.frequencyHz] = action.payload.data;
   },
-  
+
   clearFieldData: (state) => {
     state.fieldData = null;
   },
-  
+
   clearFieldDataForField: (state, action: PayloadAction<string>) => {
     if (state.fieldData && state.fieldData[action.payload]) {
       delete state.fieldData[action.payload];
     }
   },
-  
+
   // Results validity actions
   markResultsStale: (state) => {
     state.resultsStale = true;
   },
-  
+
   clearResultsStaleFlag: (state) => {
     state.resultsStale = false;
   },
@@ -912,7 +912,7 @@ const solverSlice = createSlice({
       state.progress = 0;
       state.error = null;
       state.multiAntennaResults = null;
-      
+
       // Clear old results when new solve starts
       state.results = null;
       state.currentDistribution = null;
@@ -928,31 +928,31 @@ const solverSlice = createSlice({
       state.progress = 100;
       state.multiAntennaResults = action.payload;
       state.resultsStale = false; // Fresh results, not stale
-      
+
       // Clear field results when new solution is computed (fields need recomputing)
       state.fieldResults = null;
       state.postprocessingStatus = 'idle';
-      
+
       // For backward compatibility: if single antenna, also populate results field
       if (action.payload.antenna_solutions.length === 1) {
         const solution = action.payload.antenna_solutions[0];
 
         // Calculate input impedance from voltage source currents if not provided
         let inputImpedance = parseComplex(solution.input_impedance);
-        
-        if ((!solution.input_impedance || (inputImpedance.real === 0 && inputImpedance.imag === 0)) 
+
+        if ((!solution.input_impedance || (inputImpedance.real === 0 && inputImpedance.imag === 0))
             && solution.voltage_source_currents && solution.voltage_source_currents.length > 0) {
           // Sum all voltage source currents (for split sources)
           const sourceCurrents = parseComplexArray(solution.voltage_source_currents);
-          
+
           const totalSourceCurrent = sourceCurrents.reduce((sum, current) => ({
             real: sum.real + current.real,
             imag: sum.imag + current.imag
           }), { real: 0, imag: 0 });
-          
+
           // Z = V / I, assuming V = 1V (normalized)
           const I_mag_sq = totalSourceCurrent.real ** 2 + totalSourceCurrent.imag ** 2;
-          
+
           if (I_mag_sq > 1e-20) {
             // Z = V / I = 1 / I for normalized voltage
             // 1 / (a + jb) = (a - jb) / (a^2 + b^2)
@@ -1002,7 +1002,7 @@ const solverSlice = createSlice({
           antenna_solutions: action.payload.antenna_solutions,
           solve_time: action.payload.solve_time,
         } as any; // Multi-antenna results have a different shape
-        
+
         const allCurrents: number[] = [];
         for (const solution of action.payload.antenna_solutions) {
           const currents = parseComplexArray(solution.branch_currents).map((current) => {
@@ -1045,7 +1045,7 @@ const solverSlice = createSlice({
       state.progress = 0;
       state.error = null;
       state.frequencySweep = null;
-      
+
       // Clear old results when new sweep starts
       state.results = null;
       state.currentDistribution = null;
@@ -1107,7 +1107,7 @@ const solverSlice = createSlice({
       state.postprocessingStatus = 'completed';
       state.progress = 100;
       state.postprocessingProgress = null; // Clear progress indicator
-      
+
       // Store field computation results (already updated incrementally, but ensure final state)
       if (action.payload.fields) {
         if (!state.fieldResults) {
@@ -1120,7 +1120,7 @@ const solverSlice = createSlice({
           };
         }
       }
-      
+
     });
 
     builder.addCase(computePostprocessingWorkflow.rejected, (state, action) => {
@@ -1129,7 +1129,7 @@ const solverSlice = createSlice({
       state.progress = 0;
       state.postprocessingProgress = null;
     });
-    
+
     // ========================================================================
     // Listen to design changes to mark results as stale
     // ========================================================================
@@ -1162,9 +1162,9 @@ const solverSlice = createSlice({
 // Exports
 // ============================================================================
 
-export const { 
-  setProgress, 
-  clearResults, 
+export const {
+  setProgress,
+  clearResults,
   resetSolver,
   addFieldRegion,
   deleteFieldRegion,

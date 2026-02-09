@@ -25,13 +25,13 @@ function LineViewPanel({ view }: LineViewPanelProps) {
 
   if (visibleItems.length === 0) {
     return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           height: '100%',
-          p: 4 
+          p: 4
         }}
       >
         <Typography variant="body1" color="text.secondary">

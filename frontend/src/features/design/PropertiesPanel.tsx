@@ -50,10 +50,10 @@ interface PropertiesPanelProps {
  * PropertiesPanel - Displays and edits properties of selected elements
  * Shows geometry, material, source, and load parameters
  */
-function PropertiesPanel({ 
-  selectedElement, 
-  onPropertyChange, 
-  antennaElement, 
+function PropertiesPanel({
+  selectedElement,
+  onPropertyChange,
+  antennaElement,
   onColorChange,
   onPositionChange,
   onRotationChange
@@ -161,8 +161,8 @@ function PropertiesPanel({
   };
 
   return (
-    <Box 
-      key={antennaElement?.id || selectedElement?.id || 'no-selection'} 
+    <Box
+      key={antennaElement?.id || selectedElement?.id || 'no-selection'}
       sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}
     >
       {/* Header */}

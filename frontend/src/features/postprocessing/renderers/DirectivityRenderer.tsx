@@ -42,11 +42,11 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
   }, [pattern_db, scaleMode]);
 
   // Calculate value range
-  const min = valueRangeMode === 'manual' 
-    ? item.valueRangeMin || 0 
+  const min = valueRangeMode === 'manual'
+    ? item.valueRangeMin || 0
     : processedDirectivity.length > 0 ? Math.min(...processedDirectivity) : 0;
-  const max = valueRangeMode === 'manual' 
-    ? item.valueRangeMax || 1 
+  const max = valueRangeMode === 'manual'
+    ? item.valueRangeMax || 1
     : processedDirectivity.length > 0 ? Math.max(...processedDirectivity) : 1;
 
   // Create colors for each point
@@ -64,22 +64,22 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
       phiAngles: phi_angles.length,
       directivityData: processedDirectivity.length
     });
-    
+
     // Use actual theta and phi dimensions from the data
     const thetaCount = theta_angles.length; // Number of theta samples (e.g., 43)
     const phiCount = phi_angles.length;     // Number of phi samples (e.g., 64)
-    
+
     console.log('[DirectivityRenderer] Sphere segments:', {
       thetaSegments: thetaCount - 1,
       phiSegments: phiCount - 1
     });
-    
+
     const sphereGeometry = new THREE.SphereGeometry(
       0.5 * sizeFactor, // Base radius 0.5mm
       phiCount - 1,     // widthSegments (phi direction)
       thetaCount - 1    // heightSegments (theta direction)
     );
-    
+
     const numVertices = sphereGeometry.attributes.position.count;
     console.log('[DirectivityRenderer] Sphere vertices:', numVertices, 'vs directivity points:', processedDirectivity.length);
 
@@ -94,7 +94,7 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
       if (vertexIndex < processedDirectivity.length) {
         const directivityValue = processedDirectivity[vertexIndex];
         let radiusScale: number;
-        
+
         if (scaleMode === 'logarithmic') {
           // In dB scale: convert to linear for radius visualization
           // This maintains the same pattern shape as linear mode
@@ -103,7 +103,7 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
           // In linear scale: use directivity value directly as radius
           radiusScale = directivityValue;
         }
-        
+
         positions[i] *= radiusScale;
         positions[i + 1] *= radiusScale;
         positions[i + 2] *= radiusScale;
@@ -114,7 +114,7 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
 
     sphereGeometry.attributes.position.needsUpdate = true;
     sphereGeometry.computeVertexNormals();
-    
+
     // Rotate geometry 90 degrees around X axis to align with antenna coordinate system
     // (Three.js sphere has poles on Y axis, PEEC uses Z axis)
     sphereGeometry.rotateX(Math.PI / 2);

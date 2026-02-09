@@ -14,23 +14,23 @@ interface DesignCanvasProps {
   elements?: AntennaElement[];
   selectedElementId?: string | null;
   onElementSelect?: (elementId: string) => void;
-  
+
   // Single mesh support (backward compatibility)
   mesh?: Mesh;
   currentDistribution?: number[];
-  
+
   // Panel content
   leftPanel?: React.ReactNode;
   rightPanel?: React.ReactNode;
   topToolbar?: React.ReactNode;
   bottomPanel?: React.ReactNode;
   showResultsPanel?: boolean;
-  
+
   // Display options
   gridVisible?: boolean;
   cameraMode?: 'perspective' | 'orthographic';
   scene3DRef?: React.RefObject<Scene3DHandle>;
-  
+
   // View control handlers
   onZoomIn?: () => void;
   onZoomOut?: () => void;
@@ -69,7 +69,7 @@ function DesignCanvas({
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [selectedElement, setSelectedElement] = useState<number | null>(null);
-  
+
   // Get visualization mode from Redux store
   const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
 
@@ -103,10 +103,10 @@ function DesignCanvas({
       )}
 
       {/* Main Content Area - Pure Flexbox with plain divs */}
-      <div style={{ 
-        display: 'flex', 
+      <div style={{
+        display: 'flex',
         flexDirection: 'column',
-        flex: 1, 
+        flex: 1,
         overflow: 'hidden',
         position: 'relative',
         margin: 0,
@@ -134,7 +134,7 @@ function DesignCanvas({
             padding: 0,
           }}>
             {leftPanel}
-            
+
             {/* Left Panel Toggle */}
             <div style={{
               position: 'absolute',
@@ -270,7 +270,7 @@ function DesignCanvas({
             padding: 0,
           }}>
             {rightPanel}
-            
+
             {/* Right Panel Toggle */}
             <div style={{
               position: 'absolute',

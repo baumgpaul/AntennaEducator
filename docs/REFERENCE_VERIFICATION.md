@@ -9,7 +9,7 @@ The Python dipole antenna builder has been verified against the MATLAB reference
 The Python implementation had incorrect node positions that deviated significantly from the MATLAB reference:
 
 **Before Fix:**
-- Python nodes ranged from `gap/2` to `gap/2 + (length-gap)/2` 
+- Python nodes ranged from `gap/2` to `gap/2 + (length-gap)/2`
 - For `length=1.0, gap=0.01`: nodes went from `0.005` to `0.505` (incorrect)
 - Maximum error: 5.00e-03 meters
 

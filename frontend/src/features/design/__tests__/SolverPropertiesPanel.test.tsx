@@ -266,7 +266,7 @@ describe('SolverPropertiesPanel', () => {
   it('updates center point for 2D plane field', async () => {
     const store = createMockStore([sampleField2DPlane]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -289,7 +289,7 @@ describe('SolverPropertiesPanel', () => {
   it('updates plane dimensions', async () => {
     const store = createMockStore([sampleField2DPlane]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -312,7 +312,7 @@ describe('SolverPropertiesPanel', () => {
   it('updates sampling resolution for 2D field', async () => {
     const store = createMockStore([sampleField2DPlane]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -355,7 +355,7 @@ describe('SolverPropertiesPanel', () => {
   it('updates circle radius', async () => {
     const store = createMockStore([sampleField2DCircle]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -399,7 +399,7 @@ describe('SolverPropertiesPanel', () => {
   it('updates sphere radius', async () => {
     const store = createMockStore([sampleField3DSphere]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -422,7 +422,7 @@ describe('SolverPropertiesPanel', () => {
   it('updates 3D sampling resolution', async () => {
     const store = createMockStore([sampleField3DSphere]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -467,7 +467,7 @@ describe('SolverPropertiesPanel', () => {
   it('updates cube dimensions', async () => {
     const store = createMockStore([sampleField3DCube]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -494,7 +494,7 @@ describe('SolverPropertiesPanel', () => {
   it('toggles field types', async () => {
     const store = createMockStore([sampleField2DPlane]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -516,7 +516,7 @@ describe('SolverPropertiesPanel', () => {
 
     // Select Poynting (radio button - only one can be selected)
     await user.click(poyntingRadio);
-    
+
     const state = store.getState();
     expect(state.solver.requestedFields[0].fieldType).toBe('poynting');
   });
@@ -528,7 +528,7 @@ describe('SolverPropertiesPanel', () => {
   it('toggles far/near field', async () => {
     const store = createMockStore([sampleField2DPlane]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -553,7 +553,7 @@ describe('SolverPropertiesPanel', () => {
   it('shows delete confirmation dialog', async () => {
     const store = createMockStore([sampleField2DPlane]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -574,7 +574,7 @@ describe('SolverPropertiesPanel', () => {
   it('deletes field on confirmation', async () => {
     const store = createMockStore([sampleField2DPlane]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -598,7 +598,7 @@ describe('SolverPropertiesPanel', () => {
   it('cancels delete dialog', async () => {
     const store = createMockStore([sampleField2DPlane]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -631,7 +631,7 @@ describe('SolverPropertiesPanel', () => {
   it('updates field type toggle (E-field)', async () => {
     const store = createMockStore([sampleField2DPlane]);
     const user = userEvent.setup();
-    
+
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -645,10 +645,10 @@ describe('SolverPropertiesPanel', () => {
     // Verify initial field type and can be changed
     const poyntingRadio = screen.getByLabelText('Poynting (S)');
     expect(poyntingRadio).not.toBeChecked();
-    
+
     // Select Poynting (radio button)
     await user.click(poyntingRadio);
-    
+
     const state = store.getState();
     expect(state.solver.requestedFields[0].fieldType).toBe('poynting');
   });

@@ -1,10 +1,10 @@
-import { 
-  Box, 
-  Typography, 
-  Checkbox, 
-  FormControlLabel, 
-  Slider, 
-  Paper, 
+import {
+  Box,
+  Typography,
+  Checkbox,
+  FormControlLabel,
+  Slider,
+  Paper,
   Divider,
   TextField,
   Select,
@@ -30,7 +30,7 @@ import type { FieldDefinition, NormalPreset } from '@/types/fieldDefinitions';
 
 /**
  * SolverPropertiesPanel - Right-side panel for solver tab
- * 
+ *
  * Shows:
  * - Field region visibility and opacity controls
  * - Selected field properties editor with full validation
@@ -51,12 +51,12 @@ export function SolverPropertiesPanel({
   const dispatch = useDispatch();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const isDirectivitySelected = selectedFieldId === 'directivity';
-  
+
   // Get selected field from Redux
-  const selectedField = useSelector((state: RootState) => 
+  const selectedField = useSelector((state: RootState) =>
     state.solver.requestedFields.find(f => f.id === selectedFieldId)
   );
-  
+
   // Get directivity settings
   const directivitySettings = useSelector((state: RootState) => state.solver.directivitySettings);
 
@@ -86,9 +86,9 @@ export function SolverPropertiesPanel({
         <Typography variant="subtitle2" fontWeight={600} gutterBottom>
           Field Region Display
         </Typography>
-        
+
         <Divider sx={{ my: 1.5 }} />
-        
+
         {/* Visibility toggle */}
         <FormControlLabel
           control={
@@ -113,8 +113,8 @@ export function SolverPropertiesPanel({
       {/* Field Properties Editor */}
       {isDirectivitySelected ? (
         directivitySettings ? (
-          <DirectivitySettingsEditor 
-            settings={directivitySettings} 
+          <DirectivitySettingsEditor
+            settings={directivitySettings}
             onUpdate={(newSettings) => {
               dispatch(setDirectivitySettings(newSettings));
               // Clear computed status to force recomputation
@@ -132,8 +132,8 @@ export function SolverPropertiesPanel({
           </Paper>
         )
       ) : selectedField ? (
-        <FieldPropertiesEditor 
-          field={selectedField} 
+        <FieldPropertiesEditor
+          field={selectedField}
           onUpdate={handleFieldUpdate}
           onDelete={handleDeleteClick}
         />
@@ -260,7 +260,7 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
   const handleDimensionChange = (key: 'width' | 'height' | 'radius', value: string) => {
     const num = validateNumber(value, 0.1);
     if (num !== null) {
-      onUpdate({ 
+      onUpdate({
         dimensions: { ...field.type === '2D' ? field.dimensions : {}, [key]: num }
       });
       setErrors({ ...errors, [key]: '' });
@@ -316,7 +316,7 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
       'YZ': [1, 0, 0],
       'XZ': [0, 1, 0],
     };
-    onUpdate({ 
+    onUpdate({
       normalPreset: preset,
       normalVector: presetVectors[preset]
     });
@@ -332,7 +332,7 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
         field.normalVector?.[2] ?? 1,
       ];
       newNormal[axis] = num;
-      
+
       if (validateNormalVector(newNormal[0], newNormal[1], newNormal[2])) {
         // Normalize the vector
         const length = Math.sqrt(newNormal[0]**2 + newNormal[1]**2 + newNormal[2]**2);
@@ -341,7 +341,7 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
           newNormal[1] / length,
           newNormal[2] / length,
         ];
-        onUpdate({ 
+        onUpdate({
           normalVector: normalized,
           normalPreset: 'XY' as NormalPreset // Reset preset when custom
         });
@@ -370,7 +370,7 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
       <Typography variant="caption" color="text.secondary" gutterBottom display="block">
         Type: {field.type} Region
       </Typography>
-      
+
       <Divider sx={{ my: 1.5 }} />
 
       <TextField
@@ -714,10 +714,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
       </RadioGroup>
 
       {/* Delete Button */}
-      <Button 
-        variant="outlined" 
-        color="error" 
-        fullWidth 
+      <Button
+        variant="outlined"
+        color="error"
+        fullWidth
         onClick={onDelete}
         sx={{ mt: 2 }}
       >
@@ -786,7 +786,7 @@ function DirectivitySettingsEditor({ settings, onUpdate }: DirectivitySettingsEd
       <Typography variant="subtitle2" fontWeight={600} gutterBottom>
         Directivity
       </Typography>
-      
+
       <Divider sx={{ my: 1.5 }} />
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>

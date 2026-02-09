@@ -70,7 +70,7 @@ function EditProjectDialog({ open, project, onClose }: EditProjectDialogProps) {
 
   const onSubmit = async (data: ProjectFormData) => {
     if (!project) return;
-    
+
     setLoading(true);
     try {
       await dispatch(updateProject({ id: project.id, data })).unwrap();

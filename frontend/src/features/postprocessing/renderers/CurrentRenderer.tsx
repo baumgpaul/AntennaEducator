@@ -33,7 +33,7 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
     console.log('[CurrentRenderer] === CURRENT DATA EXTRACTION ===');
     console.log('[CurrentRenderer] results:', results);
     console.log('[CurrentRenderer] frequencyHz:', frequencyHz);
-    
+
     if (!results?.branch_currents || !frequencyHz) {
       console.log('[CurrentRenderer] ❌ No results or frequency, returning null');
       return null;
@@ -41,7 +41,7 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
 
     console.log('[CurrentRenderer] ✅ branch_currents found:', results.branch_currents.length, 'currents');
     console.log('[CurrentRenderer] First 3 currents:', results.branch_currents.slice(0, 3));
-    
+
     // Use branch currents from results
     // TODO: implement frequency-specific lookup for sweeps
     return results.branch_currents;
@@ -56,12 +56,12 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
     if (!elements || elements.length === 0) return [];
     console.log('[CurrentRenderer] === EDGE EXTRACTION ===');
     console.log('[CurrentRenderer] Total antenna elements:', elements.length);
-    
+
     const allEdges: Array<{ start: [number, number, number]; end: [number, number, number]; length: number }> = [];
-    
+
     // Small offset to avoid z-fighting with wire geometry (0.0001mm = 0.1 microns)
     const offsetMagnitude = 0.0001;
-    
+
     // Get edges from antenna element meshes
     elements.forEach((element, elemIdx) => {
       console.log(`[CurrentRenderer] Element ${elemIdx}:`, {
@@ -72,7 +72,7 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
         nodeCount: element.mesh?.nodes?.length,
         edgeCount: element.mesh?.edges?.length
       });
-      
+
       if (element.mesh && element.mesh.nodes && element.mesh.edges) {
         const nodes = element.mesh.nodes;
         element.mesh.edges.forEach((edge, edgeIdx) => {
@@ -81,17 +81,17 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
           const startIdx = startIdx1Based - 1;
           const endIdx = endIdx1Based - 1;
           console.log(`[CurrentRenderer]   Edge ${edgeIdx}: indices [${startIdx1Based}, ${endIdx1Based}] (1-based) -> [${startIdx}, ${endIdx}] (0-based)`);
-          
+
           if (startIdx >= 0 && startIdx < nodes.length && endIdx >= 0 && endIdx < nodes.length) {
             const start = nodes[startIdx]; // Vector3D tuple [x, y, z]
             const end = nodes[endIdx];
-            
+
             // Calculate edge direction and length
             const dx = end[0] - start[0];
             const dy = end[1] - start[1];
             const dz = end[2] - start[2];
             const length = Math.sqrt(dx*dx + dy*dy + dz*dz);
-            
+
             // Calculate offset perpendicular to edge (to avoid z-fighting)
             // Use cross product with a reference vector to get perpendicular direction
             let offsetX = 0;
@@ -104,11 +104,11 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
               // Horizontal or angled wire - offset in Z direction or perpendicular
               offsetZ = offsetMagnitude;
             }
-            
+
             console.log(`[CurrentRenderer]     Start: [${safeToFixed(start[0], 3)}, ${safeToFixed(start[1], 3)}, ${safeToFixed(start[2], 3)}]`);
             console.log(`[CurrentRenderer]     End:   [${safeToFixed(end[0], 3)}, ${safeToFixed(end[1], 3)}, ${safeToFixed(end[2], 3)}]`);
             console.log(`[CurrentRenderer]     Length: ${safeToFixed(length, 3)} mm, Offset: [${offsetX}, ${offsetY}, ${offsetZ}]`);
-            
+
             allEdges.push({
               start: [start[0] + offsetX, start[1] + offsetY, start[2] + offsetZ],
               end: [end[0] + offsetX, end[1] + offsetY, end[2] + offsetZ],
@@ -122,12 +122,12 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
         console.log(`[CurrentRenderer]   ⚠️ Element ${elemIdx} has no valid mesh data`);
       }
     });
-    
+
     console.log('[CurrentRenderer] === EDGE EXTRACTION COMPLETE ===');
     console.log('[CurrentRenderer] Total edges extracted:', allEdges.length);
     console.log('[CurrentRenderer] Edge lengths (mm):', allEdges.map(e => safeToFixed(e.length, 4)));
     console.log('[CurrentRenderer] Total wire length:', safeToFixed(allEdges.reduce((sum, e) => sum + e.length, 0), 4), 'mm');
-    
+
     return allEdges;
   }, [elements]);
 
@@ -139,14 +139,14 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
       const real = current.real || 0;
       const imag = current.imag || 0;
       const mag = Math.sqrt(real * real + imag * imag);
-      
+
       if (idx < 5 || idx >= currentData.length - 2) {
         console.log(`[CurrentRenderer] Current ${idx}: real=${safeToFixed(real, 6)}, imag=${safeToFixed(imag, 6)}, magnitude=${safeToFixed(mag, 6)} A`);
       }
-      
+
       return mag;
     });
-    
+
     console.log('[CurrentRenderer] Total magnitudes:', mags.length);
     console.log(`[CurrentRenderer] Magnitude range: [${safeToFixed(Math.min(...mags), 6)}, ${safeToFixed(Math.max(...mags), 6)}] A`);
     return mags;
@@ -213,12 +213,12 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
         const r = colors[index * 3];
         const g = colors[index * 3 + 1];
         const b = colors[index * 3 + 2];
-        
+
         // Check for invalid color values
         if (isNaN(r) || isNaN(g) || isNaN(b) || r < 0 || r > 1 || g < 0 || g > 1 || b < 0 || b > 1) {
           console.log(`[CurrentRenderer] ⚠️ Edge ${index} has invalid color values: RGB(${r}, ${g}, ${b})`);
         }
-        
+
         const color = new THREE.Color(r, g, b);
 
         if (index < 3 || index === edges.length - 1) {

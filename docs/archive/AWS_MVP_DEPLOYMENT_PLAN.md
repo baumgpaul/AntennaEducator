@@ -275,19 +275,19 @@ class ProjectRepository(ABC):
     @abstractmethod
     async def create(self, user_id: str, project: ProjectCreate) -> Project:
         pass
-    
+
     @abstractmethod
     async def get_by_id(self, project_id: str) -> Optional[Project]:
         pass
-    
+
     @abstractmethod
     async def list_by_user(self, user_id: str) -> List[Project]:
         pass
-    
+
     @abstractmethod
     async def update(self, project_id: str, project: ProjectUpdate) -> Project:
         pass
-    
+
     @abstractmethod
     async def delete(self, project_id: str) -> bool:
         pass
@@ -297,7 +297,7 @@ class DynamoDBProjectRepository(ProjectRepository):
     def __init__(self, table_name: str):
         self.dynamodb = boto3.resource('dynamodb')
         self.table = self.dynamodb.Table(table_name)
-    
+
     async def create(self, user_id: str, project: ProjectCreate) -> Project:
         project_id = str(uuid.uuid4())
         item = {
@@ -432,13 +432,13 @@ def estimate_solve_time(mesh: Mesh) -> dict:
     """Estimate solve time based on problem complexity."""
     n_edges = len(mesh.edges)
     n_frequencies = len(mesh.frequencies) if hasattr(mesh, 'frequencies') else 1
-    
+
     # Empirical formula based on testing
     # O(n^3) for matrix solve, O(n^2) for assembly
     base_time = (n_edges ** 2) * 0.0001  # Assembly
     solve_time = (n_edges ** 3) * 0.00000001 * n_frequencies  # Solve
     total_estimate = base_time + solve_time
-    
+
     return {
         "estimated_seconds": total_estimate,
         "n_edges": n_edges,
@@ -495,7 +495,7 @@ api.antennaeducator.nyakyagyawa.com
 resource "aws_apigatewayv2_api" "main" {
   name          = "antenna-simulator-api-${var.environment}"
   protocol_type = "HTTP"
-  
+
   cors_configuration {
     allow_origins     = ["https://antennaeducator.nyakyagyawa.com"]
     allow_methods     = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
@@ -511,7 +511,7 @@ resource "aws_apigatewayv2_authorizer" "cognito" {
   authorizer_type  = "JWT"
   identity_sources = ["$request.header.Authorization"]
   name             = "cognito-authorizer"
-  
+
   jwt_configuration {
     audience = [var.cognito_client_id]
     issuer   = "https://cognito-idp.${var.region}.amazonaws.com/${var.cognito_user_pool_id}"
@@ -525,7 +525,7 @@ resource "aws_apigatewayv2_authorizer" "cognito" {
 resource "aws_apigatewayv2_stage" "prod" {
   api_id = aws_apigatewayv2_api.main.id
   name   = "prod"
-  
+
   default_route_settings {
     throttling_burst_limit = 100  # Max concurrent requests
     throttling_rate_limit  = 50   # Requests per second
@@ -544,7 +544,7 @@ resource "aws_apigatewayv2_stage" "prod" {
 
 resource "aws_cognito_user_pool" "main" {
   name = "antenna-simulator-${var.environment}"
-  
+
   # Password policy
   password_policy {
     minimum_length    = 8
@@ -553,7 +553,7 @@ resource "aws_cognito_user_pool" "main" {
     require_symbols   = false
     require_uppercase = true
   }
-  
+
   # User attributes
   schema {
     name                = "email"
@@ -561,10 +561,10 @@ resource "aws_cognito_user_pool" "main" {
     required            = true
     mutable             = true
   }
-  
+
   # Email verification
   auto_verified_attributes = ["email"]
-  
+
   # Account recovery
   account_recovery_setting {
     recovery_mechanism {
@@ -572,7 +572,7 @@ resource "aws_cognito_user_pool" "main" {
       priority = 1
     }
   }
-  
+
   # MFA (optional for MVP)
   mfa_configuration = "OFF"
 }
@@ -580,17 +580,17 @@ resource "aws_cognito_user_pool" "main" {
 resource "aws_cognito_user_pool_client" "frontend" {
   name         = "frontend-client"
   user_pool_id = aws_cognito_user_pool.main.id
-  
+
   # OAuth settings
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["email", "openid", "profile"]
   allowed_oauth_flows_user_pool_client = true
-  
+
   # Token validity
   access_token_validity  = 1   # hours
   id_token_validity      = 1   # hours
   refresh_token_validity = 30  # days
-  
+
   # Callback URLs
   callback_urls = [
     "https://antennaeducator.nyakyagyawa.com/auth/callback",
@@ -600,10 +600,10 @@ resource "aws_cognito_user_pool_client" "frontend" {
     "https://antennaeducator.nyakyagyawa.com",
     "http://localhost:3000"
   ]
-  
+
   # Disable client secret for SPA
   generate_secret = false
-  
+
   # Auth flows
   explicit_auth_flows = [
     "ALLOW_USER_SRP_AUTH",
@@ -636,18 +636,18 @@ export const cognitoAuth = {
       });
     });
   },
-  
+
   async signIn(email: string, password: string) {
     const cognitoUser = new CognitoUser({
       Username: email,
       Pool: userPool
     });
-    
+
     const authDetails = new AuthenticationDetails({
       Username: email,
       Password: password
     });
-    
+
     return new Promise((resolve, reject) => {
       cognitoUser.authenticateUser(authDetails, {
         onSuccess: (result) => resolve({
@@ -659,12 +659,12 @@ export const cognitoAuth = {
       });
     });
   },
-  
+
   async signOut() {
     const cognitoUser = userPool.getCurrentUser();
     if (cognitoUser) cognitoUser.signOut();
   },
-  
+
   async refreshSession() {
     // ... refresh token logic
   }
@@ -698,11 +698,11 @@ resource "aws_s3_bucket" "frontend" {
 
 resource "aws_s3_bucket_website_configuration" "frontend" {
   bucket = aws_s3_bucket.frontend.id
-  
+
   index_document {
     suffix = "index.html"
   }
-  
+
   error_document {
     key = "index.html"  # SPA routing
   }
@@ -741,43 +741,43 @@ resource "aws_cloudfront_distribution" "frontend" {
   default_root_object = "index.html"
   aliases             = [var.domain_name]
   price_class         = "PriceClass_100"  # North America + Europe only (cheaper)
-  
+
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
     origin_id                = "S3Origin"
   }
-  
+
   default_cache_behavior {
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "S3Origin"
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
-    
+
     cache_policy_id          = aws_cloudfront_cache_policy.frontend.id
     origin_request_policy_id = aws_cloudfront_origin_request_policy.frontend.id
   }
-  
+
   # SPA routing - return index.html for 404s
   custom_error_response {
     error_code         = 404
     response_code      = 200
     response_page_path = "/index.html"
   }
-  
+
   custom_error_response {
     error_code         = 403
     response_code      = 200
     response_page_path = "/index.html"
   }
-  
+
   viewer_certificate {
     acm_certificate_arn      = var.acm_certificate_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
-  
+
   restrictions {
     geo_restriction {
       restriction_type = "none"
@@ -793,7 +793,7 @@ resource "aws_route53_record" "frontend" {
   zone_id = var.route53_zone_id
   name    = var.domain_name
   type    = "A"
-  
+
   alias {
     name                   = aws_cloudfront_distribution.frontend.domain_name
     zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
@@ -805,7 +805,7 @@ resource "aws_route53_record" "api" {
   zone_id = var.route53_zone_id
   name    = "api.${var.domain_name}"
   type    = "A"
-  
+
   alias {
     name                   = aws_apigatewayv2_domain_name.api.domain_name_configuration[0].target_domain_name
     zone_id                = aws_apigatewayv2_domain_name.api.domain_name_configuration[0].hosted_zone_id
@@ -879,7 +879,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
     tags = {
       Project     = "antenna-simulator"
@@ -917,7 +917,7 @@ module "lambda_preprocessor" {
   environment   = var.environment
   memory_size   = 512
   timeout       = 30
-  
+
   environment_variables = {
     DYNAMODB_TABLE = module.dynamodb.table_name
     S3_BUCKET      = module.s3_data.bucket_name
@@ -931,7 +931,7 @@ module "lambda_solver" {
   environment   = var.environment
   memory_size   = 2048
   timeout       = 900
-  
+
   environment_variables = {
     DYNAMODB_TABLE = module.dynamodb.table_name
     S3_BUCKET      = module.s3_data.bucket_name
@@ -945,7 +945,7 @@ module "lambda_postprocessor" {
   environment   = var.environment
   memory_size   = 1024
   timeout       = 60
-  
+
   environment_variables = {
     DYNAMODB_TABLE = module.dynamodb.table_name
     S3_BUCKET      = module.s3_data.bucket_name
@@ -959,7 +959,7 @@ module "lambda_projects" {
   environment   = var.environment
   memory_size   = 512
   timeout       = 30
-  
+
   environment_variables = {
     DYNAMODB_TABLE = module.dynamodb.table_name
     S3_BUCKET      = module.s3_data.bucket_name
@@ -972,10 +972,10 @@ module "api_gateway" {
   source      = "../../modules/api-gateway"
   environment = var.environment
   domain_name = "api.${var.domain_name}"
-  
+
   cognito_user_pool_id = module.cognito.user_pool_id
   cognito_client_id    = module.cognito.client_id
-  
+
   lambda_integrations = {
     preprocessor  = module.lambda_preprocessor.invoke_arn
     solver        = module.lambda_solver.invoke_arn
@@ -989,7 +989,7 @@ module "frontend" {
   source      = "../../modules/frontend"
   environment = var.environment
   domain_name = var.domain_name
-  
+
   acm_certificate_arn = var.acm_certificate_arn
   route53_zone_id     = var.route53_zone_id
 }
@@ -1018,45 +1018,45 @@ resource "aws_dynamodb_table" "main" {
   billing_mode = "PAY_PER_REQUEST"  # Serverless, scales automatically
   hash_key     = "PK"
   range_key    = "SK"
-  
+
   attribute {
     name = "PK"
     type = "S"
   }
-  
+
   attribute {
     name = "SK"
     type = "S"
   }
-  
+
   attribute {
     name = "GSI1PK"
     type = "S"
   }
-  
+
   attribute {
     name = "GSI1SK"
     type = "S"
   }
-  
+
   global_secondary_index {
     name            = "GSI1"
     hash_key        = "GSI1PK"
     range_key       = "GSI1SK"
     projection_type = "ALL"
   }
-  
+
   # Enable TTL for automatic cleanup (optional)
   ttl {
     attribute_name = "TTL"
     enabled        = true
   }
-  
+
   # Point-in-time recovery
   point_in_time_recovery {
     enabled = true
   }
-  
+
   tags = {
     Name = var.table_name
   }
@@ -1094,14 +1094,14 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
-        
+
       - id: ruff-format
         name: Ruff format check
         entry: ruff format --check backend/
         language: system
         pass_filenames: false
         types: [python]
-        
+
       - id: pytest-unit
         name: Backend unit tests
         entry: pytest tests/unit -x -q --tb=short
@@ -1118,14 +1118,14 @@ repos:
         language: system
         pass_filenames: false
         types: [typescript, tsx]
-        
+
       - id: vitest
         name: Vitest (Frontend unit tests)
         entry: npm --prefix frontend test -- --run
         language: system
         pass_filenames: false
         stages: [commit]
-        
+
       - id: typescript-check
         name: TypeScript type check
         entry: npm --prefix frontend run type-check
@@ -1389,7 +1389,7 @@ phases:
   build:
     commands:
       - echo Building application...
-      
+
       # Build frontend
       - cd frontend
       - |
@@ -1401,23 +1401,23 @@ phases:
         EOF
       - npm run build
       - cd ..
-      
+
       # Build Lambda container images
       - echo Logging in to Amazon ECR...
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-      
+
       - echo Building Docker images...
       - docker build -t antenna-preprocessor -f backend/Dockerfile.lambda --build-arg SERVICE=preprocessor .
       - docker build -t antenna-solver -f backend/Dockerfile.lambda --build-arg SERVICE=solver .
       - docker build -t antenna-postprocessor -f backend/Dockerfile.lambda --build-arg SERVICE=postprocessor .
       - docker build -t antenna-projects -f backend/Dockerfile.lambda --build-arg SERVICE=projects .
-      
+
       # Tag and push
       - docker tag antenna-preprocessor:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/antenna-preprocessor:$CODEBUILD_RESOLVED_SOURCE_VERSION
       - docker tag antenna-solver:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/antenna-solver:$CODEBUILD_RESOLVED_SOURCE_VERSION
       - docker tag antenna-postprocessor:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/antenna-postprocessor:$CODEBUILD_RESOLVED_SOURCE_VERSION
       - docker tag antenna-projects:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/antenna-projects:$CODEBUILD_RESOLVED_SOURCE_VERSION
-      
+
       - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/antenna-preprocessor:$CODEBUILD_RESOLVED_SOURCE_VERSION
       - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/antenna-solver:$CODEBUILD_RESOLVED_SOURCE_VERSION
       - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/antenna-postprocessor:$CODEBUILD_RESOLVED_SOURCE_VERSION
@@ -1466,15 +1466,15 @@ reports:
 resource "aws_codepipeline" "main" {
   name     = "antenna-simulator-pipeline"
   role_arn = aws_iam_role.codepipeline.arn
-  
+
   artifact_store {
     location = aws_s3_bucket.artifacts.bucket
     type     = "S3"
   }
-  
+
   stage {
     name = "Source"
-    
+
     action {
       name             = "Source"
       category         = "Source"
@@ -1482,7 +1482,7 @@ resource "aws_codepipeline" "main" {
       provider         = "CodeStarSourceConnection"
       version          = "1"
       output_artifacts = ["source_output"]
-      
+
       configuration = {
         ConnectionArn    = aws_codestarconnections_connection.github.arn
         FullRepositoryId = var.github_repo
@@ -1490,10 +1490,10 @@ resource "aws_codepipeline" "main" {
       }
     }
   }
-  
+
   stage {
     name = "Build"
-    
+
     action {
       name             = "Build"
       category         = "Build"
@@ -1502,7 +1502,7 @@ resource "aws_codepipeline" "main" {
       input_artifacts  = ["source_output"]
       output_artifacts = ["build_output"]
       version          = "1"
-      
+
       configuration = {
         ProjectName = aws_codebuild_project.main.name
         EnvironmentVariables = jsonencode([
@@ -1518,10 +1518,10 @@ resource "aws_codepipeline" "main" {
       }
     }
   }
-  
+
   stage {
     name = "DeployStaging"
-    
+
     action {
       name            = "DeployLambdas"
       category        = "Deploy"
@@ -1529,7 +1529,7 @@ resource "aws_codepipeline" "main" {
       provider        = "Lambda"
       input_artifacts = ["build_output"]
       version         = "1"
-      
+
       configuration = {
         FunctionName = "antenna-deploy-staging"
         UserParameters = jsonencode({
@@ -1537,7 +1537,7 @@ resource "aws_codepipeline" "main" {
         })
       }
     }
-    
+
     action {
       name            = "DeployFrontend"
       category        = "Deploy"
@@ -1545,33 +1545,33 @@ resource "aws_codepipeline" "main" {
       provider        = "S3"
       input_artifacts = ["build_output"]
       version         = "1"
-      
+
       configuration = {
         BucketName = var.staging_frontend_bucket
         Extract    = "true"
       }
     }
   }
-  
+
   stage {
     name = "Approval"
-    
+
     action {
       name     = "ManualApproval"
       category = "Approval"
       owner    = "AWS"
       provider = "Manual"
       version  = "1"
-      
+
       configuration = {
         CustomData = "Review staging deployment before production"
       }
     }
   }
-  
+
   stage {
     name = "DeployProduction"
-    
+
     action {
       name            = "DeployLambdas"
       category        = "Deploy"
@@ -1579,7 +1579,7 @@ resource "aws_codepipeline" "main" {
       provider        = "Lambda"
       input_artifacts = ["build_output"]
       version         = "1"
-      
+
       configuration = {
         FunctionName = "antenna-deploy-production"
         UserParameters = jsonencode({
@@ -1587,7 +1587,7 @@ resource "aws_codepipeline" "main" {
         })
       }
     }
-    
+
     action {
       name            = "DeployFrontend"
       category        = "Deploy"
@@ -1595,20 +1595,20 @@ resource "aws_codepipeline" "main" {
       provider        = "S3"
       input_artifacts = ["build_output"]
       version         = "1"
-      
+
       configuration = {
         BucketName = var.production_frontend_bucket
         Extract    = "true"
       }
     }
-    
+
     action {
       name     = "InvalidateCache"
       category = "Invoke"
       owner    = "AWS"
       provider = "Lambda"
       version  = "1"
-      
+
       configuration = {
         FunctionName = "cloudfront-invalidate"
         UserParameters = jsonencode({
@@ -1903,13 +1903,13 @@ resource "aws_codepipeline" "main" {
 ```
 Preprocessor:  10/day × 30 = 300 invocations
                300 × 5s × 512 MB = 768 GB-seconds
-               
+
 Solver:        10/day × 30 = 300 invocations
                300 × 30s × 2048 MB = 18,432 GB-seconds
-               
+
 Postprocessor: 20/day × 30 = 600 invocations
                600 × 10s × 1024 MB = 6,144 GB-seconds
-               
+
 Projects:      50/day × 30 = 1,500 invocations
                1,500 × 0.5s × 512 MB = 384 GB-seconds
 

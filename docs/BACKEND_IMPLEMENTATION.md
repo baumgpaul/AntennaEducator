@@ -131,7 +131,7 @@ Input Parameters:
     - type: "voltage" | "current"
     - amplitude: complex
     - position: "center" | "feed_point"
-    
+
 Output:
   - Geometry object with nodes and connectivity
   - Metadata for visualization
@@ -146,7 +146,7 @@ Input Parameters:
   - wire_radius: float
   - segments: int
   - source: Optional[SourceConfig]  # Same structure as Dipole
-  
+
 Output:
   - Circular loop geometry
 ```
@@ -162,7 +162,7 @@ Input Parameters:
   - wire_radius: float
   - segments_per_turn: int
   - source: Optional[SourceConfig]  # Same structure as Dipole
-  
+
 Output:
   - Helical geometry
 ```
@@ -174,7 +174,7 @@ Input Parameters:
   - end_point: [x, y, z]
   - radius: float
   - segments: int
-  
+
 Output:
   - Linear conductor (passive element)
 ```
@@ -187,7 +187,7 @@ Input Parameters:
   - spacing: float
   - plane: "xy" | "xz" | "yz"
   - wire_radius: float
-  
+
 Output:
   - Meshed grid structure
 ```
@@ -199,7 +199,7 @@ Input Parameters:
   - connectivity: List[[node_i, node_j]]
   - radii: List[float] | float
   - sources: Optional[List[SourceConfig]]  # Each source without frequency
-  
+
 Output:
   - Arbitrary wire structure
 ```
@@ -319,7 +319,7 @@ Input:
   - mesh: PreprocessorOutput
   - frequency: float | List[float]
   - method: "direct" | "iterative"
-  
+
 Process:
   1. Assemble Z matrix at frequency f
   2. Apply source excitation to V vector
@@ -327,7 +327,7 @@ Process:
      - Direct: LU decomposition
      - Iterative: GMRES, BiCGSTAB
   4. Compute node potentials from currents
-  
+
 Output:
   - currents: Complex[M]
   - potentials: Complex[N]
@@ -341,12 +341,12 @@ Input:
   - time_points: np.ndarray
   - frequency_samples: int
   - source_waveform: Function(t)
-  
+
 Process:
   1. FFT source waveform → frequency domain
   2. Solve for each frequency sample
   3. IFFT results → time domain
-  
+
 Output:
   - currents_time: Float[M, T]
   - potentials_time: Float[N, T]
@@ -362,10 +362,10 @@ Input:
   - f_start, f_stop: float
   - num_points: int
   - scale: "linear" | "log"
-  
+
 Process:
   Parallel or sequential solve at each frequency
-  
+
 Output:
   - frequencies: Float[K]
   - currents_f: Complex[M, K]
@@ -428,18 +428,18 @@ For each antenna port:
 Input:
   - solver_results: (currents, potentials, frequency)
   - port_definition: edge_id or node_pair
-  
+
 Calculation:
   Z_input = V_port / I_port
-  
+
   For voltage source:
     V_port = source_voltage
     I_port = current in source edge
-    
+
   For current source:
     I_port = source_current
     V_port = potential difference at nodes
-    
+
 Output:
   - impedance: Complex | Complex[K] for sweep
   - resistance: Float[K]
@@ -471,13 +471,13 @@ Input:
   - solver_results: (currents, mesh, frequency)
   - observation_points: np.ndarray[P, 3]
   - field_type: "electric" | "magnetic" | "both"
-  
+
 Process:
   For each observation point:
     1. Compute vector potential contribution from each current segment
     2. Compute scalar potential contribution from charge distribution
     3. Apply field formulas
-    
+
 Output:
   - E_field: Complex[P, 3] (Ex, Ey, Ez)
   - H_field: Complex[P, 3] (Hx, Hy, Hz)
@@ -498,14 +498,14 @@ Input:
   - theta_range: [0, π]
   - phi_range: [0, 2π]
   - num_theta, num_phi: int
-  
+
 Process:
   1. Compute far-field E(θ, φ) on sphere
   2. Calculate radiated power: P(θ, φ) = |E(θ, φ)|²
   3. Integrate total radiated power: P_total
   4. Compute directivity: D(θ, φ) = 4π * P(θ, φ) / P_total
   5. Find maximum directivity and direction
-  
+
 Output:
   - directivity: Float[num_theta, num_phi]
   - max_directivity: Float (dBi)
@@ -522,11 +522,11 @@ Input:
   - solver_results_time: (currents_time, time_vector)
   - observation_points: np.ndarray[P, 3]
   - animation_frames: int
-  
+
 Process:
   For each time step:
     Compute instantaneous field at observation points
-    
+
 Output:
   - E_field_time: Float[P, 3, T]
   - magnitude_time: Float[P, T]
@@ -571,7 +571,7 @@ Project:
   - updated_at: DateTime
   - owner_id: UUID (for multi-tenancy)
   - status: "draft" | "meshed" | "solving" | "solved" | "error"
-  
+
   # Relations
   - geometry: Geometry
   - solver_jobs: List[SolverJob]
@@ -587,7 +587,7 @@ Geometry:
   - elements: List[AntennaElement]
   - mesh: Optional[Mesh]
   - created_at: DateTime
-  
+
 AntennaElement:
   - id: UUID
   - type: "dipole" | "loop" | "helix" | "rod" | "grid" | "custom"
@@ -595,7 +595,7 @@ AntennaElement:
   - parameters: Dict  # Type-specific parameters
   - transform: Transform4x4
   - source: Optional[Source]
-  
+
 Mesh:
   - nodes: Array[N, 3]  # Stored as binary (NumPy/HDF5)
   - edges: Array[M, 2]
@@ -603,13 +603,13 @@ Mesh:
   - edge_to_element: Dict[edge_id, element_id]
   - source_edges: List[edge_id]
   - metadata: Dict
-  
+
 Source:
   - type: "voltage" | "current"
   - amplitude: Complex
   - phase: Float
   - waveform: Optional[String]  # For time-domain
-  
+
 Note: Frequency is defined at the solver level, not per source.
       All sources in a project operate at the same frequency(ies).
 ```
@@ -627,7 +627,7 @@ SolverJob:
   - started_at: Optional[DateTime]
   - completed_at: Optional[DateTime]
   - error_message: Optional[String]
-  
+
 SolverResult:
   - job_id: UUID
   - frequencies: Array[K]
@@ -648,19 +648,19 @@ PostprocessorResult:
   - result_data: Dict | BinaryData
   - storage_location: S3Key | FilePath
   - created_at: DateTime
-  
+
 ImpedanceResult:
   - frequencies: Array[K]
   - impedance: Complex[K]
   - swr: Float[K]
   - return_loss: Float[K]
-  
+
 FieldResult:
   - observation_points: Array[P, 3]
   - frequencies: Array[K]
   - E_field: Complex[P, 3, K]
   - H_field: Complex[P, 3, K]
-  
+
 DirectivityResult:
   - frequency: Float
   - theta: Array[Nθ]
@@ -963,23 +963,23 @@ services:
     ports: ["8001:8001"]
     environment: [...]
     depends_on: [postgres, minio]
-    
+
   solver:
     build: ./backend/solver
     ports: ["8002:8002"]
     environment: [...]
     depends_on: [postgres, minio]
-    
+
   postprocessor:
     build: ./backend/postprocessor
     ports: ["8003:8003"]
     environment: [...]
     depends_on: [postgres, minio]
-    
+
   postgres:
     image: postgres:15
     volumes: ["postgres_data:/var/lib/postgresql/data"]
-    
+
   minio:
     image: minio/minio
     volumes: ["minio_data:/data"]
@@ -1007,7 +1007,7 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: prod
-      
+
   # Lambda Functions
   PreprocessorFunction:
     Type: AWS::Serverless::Function
@@ -1024,7 +1024,7 @@ Resources:
             Path: /api/preprocessor/antenna/{type}
             Method: POST
             RestApiId: !Ref PEECApi
-            
+
   SolverFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -1035,13 +1035,13 @@ Resources:
       Layers:
         - !Ref NumpyScipyLayer
       Policies: [...]
-      
+
   # S3 Bucket
   ResultsBucket:
     Type: AWS::S3::Bucket
     Properties:
       LifecycleConfiguration: [...]
-      
+
   # DynamoDB Table
   ProjectsTable:
     Type: AWS::DynamoDB::Table
@@ -1244,32 +1244,42 @@ jobs:
 **Structure**:
 ```
 tests/
+├── conftest.py
 ├── unit/
-│   ├── preprocessor/
-│   │   ├── test_dipole_builder.py
-│   │   ├── test_loop_builder.py
-│   │   ├── test_mesh_generation.py
-│   │   └── test_validation.py
-│   ├── solver/
-│   │   ├── test_impedance_matrix.py
-│   │   ├── test_solver_direct.py
-│   │   ├── test_solver_iterative.py
-│   │   └── test_frequency_sweep.py
-│   └── postprocessor/
-│       ├── test_impedance.py
-│       ├── test_field_calculation.py
-│       └── test_directivity.py
-├── integration/
-│   ├── test_preprocessor_api.py
-│   ├── test_solver_api.py
-│   └── test_postprocessor_api.py
-└── e2e/
-    └── test_full_workflow.py
+│   ├── test_constants.py
+│   ├── test_dipole_builder.py
+│   ├── test_field_computation.py
+│   ├── test_lumped_elements.py
+│   ├── test_lumped_elements_edge_cases.py
+│   ├── test_multi_antenna_solver.py
+│   ├── test_node_validation.py
+│   ├── test_pattern_analysis.py
+│   ├── test_port_parameters.py
+│   ├── test_preprocessor_lumped_elements.py
+│   ├── test_preprocessor_service.py
+│   ├── test_skin_effect.py
+│   ├── test_solver_frequency.py
+│   ├── test_solver_gauss_quadrature.py
+│   ├── test_solver_geometry.py
+│   ├── test_solver_inductance.py
+│   ├── test_solver_resistance.py
+│   ├── test_solver_system.py
+│   └── test_validation.py
+└── integration/
+    ├── test_complete_farfield_flow.py
+    ├── test_complete_solver_workflow.py
+    ├── test_current_source_golden.py
+    ├── test_halfwave_dipole_complete.py
+    ├── test_incremental_postprocessing.py
+    ├── test_multi_antenna_api.py
+    ├── test_preprocessor_solver_pipeline.py
+    ├── test_solver_field_integration.py
+    └── test_two_monopoles_multi_antenna.py
 ```
 
 **Example Test**:
 ```python
-# tests/unit/preprocessor/test_dipole_builder.py
+# tests/unit/test_dipole_builder.py
 import pytest
 import numpy as np
 from backend.preprocessor.builders import create_dipole
@@ -1282,7 +1292,7 @@ def test_dipole_basic():
         radius=0.001,
         segments=10
     )
-    
+
     assert result.nodes.shape[0] == 11  # 10 segments = 11 nodes
     assert result.edges.shape[0] == 10
     assert np.allclose(result.nodes[0], [0, 0, -0.25])
@@ -1297,7 +1307,7 @@ def test_dipole_with_source():
         segments=10,
         source={'type': 'voltage', 'amplitude': 1.0}
     )
-    
+
     assert result.sources is not None
     assert len(result.sources) == 1
     assert result.sources[0]['type'] == 'voltage'
@@ -1329,7 +1339,7 @@ def test_create_dipole_endpoint(client):
             "segments": 10
         }
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert 'element_id' in data
@@ -1346,28 +1356,28 @@ def test_dipole_simulation_workflow(api_client):
     # 1. Create project
     project = api_client.post("/api/projects", json={"name": "Test"})
     project_id = project.json()['id']
-    
+
     # 2. Add dipole
     dipole = api_client.post(
         f"/api/preprocessor/antenna/dipole",
         json={"project_id": project_id, ...}
     )
-    
+
     # 3. Generate mesh
     mesh = api_client.post(f"/api/preprocessor/project/{project_id}/mesh")
     assert mesh.status_code == 200
-    
+
     # 4. Solve
     job = api_client.post(
         f"/api/solver/solve/{project_id}",
         json={"frequency": 1e9}
     )
     job_id = job.json()['job_id']
-    
+
     # 5. Wait for completion
     result = wait_for_job(api_client, job_id, timeout=60)
     assert result['status'] == 'completed'
-    
+
     # 6. Get impedance
     impedance = api_client.post(
         f"/api/postprocessor/impedance/{job_id}"
@@ -1388,10 +1398,10 @@ def test_dipole_impedance_vs_matlab():
     python_result = run_python_dipole_simulation(
         length=0.5, frequency=300e6, segments=20
     )
-    
+
     # Load MATLAB reference
     matlab_result = load_matlab_reference('dipole_300MHz.mat')
-    
+
     # Compare impedance (within 1% tolerance)
     assert np.allclose(
         python_result['impedance'],
@@ -1472,20 +1482,20 @@ def test_dipole_impedance_vs_matlab():
 ```matlab
 function [nodes, connectivity, radii, sources] = createDipole(length, center, orientation, radius, segments, source)
     % Create dipole antenna
-    
+
     % Normalize orientation
     orientation = orientation / norm(orientation);
-    
+
     % Generate nodes
     t = linspace(-length/2, length/2, segments+1)';
     nodes = center + t .* orientation;
-    
+
     % Generate connectivity
     connectivity = [(1:segments)', (2:segments+1)'];
-    
+
     % Radii
     radii = radius * ones(segments, 1);
-    
+
     % Sources
     if nargin > 5
         source_segment = floor(segments/2) + 1;
@@ -1527,7 +1537,7 @@ def create_dipole(
 ) -> Geometry:
     """
     Create a dipole antenna geometry.
-    
+
     Args:
         length: Total length of dipole in meters
         center: Center position [x, y, z] in meters
@@ -1536,26 +1546,26 @@ def create_dipole(
         segments: Number of segments for discretization
         source: Optional source configuration dict with keys:
                 'type', 'amplitude' (frequency is set at solver level)
-    
+
     Returns:
         Geometry object containing nodes, connectivity, radii, and sources
     """
     # Normalize orientation
     orientation = orientation / np.linalg.norm(orientation)
-    
+
     # Generate nodes
     t = np.linspace(-length/2, length/2, segments+1)
     nodes = center + np.outer(t, orientation)
-    
+
     # Generate connectivity (0-indexed)
     connectivity = np.column_stack([
         np.arange(segments),
         np.arange(1, segments+1)
     ])
-    
+
     # Radii
     radii = np.full(segments, radius)
-    
+
     # Sources
     sources_list = None
     if source is not None:
@@ -1565,7 +1575,7 @@ def create_dipole(
             type=source['type'],
             amplitude=complex(source['amplitude'])
         )]
-    
+
     return Geometry(
         nodes=nodes,
         connectivity=connectivity,

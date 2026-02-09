@@ -211,7 +211,7 @@ assert abs(D_max - 1.0) < 0.05
 ### **Power Conservation**
 ```python
 # Test: P_accepted = P_input - P_reflected
-assert abs(sol.accepted_power - 
+assert abs(sol.accepted_power -
            (sol.input_power - sol.reflected_power)) < 1e-9
 ```
 

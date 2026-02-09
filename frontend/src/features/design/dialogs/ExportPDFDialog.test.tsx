@@ -54,13 +54,13 @@ describe('ExportPDFDialog', () => {
 
   it('validates filename is required', async () => {
     renderDialog();
-    
+
     const filenameInput = screen.getByLabelText(/Filename/i);
     fireEvent.change(filenameInput, { target: { value: '' } });
-    
+
     const exportButton = screen.getByRole('button', { name: /export/i });
     fireEvent.click(exportButton);
-    
+
     await waitFor(() => {
       expect(mockOnExport).not.toHaveBeenCalled();
     });
@@ -68,21 +68,21 @@ describe('ExportPDFDialog', () => {
 
   it('calls onExport with correct options', async () => {
     renderDialog();
-    
+
     const metadataCheckbox = screen.getByLabelText(/Include metadata/i);
     fireEvent.click(metadataCheckbox);
-    
+
     const resolutionSelect = screen.getByLabelText(/Resolution/i);
     fireEvent.mouseDown(resolutionSelect);
     const option1440p = await screen.findByText('1440p (2560×1440)');
     fireEvent.click(option1440p);
-    
+
     const filenameInput = screen.getByLabelText(/Filename/i);
     fireEvent.change(filenameInput, { target: { value: 'MyExport' } });
-    
+
     const exportButton = screen.getByRole('button', { name: /export/i });
     fireEvent.click(exportButton);
-    
+
     await waitFor(() => {
       expect(mockOnExport).toHaveBeenCalledWith({
         includeMetadata: true,
@@ -94,10 +94,10 @@ describe('ExportPDFDialog', () => {
 
   it('closes dialog on cancel', async () => {
     renderDialog();
-    
+
     const cancelButton = screen.getByRole('button', { name: /cancel/i });
     fireEvent.click(cancelButton);
-    
+
     await waitFor(() => {
       const state = store.getState();
       expect(state.postprocessing.exportPDFDialogOpen).toBe(false);

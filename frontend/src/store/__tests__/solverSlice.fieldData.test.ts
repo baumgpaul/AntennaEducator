@@ -31,7 +31,7 @@ describe('solverSlice field data management', () => {
   describe('setFieldData', () => {
     it('stores field data for a specific field and frequency', () => {
       const fieldData = makeMockFieldData(10);
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 1e9,
@@ -40,7 +40,7 @@ describe('solverSlice field data management', () => {
 
       const state = store.getState();
       const storedData = selectFieldData(state);
-      
+
       expect(storedData).toHaveProperty('field-1');
       expect(storedData['field-1']).toHaveProperty(1e9);
       expect(storedData['field-1'][1e9]).toEqual(fieldData);
@@ -49,13 +49,13 @@ describe('solverSlice field data management', () => {
     it('stores multiple frequencies for the same field', () => {
       const fieldData1 = makeMockFieldData(10);
       const fieldData2 = makeMockFieldData(20);
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 1e9,
         data: fieldData1,
       }));
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 2e9,
@@ -64,7 +64,7 @@ describe('solverSlice field data management', () => {
 
       const state = store.getState();
       const storedData = selectFieldData(state);
-      
+
       expect(storedData['field-1'][1e9]).toEqual(fieldData1);
       expect(storedData['field-1'][2e9]).toEqual(fieldData2);
       expect(storedData['field-1'][1e9].points.length).toBe(10);
@@ -74,13 +74,13 @@ describe('solverSlice field data management', () => {
     it('stores data for multiple fields', () => {
       const fieldData1 = makeMockFieldData(10);
       const fieldData2 = makeMockFieldData(15);
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 1e9,
         data: fieldData1,
       }));
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-2',
         frequencyHz: 1e9,
@@ -89,7 +89,7 @@ describe('solverSlice field data management', () => {
 
       const state = store.getState();
       const storedData = selectFieldData(state);
-      
+
       expect(storedData).toHaveProperty('field-1');
       expect(storedData).toHaveProperty('field-2');
       expect(storedData['field-1'][1e9].points.length).toBe(10);
@@ -99,13 +99,13 @@ describe('solverSlice field data management', () => {
     it('overwrites existing data for same field and frequency', () => {
       const fieldData1 = makeMockFieldData(10);
       const fieldData2 = makeMockFieldData(20);
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 1e9,
         data: fieldData1,
       }));
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 1e9,
@@ -114,7 +114,7 @@ describe('solverSlice field data management', () => {
 
       const state = store.getState();
       const storedData = selectFieldData(state);
-      
+
       expect(storedData['field-1'][1e9]).toEqual(fieldData2);
       expect(storedData['field-1'][1e9].points.length).toBe(20);
     });
@@ -124,13 +124,13 @@ describe('solverSlice field data management', () => {
     it('clears all field data', () => {
       const fieldData1 = makeMockFieldData(10);
       const fieldData2 = makeMockFieldData(15);
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 1e9,
         data: fieldData1,
       }));
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-2',
         frequencyHz: 2e9,
@@ -161,13 +161,13 @@ describe('solverSlice field data management', () => {
     it('clears data for a specific field', () => {
       const fieldData1 = makeMockFieldData(10);
       const fieldData2 = makeMockFieldData(15);
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 1e9,
         data: fieldData1,
       }));
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-2',
         frequencyHz: 1e9,
@@ -178,7 +178,7 @@ describe('solverSlice field data management', () => {
 
       const state = store.getState();
       const storedData = selectFieldData(state);
-      
+
       expect(storedData).not.toHaveProperty('field-1');
       expect(storedData).toHaveProperty('field-2');
       expect(storedData['field-2'][1e9]).toEqual(fieldData2);
@@ -187,13 +187,13 @@ describe('solverSlice field data management', () => {
     it('clears all frequencies for a field', () => {
       const fieldData1 = makeMockFieldData(10);
       const fieldData2 = makeMockFieldData(15);
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 1e9,
         data: fieldData1,
       }));
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 2e9,
@@ -213,7 +213,7 @@ describe('solverSlice field data management', () => {
 
     it('handles clearing non-existent field', () => {
       const fieldData = makeMockFieldData(10);
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 1e9,
@@ -224,7 +224,7 @@ describe('solverSlice field data management', () => {
 
       const state = store.getState();
       const storedData = selectFieldData(state);
-      
+
       expect(storedData).toHaveProperty('field-1');
       expect(storedData['field-1'][1e9]).toEqual(fieldData);
     });
@@ -234,20 +234,20 @@ describe('solverSlice field data management', () => {
     it('returns empty object when no data exists', () => {
       const state = store.getState();
       const storedData = selectFieldData(state);
-      
+
       expect(storedData).toBeNull();
     });
 
     it('returns all field data', () => {
       const fieldData1 = makeMockFieldData(10);
       const fieldData2 = makeMockFieldData(15);
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-1',
         frequencyHz: 1e9,
         data: fieldData1,
       }));
-      
+
       store.dispatch(setFieldData({
         fieldId: 'field-2',
         frequencyHz: 2e9,
@@ -256,7 +256,7 @@ describe('solverSlice field data management', () => {
 
       const state = store.getState();
       const storedData = selectFieldData(state);
-      
+
       expect(Object.keys(storedData)).toHaveLength(2);
       expect(storedData['field-1'][1e9]).toEqual(fieldData1);
       expect(storedData['field-2'][2e9]).toEqual(fieldData2);

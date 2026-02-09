@@ -34,11 +34,11 @@ See `docs/AWS_MVP_DEPLOYMENT_PLAN.md` Section 3 for detailed access patterns.
 ```hcl
 module "dynamodb" {
   source      = "../../modules/dynamodb"
-  
+
   table_name                     = "antenna-simulator-staging"
   enable_point_in_time_recovery  = true
   enable_streams                 = false
-  
+
   tags = {
     Environment = "staging"
     Project     = "antenna-simulator"

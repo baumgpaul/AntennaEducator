@@ -95,17 +95,17 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
 
   if (element.sources && element.sources.length > 0) {
     console.log(`Processing ${element.sources.length} sources for ${element.name}`, element.sources);
-    
+
     // Check for balanced feed pattern: two voltage sources from node_start=0
     const centerTapSources = element.sources.filter(
       s => s.type === 'voltage' && s.node_start === 0 && s.node_end !== 0
     );
-    
+
     if (centerTapSources.length === 2) {
       // Convert balanced feed (two center-tap sources) to gap source
       const source1 = centerTapSources[0];
       const source2 = centerTapSources[1];
-      
+
       // Parse amplitude from first source
       let amplitude = 1.0;
       if (typeof source1.amplitude === 'string') {
@@ -120,9 +120,9 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
       } else if (typeof source1.amplitude === 'number') {
         amplitude = source1.amplitude;
       }
-      
+
       console.log(`Converting balanced feed to gap source for ${element.name}: nodes ${source1.node_end} → ${source2.node_end}`);
-      
+
       voltage_sources.push({
         node_start: source1.node_end,
         node_end: source2.node_end,
@@ -150,14 +150,14 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
           } else if (typeof source.amplitude === 'number') {
             amplitude = source.amplitude;
           }
-          
+
           // Sources with node_start=0 are valid (ground reference)
           // Only skip if BOTH nodes are 0
           if (source.node_start === 0 && source.node_end === 0) {
             console.warn(`Skipping invalid source with both nodes=0: ${element.name}`);
             continue;
           }
-          
+
           voltage_sources.push({
             node_start: source.node_start,
             node_end: source.node_end,
@@ -176,12 +176,12 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
           } else if (typeof source.amplitude === 'number') {
             amplitude = source.amplitude;
           }
-          
+
           if (source.node_start === 0) {
             console.warn(`Skipping current source with node=0 (invalid for solver API): ${element.name}`);
             continue;
           }
-          
+
           current_sources.push({
             node: source.node_start,
             value: amplitude,

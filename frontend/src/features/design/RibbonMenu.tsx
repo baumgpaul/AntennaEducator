@@ -67,13 +67,13 @@ interface RibbonMenuProps {
  * - Solver: (future implementation)
  * - Postprocessing: View management, item addition, export
  */
-function RibbonMenu({ 
+function RibbonMenu({
   currentTab = 'designer',
-  onAntennaTypeSelect, 
-  onAnalysisAction, 
-  onViewOption, 
-  solverStatus = 'idle', 
-  solverProgress = 0 
+  onAntennaTypeSelect,
+  onAnalysisAction,
+  onViewOption,
+  solverStatus = 'idle',
+  solverProgress = 0
 }: RibbonMenuProps) {
   const dispatch = useAppDispatch();
   const store = useAppStore();
@@ -81,10 +81,10 @@ function RibbonMenu({
   const selectedViewId = useAppSelector((state) => state.postprocessing.selectedViewId);
   const viewConfigurations = useAppSelector((state) => state.postprocessing.viewConfigurations);
   const currentFrequency = useAppSelector((state) => state.solver.currentFrequency);
-  const selectedViewData = useAppSelector((state) => 
+  const selectedViewData = useAppSelector((state) =>
     state.postprocessing.viewConfigurations.find(v => v.id === selectedViewId)
   );
-  
+
   const [antennaMenuAnchor, setAntennaMenuAnchor] = useState<null | HTMLElement>(null);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
@@ -116,7 +116,7 @@ function RibbonMenu({
 
   const handleAddAntennaSystem = () => {
     if (!selectedViewId) return;
-    
+
     dispatch(addItemToView({
       viewId: selectedViewId,
       item: {
@@ -133,7 +133,7 @@ function RibbonMenu({
 
   const handleAddCurrentDistribution = () => {
     if (!selectedViewId) return;
-    
+
     dispatch(addItemToView({
       viewId: selectedViewId,
       item: {
@@ -148,7 +148,7 @@ function RibbonMenu({
 
   const handleAddVoltageDistribution = () => {
     if (!selectedViewId) return;
-    
+
     dispatch(addItemToView({
       viewId: selectedViewId,
       item: {
@@ -167,7 +167,7 @@ function RibbonMenu({
 
   const handleAddDirectivity = () => {
     if (!selectedViewId) return;
-    
+
     dispatch(addItemToView({
       viewId: selectedViewId,
       item: {
@@ -203,40 +203,40 @@ function RibbonMenu({
 
   const handleExportParaView = async () => {
     dispatch(setExportType('paraview'));
-    
+
     // Find first field item in current view
-    const currentView = selectedViewId 
+    const currentView = selectedViewId
       ? viewConfigurations.find(v => v.id === selectedViewId)
       : null;
-    
+
     if (!currentView) {
       setSnackbarMessage('No view selected for export');
       setSnackbarSeverity('error');
       setShowSnackbar(true);
       return;
     }
-    
+
     // Find first field-magnitude item
-    const fieldItem = currentView.items.find(item => 
+    const fieldItem = currentView.items.find(item =>
       item.type === 'field-magnitude' || item.type === 'field-vector'
     );
-    
+
     if (!fieldItem || !('fieldId' in fieldItem)) {
       setSnackbarMessage('No field data in this view. Add a field visualization first.');
       setSnackbarSeverity('error');
       setShowSnackbar(true);
       return;
     }
-    
+
     const frequencyHz = currentFrequency ? currentFrequency * 1e6 : null;
-    
+
     if (!frequencyHz) {
       setSnackbarMessage('No frequency data available');
       setSnackbarSeverity('error');
       setShowSnackbar(true);
       return;
     }
-    
+
     // Check if we can export
     if (!canExportToVTU(fieldItem.fieldId, frequencyHz, store.getState() as unknown as RootState)) {
       setSnackbarMessage('Field data not computed yet. Run postprocessing first.');
@@ -244,18 +244,18 @@ function RibbonMenu({
       setShowSnackbar(true);
       return;
     }
-    
+
     // Generate filename
     const frequencyMHz = (frequencyHz / 1e6).toFixed(2);
     const filename = `${currentView.name.replace(/[^a-zA-Z0-9]/g, '_')}_${frequencyMHz}MHz`;
-    
+
     try {
       await exportToVTU({
         fieldId: fieldItem.fieldId,
         frequencyHz,
         filename,
       }, store.getState() as unknown as RootState);
-      
+
       setSnackbarMessage(`VTU file exported: ${filename}.vtu`);
       setSnackbarSeverity('success');
       setShowSnackbar(true);
@@ -271,7 +271,7 @@ function RibbonMenu({
     <Paper elevation={0} sx={{ borderRadius: 0, borderBottom: '1px solid', borderColor: 'divider' }}>
       <Box sx={{ p: 1.5, minHeight: 80, bgcolor: 'background.paper' }}>
         <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
-          
+
           {/* DESIGNER TAB RIBBON */}
           {currentTab === 'designer' && (
             <>
@@ -538,7 +538,7 @@ function RibbonMenu({
           )}
         </Box>
       </Box>
-      
+
       {/* SNACKBAR FOR NOTIFICATIONS */}
       <Snackbar
         open={showSnackbar}
@@ -546,8 +546,8 @@ function RibbonMenu({
         onClose={() => setShowSnackbar(false)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert 
-          onClose={() => setShowSnackbar(false)} 
+        <Alert
+          onClose={() => setShowSnackbar(false)}
           severity={snackbarSeverity}
           variant="filled"
         >

@@ -61,12 +61,12 @@ try {
 
     # Verify services are responding
     Write-Host "Verifying service health..." -ForegroundColor Yellow
-    
+
     $maxRetries = 20
     $retryCount = 0
     $preprocessorHealthy = $false
     $solverHealthy = $false
-    
+
     while ($retryCount -lt $maxRetries) {
         if (-not $preprocessorHealthy) {
             try {
@@ -81,7 +81,7 @@ try {
                 }
             }
         }
-        
+
         if (-not $solverHealthy) {
             try {
                 $response = Invoke-WebRequest -Uri "http://localhost:8002/health" -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
@@ -95,22 +95,22 @@ try {
                 }
             }
         }
-        
+
         if ($preprocessorHealthy -and $solverHealthy) {
             break
         }
-        
+
         Start-Sleep -Seconds 1
         $retryCount++
     }
-    
+
     if (-not $preprocessorHealthy -or -not $solverHealthy) {
         Write-Host "`nService health check status:" -ForegroundColor Yellow
         Write-Host "  Preprocessor: $(if ($preprocessorHealthy) { '✓ Ready' } else { '✗ Not responding' })" -ForegroundColor $(if ($preprocessorHealthy) { 'Green' } else { 'Red' })
         Write-Host "  Solver: $(if ($solverHealthy) { '✓ Ready' } else { '✗ Not responding' })" -ForegroundColor $(if ($solverHealthy) { 'Green' } else { 'Red' })
         throw "Services did not become healthy in time"
     }
-    
+
     Write-Host "`n✓ Both services are healthy" -ForegroundColor Green
 
     # Run integration tests
@@ -138,13 +138,13 @@ try {
             Stop-Job -Job $preprocessorJob -ErrorAction SilentlyContinue
             Remove-Job -Job $preprocessorJob -Force -ErrorAction SilentlyContinue
         }
-        
+
         if ($solverJob) {
             Write-Host "Stopping solver service..." -ForegroundColor Yellow
             Stop-Job -Job $solverJob -ErrorAction SilentlyContinue
             Remove-Job -Job $solverJob -Force -ErrorAction SilentlyContinue
         }
-        
+
         Write-Host "✓ Services stopped`n" -ForegroundColor Green
     } else {
         Write-Host "`nServices left running (use Stop-Job to terminate)" -ForegroundColor Yellow

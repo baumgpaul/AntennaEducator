@@ -1,6 +1,10 @@
 # Pre-commit hooks for the Antenna Simulator project.
-# Install:  pip install pre-commit && pre-commit install
-# Run all:  pre-commit run --all-files
+#
+# Setup (run once from the activated .venv):
+#   pip install pre-commit && pre-commit install
+#
+# Run all hooks manually:
+#   pre-commit run --all-files
 
 repos:
   # ── General file hygiene ──────────────────────────────────────────────
@@ -40,10 +44,11 @@ repos:
   - repo: local
     hooks:
       # Python unit tests (~1.5 s — fast enough for every commit)
+      # Uses .venv python explicitly (system python may lack pytest).
       - id: pytest-unit
         name: pytest unit tests
         language: system
-        entry: python -m pytest tests/unit/ -x -q --tb=line --no-header
+        entry: .venv/Scripts/python.exe -m pytest tests/unit/ -x -q --tb=line --no-header
         types: [python]
         pass_filenames: false
 

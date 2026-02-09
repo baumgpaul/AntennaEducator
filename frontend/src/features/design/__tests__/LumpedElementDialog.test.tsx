@@ -7,13 +7,13 @@ import { AntennaElement, Mesh } from '@/types/models';
 describe('LumpedElementDialog', () => {
   const mockOnClose = vi.fn();
   const mockOnAdd = vi.fn().mockResolvedValue(undefined);
-  
+
   const mockMesh: Mesh = {
     nodes: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]],
     edges: [[0, 1], [1, 2], [2, 3], [3, 0]],
     radii: [0.001, 0.001, 0.001, 0.001],
   };
-  
+
   const mockElements: AntennaElement[] = [
     {
       id: '1',

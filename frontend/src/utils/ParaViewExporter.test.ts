@@ -15,7 +15,7 @@ describe('ParaViewExporter', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     mockState = {
       solver: {
         fieldData: {

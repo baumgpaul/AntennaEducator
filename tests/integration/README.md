@@ -211,7 +211,7 @@ def test_new_antenna_type(self):
     )
     assert response.status_code == 200
     geometry = response.json()
-    
+
     # 2. Solve via solver
     solver_request = {
         "nodes": geometry["nodes"],
@@ -226,9 +226,9 @@ def test_new_antenna_type(self):
     )
     assert response.status_code == 200
     result = response.json()
-    
+
     # 3. Validate results
-    Z_in = complex(result["input_impedance"]["real"], 
+    Z_in = complex(result["input_impedance"]["real"],
                    result["input_impedance"]["imag"])
     assert condition, "Validation message"
 ```

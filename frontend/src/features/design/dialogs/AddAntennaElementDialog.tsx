@@ -30,7 +30,7 @@ function AddAntennaElementDialog() {
   const open = useAppSelector(selectAddAntennaDialogOpen);
   const selectedViewId = useAppSelector(selectSelectedViewId);
   const elements = useAppSelector((state) => state.design.elements);
-  
+
   const [selectedElementId, setSelectedElementId] = useState('');
 
   const handleClose = () => {
@@ -86,8 +86,8 @@ function AddAntennaElementDialog() {
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button 
-          onClick={handleSubmit} 
+        <Button
+          onClick={handleSubmit}
           variant="contained"
           disabled={!selectedElementId || elements.length === 0}
         >

@@ -129,7 +129,7 @@ describe('Incremental Postprocessing Workflow', () => {
     await store.dispatch(computePostprocessingWorkflow());
 
     const state = store.getState().solver;
-    
+
     // Both fields should be computed
     expect(state.fieldResults).toBeDefined();
     expect(state.fieldResults['field-1']?.computed).toBe(true);
@@ -141,7 +141,7 @@ describe('Incremental Postprocessing Workflow', () => {
     store.dispatch(addFieldRegion(makeTestField2D('field-1')));
 
     await store.dispatch(computePostprocessingWorkflow());
-    
+
     // Mark as postprocessing-ready
     let state = store.getState().solver;
     expect(state.solverState).toBe('postprocessing-ready');
@@ -154,7 +154,7 @@ describe('Incremental Postprocessing Workflow', () => {
     await store.dispatch(computePostprocessingWorkflow());
 
     state = store.getState().solver;
-    
+
     // Both fields should be computed
     expect(state.fieldResults['field-1']?.computed).toBe(true);
     expect(state.fieldResults['field-2']?.computed).toBe(true);
@@ -166,7 +166,7 @@ describe('Incremental Postprocessing Workflow', () => {
     await store.dispatch(computePostprocessingWorkflow());
 
     const state = store.getState().solver;
-    
+
     expect(state.fieldResults['directivity']?.computed).toBe(true);
     expect(state.radiationPattern).toBeDefined();
   });
@@ -178,7 +178,7 @@ describe('Incremental Postprocessing Workflow', () => {
     await store.dispatch(computePostprocessingWorkflow());
 
     const state = store.getState().solver;
-    
+
     expect(state.fieldResults['directivity']?.computed).toBe(true);
     expect(state.directivitySettings.theta_points).toBe(30);
     expect(state.directivitySettings.phi_points).toBe(60);
@@ -201,7 +201,7 @@ describe('Incremental Postprocessing Workflow', () => {
     await store.dispatch(computePostprocessingWorkflow());
 
     const state = store.getState().solver;
-    
+
     expect(state.fieldResults['directivity']?.computed).toBe(true);
     expect(state.fieldResults['field-1']?.computed).toBe(true);
   });
@@ -235,7 +235,7 @@ describe('Incremental Postprocessing Workflow', () => {
     // Change settings - should clear computed status
     store.dispatch(setDirectivitySettings({ theta_points: 50, phi_points: 100 }));
     // Note: The clearing happens in the UI component, not in the reducer
-    
+
     state = store.getState().solver;
     expect(state.directivitySettings.theta_points).toBe(50);
     expect(state.directivitySettings.phi_points).toBe(100);
@@ -250,7 +250,7 @@ describe('Incremental Postprocessing Workflow', () => {
     await store.dispatch(computePostprocessingWorkflow());
 
     const state = store.getState().solver;
-    
+
     // Progress should be cleared after completion
     expect(state.postprocessingProgress).toBeNull();
     // But all 3 items should be computed: 1 directivity + 2 fields
@@ -285,4 +285,3 @@ describe('Incremental Postprocessing Workflow', () => {
     expect(state.fieldResults['field-new']?.computed).toBe(true);
   });
 });
-

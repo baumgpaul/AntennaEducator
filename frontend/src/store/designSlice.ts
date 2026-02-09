@@ -23,28 +23,28 @@ interface DesignState {
   elements: AntennaElement[]
   selectedElementId: string | null
   activeElementId: string | null  // Element being configured in dialog
-  
+
   // Legacy single antenna fields (for backward compatibility during transition)
   antennaType: 'dipole' | 'loop' | 'helix' | 'rod' | 'custom' | null
   antennaConfig: DipoleConfig | LoopConfig | HelixConfig | RodConfig | null
   mesh: Mesh | null  // Will be phased out in favor of elements[].mesh
-  
+
   // Solver results
   results: SolverResult | null
   resultsHistory: SolverResult[]
   isSolved: boolean  // Track if current geometry has been solved
-  
+
   // Sources and lumped elements (global to all elements)
   sources: Source[]
   lumpedElements: LumpedElement[]
-  
+
   // UI state
   viewMode: '3d' | '2d' | 'tree' | 'properties'
-  
+
   // Loading states
   meshGenerating: boolean
   solving: boolean
-  
+
   // Errors
   meshError: string | null
   solverError: string | null
@@ -55,26 +55,26 @@ const initialState: DesignState = {
   elements: [],
   selectedElementId: null,
   activeElementId: null,
-  
+
   // Legacy fields
   antennaType: null,
   antennaConfig: null,
   mesh: null,
-  
+
   // Results and global elements
   results: null,
   resultsHistory: [],
   isSolved: false,
   sources: [],
   lumpedElements: [],
-  
+
   // UI state
   viewMode: '3d',
-  
+
   // Loading states
   meshGenerating: false,
   solving: false,
-  
+
   // Errors
   meshError: null,
   solverError: null,
@@ -234,19 +234,19 @@ const designSlice = createSlice({
     removeElement: (state, action: PayloadAction<string>) => {
       console.log('[removeElement] Removing element:', action.payload);
       console.log('[removeElement] Elements before:', state.elements.map(e => ({ id: e.id, name: e.name })));
-      
+
       state.elements = state.elements.filter(el => el.id !== action.payload);
-      
+
       // Invalidate solved state since geometry changed
       state.isSolved = false;
-      
+
       console.log('[removeElement] Elements after:', state.elements.map(e => ({ id: e.id, name: e.name })));
-      
+
       // Clear selection if removed element was selected
       if (state.selectedElementId === action.payload) {
         state.selectedElementId = null;
       }
-      
+
       // Clear legacy mesh if no elements remain (prevents ghost geometry)
       if (state.elements.length === 0) {
         state.mesh = null;
@@ -340,51 +340,51 @@ const designSlice = createSlice({
     ) => {
       state.antennaType = action.payload
     },
-    
+
     setAntennaConfig: (
       state,
       action: PayloadAction<DipoleConfig | LoopConfig | HelixConfig | RodConfig>
     ) => {
       state.antennaConfig = action.payload
     },
-    
+
     // Mesh generation
     meshGenerationStart: (state) => {
       state.meshGenerating = true
       state.meshError = null
     },
-    
+
     meshGenerationSuccess: (state, action: PayloadAction<Mesh>) => {
       state.mesh = action.payload
       state.meshGenerating = false
       state.meshError = null
     },
-    
+
     meshGenerationFailure: (state, action: PayloadAction<string>) => {
       state.meshGenerating = false
       state.meshError = action.payload
     },
-    
+
     setMesh: (state, action: PayloadAction<Mesh>) => {
       state.mesh = action.payload
     },
-    
+
     clearMesh: (state) => {
       state.mesh = null
       state.meshError = null
     },
-    
+
     // Sources and lumped elements
     addSource: (state, action: PayloadAction<Source>) => {
       state.sources.push(action.payload)
     },
-    
+
     updateSource: (state, action: PayloadAction<{ index: number; source: Source }>) => {
       if (action.payload.index >= 0 && action.payload.index < state.sources.length) {
         state.sources[action.payload.index] = action.payload.source
       }
     },
-    
+
     removeSource: (state, action: PayloadAction<number>) => {
       state.sources.splice(action.payload, 1)
     },
@@ -401,7 +401,7 @@ const designSlice = createSlice({
       // Also add to global array for backward compatibility
       state.sources.push(action.payload.source)
     },
-    
+
     addLumpedElement: (state, action: PayloadAction<LumpedElement>) => {
       state.lumpedElements.push(action.payload)
     },
@@ -418,7 +418,7 @@ const designSlice = createSlice({
       // Also add to global array for backward compatibility
       state.lumpedElements.push(action.payload.lumpedElement)
     },
-    
+
     updateLumpedElement: (
       state,
       action: PayloadAction<{ index: number; element: LumpedElement }>
@@ -427,43 +427,43 @@ const designSlice = createSlice({
         state.lumpedElements[action.payload.index] = action.payload.element
       }
     },
-    
+
     removeLumpedElement: (state, action: PayloadAction<number>) => {
       state.lumpedElements.splice(action.payload, 1)
     },
-    
+
     // Solver
     solverStart: (state) => {
       state.solving = true
       state.solverError = null
     },
-    
+
     solverSuccess: (state, action: PayloadAction<SolverResult>) => {
       state.results = action.payload
       state.resultsHistory.push(action.payload)
       state.solving = false
       state.solverError = null
     },
-    
+
     solverFailure: (state, action: PayloadAction<string>) => {
       state.solving = false
       state.solverError = action.payload
     },
-    
+
     clearResults: (state) => {
       state.results = null
       state.solverError = null
     },
-    
+
     setViewMode: (state, action: PayloadAction<'3d' | 'tree' | 'properties'>) => {
       state.viewMode = action.payload
     },
-    
+
     // Clear design
     clearDesign: () => {
       return initialState
     },
-    
+
     // Load design from saved project
     loadDesign: (_state, action: PayloadAction<Partial<DesignState>>) => {
       return { ...initialState, ...action.payload }
@@ -479,26 +479,26 @@ const designSlice = createSlice({
       })
       .addCase(generateDipole.fulfilled, (state, action) => {
         state.meshGenerating = false;
-        
+
         console.log('Redux: Dipole generated, payload:', action.payload);
-        
+
         // Extract position and rotation from formData
         const formData = action.payload.formData;
-        const position: [number, number, number] = formData 
+        const position: [number, number, number] = formData
           ? [formData.position.x, formData.position.y, formData.position.z]
           : [0, 0, 0];
         const rotation: [number, number, number] = formData
           ? [formData.orientation.rotX, formData.orientation.rotY, formData.orientation.rotZ]
           : [0, 0, 0];
-        
+
         // Auto-assign color
         const color = getNextElementColor(state.elements);
-        
+
         // Auto-create voltage source across the gap
         // For a dipole: nodes 1 to (total/2 + 1) spans the gap
         const numNodes = action.payload.mesh?.nodes?.length || 0;
         const gapEndNode = Math.ceil(numNodes / 2) + 1; // Node at start of second arm
-        
+
         const autoSource: Source = {
           type: 'voltage',
           amplitude: { real: 1, imag: 0 },
@@ -509,9 +509,9 @@ const designSlice = createSlice({
           series_C_inv: 0,
           tag: 'Auto-generated feed',
         };
-        
+
         console.log(`Auto-creating voltage source across gap: 1 → ${gapEndNode} (total nodes: ${numNodes})`);
-        
+
         // Create AntennaElement from response (use ONLY the auto-source, ignore backend sources)
         const element: AntennaElement = {
           id: `dipole_${Date.now()}`,
@@ -527,14 +527,14 @@ const designSlice = createSlice({
           locked: false,
           color,
         };
-        
+
         console.log('Redux: Created element with position:', position, 'rotation:', rotation, 'color:', color);
-        
+
         // Add to elements array
         state.elements.push(element);
         state.selectedElementId = element.id;        state.isSolved = false; // Invalidate solver state        state.isSolved = false; // Invalidate solver state
         state.isSolved = false; // Invalidate solver state
-        
+
         // Legacy mesh support (for backward compatibility)
         state.mesh = action.payload.mesh;
         state.sources = action.payload.element?.sources || [];
@@ -553,18 +553,18 @@ const designSlice = createSlice({
       })
       .addCase(generateLoop.fulfilled, (state, action) => {
         state.meshGenerating = false;
-        
+
         const formData = action.payload.formData;
-        const position: [number, number, number] = formData 
+        const position: [number, number, number] = formData
           ? [formData.position.x, formData.position.y, formData.position.z]
           : [0, 0, 0];
         const rotation: [number, number, number] = formData
           ? [formData.orientation.rotX, formData.orientation.rotY, formData.orientation.rotZ]
           : [0, 0, 0];
-        
+
         // Auto-assign color
         const color = getNextElementColor(state.elements);
-        
+
         // Create AntennaElement from response
         const element: AntennaElement = {
           id: `loop_${Date.now()}`,
@@ -578,10 +578,10 @@ const designSlice = createSlice({
           locked: false,
           color,
         };
-        
+
         // Add to elements array
         state.elements.push(element);
-        state.selectedElementId = element.id;        state.isSolved = false; // Invalidate solver state        
+        state.selectedElementId = element.id;        state.isSolved = false; // Invalidate solver state
         // Legacy support
         state.mesh = action.payload.mesh;
         state.sources = action.payload.element?.sources || [];
@@ -600,18 +600,18 @@ const designSlice = createSlice({
       })
       .addCase(generateHelix.fulfilled, (state, action) => {
         state.meshGenerating = false;
-        
+
         const formData = action.payload.formData;
-        const position: [number, number, number] = formData 
+        const position: [number, number, number] = formData
           ? [formData.position.x, formData.position.y, formData.position.z]
           : [0, 0, 0];
         const rotation: [number, number, number] = formData
           ? [formData.orientation.rotX, formData.orientation.rotY, formData.orientation.rotZ]
           : [0, 0, 0];
-        
+
         // Auto-assign color
         const color = getNextElementColor(state.elements);
-        
+
         // Create AntennaElement from response
         const element: AntennaElement = {
           id: `helix_${Date.now()}`,
@@ -625,12 +625,12 @@ const designSlice = createSlice({
           locked: false,
           color,
         };
-        
+
         // Add to elements array
         state.elements.push(element);
         state.selectedElementId = element.id;
         state.isSolved = false; // Invalidate solver state
-        
+
         // Legacy support
         state.mesh = action.payload.mesh;
         state.sources = action.payload.element?.sources || [];
@@ -649,10 +649,10 @@ const designSlice = createSlice({
       })
       .addCase(generateRod.fulfilled, (state, action) => {
         state.meshGenerating = false;
-        
+
         // Auto-assign color
         const color = getNextElementColor(state.elements);
-        
+
         // Rod uses start/end coordinates, not separate position field
         // Position is implicitly defined by the rod geometry
         const element: AntennaElement = {
@@ -667,12 +667,12 @@ const designSlice = createSlice({
           locked: false,
           color,
         };
-        
+
         // Add to elements array
         state.elements.push(element);
         state.selectedElementId = element.id;
         state.isSolved = false; // Invalidate solver state
-        
+
         // Legacy support
         state.mesh = action.payload.mesh;
         state.sources = action.payload.element?.sources || [];

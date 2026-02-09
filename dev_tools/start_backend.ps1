@@ -13,12 +13,12 @@ cd $PSScriptRoot\..
 $jobs = @()
 
 Write-Host "[1/4] Preprocessor starting..." -ForegroundColor Green
-$jobs += Start-Job -ScriptBlock { 
+$jobs += Start-Job -ScriptBlock {
     cd $using:PWD
     & .\.venv\Scripts\python.exe -m uvicorn backend.preprocessor.main:app --port 8001 --reload
 }
 
-Write-Host "[2/4] Solver starting..." -ForegroundColor Green  
+Write-Host "[2/4] Solver starting..." -ForegroundColor Green
 $jobs += Start-Job -ScriptBlock {
     cd $using:PWD
     & .\.venv\Scripts\python.exe -m uvicorn backend.solver.main:app --port 8002 --reload
@@ -65,7 +65,7 @@ if ($failed -gt 0) {
 Write-Host "`nTest with: .\dev_tools\test_backend_quick.ps1" -ForegroundColor Cyan
 Write-Host "`nAPI Docs:" -ForegroundColor Cyan
 Write-Host "  http://localhost:8001/api/docs   (Preprocessor)" -ForegroundColor White
-Write-Host "  http://localhost:8002/api/docs   (Solver)" -ForegroundColor White  
+Write-Host "  http://localhost:8002/api/docs   (Solver)" -ForegroundColor White
 Write-Host "  http://localhost:8003/api/docs   (Postprocessor)" -ForegroundColor White
 Write-Host "  http://localhost:8010/docs         (Projects)" -ForegroundColor White
 

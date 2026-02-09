@@ -3,11 +3,11 @@ import { Box, Snackbar, Alert, Tabs, Tab, Typography } from '@mui/material';
 import { debounce } from 'lodash';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { 
-  generateDipole, 
-  generateLoop, 
-  generateHelix, 
-  generateRod, 
+import {
+  generateDipole,
+  generateLoop,
+  generateHelix,
+  generateRod,
   addLumpedElement,
   addLumpedElementToElement,
   addSource,
@@ -65,20 +65,20 @@ function DesignPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { 
-    elements, 
-    selectedElementId, 
-    mesh, 
-    sources, 
-    lumpedElements, 
-    antennaType, 
-    meshGenerating 
+  const {
+    elements,
+    selectedElementId,
+    mesh,
+    sources,
+    lumpedElements,
+    antennaType,
+    meshGenerating
   } = useAppSelector(
     (state) => state.design
   );
-  
-  const { 
-    status: solverStatus, 
+
+  const {
+    status: solverStatus,
     progress: solverProgress,
     currentDistribution,
     results,
@@ -86,7 +86,7 @@ function DesignPage() {
   } = useAppSelector(
     (state) => state.solver
   );
-  
+
   const requestedFields = useAppSelector(selectRequestedFields);
   const directivityRequested = useAppSelector(selectDirectivityRequested);
   const solverWorkflowState = useAppSelector(selectSolverState);
@@ -96,11 +96,11 @@ function DesignPage() {
   const fieldData = useAppSelector((state) => state.solver.fieldData);
   const viewConfigurations = useAppSelector((state) => state.postprocessing.viewConfigurations);
   const solverState = useAppSelector((state) => state.solver); // Full solver state for persistence
-  
+
   // Map solver status to SolverTab-compatible type
-  const solvableStatus: 'idle' | 'preparing' | 'running' | 'completed' | 'error' | 'postprocessing-ready' = 
+  const solvableStatus: 'idle' | 'preparing' | 'running' | 'completed' | 'error' | 'postprocessing-ready' =
     solverStatus === 'failed' ? 'error' : solverStatus === 'cancelled' ? 'idle' : solverStatus;
-  
+
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
   const [cameraMode, setCameraMode] = useState<'perspective' | 'orthographic'>('perspective');
@@ -215,11 +215,11 @@ function DesignPage() {
             },
           },
         })).unwrap();
-        
+
         console.log('Auto-saved project with', projectElements.length, 'elements,', fields.length, 'fields,', views.length, 'views, and solver state');
-        
+
         setSaveStatus('saved');
-        
+
         // Hide indicator after 2 seconds
         setTimeout(() => {
           setShowSaveIndicator(false);
@@ -227,13 +227,13 @@ function DesignPage() {
         }, 2000);
       } catch (error) {
         console.error(`Auto-save failed (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, error);
-        
+
         if (retryCount < MAX_RETRIES) {
           // Retry after delay
           const delay = RETRY_DELAYS[retryCount];
           setSaveStatus('saving');
           setSaveError(`Retrying in ${delay / 1000}s...`);
-          
+
           setTimeout(() => {
             saveProjectDebounced(projectElements, fields, views, solverData, retryCount + 1);
           }, delay);
@@ -241,7 +241,7 @@ function DesignPage() {
           // All retries failed
           setSaveStatus('error');
           setSaveError('Failed to save changes. Please check your connection.');
-          
+
           // Keep error visible longer
           setTimeout(() => {
             setShowSaveIndicator(false);
@@ -389,7 +389,7 @@ function DesignPage() {
 
   const handleAntennaTypeSelect = (type: string) => {
     console.log('Antenna type selected:', type);
-    
+
     // Open corresponding dialog
     switch (type.toLowerCase()) {
       case 'dipole':
@@ -498,18 +498,18 @@ function DesignPage() {
   const handleAddLumpedElement = async (data: any) => {
     try {
       const element = await addLumpedElementToMesh(data);
-      
+
       // Check if antennaId is provided (for multi-antenna mode)
       if (data.antennaId) {
-        dispatch(addLumpedElementToElement({ 
-          elementId: data.antennaId, 
-          lumpedElement: element 
+        dispatch(addLumpedElementToElement({
+          elementId: data.antennaId,
+          lumpedElement: element
         }));
       } else {
         // Fallback to global array for backward compatibility
         dispatch(addLumpedElement(element));
       }
-      
+
       dispatch(addNotification({
         id: Date.now(),
         message: 'Lumped element added to mesh',
@@ -530,18 +530,18 @@ function DesignPage() {
   const handleAddSource = async (data: any) => {
     try {
       const source = await addSourceToMesh(data);
-      
+
       // Check if antennaId is provided (for multi-antenna mode)
       if (data.antennaId) {
-        dispatch(addSourceToElement({ 
-          elementId: data.antennaId, 
-          source 
+        dispatch(addSourceToElement({
+          elementId: data.antennaId,
+          source
         }));
       } else {
         // Fallback to global array for backward compatibility
         dispatch(addSource(source));
       }
-      
+
       dispatch(addNotification({
         id: Date.now(),
         message: `${data.type === 'voltage' ? 'Voltage' : 'Current'} source added successfully`,
@@ -631,7 +631,7 @@ function DesignPage() {
 
   const handleAnalysisAction = async (action: string) => {
     console.log('Analysis action:', action);
-    
+
     if (action === 'run-solver') {
       // Check if we have elements
       if (!elements || elements.length === 0) {
@@ -794,7 +794,7 @@ function DesignPage() {
     try {
       // Build base multi-antenna request (without frequency)
       const baseRequest = buildMultiAntennaRequest(elements, params.startFrequency) as MultiAntennaRequest;
-      
+
       // Remove frequency field since sweep will add it per-iteration
       const { frequency: _, ...requestWithoutFreq } = baseRequest;
 
@@ -1056,13 +1056,13 @@ function DesignPage() {
         onSubmit={handleFrequencySweep}
         isLoading={solverStatus === 'running' || solverStatus === 'preparing'}
       />
-      
+
       {/* Postprocessing Dialogs */}
       <AddViewDialog />
       <AddAntennaElementDialog />
       <AddFieldVisualizationDialog />
       <AddScalarPlotDialog />
-      
+
       {/* Auto-save indicator */}
       <Snackbar
         open={showSaveIndicator}
@@ -1084,6 +1084,3 @@ function DesignPage() {
 }
 
 export default DesignPage;
-
-
-

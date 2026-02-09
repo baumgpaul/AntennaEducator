@@ -52,7 +52,7 @@ function RegisterPage() {
       username: data.username,
       password: data.password,
     }));
-    
+
     // Check if registration succeeded (but user is not yet authenticated)
     if (registerAsync.fulfilled.match(result)) {
       setRegistrationSuccess(true);
@@ -126,7 +126,7 @@ function RegisterPage() {
                 {error}
               </Alert>
             )}
-            
+
             <Controller
               name="username"
               control={control}

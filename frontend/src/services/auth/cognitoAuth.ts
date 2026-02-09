@@ -83,7 +83,7 @@ export class CognitoAuthService implements IAuthService {
         onFailure: (err) => {
           // Provide more specific error messages
           let errorMessage = err.message || 'Authentication failed'
-          
+
           if (err.code === 'UserNotConfirmedException') {
             errorMessage = 'Please verify your email address before logging in. Check your email for the verification code.'
           } else if (err.code === 'NotAuthorizedException') {
@@ -91,7 +91,7 @@ export class CognitoAuthService implements IAuthService {
           } else if (err.code === 'UserNotFoundException') {
             errorMessage = 'No account found with this email'
           }
-          
+
           reject(new Error(errorMessage))
         },
       })

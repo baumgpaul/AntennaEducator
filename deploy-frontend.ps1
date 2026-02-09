@@ -47,13 +47,13 @@ Set-Location $frontendDir
 if (-not $SkipBuild) {
     Write-Host "`nBuilding frontend..." -ForegroundColor Cyan
     Write-Host "Running: npx vite build" -ForegroundColor Gray
-    
+
     npx vite build
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Error: Frontend build failed!" -ForegroundColor Red
         exit 1
     }
-    
+
     Write-Host "Build completed successfully!" -ForegroundColor Green
 } else {
     Write-Host "`nSkipping build (--SkipBuild specified)" -ForegroundColor Yellow
@@ -106,7 +106,7 @@ $distributionId = aws cloudfront list-distributions --profile $Profile --query "
 
 if ($distributionId -and $distributionId -ne "None") {
     Write-Host "CloudFront Distribution ID: $distributionId" -ForegroundColor Green
-    
+
     Write-Host "`nInvalidating CloudFront cache..." -ForegroundColor Cyan
     $invalidation = aws cloudfront create-invalidation `
         --distribution-id $distributionId `
@@ -114,7 +114,7 @@ if ($distributionId -and $distributionId -ne "None") {
         --profile $Profile `
         --query 'Invalidation.Id' `
         --output text
-    
+
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Cache invalidation started: $invalidation" -ForegroundColor Green
         Write-Host "CloudFront will propagate changes within 5-10 minutes" -ForegroundColor Yellow

@@ -65,10 +65,10 @@ interface TreeViewPanelProps {
   onElementRename?: (elementId: string, newName: string) => void;
   onElementLock?: (elementId: string, locked: boolean) => void;
   onElementVisibilityToggle?: (elementId: string, visible: boolean) => void;
-  
+
   // Mode control
   mode?: 'designer' | 'solver' | 'postprocessing'; // designer: full edit, solver: view-only, postprocessing: view configs
-  
+
   // Field regions (solver mode only)
   fieldRegions?: Array<{ id: string; name?: string; type: string; shape: string; visible?: boolean }>;
   onFieldSelect?: (fieldId: string) => void;
@@ -81,7 +81,7 @@ interface TreeViewPanelProps {
   onDirectivitySelect?: () => void;
   onDirectivityDelete?: () => void;
   isSolved?: boolean; // Track if design is solved (for outdated warnings)
-  
+
   // Postprocessing mode (view configurations)
   viewConfigurations?: Array<{
     id: string;
@@ -102,7 +102,7 @@ interface TreeViewPanelProps {
   onItemSelect?: (viewId: string, itemId: string) => void;
   onItemDelete?: (viewId: string, itemId: string) => void;
   onItemVisibilityToggle?: (viewId: string, itemId: string) => void;
-  
+
   // Single mesh support (backward compatibility)
   mesh?: Mesh;
   sources?: Source[];
@@ -160,19 +160,19 @@ function TreeViewPanel({
     mouseY: number;
     elementId: string;
   } | null>(null);
-  
+
   // Field context menu state
   const [fieldContextMenu, setFieldContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
     fieldId: string;
   } | null>(null);
-  
+
   // Rename dialog state
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingElementId, setRenamingElementId] = useState<string | null>(null);
   const [newElementName, setNewElementName] = useState('');
-  
+
   // Field rename dialog state
   const [fieldRenameDialogOpen, setFieldRenameDialogOpen] = useState(false);
   const [renamingFieldId, setRenamingFieldId] = useState<string | null>(null);
@@ -180,7 +180,7 @@ function TreeViewPanel({
   // Build tree data from elements or single mesh
   const treeData = useMemo<TreeNode[]>(() => {
     console.log('[TreeViewPanel] Building tree from elements:', elements?.map(e => ({ id: e.id, name: e.name })));
-    
+
     const result: TreeNode[] = [];
 
     if (elements && elements.length > 0) {
@@ -397,7 +397,7 @@ function TreeViewPanel({
 
   const renderTreeNode = (node: TreeNode, level: number = 0) => {
     const hasChildren = node.children && node.children.length > 0;
-    const isSelected = (node.type === 'element' && selectedElementId === node.id) || 
+    const isSelected = (node.type === 'element' && selectedElementId === node.id) ||
                       (node.type !== 'element' && selectedNodeId === node.id);
     // For element nodes, use Redux visible state; for others use local state
     const visible = node.type === 'element' ? (node.visible ?? true) : isVisible(node.id);
@@ -591,10 +591,10 @@ function TreeViewPanel({
   };
 
   return (
-    <Box sx={{ 
-      height: '100%', 
+    <Box sx={{
+      height: '100%',
       width: '100%',
-      display: 'flex', 
+      display: 'flex',
       flexDirection: 'column',
       margin: 0,
       padding: 0,
@@ -721,7 +721,7 @@ function TreeViewPanel({
                 const fieldVisible = field.visible ?? true;
                 const isComputed = fieldResults?.[field.id]?.computed ?? false;
                 const numPoints = fieldResults?.[field.id]?.num_points;
-                
+
                 return (
                   <ListItem
                     key={field.id}

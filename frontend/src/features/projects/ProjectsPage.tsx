@@ -95,7 +95,7 @@ function ProjectsPage() {
       const query = searchQuery.toLowerCase();
       const nameMatch = project.name.toLowerCase().includes(query);
       // Only search description if it's not JSON (doesn't start with '[')
-      const descriptionMatch = project.description && 
+      const descriptionMatch = project.description &&
         !project.description.startsWith('[') &&
         project.description.toLowerCase().includes(query);
       return nameMatch || descriptionMatch;
@@ -181,7 +181,7 @@ function ProjectsPage() {
           }}
           sx={{ flex: 1, minWidth: 200 }}
         />
-        
+
         <FormControl sx={{ minWidth: 150 }}>
           <InputLabel>Sort by</InputLabel>
           <Select

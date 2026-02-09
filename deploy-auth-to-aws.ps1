@@ -105,9 +105,9 @@ $ready = $false
 while (-not $ready -and $attempt -lt $maxAttempts) {
     Start-Sleep -Seconds 2
     $attempt++
-    
+
     $state = aws lambda get-function --function-name $FUNCTION_NAME --region $REGION --query 'Configuration.State' --output text
-    
+
     if ($state -eq "Active") {
         $ready = $true
         Write-Host "  ✓ Function is active" -ForegroundColor Green
@@ -137,7 +137,7 @@ Start-Sleep -Seconds 3  # Give Lambda time to initialize
 if ($FUNCTION_URL) {
     $healthUrl = "$FUNCTION_URL/health"
     Write-Host "  Testing: $healthUrl" -ForegroundColor Cyan
-    
+
     try {
         $response = Invoke-RestMethod -Uri $healthUrl -Method Get -ErrorAction Stop
         Write-Host "  ✓ Health check passed" -ForegroundColor Green

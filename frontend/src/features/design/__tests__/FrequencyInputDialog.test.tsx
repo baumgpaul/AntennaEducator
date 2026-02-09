@@ -40,7 +40,7 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
 
       const frequencyInput = screen.getByRole('spinbutton') as HTMLInputElement;
       expect(frequencyInput.value).toBe('300');
-      
+
       // MHz should be selected by default
       expect(screen.getByText('MHz')).toBeInTheDocument();
     });
@@ -362,7 +362,7 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       );
 
       const solveButton = screen.getByRole('button', { name: /Solve/i });
-      
+
       // First attempt - fails
       await user.click(solveButton);
       await waitFor(() => {
@@ -387,11 +387,11 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       );
 
       const frequencyInput = screen.getByRole('spinbutton');
-      
+
       // Enter invalid value
       await user.clear(frequencyInput);
       await user.type(frequencyInput, '0.05');
-      
+
       const solveButton = screen.getByRole('button', { name: /Solve/i });
       await user.click(solveButton);
 

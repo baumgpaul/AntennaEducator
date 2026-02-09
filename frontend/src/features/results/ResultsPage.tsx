@@ -23,7 +23,7 @@ import ResultsVisualizationPanel from './ResultsVisualizationPanel';
 
 /**
  * ResultsPage - Dedicated full-screen results visualization
- * 
+ *
  * Layout:
  * - Header: Back button, project name, export menu
  * - Left panel (250-300px): Solution data (currents, voltages, fields)
@@ -35,7 +35,7 @@ function ResultsPage() {
   const dispatch = useAppDispatch();
 
   // Redux state
-  const project = useAppSelector((state) => 
+  const project = useAppSelector((state) =>
     state.projects.items.find(p => p.id === Number(projectId))
   );
   const { mesh } = useAppSelector((state) => state.design);
@@ -123,8 +123,8 @@ function ResultsPage() {
             <Typography variant="body2">
               Run a simulation from the Design page to see results here.
             </Typography>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={handleBack}
               sx={{ mt: 2 }}
             >

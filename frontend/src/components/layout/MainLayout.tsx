@@ -13,11 +13,11 @@ function MainLayout() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}>
       {/* Top header bar */}
       <Header />
-      
+
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left sidebar */}
         <Sidebar />
-        
+
         {/* Main content area */}
         <Box
           component="main"
@@ -32,7 +32,7 @@ function MainLayout() {
           <div style={{ flex: 1, overflow: 'auto' }}>
             <Outlet />
           </div>
-          
+
           {/* Bottom footer */}
           <Footer />
         </Box>

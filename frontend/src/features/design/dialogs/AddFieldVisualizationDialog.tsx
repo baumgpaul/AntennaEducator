@@ -41,7 +41,7 @@ function AddFieldVisualizationDialog() {
   const open = useAppSelector(selectAddFieldDialogOpen);
   const selectedViewId = useAppSelector(selectSelectedViewId);
   const requestedFields = useAppSelector(selectRequestedFields);
-  
+
   const [activeStep, setActiveStep] = useState(0);
   const [selectedFieldId, setSelectedFieldId] = useState('');
   const [mode, setMode] = useState<VisualizationMode>('magnitude');

@@ -9,11 +9,7 @@ import numpy as np
 import pytest
 
 from backend.solver.schemas import AntennaInput, VoltageSourceInput
-from backend.solver.solver import (
-    SolverConfiguration,
-    merge_antennas,
-    solve_multi_antenna,
-)
+from backend.solver.solver import SolverConfiguration, merge_antennas, solve_multi_antenna
 
 
 class TestMergeAntennas:

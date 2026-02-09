@@ -102,6 +102,10 @@ docs/archive/
 # OS
 Thumbs.db
 
+# Vitest output artifacts
+vitest_results.json
+vitest_out.json
+
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
@@ -114,10 +118,8 @@ Thumbs.db
 tfplan
 
 # Scratchpad markdown (root-level session notes)
-# Tracked docs: README.md, QUICK_START.md, PROJECT_OVERVIEW.md, docs/, backend/README.md etc.
+# Tracked docs at repo root (all other *.md in root are ignored)
 /*.md
 !README.md
-!QUICK_START.md
-!PROJECT_OVERVIEW.md
 !ACTION_PLAN.md
 !CONTRIBUTING.md

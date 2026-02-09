@@ -63,26 +63,26 @@ describe('AddAntennaElementDialog', () => {
 
   it('displays antenna list in dropdown', () => {
     renderDialog();
-    
+
     const select = screen.getByLabelText(/Select Antenna/i);
     fireEvent.mouseDown(select);
-    
+
     expect(screen.getByText('Dipole 1')).toBeInTheDocument();
     expect(screen.getByText('Loop')).toBeInTheDocument();
   });
 
   it('adds selected antenna to view', async () => {
     renderDialog();
-    
+
     const select = screen.getByLabelText(/Select Antenna/i);
     fireEvent.mouseDown(select);
-    
+
     const option = screen.getByText('Dipole 1');
     fireEvent.click(option);
-    
+
     const addButton = screen.getByRole('button', { name: /add/i });
     fireEvent.click(addButton);
-    
+
     await waitFor(() => {
       const state = store.getState();
       const view = state.postprocessing.viewConfigurations[0];
