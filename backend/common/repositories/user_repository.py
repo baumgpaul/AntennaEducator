@@ -115,7 +115,6 @@ class UserRepository:
         username: str,
         password_hash: str,
         is_admin: bool = False,
-        is_approved: bool = True,
         is_locked: bool = False,
         cognito_sub: Optional[str] = None,
     ) -> Dict:
@@ -127,12 +126,11 @@ class UserRepository:
             username: Username
             password_hash: Hashed password
             is_admin: Admin status (default: False)
-            is_approved: Approval status (default: True, deprecated - use is_locked)
             is_locked: Locked status (default: False, users unlocked by default)
             cognito_sub: Cognito sub (optional, for AWS mode)
 
         Returns:
-            User data dictionary
+            User data dictionary (snake_case keys)
 
         Raises:
             ValueError: If user already exists
@@ -145,29 +143,29 @@ class UserRepository:
         import uuid
 
         user_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
 
-        # Create user item
+        # Create user item — PascalCase attributes (consistent with project items)
         item = {
             "PK": f"USER#{user_id}",
             "SK": "METADATA",
-            "user_id": user_id,
-            "email": email,
-            "username": username,
-            "password_hash": password_hash,
-            "is_admin": is_admin,
-            "is_approved": is_approved,  # Keep for backward compatibility
-            "is_locked": is_locked,  # New field - users unlocked by default
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "entity_type": "user",
+            "EntityType": "USER",
+            "UserId": user_id,
+            "Email": email,
+            "Username": username,
+            "PasswordHash": password_hash,
+            "IsAdmin": is_admin,
+            "IsLocked": is_locked,
+            "CreatedAt": now,
         }
 
         if cognito_sub:
-            item["cognito_sub"] = cognito_sub
+            item["CognitoSub"] = cognito_sub
 
         try:
             self.table.put_item(Item=item)
             logger.info(f"Created user: {email} (id={user_id})")
-            return item
+            return self._to_dict(item)
         except ClientError as e:
             logger.error(f"Error creating user: {e}")
             raise RuntimeError(f"Failed to create user: {e}")
@@ -180,17 +178,17 @@ class UserRepository:
             email: User's email address
 
         Returns:
-            User data dictionary or None if not found
+            User data dictionary (snake_case) or None if not found
         """
         try:
             # Use scan with filter (no GSI for local simplicity)
             response = self.table.scan(
-                FilterExpression="email = :email AND SK = :sk",
+                FilterExpression="Email = :email AND SK = :sk",
                 ExpressionAttributeValues={":email": email, ":sk": "METADATA"},
             )
             items = response.get("Items", [])
             if items:
-                return items[0]
+                return self._to_dict(items[0])
             return None
         except ClientError as e:
             logger.error(f"Error querying user by email: {e}")
@@ -204,11 +202,12 @@ class UserRepository:
             user_id: User ID
 
         Returns:
-            User data dictionary or None if not found
+            User data dictionary (snake_case) or None if not found
         """
         try:
             response = self.table.get_item(Key={"PK": f"USER#{user_id}", "SK": "METADATA"})
-            return response.get("Item")
+            item = response.get("Item")
+            return self._to_dict(item) if item else None
         except ClientError as e:
             logger.error(f"Error getting user by ID: {e}")
             return None
@@ -233,20 +232,20 @@ class UserRepository:
 
     def update_user_approval(self, user_id: str, is_approved: bool, is_admin: bool = False):
         """
-        Update user approval status (deprecated - use update_user_lock_status).
+        Update user approval and admin status (deprecated — prefer update_user_lock_status).
 
         Args:
             user_id: User ID
-            is_approved: Approval status
+            is_approved: Approval status (no longer stored, kept for API compat)
             is_admin: Admin status
         """
         try:
             self.table.update_item(
                 Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
-                UpdateExpression="SET is_approved = :approved, is_admin = :admin",
-                ExpressionAttributeValues={":approved": is_approved, ":admin": is_admin},
+                UpdateExpression="SET IsAdmin = :admin",
+                ExpressionAttributeValues={":admin": is_admin},
             )
-            logger.info(f"Updated user {user_id}: approved={is_approved}, admin={is_admin}")
+            logger.info(f"Updated user {user_id}: admin={is_admin}")
         except ClientError as e:
             logger.error(f"Error updating user approval: {e}")
             raise RuntimeError(f"Failed to update user: {e}")
@@ -262,10 +261,25 @@ class UserRepository:
         try:
             self.table.update_item(
                 Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
-                UpdateExpression="SET is_locked = :locked",
+                UpdateExpression="SET IsLocked = :locked",
                 ExpressionAttributeValues={":locked": is_locked},
             )
             logger.info(f"Updated user {user_id}: is_locked={is_locked}")
         except ClientError as e:
             logger.error(f"Error updating user lock status: {e}")
             raise RuntimeError(f"Failed to update user: {e}")
+
+    # ── helpers ───────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _to_dict(item: Dict) -> Dict:
+        """Convert a PascalCase DynamoDB user item to a snake_case dict."""
+        return {
+            "user_id": item["UserId"],
+            "email": item["Email"],
+            "username": item.get("Username", item.get("Email", "").split("@")[0]),
+            "password_hash": item.get("PasswordHash", ""),
+            "is_admin": item.get("IsAdmin", False),
+            "is_locked": item.get("IsLocked", False),
+            "created_at": item.get("CreatedAt"),
+        }
