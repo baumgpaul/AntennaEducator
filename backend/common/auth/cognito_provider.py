@@ -155,19 +155,19 @@ class CognitoAuthProvider(AuthProvider):
         except ClientError:
             logger.warning("Could not auto-confirm user %s", email)
 
-        # Create DynamoDB profile record
+        # Create DynamoDB profile record — PascalCase (consistent with projects)
         now = datetime.now(timezone.utc).isoformat()
         self._table.put_item(
             Item={
                 "PK": f"USER#{user_sub}",
                 "SK": "METADATA",
-                "user_id": user_sub,
-                "email": email,
-                "username": username,
-                "is_admin": False,
-                "is_locked": False,
-                "created_at": now,
-                "entity_type": "user",
+                "EntityType": "USER",
+                "UserId": user_sub,
+                "Email": email,
+                "Username": username,
+                "IsAdmin": False,
+                "IsLocked": False,
+                "CreatedAt": now,
             }
         )
 
@@ -209,7 +209,7 @@ class CognitoAuthProvider(AuthProvider):
         id_claims = jwt.get_unverified_claims(auth["IdToken"])
         user_sub = id_claims.get("sub")
         if user_sub:
-            profile = await self.get_user_profile(user_sub)
+            profile = await self.get_user_profile(user_sub, email_hint=email)
             if profile and profile.is_locked:
                 raise ValueError("Account is locked. Please contact an administrator.")
 
@@ -221,7 +221,9 @@ class CognitoAuthProvider(AuthProvider):
 
     # ── Profile enrichment ────────────────────────────────────────────────
 
-    async def get_user_profile(self, user_id: str) -> Optional[UserIdentity]:
+    async def get_user_profile(
+        self, user_id: str, email_hint: Optional[str] = None
+    ) -> Optional[UserIdentity]:
         try:
             resp = self._table.get_item(Key={"PK": f"USER#{user_id}", "SK": "METADATA"})
         except ClientError as exc:
@@ -231,42 +233,49 @@ class CognitoAuthProvider(AuthProvider):
         item = resp.get("Item")
         if not item:
             # Lazy-init: user registered via Cognito but no DynamoDB record yet
-            return await self._lazy_init_profile(user_id)
+            return await self._lazy_init_profile(user_id, email_hint=email_hint)
+
+        # Use email from JWT claims if DynamoDB has a stale/unknown value
+        stored_email = item.get("Email", "unknown")
+        email = stored_email if stored_email != "unknown" else (email_hint or stored_email)
 
         return UserIdentity(
-            id=item["user_id"],
-            email=item["email"],
-            username=item.get("username", item["email"].split("@")[0]),
-            is_admin=item.get("is_admin", False),
-            is_locked=item.get("is_locked", False),
-            created_at=item.get("created_at"),
+            id=item["UserId"],
+            email=email,
+            username=item.get("Username", email.split("@")[0]),
+            is_admin=item.get("IsAdmin", False),
+            is_locked=item.get("IsLocked", False),
+            created_at=item.get("CreatedAt"),
         )
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
-    async def _lazy_init_profile(self, user_id: str) -> UserIdentity:
+    async def _lazy_init_profile(
+        self, user_id: str, *, email_hint: Optional[str] = None
+    ) -> UserIdentity:
         """Create a DynamoDB record for a Cognito user on first API call."""
         logger.info("Lazy-init: creating DynamoDB profile for %s", user_id)
         now = datetime.now(timezone.utc).isoformat()
+        email = email_hint or "unknown"
+        username = email.split("@")[0] if email != "unknown" else f"user_{user_id[:8]}"
 
-        # We don't have the email here — caller should enrich from token claims
         item = {
             "PK": f"USER#{user_id}",
             "SK": "METADATA",
-            "user_id": user_id,
-            "email": "unknown",
-            "username": f"user_{user_id[:8]}",
-            "is_admin": False,
-            "is_locked": False,
-            "created_at": now,
-            "entity_type": "user",
+            "EntityType": "USER",
+            "UserId": user_id,
+            "Email": email,
+            "Username": username,
+            "IsAdmin": False,
+            "IsLocked": False,
+            "CreatedAt": now,
         }
         self._table.put_item(Item=item)
 
         return UserIdentity(
             id=user_id,
-            email="unknown",
-            username=item["username"],
+            email=email,
+            username=username,
             is_admin=False,
             is_locked=False,
             created_at=now,
