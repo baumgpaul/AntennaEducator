@@ -62,11 +62,18 @@ class AuthProvider(ABC):
     # -- Profile enrichment -------------------------------------------------
 
     @abstractmethod
-    async def get_user_profile(self, user_id: str) -> Optional[UserIdentity]:
+    async def get_user_profile(
+        self, user_id: str, email_hint: Optional[str] = None
+    ) -> Optional[UserIdentity]:
         """Look up a user's profile data (admin flag, lock status …).
 
         Called by ``get_current_user()`` after token validation to enrich
         the ``TokenData`` into a full ``UserIdentity``.
+
+        Args:
+            user_id: The user's unique identifier.
+            email_hint: Email from JWT claims — avoids relying on a
+                potentially stale or missing DynamoDB value.
 
         Returns:
             ``UserIdentity`` or ``None`` if the user record does not exist.
