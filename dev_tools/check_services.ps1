@@ -7,9 +7,9 @@ function Test-Service {
         [string]$ServiceName,
         [string]$Url
     )
-    
+
     Write-Host "`nTesting $ServiceName at $Url..." -NoNewline
-    
+
     try {
         $response = Invoke-WebRequest -Uri $Url -Method Get -TimeoutSec 5 -ErrorAction Stop
         if ($response.StatusCode -eq 200) {
@@ -39,7 +39,7 @@ Write-Host "`n=== Summary ===" -ForegroundColor Cyan
 if ($preprocessorOk -and $solverOk -and $postprocessorOk) {
     Write-Host "✅ All services are running!" -ForegroundColor Green
     Write-Host "`nYou can now run tests:" -ForegroundColor White
-    Write-Host "  python dev_tools/test_voltage_source_current_fix.py" -ForegroundColor Yellow
+    Write-Host "  pytest tests/unit/ -x -q" -ForegroundColor Yellow
     exit 0
 } else {
     Write-Host "❌ Some services are not running!" -ForegroundColor Red

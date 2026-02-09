@@ -14,16 +14,16 @@ describe('exportToPDF', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Create mock canvas
     mockCanvas = document.createElement('canvas');
     mockCanvas.width = 1920;
     mockCanvas.height = 1080;
     mockCanvas.toDataURL = vi.fn(() => 'data:image/png;base64,mock');
-    
+
     // Mock html2canvas
     (html2canvas as any).mockResolvedValue(mockCanvas);
-    
+
     // Mock jsPDF
     mockPDF = {
       addPage: vi.fn(),
@@ -33,7 +33,7 @@ describe('exportToPDF', () => {
       internal: { pageSize: { getWidth: () => 297, getHeight: () => 210 } },
     };
     (jsPDF as any).mockImplementation(() => mockPDF);
-    
+
     // Create mock target element
     mockTargetElement = document.createElement('div');
   });

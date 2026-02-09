@@ -74,7 +74,7 @@ const PatternMesh: React.FC<PatternMeshProps> = ({
     const getColor = (value: number) => {
       const normalized = (value - minVal) / (maxVal - minVal || 1)
       const color = new THREE.Color()
-      
+
       if (normalized < 0.5) {
         // Blue to Green
         color.setRGB(0, normalized * 2, 1 - normalized * 2)
@@ -82,7 +82,7 @@ const PatternMesh: React.FC<PatternMeshProps> = ({
         // Green to Red
         color.setRGB((normalized - 0.5) * 2, 1 - (normalized - 0.5) * 2, 0)
       }
-      
+
       return color
     }
 

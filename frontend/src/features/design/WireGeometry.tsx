@@ -8,17 +8,17 @@ interface WireGeometryProps {
   elements?: AntennaElement[];
   selectedElementId?: string | null;
   onElementSelect?: (elementId: string) => void;
-  
+
   // Single mesh support (backward compatibility)
   mesh?: Mesh;
   currentDistribution?: number[]; // Current magnitude at each segment
   selected?: boolean;
   onSelect?: () => void;
-  
+
   // Visualization options
   showNodes?: boolean;
   visualizationMode?: 'element-colors' | 'current-distribution';
-  
+
   // Custom rendering overrides (for postprocessing view items)
   customColor?: string; // Hex color to override element colors
   customOpacity?: number; // Opacity 0-1 to make wires transparent
@@ -29,13 +29,13 @@ interface WireGeometryProps {
  * Supports both multi-element and single mesh rendering
  * Supports element colors and current distribution visualization
  */
-function WireGeometry({ 
-  elements, 
-  selectedElementId, 
+function WireGeometry({
+  elements,
+  selectedElementId,
   onElementSelect,
-  mesh, 
-  currentDistribution, 
-  selected, 
+  mesh,
+  currentDistribution,
+  selected,
   onSelect,
   showNodes = false,
   visualizationMode = 'element-colors',
@@ -43,15 +43,15 @@ function WireGeometry({
   customOpacity = 1.0
 }: WireGeometryProps) {
   const [hoveredElement, setHoveredElement] = useState<string | null>(null);
-  
-  console.log('WireGeometry render:', { 
-    elementsCount: elements?.length, 
+
+  console.log('WireGeometry render:', {
+    elementsCount: elements?.length,
     hasLegacyMesh: !!mesh,
     selectedElementId,
-    elements: elements?.map(e => ({ 
-      id: e.id, 
-      name: e.name, 
-      visible: e.visible, 
+    elements: elements?.map(e => ({
+      id: e.id,
+      name: e.name,
+      visible: e.visible,
       hasMesh: !!e.mesh,
       nodeCount: e.mesh?.nodes?.length,
       edgeCount: e.mesh?.edges?.length
@@ -60,25 +60,25 @@ function WireGeometry({
 
   // Convert elements or single mesh to renderable segments
   const elementSegments = useMemo(() => {
-    console.log('WireGeometry: Computing segments', { 
-      elementCount: elements?.length, 
+    console.log('WireGeometry: Computing segments', {
+      elementCount: elements?.length,
       hasLegacyMesh: !!mesh,
       elements: elements?.map(e => ({ id: e.id, visible: e.visible, meshDefined: !!e.mesh })),
       currentDistribution: currentDistribution?.length
     });
-    
+
     // Find max current for normalization
     const maxCurrent = currentDistribution && currentDistribution.length > 0
       ? Math.max(...currentDistribution.map(c => Math.abs(c)).filter(c => isFinite(c)))
       : 1;
-    
-    console.log('WireGeometry: Current normalization', { 
+
+    console.log('WireGeometry: Current normalization', {
       maxCurrent,
       currentDistSample: currentDistribution?.slice(0, 5),
       hasNaN: currentDistribution?.some(c => !isFinite(c)),
       hasNegative: currentDistribution?.some(c => c < 0)
     });
-    
+
     const result: Array<{
       elementId: string;
       elementColor?: string;
@@ -93,31 +93,31 @@ function WireGeometry({
     if (elements && elements.length > 0) {
       // Multi-element mode
       let currentOffset = 0; // Track position in currentDistribution array
-      
+
       elements.forEach(element => {
         if (!element.visible || !element.mesh) return;
-        
+
         const mesh = element.mesh;
         if (!mesh.edges || !mesh.nodes || !mesh.radii) return;
-        
+
         console.log(`WireGeometry: Element ${element.id} - nodes: ${mesh.nodes.length}, edges: ${mesh.edges.length}, radii: ${mesh.radii.length}, currentOffset: ${currentOffset}`);
-        
+
         const segments = mesh.edges.map((edge, idx) => {
           // Backend uses 1-based indexing, convert to 0-based for JavaScript arrays
           const [startIdx, endIdx] = edge;
           const startIdx0 = startIdx - 1;
           const endIdx0 = endIdx - 1;
-          
+
           if (startIdx0 < 0 || endIdx0 < 0 || startIdx0 >= mesh.nodes.length || endIdx0 >= mesh.nodes.length) {
             console.error(`WireGeometry: Invalid node indices - element ${element.id}, edge ${idx}, start=${startIdx}(${startIdx0}), end=${endIdx}(${endIdx0}), nodes.length=${mesh.nodes.length}`);
             return null;
           }
-          
+
           if (!mesh.nodes[startIdx0] || !mesh.nodes[endIdx0]) {
             console.error(`WireGeometry: Undefined nodes - element ${element.id}, edge ${idx}`);
             return null;
           }
-          
+
           const start = mesh.nodes[startIdx0];
           const end = mesh.nodes[endIdx0];
           const radius = mesh.radii[idx];
@@ -143,13 +143,13 @@ function WireGeometry({
 
           // Apply position offset
           const startPos = new THREE.Vector3(
-            startVec.x + element.position[0], 
-            startVec.y + element.position[1], 
+            startVec.x + element.position[0],
+            startVec.y + element.position[1],
             startVec.z + element.position[2]
           );
           const endPos = new THREE.Vector3(
-            endVec.x + element.position[0], 
-            endVec.y + element.position[1], 
+            endVec.x + element.position[0],
+            endVec.y + element.position[1],
             endVec.z + element.position[2]
           );
 
@@ -184,12 +184,12 @@ function WireGeometry({
           const [startIdx, endIdx] = edge;
           const startIdx0 = startIdx - 1;
           const endIdx0 = endIdx - 1;
-          
+
           if (startIdx0 < 0 || endIdx0 < 0 || !mesh.nodes[startIdx0] || !mesh.nodes[endIdx0]) {
             console.error(`WireGeometry: Invalid node indices - edge ${idx}, start=${startIdx}(${startIdx0}), end=${endIdx}(${endIdx0})`);
             return null;
           }
-          
+
           const start = mesh.nodes[startIdx0];
           const end = mesh.nodes[endIdx0];
           const radius = mesh.radii[idx];
@@ -220,7 +220,7 @@ function WireGeometry({
       }
     }
 
-    console.log('WireGeometry: Computed segments', { 
+    console.log('WireGeometry: Computed segments', {
       totalElements: result.length,
       totalSegments: result.reduce((sum, el) => sum + el.segments.length, 0)
     });
@@ -238,17 +238,17 @@ function WireGeometry({
     if (customColor) {
       return hexToThreeColor(customColor);
     }
-    
+
     // If in current distribution mode and we have current data
     if (mode === 'current-distribution' && current !== 0) {
       return getColorFromCurrent(current);
     }
-    
+
     // Otherwise use element color
     if (elementColor) {
       return hexToThreeColor(elementColor);
     }
-    
+
     // Fallback to default
     return hexToThreeColor(DEFAULT_ELEMENT_COLOR);
   };
@@ -305,15 +305,15 @@ function WireGeometry({
               );
 
               const color = getSegmentColor(elementColor, segment.current, visualizationMode);
-              
+
               // Make wires more visible by using a minimum render radius
               const renderRadius = Math.max(segment.radius, 0.003);
-              
+
               // Detect if this is a gap segment (no adjacent segment at one end)
               // Check if next/previous segment connects to this one
-              const hasNextSegment = idx < segments.length - 1 && 
+              const hasNextSegment = idx < segments.length - 1 &&
                 segment.end.distanceTo(segments[idx + 1].start) < 0.001;
-              const hasPrevSegment = idx > 0 && 
+              const hasPrevSegment = idx > 0 &&
                 segment.start.distanceTo(segments[idx - 1].end) < 0.001;
 
               return (
@@ -385,10 +385,10 @@ function WireGeometry({
             {showNodes && elements && (() => {
               const element = elements.find(el => el.id === elementId);
               if (!element || !element.mesh) return null;
-              
+
               // Collect important node indices (0-based)
               const importantNodes = new Set<number>();
-              
+
               // Add source nodes (convert from 1-based to 0-based)
               if (element.sources && element.sources.length > 0) {
                 element.sources.forEach(src => {
@@ -402,7 +402,7 @@ function WireGeometry({
                   }
                 });
               }
-              
+
               // Add lumped element nodes (convert from 1-based to 0-based)
               if (element.lumped_elements && element.lumped_elements.length > 0) {
                 element.lumped_elements.forEach(le => {
@@ -416,20 +416,20 @@ function WireGeometry({
                   }
                 });
               }
-              
+
               // Only render marked nodes
               return element.mesh.nodes
                 .map((node, idx) => {
                   if (!importantNodes.has(idx)) return null;
-                  
+
                   // Calculate node sphere radius as 10% larger than wire radius
                   // Use the first segment's radius as reference
-                  const wireRadius = element.mesh.radii && element.mesh.radii.length > 0 
-                    ? element.mesh.radii[0] 
+                  const wireRadius = element.mesh.radii && element.mesh.radii.length > 0
+                    ? element.mesh.radii[0]
                     : 0.001; // fallback
                   const renderRadius = Math.max(wireRadius, 0.003); // minimum visibility
                   const nodeSphereRadius = renderRadius * 1.1;
-                  
+
                   // Apply rotation to node position
                   const nodeVec = new THREE.Vector3(node[0], node[1], node[2]);
                   const rotationEuler = new THREE.Euler(
@@ -439,18 +439,18 @@ function WireGeometry({
                     'XYZ'
                   );
                   nodeVec.applyEuler(rotationEuler);
-                  
+
                   // Apply position offset
                   const nodePos = new THREE.Vector3(
-                    nodeVec.x + element.position[0], 
-                    nodeVec.y + element.position[1], 
+                    nodeVec.x + element.position[0],
+                    nodeVec.y + element.position[1],
                     nodeVec.z + element.position[2]
                   );
-                  
+
                   return (
                     <mesh key={`node-${elementId}-${idx}`} position={nodePos}>
                       <sphereGeometry args={[nodeSphereRadius, 12, 12]} />
-                      <meshStandardMaterial 
+                      <meshStandardMaterial
                         color={isSelected ? 0xff0000 : 0x00ff00}
                         emissive={0x00ff00}
                         emissiveIntensity={0.5}
@@ -460,35 +460,35 @@ function WireGeometry({
                 })
                 .filter(Boolean);
             })()}
-            
+
             {/* Legacy single mesh node markers */}
             {/* Node markers for single mesh - show source/load nodes only */}
             {showNodes && elementId === 'single-mesh' && mesh && (() => {
               // For single mesh mode, check global sources and lumped elements
               const importantNodes = new Set<number>();
-              
+
               // This would need access to sources from state - for now show first/last nodes
               // TODO: Pass sources prop to filter nodes properly
               if (mesh.nodes.length > 0) {
                 importantNodes.add(0); // First node (often ground)
                 importantNodes.add(Math.floor(mesh.nodes.length / 2)); // Middle (feed point)
               }
-              
+
               // Calculate node sphere radius as 10% larger than wire radius
-              const wireRadius = mesh.radii && mesh.radii.length > 0 
-                ? mesh.radii[0] 
+              const wireRadius = mesh.radii && mesh.radii.length > 0
+                ? mesh.radii[0]
                 : 0.001; // fallback
               const renderRadius = Math.max(wireRadius, 0.003); // minimum visibility
               const nodeSphereRadius = renderRadius * 1.1;
-              
+
               return mesh.nodes
                 .map((node, idx) => {
                   if (!importantNodes.has(idx)) return null;
-                  
+
                   return (
                     <mesh key={`node-single-${idx}`} position={new THREE.Vector3(node[0], node[1], node[2])}>
                       <sphereGeometry args={[nodeSphereRadius, 12, 12]} />
-                      <meshStandardMaterial 
+                      <meshStandardMaterial
                         color={selected ? 0xff0000 : 0x00ff00}
                         emissive={0x00ff00}
                         emissiveIntensity={0.5}

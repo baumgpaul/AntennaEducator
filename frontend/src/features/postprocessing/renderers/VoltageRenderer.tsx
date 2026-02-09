@@ -35,7 +35,7 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
   const nodes = useMemo(() => {
     if (!elements || elements.length === 0) return [];
     const allNodes: Array<[number, number, number]> = [];
-    
+
     // Get nodes from antenna element meshes
     elements.forEach((element) => {
       if (element.mesh && element.mesh.nodes) {
@@ -45,7 +45,7 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
         });
       }
     });
-    
+
     return allNodes;
   }, [elements]);
 

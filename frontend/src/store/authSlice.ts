@@ -30,7 +30,7 @@ const loadAuthFromStorage = (): Partial<AuthState> => {
     const authService = getAuthService()
     const token = authService.getAccessToken()
     const userStr = localStorage.getItem('user')
-    
+
     if (token && userStr) {
       return {
         isAuthenticated: true,
@@ -160,7 +160,7 @@ const authSlice = createSlice({
     clearAuthError: (state) => {
       state.error = null
     },
-    
+
     // Update user info
     updateUser: (state, action: PayloadAction<Partial<User>>) => {
       if (state.user) {
@@ -182,7 +182,7 @@ const authSlice = createSlice({
         state.tokens = action.payload.tokens
         state.loading = false
         state.error = null
-        
+
         // Persist to localStorage
         localStorage.setItem('user', JSON.stringify(action.payload.user))
       })
@@ -205,7 +205,7 @@ const authSlice = createSlice({
         state.tokens = null
         state.loading = false
         state.error = null
-        
+
         // Don't persist to localStorage - user is not logged in yet
       })
       .addCase(registerAsync.rejected, (state, action) => {
@@ -221,7 +221,7 @@ const authSlice = createSlice({
       state.tokens = null
       state.loading = false
       state.error = null
-      
+
       // Clear localStorage
       localStorage.removeItem('user')
     })

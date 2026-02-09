@@ -13,12 +13,12 @@ import { ExpandMore, ExpandLess } from '@mui/icons-material';
 
 /**
  * FieldRegionControls - Overlay controls for field region visualization
- * 
+ *
  * Features:
  * - Toggle field region visibility
  * - Adjust opacity (0-100%)
  * - Collapsible panel
- * 
+ *
  * Positioned absolutely over the 3D canvas (top-left)
  */
 

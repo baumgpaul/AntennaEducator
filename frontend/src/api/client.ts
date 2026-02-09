@@ -48,7 +48,7 @@ const processQueue = (error: unknown, token: string | null = null) => {
       prom.resolve(token)
     }
   })
-  
+
   failedQueue = []
 }
 
@@ -56,12 +56,12 @@ const processQueue = (error: unknown, token: string | null = null) => {
 const refreshAccessToken = async (): Promise<string> => {
   const refresh_token = localStorage.getItem('refresh_token')
   const authProvider = import.meta.env.VITE_AUTH_PROVIDER as string
-  
+
   if (!refresh_token) {
     console.error('[Auth] No refresh token available')
     throw new Error('No refresh token available')
   }
-  
+
   try {
     // Cognito tokens: use Cognito SDK to refresh
     // Local tokens: use backend API
@@ -76,7 +76,7 @@ const refreshAccessToken = async (): Promise<string> => {
       const response = await axios.post(`${getAuthURL()}/api/auth/refresh`, {
         refresh_token,
       })
-      
+
       const { access_token } = response.data
       localStorage.setItem('auth_token', access_token)
       return access_token
@@ -108,15 +108,15 @@ const createApiClient = (baseURL: string): AxiosInstance => {
     (config) => {
       // Development mode: use stub token if auth is disabled
       const authEnabled = import.meta.env.VITE_ENABLE_AUTH === 'true'
-      
+
       let token = localStorage.getItem('auth_token')
-      
+
       // If auth is disabled and no token exists, use dev stub
       if (!authEnabled && !token) {
         token = 'dev_stub_token_' + Date.now()
         console.log('[DEV] Using stub JWT token (auth disabled)')
       }
-      
+
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
@@ -132,7 +132,7 @@ const createApiClient = (baseURL: string): AxiosInstance => {
     (response) => response,
     async (error: AxiosError) => {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
-      
+
       const apiError: ApiError = {
         message: error.message,
         status: error.response?.status,
@@ -150,36 +150,36 @@ const createApiClient = (baseURL: string): AxiosInstance => {
           timestamp: new Date().toISOString(),
           responseData: error.response?.data,
         }
-        
+
         console.error('[Auth] ⚠️ RECEIVED 401 UNAUTHORIZED - CHECK THIS BEFORE REDIRECT ⚠️')
         console.error('[Auth] Error details:', errorDetails)
-        
+
         // Store error details for debugging after redirect
         localStorage.setItem('last_auth_error', JSON.stringify(errorDetails))
-        
+
         // In dev mode with auth disabled, skip token refresh
         const authEnabled = import.meta.env.VITE_ENABLE_AUTH === 'true'
         if (!authEnabled) {
           console.warn('[DEV] Got 401, but auth is disabled - ignoring')
           return Promise.reject(apiError)
         }
-        
+
         // Skip refresh for login/register/refresh endpoints
         const isAuthEndpoint = originalRequest.url?.includes('/api/auth/')
         if (isAuthEndpoint) {
           console.error('[Auth] 401 on auth endpoint, clearing tokens and redirecting')
           console.error('[Auth] Error details:', error.response?.data)
-          
+
           // Store reason for debugging
           localStorage.setItem('logout_reason', 'auth_endpoint_401')
-          
+
           // Clear tokens and redirect to login
           localStorage.removeItem('auth_token')
           localStorage.removeItem('refresh_token')
           localStorage.removeItem('id_token')
           localStorage.removeItem('user')
           window.location.href = '/login'
-          
+
           return Promise.reject(apiError)
         }
 
@@ -205,11 +205,11 @@ const createApiClient = (baseURL: string): AxiosInstance => {
         try {
           const newToken = await refreshAccessToken()
           processQueue(null, newToken)
-          
+
           if (originalRequest.headers) {
             originalRequest.headers.Authorization = `Bearer ${newToken}`
           }
-          
+
           return instance(originalRequest)
         } catch (refreshError) {
           console.error('[Auth] Token refresh failed, redirect will happen from refreshAccessToken()')
@@ -254,7 +254,7 @@ export const handleApiError = (error: unknown): ApiError => {
       details: error.response?.data,
     }
   }
-  
+
   return {
     message: error instanceof Error ? error.message : 'Unknown error',
   }

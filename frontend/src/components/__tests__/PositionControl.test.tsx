@@ -104,7 +104,7 @@ describe('PositionControl Component', () => {
     const rotXInput = inputs.find(i => (i as HTMLInputElement).getAttribute('name') === 'orientation.rotX');
     const rotYInput = inputs.find(i => (i as HTMLInputElement).getAttribute('name') === 'orientation.rotY');
     const rotZInput = inputs.find(i => (i as HTMLInputElement).getAttribute('name') === 'orientation.rotZ');
-    
+
     expect(rotXInput).toBeInTheDocument();
     expect(rotYInput).toBeInTheDocument();
     expect(rotZInput).toBeInTheDocument();
@@ -114,7 +114,7 @@ describe('PositionControl Component', () => {
     render(<PositionControlWrapper showOrientation={false} />);
     const inputs = screen.queryAllByRole('spinbutton');
     const rotXInput = inputs.find(i => (i as HTMLInputElement).getAttribute('name') === 'orientation.rotX');
-    
+
     expect(rotXInput).toBeUndefined();
   });
 
@@ -144,7 +144,7 @@ describe('PositionControl Component', () => {
     render(<PositionControlWrapper showOrientation={true} />);
     const inputs = screen.getAllByRole('spinbutton');
     const rotXInput = inputs.find(i => (i as HTMLInputElement).getAttribute('name') === 'orientation.rotX') as HTMLInputElement;
-    
+
     expect(rotXInput.getAttribute('min')).toBe('-180');
     expect(rotXInput.getAttribute('max')).toBe('180');
   });
@@ -153,7 +153,7 @@ describe('PositionControl Component', () => {
     render(<PositionControlWrapper showOrientation={true} />);
     const inputs = screen.getAllByRole('spinbutton');
     const rotXInput = inputs.find(i => (i as HTMLInputElement).getAttribute('name') === 'orientation.rotX') as HTMLInputElement;
-    
+
     expect(rotXInput.getAttribute('step')).toBe('1');
   });
 
@@ -289,7 +289,7 @@ describe('PositionControl Component', () => {
 
     const buttons = screen.getAllByRole('button');
     const aboveButton = buttons.find(b => b.textContent?.includes('Above'));
-    
+
     expect(aboveButton).toBeInTheDocument();
   });
 

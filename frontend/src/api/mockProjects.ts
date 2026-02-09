@@ -90,7 +90,7 @@ export async function updateProject(id: string, data: UpdateProjectRequest): Pro
   if (index === -1) {
     throw new Error('Project not found');
   }
-  
+
   const updated: Project = {
     ...mockProjects[index],
     ...data,
@@ -121,7 +121,7 @@ export async function duplicateProject(id: string): Promise<Project> {
   if (!original) {
     throw new Error('Project not found');
   }
-  
+
   const now = new Date().toISOString();
   const duplicate: Project = {
     id: String(nextId++),

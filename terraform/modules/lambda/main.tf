@@ -4,20 +4,20 @@
 resource "aws_lambda_function" "this" {
   function_name = var.function_name
   role          = aws_iam_role.lambda.arn
-  
+
   # Container image configuration
   package_type = "Image"
   image_uri    = var.image_uri
-  
+
   # Resource configuration
   memory_size = var.memory_size
   timeout     = var.timeout
-  
+
   # Environment variables
   environment {
     variables = var.environment_variables
   }
-  
+
   # VPC configuration (optional)
   dynamic "vpc_config" {
     for_each = var.vpc_config != null ? [var.vpc_config] : []
@@ -26,13 +26,13 @@ resource "aws_lambda_function" "this" {
       security_group_ids = vpc_config.value.security_group_ids
     }
   }
-  
+
   # Logging configuration
   logging_config {
     log_format = "JSON"
     log_group  = aws_cloudwatch_log_group.lambda.name
   }
-  
+
   tags = merge(
     var.tags,
     {
@@ -45,7 +45,7 @@ resource "aws_lambda_function" "this" {
 # IAM Role for Lambda execution
 resource "aws_iam_role" "lambda" {
   name = "${var.function_name}-execution-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -58,7 +58,7 @@ resource "aws_iam_role" "lambda" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 
@@ -80,7 +80,7 @@ resource "aws_iam_role_policy" "dynamodb" {
   count = length(var.dynamodb_table_arns) > 0 ? 1 : 0
   name  = "${var.function_name}-dynamodb-policy"
   role  = aws_iam_role.lambda.id
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -110,7 +110,7 @@ resource "aws_iam_role_policy" "s3" {
   count = length(var.s3_bucket_arns) > 0 ? 1 : 0
   name  = "${var.function_name}-s3-policy"
   role  = aws_iam_role.lambda.id
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -135,7 +135,7 @@ resource "aws_iam_role_policy" "s3" {
 resource "aws_cloudwatch_log_group" "lambda" {
   name              = "/aws/lambda/${var.function_name}"
   retention_in_days = var.log_retention_days
-  
+
   tags = var.tags
 }
 
@@ -144,7 +144,7 @@ resource "aws_lambda_function_url" "this" {
   count              = var.create_function_url ? 1 : 0
   function_name      = aws_lambda_function.this.function_name
   authorization_type = var.function_url_auth_type
-  
+
   cors {
     allow_credentials = true
     allow_origins     = var.cors_allowed_origins

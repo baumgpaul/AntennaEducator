@@ -31,16 +31,16 @@ function turboColorMap(t: number): THREE.Color {
   const v4 = [1.0, t, t * t, t * t * t];
   const v2 = [v4[2] * t, v4[3] * t];
 
-  const r = Math.max(0, Math.min(1, 
-    kRedVec4[0] * v4[0] + kRedVec4[1] * v4[1] + kRedVec4[2] * v4[2] + kRedVec4[3] * v4[3] + 
+  const r = Math.max(0, Math.min(1,
+    kRedVec4[0] * v4[0] + kRedVec4[1] * v4[1] + kRedVec4[2] * v4[2] + kRedVec4[3] * v4[3] +
     kRedVec2[0] * v2[0] + kRedVec2[1] * v2[1]
   ));
   const g = Math.max(0, Math.min(1,
-    kGreenVec4[0] * v4[0] + kGreenVec4[1] * v4[1] + kGreenVec4[2] * v4[2] + kGreenVec4[3] * v4[3] + 
+    kGreenVec4[0] * v4[0] + kGreenVec4[1] * v4[1] + kGreenVec4[2] * v4[2] + kGreenVec4[3] * v4[3] +
     kGreenVec2[0] * v2[0] + kGreenVec2[1] * v2[1]
   ));
   const b = Math.max(0, Math.min(1,
-    kBlueVec4[0] * v4[0] + kBlueVec4[1] * v4[1] + kBlueVec4[2] * v4[2] + kBlueVec4[3] * v4[3] + 
+    kBlueVec4[0] * v4[0] + kBlueVec4[1] * v4[1] + kBlueVec4[2] * v4[2] + kBlueVec4[3] * v4[3] +
     kBlueVec2[0] * v2[0] + kBlueVec2[1] * v2[1]
   ));
 
@@ -180,7 +180,7 @@ export function createColorArray(
   const range = max - min || 1; // Avoid division by zero
 
   const colors = new Float32Array(values.length * 3);
-  
+
   for (let i = 0; i < values.length; i++) {
     const normalized = (values[i] - min) / range;
     const color = getColor(normalized, colorMap);

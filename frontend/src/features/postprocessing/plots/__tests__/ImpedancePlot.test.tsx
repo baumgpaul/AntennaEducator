@@ -14,7 +14,7 @@ describe('ImpedancePlot', () => {
 
   it('renders plot with data in rectangular mode', () => {
     render(<ImpedancePlot data={mockData} displayMode="rectangular" />);
-    
+
     expect(screen.getByText('Input Impedance')).toBeInTheDocument();
     expect(screen.getByText('Re(Z)')).toBeInTheDocument();
     expect(screen.getByText('Im(Z)')).toBeInTheDocument();
@@ -22,7 +22,7 @@ describe('ImpedancePlot', () => {
 
   it('renders plot with data in polar mode', () => {
     render(<ImpedancePlot data={mockData} displayMode="polar" />);
-    
+
     expect(screen.getByText('Input Impedance')).toBeInTheDocument();
     expect(screen.getByText('|Z|')).toBeInTheDocument();
     expect(screen.getByText('∠Z')).toBeInTheDocument();
@@ -30,19 +30,19 @@ describe('ImpedancePlot', () => {
 
   it('renders custom title', () => {
     render(<ImpedancePlot data={mockData} title="My Custom Title" />);
-    
+
     expect(screen.getByText('My Custom Title')).toBeInTheDocument();
   });
 
   it('shows empty state when no data', () => {
     render(<ImpedancePlot data={[]} />);
-    
+
     expect(screen.getByText('No impedance data available')).toBeInTheDocument();
   });
 
   it('converts frequency to MHz', () => {
     const { container } = render(<ImpedancePlot data={mockData} />);
-    
+
     // Check that chart is rendered (ResponsiveContainer creates a div)
     const chartContainer = container.querySelector('.recharts-responsive-container');
     expect(chartContainer).toBeInTheDocument();

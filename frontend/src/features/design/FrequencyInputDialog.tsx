@@ -41,13 +41,13 @@ interface FrequencyInputDialogProps {
 
 /**
  * FrequencyInputDialog - Single frequency solver input
- * 
+ *
  * Features:
  * - MHz/GHz unit selector
  * - Frequency range validation (0.1 MHz - 1000 GHz)
  * - Loading state during solve
  * - Error handling and display
- * 
+ *
  * Usage:
  * ```tsx
  * <FrequencyInputDialog
@@ -102,7 +102,7 @@ export function FrequencyInputDialog({
 
       // Close dialog on success
       onClose();
-      
+
       // Reset state
       setError(null);
       setValidationError(null);

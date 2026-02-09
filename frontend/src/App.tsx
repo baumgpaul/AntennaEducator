@@ -18,16 +18,16 @@ function App() {
     <Box sx={{ display: 'flex', height: '100vh', width: '100vw' }}>
       {/* Global notification system */}
       <NotificationManager />
-      
+
       {/* Session timeout management */}
       <SessionManager />
-      
+
       {/* Route definitions */}
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        
+
         {/* Protected routes with main layout */}
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route path="/" element={<HomePage />} />
@@ -36,7 +36,7 @@ function App() {
           <Route path="/project/:projectId/design" element={<ErrorBoundary><DesignPage /></ErrorBoundary>} />
           <Route path="/project/:projectId/results" element={<ErrorBoundary><ResultsPage /></ErrorBoundary>} />
         </Route>
-        
+
         {/* 404 catch-all */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

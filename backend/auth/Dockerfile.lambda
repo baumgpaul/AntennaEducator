@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
 
 # Copy the entire backend directory to maintain import structure
-# Auth service depends on backend.projects modules (auth, cognito_service, local_auth_service)
+# Auth service depends on backend.common.auth (provider, dependencies, factory)
 COPY backend/ ${LAMBDA_TASK_ROOT}/backend/
 COPY backend/__init__.py ${LAMBDA_TASK_ROOT}/backend/__init__.py
 

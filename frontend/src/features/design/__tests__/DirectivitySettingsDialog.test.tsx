@@ -63,7 +63,7 @@ describe('DirectivitySettingsDialog', () => {
     );
 
     const thetaInput = screen.getByLabelText('Theta Points (Elevation)');
-    
+
     // Test below minimum
     fireEvent.change(thetaInput, { target: { value: '3' } });
     await waitFor(() => {
@@ -94,7 +94,7 @@ describe('DirectivitySettingsDialog', () => {
     );
 
     const phiInput = screen.getByLabelText('Phi Points (Azimuth)');
-    
+
     // Test below minimum
     fireEvent.change(phiInput, { target: { value: '2' } });
     await waitFor(() => {
@@ -173,7 +173,7 @@ describe('DirectivitySettingsDialog', () => {
 
     const confirmButton = screen.getByText('Add Directivity');
     expect(confirmButton).toBeDisabled();
-    
+
     fireEvent.click(confirmButton);
     expect(mockOnConfirm).not.toHaveBeenCalled();
   });

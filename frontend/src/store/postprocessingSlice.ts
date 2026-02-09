@@ -1,6 +1,6 @@
 /**
  * Redux slice for Postprocessing Tab Multi-View Configuration System
- * 
+ *
  * Manages view configurations, items, and UI state for the postprocessing workflow.
  */
 

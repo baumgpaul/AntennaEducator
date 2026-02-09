@@ -36,7 +36,7 @@ const DirectivitySettingsDialog: React.FC<DirectivitySettingsDialogProps> = ({
   const handleThetaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(event.target.value, 10);
     setThetaPoints(value);
-    
+
     if (value < 5 || value > 180) {
       setErrors((prev) => ({ ...prev, theta: 'Must be between 5 and 180' }));
     } else {
@@ -47,7 +47,7 @@ const DirectivitySettingsDialog: React.FC<DirectivitySettingsDialogProps> = ({
   const handlePhiChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(event.target.value, 10);
     setPhiPoints(value);
-    
+
     if (value < 5 || value > 360) {
       setErrors((prev) => ({ ...prev, phi: 'Must be between 5 and 360' }));
     } else {

@@ -1,6 +1,6 @@
 /**
  * Type definitions for the Postprocessing Tab Multi-View Configuration System
- * 
+ *
  * This module defines the data structures for:
  * - View configurations (3D and Line views)
  * - View items (antenna elements, fields, plots)
@@ -16,7 +16,7 @@ export type ViewType = '3D' | 'Line';
 
 /**
  * Type of item that can be added to a view
- * 
+ *
  * 3D View Items:
  * - antenna-system: All antennas from Designer (single tree item)
  * - single-antenna: Individual antenna from Designer
@@ -27,11 +27,11 @@ export type ViewType = '3D' | 'Line';
  * - field-vector: Arrow field visualization
  * - field-vector-component: Single component of field vector
  * - directivity: Far-field radiation pattern
- * 
+ *
  * Line View Items:
  * - scalar-plot: Generic scalar data plot (impedance, voltage, current vs frequency)
  */
-export type ViewItemType = 
+export type ViewItemType =
   | 'antenna-system'
   | 'single-antenna'
   | 'current'
@@ -61,7 +61,7 @@ export interface PlotSettings {
 
 /**
  * A single item within a view configuration
- * 
+ *
  * Each item represents a visual element (antenna, field, plot) that can be
  * displayed in the view. Items have type-specific properties.
  */
@@ -74,7 +74,7 @@ export interface ViewItem {
   label?: string;
   /** Visibility toggle state */
   visible: boolean;
-  
+
   // Type-specific references
   /** Reference to antenna ID (for single-antenna) */
   antennaId?: string;
@@ -84,18 +84,18 @@ export interface ViewItem {
   portNumber?: number;
   /** Plot settings (for Line view items) */
   plotSettings?: PlotSettings;
-  
+
   // ===== Phase 2: Item Property Editors =====
   // Common visualization properties
   /** Opacity 0-1 (rendered as 0-100%) */
   opacity?: number;
   /** Hex color (e.g., '#FF8C00') for solid coloring */
   color?: string;
-  
+
   // Color mapping (for current, voltage, field-magnitude, field-vector, directivity)
   /** Color map name ('jet' | 'turbo' | 'viridis' | 'plasma' | 'twilight') */
   colorMap?: string;
-  
+
   // Value range control
   /** Value range mode: 'auto' (from data) or 'manual' (user-specified) */
   valueRangeMode?: 'auto' | 'manual';
@@ -103,7 +103,7 @@ export interface ViewItem {
   valueRangeMin?: number;
   /** Maximum value for manual range */
   valueRangeMax?: number;
-  
+
   // Geometry sizing
   /** Edge size for current distributions (line width multiplier) */
   edgeSize?: number;
@@ -113,13 +113,13 @@ export interface ViewItem {
   arrowSize?: number;
   /** Size factor for directivity patterns (overall scale) */
   sizeFactor?: number;
-  
+
   // Line plot properties
   /** Line style for scalar plots */
   lineStyle?: 'solid' | 'dashed' | 'dotted' | 'dash-dot';
   /** Y-axis scale for scalar plots */
   yAxisScale?: 'linear' | 'log';
-  
+
   // Directivity scale
   /** Scale for directivity pattern (linear or logarithmic dBi) */
   scale?: 'linear' | 'logarithmic';
@@ -127,7 +127,7 @@ export interface ViewItem {
 
 /**
  * A view configuration represents a complete visualization setup
- * 
+ *
  * Users can create multiple views to explore results from different perspectives.
  * Each view has its own set of items and settings.
  */
@@ -158,7 +158,7 @@ export interface PostprocessingState {
   selectedViewId: string | null;
   /** ID of currently selected item (shown in properties panel) */
   selectedItemId: string | null;
-  
+
   // Dialog states
   /** Add View dialog open state */
   addViewDialogOpen: boolean;
@@ -168,7 +168,7 @@ export interface PostprocessingState {
   addFieldDialogOpen: boolean;
   /** Add Scalar Plot dialog open state */
   addScalarPlotDialogOpen: boolean;
-  
+
   // Export states
   /** Export to PDF dialog open state */
   exportPDFDialogOpen: boolean;
@@ -206,12 +206,12 @@ export const MAX_VIEW_CONFIGURATIONS = 10;
 export function generateDefaultViewName(existingViews: ViewConfiguration[]): string {
   let counter = 1;
   let name = `Result View ${counter}`;
-  
+
   while (existingViews.some(v => v.name === name)) {
     counter++;
     name = `Result View ${counter}`;
   }
-  
+
   return name;
 }
 
@@ -231,23 +231,23 @@ export function generateDefaultItemLabel(type: ViewItemType, existingItems: View
     'directivity': 'Directivity',
     'scalar-plot': 'Plot',
   };
-  
+
   const baseLabel = baseLabels[type];
-  
+
   // For items that typically have only one instance, return base label
   if (type === 'antenna-system' || type === 'directivity') {
     return baseLabel;
   }
-  
+
   // For items that can have multiple instances, add counter
   let counter = 1;
   let label = baseLabel;
-  
+
   while (existingItems.some(item => item.label === label || (item.type === type && !item.label))) {
     counter++;
     label = `${baseLabel} ${counter}`;
   }
-  
+
   return label;
 }
 
@@ -266,11 +266,11 @@ export function isItemTypeAllowedInView(itemType: ViewItemType, viewType: ViewTy
     'field-vector-component',
     'directivity',
   ];
-  
+
   const lineItems: ViewItemType[] = [
     'scalar-plot',
   ];
-  
+
   if (viewType === '3D') {
     return threeDItems.includes(itemType);
   } else {

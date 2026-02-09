@@ -116,7 +116,7 @@ const projectsSlice = createSlice({
       state.currentProject = found
       state.selectedProject = found
     },
-    
+
     // Clear current project
     clearCurrentProject: (state) => {
       state.currentProject = null
@@ -124,23 +124,23 @@ const projectsSlice = createSlice({
       state.selectedProjectId = null
       state.simulations = []
     },
-    
+
     // Simulations
     setSimulations: (state, action: PayloadAction<Simulation[]>) => {
       state.simulations = action.payload
     },
-    
+
     addSimulation: (state, action: PayloadAction<Simulation>) => {
       state.simulations.push(action.payload)
     },
-    
+
     updateSimulation: (state, action: PayloadAction<Simulation>) => {
       const index = state.simulations.findIndex((s) => s.id === action.payload.id)
       if (index !== -1) {
         state.simulations[index] = action.payload
       }
     },
-    
+
     // Clear error
     clearProjectsError: (state) => {
       state.error = null
@@ -162,7 +162,7 @@ const projectsSlice = createSlice({
         state.loading = false
         state.error = action.error.message || 'Failed to fetch projects'
       })
-      
+
     // Fetch single project
     builder
       .addCase(fetchProject.pending, (state) => {
@@ -179,7 +179,7 @@ const projectsSlice = createSlice({
         state.loading = false
         state.error = action.error.message || 'Failed to fetch project'
       })
-      
+
     // Create project
     builder
       .addCase(createProject.pending, (state) => {
@@ -198,7 +198,7 @@ const projectsSlice = createSlice({
         state.loading = false
         state.error = action.error.message || 'Failed to create project'
       })
-      
+
     // Update project
     builder
       .addCase(updateProject.pending, (state) => {
@@ -226,7 +226,7 @@ const projectsSlice = createSlice({
         state.loading = false
         state.error = action.error.message || 'Failed to update project'
       })
-      
+
     // Delete project
     builder
       .addCase(deleteProject.pending, (state) => {
@@ -247,7 +247,7 @@ const projectsSlice = createSlice({
         state.loading = false
         state.error = action.error.message || 'Failed to delete project'
       })
-      
+
     // Duplicate project
     builder
       .addCase(duplicateProject.pending, (state) => {

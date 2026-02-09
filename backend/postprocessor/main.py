@@ -10,10 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from .config import settings
-from .field import (
-    compute_directivity_from_pattern,
-    compute_far_field,
-)
+from .field import compute_directivity_from_pattern, compute_far_field
 from .field import compute_near_field as compute_near_field_impl
 from .models import FarFieldRequest, FieldRequest, RadiationPatternResponse
 

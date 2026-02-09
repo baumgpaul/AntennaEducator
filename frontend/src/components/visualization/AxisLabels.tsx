@@ -15,7 +15,7 @@ function calculateLabelPositions(size: number) {
   let step: number;
   let unit = 'm';
   let formatDecimals = 0;
-  
+
   if (size < 0.01) {
     // Very small (< 10mm) - use mm with 1mm steps
     step = 0.001;
@@ -42,17 +42,17 @@ function calculateLabelPositions(size: number) {
     unit = 'm';
     formatDecimals = 0;
   }
-  
+
   // Generate label positions - only show the first one
   const positions = [];
-  const valueInDisplayUnit = unit === 'mm' ? step * 1000 : 
-                              unit === 'cm' ? step * 100 : 
+  const valueInDisplayUnit = unit === 'mm' ? step * 1000 :
+                              unit === 'cm' ? step * 100 :
                               step;
   positions.push({
     position: step,
     label: formatDecimals > 0 ? valueInDisplayUnit.toFixed(formatDecimals) : Math.round(valueInDisplayUnit).toString()
   });
-  
+
   return { positions, unit };
 }
 
@@ -60,14 +60,14 @@ function calculateLabelPositions(size: number) {
  * AxisLabels - Displays X, Y, Z axis labels at smart grid positions
  * Automatically adapts scale to match antenna size
  */
-function AxisLabels({ 
-  size = 5, 
+function AxisLabels({
+  size = 5,
   fontSize = 0.105,
   color = '#999999'
 }: AxisLabelsProps) {
-  
+
   const { positions, unit } = calculateLabelPositions(size);
-  
+
   return (
     <group>
       {/* X-axis labels at calculated positions */}
@@ -123,7 +123,7 @@ function AxisLabels({
       >
         X [{unit}]
       </Text>
-      
+
       <Text
         position={[-0.15 * size, size * 1.15, 0]}
         fontSize={fontSize * 0.7}
@@ -133,7 +133,7 @@ function AxisLabels({
       >
         Y [{unit}]
       </Text>
-      
+
       <Text
         position={[-0.15 * size, 0, size * 1.15]}
         fontSize={fontSize * 0.7}

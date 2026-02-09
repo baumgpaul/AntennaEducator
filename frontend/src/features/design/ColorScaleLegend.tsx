@@ -11,9 +11,9 @@ interface ColorScaleLegendProps {
  * ColorScaleLegend - Displays color mapping for current distribution visualization
  * Shows gradient from blue (low) to green (medium) to red (high)
  */
-function ColorScaleLegend({ 
-  min = 0, 
-  max = 1, 
+function ColorScaleLegend({
+  min = 0,
+  max = 1,
   unit = 'A',
   title = 'Current Magnitude'
 }: ColorScaleLegendProps) {
@@ -33,7 +33,7 @@ function ColorScaleLegend({
       <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
         {title}
       </Typography>
-      
+
       {/* Gradient bar */}
       <Box
         sx={{
@@ -45,7 +45,7 @@ function ColorScaleLegend({
           mb: 0.5,
         }}
       />
-      
+
       {/* Value labels */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
         <Typography variant="caption" color="text.secondary">
@@ -55,7 +55,7 @@ function ColorScaleLegend({
           {max.toExponential(2)} {unit}
         </Typography>
       </Box>
-      
+
       {/* Color indicators */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, gap: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

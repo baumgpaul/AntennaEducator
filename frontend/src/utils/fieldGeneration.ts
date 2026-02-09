@@ -143,10 +143,10 @@ function generate3DObservationPoints(field: FieldDefinition3D): number[][] {
     // Sample in spherical coordinates
     for (let i = 0; i < nr; i++) {
       const r = (i / (nr - 1)) * radius;
-      
+
       for (let j = 0; j < ntheta; j++) {
         const theta = (j / (ntheta - 1)) * Math.PI; // 0 to π
-        
+
         for (let k = 0; k < nphi; k++) {
           const phi = (k / nphi) * 2 * Math.PI; // 0 to 2π
 
@@ -163,7 +163,7 @@ function generate3DObservationPoints(field: FieldDefinition3D): number[][] {
     // Convert cube dimensions from mm to m
     const dims = field.cubeDimensions ?? { Lx: 100.0, Ly: 100.0, Lz: 100.0 };
     const { Lx, Ly, Lz } = { Lx: dims.Lx / 1000, Ly: dims.Ly / 1000, Lz: dims.Lz / 1000 };
-    
+
     // Use radial sampling for all 3 dimensions
     const nx = nr;
     const ny = nr;
@@ -194,7 +194,7 @@ function getOrthogonalBasis(normal: [number, number, number]): {
   v: [number, number, number];
 } {
   const [nx, ny, nz] = normal;
-  
+
   // Normalize normal vector
   const norm = Math.sqrt(nx * nx + ny * ny + nz * nz);
   const n: [number, number, number] = [nx / norm, ny / norm, nz / norm];

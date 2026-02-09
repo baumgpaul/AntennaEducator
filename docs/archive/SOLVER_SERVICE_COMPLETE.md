@@ -160,4 +160,3 @@ SOLVER_TIMEOUT_SECONDS=600
 **Date**: 2025-12-21
 **Status**: Solver service layer complete and ready for testing
 **Next Priority**: Complete endpoint testing, then return to postprocessor
-

@@ -52,25 +52,25 @@ function PlaneField({ field, opacity, colorMap, fieldData }: {
     // Calculate segments from sampling (n points → n-1 segments)
     const segmentsX = (field.sampling?.x || 20) - 1;
     const segmentsY = (field.sampling?.y || 20) - 1;
-    
+
     const geom = new THREE.PlaneGeometry(
       (field.dimensions?.width || 100) / 1000, // mm to meters
       (field.dimensions?.height || 100) / 1000, // mm to meters
       segmentsX,
       segmentsY
     );
-    
+
     // Rotate plane to match normal vector
     const normal = field.normalPreset
       ? getNormalFromPreset(field.normalPreset)
       : field.normalVector ?? [0, 0, 1];
-    
+
     const quaternion = new THREE.Quaternion();
     const targetNormal = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
     const defaultNormal = new THREE.Vector3(0, 0, 1);
     quaternion.setFromUnitVectors(defaultNormal, targetNormal);
     geom.applyQuaternion(quaternion);
-    
+
     // Apply vertex colors if field data is available
     let hasColors = false;
     if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
@@ -78,7 +78,7 @@ function PlaneField({ field, opacity, colorMap, fieldData }: {
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
-    
+
     return { geometry: geom, hasColors };
   }, [field, colorMap, fieldData]);
 
@@ -116,20 +116,20 @@ function CircleField({ field, opacity, colorMap, fieldData }: {
   const { geometry, hasColors } = useMemo(() => {
     const radius = field.dimensions?.radius || 50;
     const segments = (field.sampling?.x || 32) - 1; // Radial segments
-    
+
     const geom = new THREE.CircleGeometry(radius / 1000, segments); // mm to meters
-    
+
     // Rotate circle to match normal vector
     const normal = field.normalPreset
       ? getNormalFromPreset(field.normalPreset)
       : field.normalVector ?? [0, 0, 1];
-    
+
     const quaternion = new THREE.Quaternion();
     const targetNormal = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
     const defaultNormal = new THREE.Vector3(0, 0, 1);
     quaternion.setFromUnitVectors(defaultNormal, targetNormal);
     geom.applyQuaternion(quaternion);
-    
+
     // Apply vertex colors if field data is available
     let hasColors = false;
     if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
@@ -137,7 +137,7 @@ function CircleField({ field, opacity, colorMap, fieldData }: {
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
-    
+
     return { geometry: geom, hasColors };
   }, [field, colorMap, fieldData]);
 
@@ -176,13 +176,13 @@ function SphereField({ field, opacity, colorMap, fieldData }: {
     const radius = field.sphereRadius || 50;
     const widthSegments = field.sampling?.angular || 20;
     const heightSegments = field.sampling?.radial || 10;
-    
+
     const geom = new THREE.SphereGeometry(
       radius / 1000, // mm to meters
       widthSegments,
       heightSegments
     );
-    
+
     // Apply vertex colors if field data is available
     let hasColors = false;
     if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
@@ -190,7 +190,7 @@ function SphereField({ field, opacity, colorMap, fieldData }: {
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
-    
+
     return { geometry: geom, hasColors };
   }, [field, colorMap, fieldData]);
 
@@ -230,7 +230,7 @@ function CubeField({ field, opacity, colorMap, fieldData }: {
     const segmentsX = (field.sampling?.radial || 10) - 1;
     const segmentsY = (field.sampling?.angular || 10) - 1;
     const segmentsZ = (field.sampling?.angular || 10) - 1;
-    
+
     const geom = new THREE.BoxGeometry(
       dims.Lx / 1000,
       dims.Ly / 1000,
@@ -239,7 +239,7 @@ function CubeField({ field, opacity, colorMap, fieldData }: {
       segmentsY,
       segmentsZ
     );
-    
+
     // Apply vertex colors if field data is available
     let hasColors = false;
     if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
@@ -247,7 +247,7 @@ function CubeField({ field, opacity, colorMap, fieldData }: {
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
-    
+
     return { geometry: geom, hasColors };
   }, [field, colorMap, fieldData]);
 
@@ -297,7 +297,7 @@ function FieldVisualization({
       return <CubeField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} />;
     }
   }
-  
+
   return null;
 }
 

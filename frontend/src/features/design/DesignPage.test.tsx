@@ -3,7 +3,7 @@
  * Tests for project loading, autosave, and error handling
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
@@ -54,6 +54,11 @@ function renderWithRedux(
 describe('DesignPage - Autosave', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
   });
 
   it('should load project on mount when projectId provided', async () => {
@@ -376,4 +381,3 @@ describe('DesignPage - Autosave', () => {
     expect(savedAlert).not.toBeInTheDocument();
   });
 });
-

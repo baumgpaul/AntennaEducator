@@ -30,7 +30,7 @@ export function useSessionTimeout() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { isAuthenticated } = useAppSelector((state) => state.auth);
-  
+
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());

@@ -53,7 +53,7 @@ export function PositionControl({
       <Typography variant="body2" color="text.secondary" gutterBottom>
         {subtitle}
       </Typography>
-      
+
       <Grid container spacing={2}>
         {/* Position Controls */}
         <Grid item xs={12}>
@@ -61,7 +61,7 @@ export function PositionControl({
             Position (meters)
           </Typography>
         </Grid>
-        
+
         <Grid item xs={4}>
           <Controller
             name={`${positionPrefix}.x`}
@@ -83,7 +83,7 @@ export function PositionControl({
             )}
           />
         </Grid>
-        
+
         <Grid item xs={4}>
           <Controller
             name={`${positionPrefix}.y`}
@@ -105,7 +105,7 @@ export function PositionControl({
             )}
           />
         </Grid>
-        
+
         <Grid item xs={4}>
           <Controller
             name={`${positionPrefix}.z`}
@@ -184,7 +184,7 @@ export function PositionControl({
                 Orientation (degrees)
               </Typography>
             </Grid>
-            
+
             <Grid item xs={4}>
               <Controller
                 name={`${orientationPrefix}.rotX`}
@@ -206,7 +206,7 @@ export function PositionControl({
                 )}
               />
             </Grid>
-            
+
             <Grid item xs={4}>
               <Controller
                 name={`${orientationPrefix}.rotY`}
@@ -228,7 +228,7 @@ export function PositionControl({
                 )}
               />
             </Grid>
-            
+
             <Grid item xs={4}>
               <Controller
                 name={`${orientationPrefix}.rotZ`}

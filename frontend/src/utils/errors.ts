@@ -22,7 +22,7 @@ export const parseApiError = (error: unknown): ErrorResponse => {
   // Handle ApiError type
   if (isApiError(error)) {
     const status = error.status || 0
-    
+
     // Network errors
     if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED') {
       return {
@@ -32,7 +32,7 @@ export const parseApiError = (error: unknown): ErrorResponse => {
         retryable: true,
       }
     }
-    
+
     // Timeout errors
     if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
       return {
@@ -42,7 +42,7 @@ export const parseApiError = (error: unknown): ErrorResponse => {
         retryable: true,
       }
     }
-    
+
     // Status-based errors
     switch (status) {
       case 400:
@@ -51,7 +51,7 @@ export const parseApiError = (error: unknown): ErrorResponse => {
           message: getDetailMessage(error) || 'The request was invalid. Please check your input.',
           retryable: false,
         }
-      
+
       case 401:
         return {
           title: 'Authentication Required',
@@ -59,35 +59,35 @@ export const parseApiError = (error: unknown): ErrorResponse => {
           action: 'Login',
           retryable: false,
         }
-      
+
       case 403:
         return {
           title: 'Access Denied',
           message: 'You do not have permission to perform this action.',
           retryable: false,
         }
-      
+
       case 404:
         return {
           title: 'Not Found',
           message: getDetailMessage(error) || 'The requested resource was not found.',
           retryable: false,
         }
-      
+
       case 409:
         return {
           title: 'Conflict',
           message: getDetailMessage(error) || 'This operation conflicts with existing data.',
           retryable: false,
         }
-      
+
       case 422:
         return {
           title: 'Validation Error',
           message: getDetailMessage(error) || 'Please check your input and try again.',
           retryable: false,
         }
-      
+
       case 429:
         return {
           title: 'Too Many Requests',
@@ -95,7 +95,7 @@ export const parseApiError = (error: unknown): ErrorResponse => {
           action: 'Retry',
           retryable: true,
         }
-      
+
       case 500:
       case 502:
       case 503:
@@ -105,7 +105,7 @@ export const parseApiError = (error: unknown): ErrorResponse => {
           action: 'Retry',
           retryable: true,
         }
-      
+
       case 504:
         return {
           title: 'Gateway Timeout',
@@ -113,7 +113,7 @@ export const parseApiError = (error: unknown): ErrorResponse => {
           action: 'Retry',
           retryable: true,
         }
-      
+
       default:
         return {
           title: 'Error',
@@ -123,7 +123,7 @@ export const parseApiError = (error: unknown): ErrorResponse => {
         }
     }
   }
-  
+
   // Handle standard Error objects
   if (error instanceof Error) {
     return {
@@ -132,7 +132,7 @@ export const parseApiError = (error: unknown): ErrorResponse => {
       retryable: false,
     }
   }
-  
+
   // Unknown error type
   return {
     title: 'Error',

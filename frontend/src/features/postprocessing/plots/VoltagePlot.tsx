@@ -44,7 +44,7 @@ function VoltagePlot({ data, portNumber, title }: VoltagePlotProps) {
       const freq = payload[0].payload.frequency;
       const mag = payload[0].value;
       const phase = payload[1]?.value || 0;
-      
+
       return (
         <Box sx={{ bgcolor: 'background.paper', p: 1, border: '1px solid #ccc', borderRadius: 1 }}>
           <Typography variant="body2">
@@ -82,33 +82,33 @@ function VoltagePlot({ data, portNumber, title }: VoltagePlotProps) {
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="frequency" 
+          <XAxis
+            dataKey="frequency"
             label={{ value: 'Frequency (MHz)', position: 'insideBottom', offset: -10 }}
           />
-          <YAxis 
-            yAxisId="left" 
+          <YAxis
+            yAxisId="left"
             label={{ value: 'Magnitude (V)', angle: -90, position: 'insideLeft' }}
           />
-          <YAxis 
-            yAxisId="right" 
-            orientation="right" 
+          <YAxis
+            yAxisId="right"
+            orientation="right"
             label={{ value: 'Phase (°)', angle: 90, position: 'insideRight' }}
           />
-          <Line 
+          <Line
             yAxisId="left"
-            type="monotone" 
-            dataKey="magnitude" 
-            stroke="#1976d2" 
+            type="monotone"
+            dataKey="magnitude"
+            stroke="#1976d2"
             name="|V|"
             dot={false}
             strokeWidth={2}
           />
-          <Line 
+          <Line
             yAxisId="right"
-            type="monotone" 
-            dataKey="phase" 
-            stroke="#dc004e" 
+            type="monotone"
+            dataKey="phase"
+            stroke="#dc004e"
             name="∠V"
             dot={false}
             strokeWidth={2}

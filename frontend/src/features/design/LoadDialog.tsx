@@ -236,4 +236,3 @@ export const LoadDialog: React.FC<LoadDialogProps> = ({
     </Dialog>
   );
 };
-

@@ -33,7 +33,7 @@ function ImpedancePlot({ data, title = 'Input Impedance', displayMode = 'rectang
   const chartData = useMemo(() => {
     return data.map((point) => {
       const freqMHz = point.frequency / 1e6; // Convert to MHz
-      
+
       if (displayMode === 'polar') {
         const magnitude = Math.sqrt(point.real ** 2 + point.imag ** 2);
         const phase = Math.atan2(point.imag, point.real) * (180 / Math.PI); // degrees
@@ -43,7 +43,7 @@ function ImpedancePlot({ data, title = 'Input Impedance', displayMode = 'rectang
           phase,
         };
       }
-      
+
       return {
         frequency: freqMHz,
         real: point.real,
@@ -56,7 +56,7 @@ function ImpedancePlot({ data, title = 'Input Impedance', displayMode = 'rectang
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const freq = payload[0].payload.frequency;
-      
+
       if (displayMode === 'polar') {
         const mag = payload[0].value;
         const phase = payload[1]?.value || 0;
@@ -74,7 +74,7 @@ function ImpedancePlot({ data, title = 'Input Impedance', displayMode = 'rectang
           </Box>
         );
       }
-      
+
       const real = payload[0].value;
       const imag = payload[1]?.value || 0;
       return (
@@ -115,25 +115,25 @@ function ImpedancePlot({ data, title = 'Input Impedance', displayMode = 'rectang
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="frequency" 
+          <XAxis
+            dataKey="frequency"
             label={{ value: 'Frequency (MHz)', position: 'insideBottom', offset: -10 }}
           />
           {displayMode === 'rectangular' ? (
             <>
               <YAxis label={{ value: 'Impedance (Ω)', angle: -90, position: 'insideLeft' }} />
-              <Line 
-                type="monotone" 
-                dataKey="real" 
-                stroke="#1976d2" 
+              <Line
+                type="monotone"
+                dataKey="real"
+                stroke="#1976d2"
                 name="Re(Z)"
                 dot={false}
                 strokeWidth={2}
               />
-              <Line 
-                type="monotone" 
-                dataKey="imag" 
-                stroke="#dc004e" 
+              <Line
+                type="monotone"
+                dataKey="imag"
+                stroke="#dc004e"
                 name="Im(Z)"
                 dot={false}
                 strokeWidth={2}
@@ -142,25 +142,25 @@ function ImpedancePlot({ data, title = 'Input Impedance', displayMode = 'rectang
           ) : (
             <>
               <YAxis yAxisId="left" label={{ value: 'Magnitude (Ω)', angle: -90, position: 'insideLeft' }} />
-              <YAxis 
-                yAxisId="right" 
-                orientation="right" 
+              <YAxis
+                yAxisId="right"
+                orientation="right"
                 label={{ value: 'Phase (°)', angle: 90, position: 'insideRight' }}
               />
-              <Line 
+              <Line
                 yAxisId="left"
-                type="monotone" 
-                dataKey="magnitude" 
-                stroke="#1976d2" 
+                type="monotone"
+                dataKey="magnitude"
+                stroke="#1976d2"
                 name="|Z|"
                 dot={false}
                 strokeWidth={2}
               />
-              <Line 
+              <Line
                 yAxisId="right"
-                type="monotone" 
-                dataKey="phase" 
-                stroke="#dc004e" 
+                type="monotone"
+                dataKey="phase"
+                stroke="#dc004e"
                 name="∠Z"
                 dot={false}
                 strokeWidth={2}

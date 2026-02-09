@@ -41,7 +41,7 @@ interface SolutionDataPanelProps {
 
 /**
  * SolutionDataPanel - Left sidebar showing solution data
- * 
+ *
  * Sections:
  * - Currents (magnitude, phase, real/imag)
  * - Voltages (node values)
@@ -83,7 +83,7 @@ function SolutionDataPanel({
   // Get current data for selected frequency
   const currentMagnitudes = currentDistribution || [];
   const maxCurrent = currentMagnitudes.length > 0 ? Math.max(...currentMagnitudes) : 0;
-  const avgCurrent = currentMagnitudes.length > 0 ? 
+  const avgCurrent = currentMagnitudes.length > 0 ?
     currentMagnitudes.reduce((a, b) => a + b, 0) / currentMagnitudes.length : 0;
 
   return (
@@ -263,7 +263,7 @@ function SolutionDataPanel({
           <Typography variant="h6" color="primary">
             {results?.frequency ? `${results.frequency / 1e6} MHz` : '100 MHz'}
           </Typography>
-          
+
           {/* TODO: Add frequency slider for sweep results */}
           {currentMagnitudes.length > 1 && (
             <Box sx={{ mt: 2 }}>
