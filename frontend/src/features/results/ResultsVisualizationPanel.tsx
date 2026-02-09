@@ -47,7 +47,7 @@ interface ResultsVisualizationPanelProps {
 
 /**
  * ResultsVisualizationPanel - Main visualization area
- * 
+ *
  * View modes:
  * - 3D: Geometry with field overlay (color-mapped currents)
  * - Charts: Interactive plots (current vs segment/frequency)

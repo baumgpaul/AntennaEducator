@@ -37,12 +37,12 @@ function calculateBounds(elements?: AntennaElement[], mesh?: Mesh) {
   if (elements && elements.length > 0) {
     elements.forEach(element => {
       if (!element.visible || !element.mesh?.nodes) return;
-      
+
       element.mesh.nodes.forEach(node => {
         const x = node[0] + element.position[0];
         const y = node[1] + element.position[1];
         const z = node[2] + element.position[2];
-        
+
         min.x = Math.min(min.x, x);
         min.y = Math.min(min.y, y);
         min.z = Math.min(min.z, z);
@@ -53,7 +53,7 @@ function calculateBounds(elements?: AntennaElement[], mesh?: Mesh) {
       });
     });
   }
-  
+
   // Check legacy mesh
   if (mesh?.nodes) {
     mesh.nodes.forEach(node => {
@@ -87,13 +87,13 @@ function calculateBounds(elements?: AntennaElement[], mesh?: Mesh) {
  */
 function CameraController({ bounds }: { bounds: ReturnType<typeof calculateBounds> }) {
   const { camera, controls } = useThree();
-  
+
   useEffect(() => {
     if (controls && 'target' in controls) {
       // Center camera on antenna
       const target = bounds.center;
       (controls as any).target.copy(target);
-      
+
       // Position camera to see the whole antenna
       const distance = bounds.size * 2.5; // 2.5x the antenna size for good framing
       const cameraPos = new THREE.Vector3(
@@ -101,12 +101,12 @@ function CameraController({ bounds }: { bounds: ReturnType<typeof calculateBound
         target.y + distance * 0.6,
         target.z + distance * 0.6
       );
-      
+
       camera.position.copy(cameraPos);
       camera.lookAt(target);
       (controls as any).update();
-      
-      console.log('Camera auto-adjusted:', { 
+
+      console.log('Camera auto-adjusted:', {
         bounds: { min: bounds.min, max: bounds.max, size: bounds.size },
         center: target,
         cameraPosition: cameraPos,
@@ -114,7 +114,7 @@ function CameraController({ bounds }: { bounds: ReturnType<typeof calculateBound
       });
     }
   }, [bounds.size, bounds.center.x, bounds.center.y, bounds.center.z, camera, controls]);
-  
+
   return null;
 }
 
@@ -124,7 +124,7 @@ function CameraController({ bounds }: { bounds: ReturnType<typeof calculateBound
 const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeof calculateBounds> }>(
   function SceneControlsHelper({ bounds }, ref) {
     const { camera, controls, gl } = useThree();
-    
+
     useImperativeHandle(ref, () => ({
       zoomIn: () => {
         if (controls && 'dollyOut' in (controls as any)) {
@@ -143,14 +143,14 @@ const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeo
           // Reset to initial view position
           const target = bounds.center;
           (controls as any).target.copy(target);
-          
+
           const distance = bounds.size * 2.5;
           const cameraPos = new THREE.Vector3(
             target.x + distance * 0.6,
             target.y + distance * 0.6,
             target.z + distance * 0.6
           );
-          
+
           camera.position.copy(cameraPos);
           camera.lookAt(target);
           (controls as any).update();
@@ -166,7 +166,7 @@ const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeo
         // Grid visibility is controlled by parent component props
       },
     }));
-    
+
     return null;
   }
 );
@@ -179,14 +179,14 @@ const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeo
 const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
   function Scene3D({ children, showScale = true, showAxisLabels = true, elements, mesh, gridVisible = true, onGridVisibilityChange, cameraMode = 'perspective' }, ref) {
   const controlsRef = useRef<any>(null);
-  
+
   // Calculate scene bounds based on antenna geometry
   const bounds = useMemo(() => {
     const result = calculateBounds(elements, mesh);
     console.log('Scene3D bounds calculated:', result);
     return result;
   }, [elements, mesh]);
-  
+
   // Auto-scale grid and helpers based on antenna size
   const gridSize = Math.max(bounds.size * 2, 2); // At least 2x antenna size, minimum 2m
   // const gridDivisions = Math.ceil(gridSize / 0.5) * 2; // Divisions every 0.5m (unused)
@@ -202,10 +202,10 @@ const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
         ) : (
           <OrthographicCamera makeDefault position={[5, 5, 5]} zoom={50} up={[0, 0, 1]} />
         )}
-        
+
         {/* Auto-adjust camera when antenna loads */}
         <CameraController bounds={bounds} />
-        
+
         {/* Expose imperative controls */}
         <SceneControlsHelper ref={ref} bounds={bounds} />
 
@@ -259,12 +259,12 @@ const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
 
         {/* Scale indicator - DISABLED in favor of dynamic axis labels */}
         {false && (
-          <ScaleIndicator 
-            size={scaleIndicatorSize} 
-            position={[bounds.min.x - gridSize * 0.1, bounds.min.y - gridSize * 0.1, 0]} 
+          <ScaleIndicator
+            size={scaleIndicatorSize}
+            position={[bounds.min.x - gridSize * 0.1, bounds.min.y - gridSize * 0.1, 0]}
           />
         )}
-        
+
         {/* Axis labels with dimensions - auto-scaled */}
         {showAxisLabels && <AxisLabels size={axesSize} />}
 

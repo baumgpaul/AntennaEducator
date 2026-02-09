@@ -47,12 +47,12 @@ export interface RegisterResponse {
 export const login = async (credentials: LoginRequest): Promise<LoginResponse> => {
   try {
     const response = await authClient.post<LoginResponse>('/api/auth/login', credentials)
-    
+
     // Store token in localStorage
     if (response.data.access_token) {
       localStorage.setItem('auth_token', response.data.access_token)
     }
-    
+
     return response.data
   } catch (error: any) {
     // Handle specific error cases
@@ -72,7 +72,7 @@ export const login = async (credentials: LoginRequest): Promise<LoginResponse> =
 export const register = async (data: RegisterRequest): Promise<RegisterResponse> => {
   try {
     const response = await authClient.post<RegisterResponse>('/api/auth/register', data)
-    
+
     // In Docker mode, user is auto-approved and can log in immediately
     // No token returned from registration - user must login
     return response.data

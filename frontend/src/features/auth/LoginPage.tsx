@@ -38,11 +38,11 @@ function LoginPage() {
   // Clear errors on mount and check for stored error details
   useEffect(() => {
     dispatch(clearAuthError());
-    
+
     // Check for debug information from previous session
     const lastError = localStorage.getItem('last_auth_error');
     const logoutReason = localStorage.getItem('logout_reason');
-    
+
     if (lastError || logoutReason) {
       console.group('🔍 Debug: Previous Session Error');
       console.log('Logout reason:', logoutReason);
@@ -50,13 +50,13 @@ function LoginPage() {
         console.log('Last auth error:', JSON.parse(lastError));
       }
       console.groupEnd();
-      
+
       // Show debug info in UI
       if (lastError) {
         const errorData = JSON.parse(lastError);
         setDebugInfo(`Previous error: ${errorData.method} ${errorData.url} - ${JSON.stringify(errorData.responseData)}`);
       }
-      
+
       // Clear after showing
       localStorage.removeItem('last_auth_error');
       localStorage.removeItem('logout_reason');
@@ -105,7 +105,7 @@ function LoginPage() {
                 {error}
               </Alert>
             )}
-            
+
             {debugInfo && (
               <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setDebugInfo(null)}>
                 <Typography variant="caption" component="div">
@@ -116,7 +116,7 @@ function LoginPage() {
                 </Typography>
               </Alert>
             )}
-            
+
             <Controller
               name="email"
               control={control}
@@ -134,7 +134,7 @@ function LoginPage() {
                 />
               )}
             />
-            
+
             <Controller
               name="password"
               control={control}

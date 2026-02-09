@@ -16,7 +16,7 @@ export function parseDecimalNumber(value: string): number {
 
   // Remove whitespace
   const trimmed = value.trim();
-  
+
   if (trimmed === '' || trimmed === '-') {
     return NaN;
   }
@@ -24,7 +24,7 @@ export function parseDecimalNumber(value: string): number {
   // Replace comma with period for decimal separator
   // Handle both European (1,23) and US (1.23) formats
   const normalized = trimmed.replace(',', '.');
-  
+
   return parseFloat(normalized);
 }
 
@@ -45,7 +45,7 @@ export function formatDecimalNumber(
   }
 
   const formatted = decimals !== undefined ? value.toFixed(decimals) : value.toString();
-  
+
   return useComma ? formatted.replace('.', ',') : formatted;
 }
 

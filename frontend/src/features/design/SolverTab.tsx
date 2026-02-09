@@ -20,10 +20,10 @@ import DirectivitySettingsDialog from './DirectivitySettingsDialog';
 import type { AntennaElement } from '@/types/models';
 import type { AppDispatch, RootState } from '@/store/store';
 import { useAppStore } from '@/store/hooks';
-import { 
-  addFieldRegion, 
-  deleteFieldRegion, 
-  updateFieldRegion, 
+import {
+  addFieldRegion,
+  deleteFieldRegion,
+  updateFieldRegion,
   setDirectivityRequested,
   setDirectivitySettings,
   solveSingleFrequencyWorkflow,
@@ -61,7 +61,7 @@ interface SolverTabProps {
 export function SolverTab({ elements, selectedElementId, onElementSelect, onElementVisibilityToggle, solverStatus = 'idle' }: SolverTabProps) {
   const dispatch = useDispatch<AppDispatch>();
   const store = useAppStore();
-  
+
   // Redux state
   const requestedFields = useSelector((state: RootState) => state.solver.requestedFields);
   const directivityRequested = useSelector((state: RootState) => state.solver.directivityRequested);
@@ -78,7 +78,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const postprocessingProgress = useSelector((state: RootState) => state.solver.postprocessingProgress);
   const resultsStale = useSelector(selectResultsStale);
   const isSolved = useSelector(selectIsSolved);
-  
+
   // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
   const [sweepDialogOpen, setSweepDialogOpen] = useState(false);
@@ -88,7 +88,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info'>('success');
-  
+
   // Field region visualization state
   const [fieldRegionsVisible, setFieldRegionsVisible] = useState(true);
 
@@ -136,8 +136,8 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           .map((s) => ({
             node_start: s.node_start,
             node_end: s.node_end,
-            value: typeof s.amplitude === 'number' ? s.amplitude : 
-                   typeof s.amplitude === 'string' ? parseFloat(s.amplitude) : 
+            value: typeof s.amplitude === 'number' ? s.amplitude :
+                   typeof s.amplitude === 'string' ? parseFloat(s.amplitude) :
                    (s.amplitude as any).real || 1.0,
             R: s.series_R || 0,
             L: s.series_L || 0,
@@ -148,8 +148,8 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           .filter((s) => s.type === 'current')
           .map((s) => ({
             node: s.node_start,  // Use primary node for current source
-            value: typeof s.amplitude === 'number' ? s.amplitude : 
-                   typeof s.amplitude === 'string' ? parseFloat(s.amplitude) : 
+            value: typeof s.amplitude === 'number' ? s.amplitude :
+                   typeof s.amplitude === 'string' ? parseFloat(s.amplitude) :
                    (s.amplitude as any).real || 1.0,
           }));
 
@@ -208,7 +208,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
     }
     setDirectivityDialogOpen(true);
   };
-  
+
   const handleDirectivityConfirm = (settings: { theta_points: number; phi_points: number }) => {
     console.log('[SolverTab] Directivity settings confirmed:', settings);
     dispatch(setDirectivitySettings(settings));
@@ -230,14 +230,14 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
       console.log('[SolverTab] Starting postprocessing workflow, state:', solverWorkflowState);
       try {
         await dispatch(computePostprocessingWorkflow()).unwrap();
-        
+
         // Auto-create default view if none exist
         const stateSnapshot = store.getState() as unknown as { postprocessing: { viewConfigurations: Array<{ id: string }> } };
         if (stateSnapshot.postprocessing.viewConfigurations.length === 0) {
           console.log('[SolverTab] No views exist, creating default view');
           const viewAction = dispatch(createViewConfiguration({ name: 'Result View 1', viewType: '3D' }));
           const newViewId = stateSnapshot.postprocessing.viewConfigurations[stateSnapshot.postprocessing.viewConfigurations.length - 1]?.id;
-          
+
           if (newViewId) {
             dispatch(addItemToView({
               viewId: newViewId,
@@ -249,7 +249,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             }));
           }
         }
-        
+
         setSnackbarMessage('Postprocessing complete!');
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
@@ -273,7 +273,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const handleFrequencySolve = async (frequency: number, unit: 'MHz' | 'GHz') => {
     // Close dialog immediately
     setFrequencyDialogOpen(false);
-    
+
     try {
       await dispatch(solveSingleFrequencyWorkflow({ frequency, unit })).unwrap();
       dispatch(markAsSolved());
@@ -591,7 +591,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             onElementSelect={onElementSelect}
             showNodes={false}
           />
-          
+
           {/* Render field regions */}
           <FieldRegionVisualization
             fieldDefinitions={requestedFields}
@@ -634,13 +634,13 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         onSubmit={handleFrequencySweepSubmit}
         isLoading={simulationStatus === 'running' || simulationStatus === 'preparing'}
       />
-      
+
       <AddFieldDialog
         open={addFieldDialogOpen}
         onClose={() => setAddFieldDialogOpen(false)}
         onCreate={handleFieldAdd}
       />
-      
+
       <DirectivitySettingsDialog
         open={directivityDialogOpen}
         onClose={() => setDirectivityDialogOpen(false)}

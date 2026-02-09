@@ -24,7 +24,7 @@ function Footer() {
         <Typography variant="body2" color="text.secondary">
           © {currentYear} Antenna Educator. All rights reserved.
         </Typography>
-        
+
         <div style={{ display: 'flex', gap: '16px' }}>
           <Link href="#" variant="body2" color="text.secondary" underline="hover">
             Documentation

@@ -44,16 +44,16 @@ describe('AddViewDialog', () => {
 
   it('creates view with custom name and 3D type', async () => {
     renderDialog();
-    
+
     const nameInput = screen.getByLabelText(/View Name/i);
     fireEvent.change(nameInput, { target: { value: 'My Custom View' } });
-    
+
     const radio3D = screen.getByLabelText(/3D View/);
     fireEvent.click(radio3D);
-    
+
     const createButton = screen.getByRole('button', { name: /create/i });
     fireEvent.click(createButton);
-    
+
     await waitFor(() => {
       const state = store.getState();
       expect(state.postprocessing.viewConfigurations).toHaveLength(1);
@@ -64,14 +64,14 @@ describe('AddViewDialog', () => {
 
   it('auto-generates view name when blank', async () => {
     renderDialog();
-    
+
     // Leave name blank
     const radioLine = screen.getByLabelText('Line View');
     fireEvent.click(radioLine);
-    
+
     const createButton = screen.getByRole('button', { name: /create/i });
     fireEvent.click(createButton);
-    
+
     await waitFor(() => {
       const state = store.getState();
       expect(state.postprocessing.viewConfigurations).toHaveLength(1);
@@ -82,10 +82,10 @@ describe('AddViewDialog', () => {
 
   it('closes dialog on cancel', async () => {
     renderDialog();
-    
+
     const cancelButton = screen.getByRole('button', { name: /cancel/i });
     fireEvent.click(cancelButton);
-    
+
     await waitFor(() => {
       const state = store.getState();
       expect(state.postprocessing.addViewDialogOpen).toBe(false);

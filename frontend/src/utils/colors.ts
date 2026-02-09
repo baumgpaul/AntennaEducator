@@ -43,19 +43,19 @@ export function calculateContrastRatio(color1: string, color2: string): number {
     const r = ((rgb >> 16) & 0xff) / 255;
     const g = ((rgb >> 8) & 0xff) / 255;
     const b = (rgb & 0xff) / 255;
-    
-    const [rs, gs, bs] = [r, g, b].map(c => 
+
+    const [rs, gs, bs] = [r, g, b].map(c =>
       c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
     );
-    
+
     return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
   };
-  
+
   const l1 = getLuminance(color1);
   const l2 = getLuminance(color2);
   const lighter = Math.max(l1, l2);
   const darker = Math.min(l1, l2);
-  
+
   return (lighter + 0.05) / (darker + 0.05);
 }
 
@@ -65,7 +65,7 @@ export function calculateContrastRatio(color1: string, color2: string): number {
 export function validateColorContrast(color: string): boolean {
   const BACKGROUND_COLOR = '#1a1a1a';
   const WCAG_AA_RATIO = 4.5;
-  
+
   return calculateContrastRatio(color, BACKGROUND_COLOR) >= WCAG_AA_RATIO;
 }
 

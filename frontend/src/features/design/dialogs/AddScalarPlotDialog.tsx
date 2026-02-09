@@ -31,7 +31,7 @@ function AddScalarPlotDialog() {
   const open = useAppSelector(selectAddScalarPlotDialogOpen);
   const selectedViewId = useAppSelector(selectSelectedViewId);
   const selectedView = useAppSelector(selectSelectedView);
-  
+
   const [dataType, setDataType] = useState<'impedance' | 'voltage' | 'current'>('impedance');
   const [portNumber, setPortNumber] = useState<number>(1);
 
@@ -106,8 +106,8 @@ function AddScalarPlotDialog() {
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button 
-          onClick={handleSubmit} 
+        <Button
+          onClick={handleSubmit}
           variant="contained"
         >
           Add Plot

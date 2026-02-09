@@ -64,10 +64,10 @@ interface LumpedElementDialogProps {
   elements: AntennaElement[];
 }
 
-export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({ 
-  open, 
-  onClose, 
-  onAdd, 
+export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
+  open,
+  onClose,
+  onAdd,
   loading = false,
   maxNodeIndex = 0,
   elements,
@@ -210,7 +210,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                       node1: 0,
                       node2: 1,
                     };
-                    
+
                     // Construct type-safe form data based on element type
                     if (value === 'R') {
                       reset({ ...baseData, element_type: 'R', resistance: 50 } as any);

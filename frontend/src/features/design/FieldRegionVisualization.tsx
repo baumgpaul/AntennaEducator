@@ -4,13 +4,13 @@ import type { FieldDefinition } from '@/types/fieldDefinitions';
 
 /**
  * FieldRegionVisualization - Renders 3D field regions in the scene
- * 
+ *
  * Supports:
  * - 2D Plane: Wireframe rectangle with semi-transparent fill
  * - 2D Circle: Wireframe circle with semi-transparent disk
  * - 3D Sphere: Wireframe sphere with semi-transparent surface
  * - 3D Cube: Wireframe box with semi-transparent faces
- * 
+ *
  * Features:
  * - Color-coded by field index (5-color palette cycling)
  * - Adjustable opacity
@@ -93,14 +93,14 @@ function PlaneRegion({
   // Create plane geometry
   const planeGeometry = useMemo(() => {
     const geometry = new THREE.PlaneGeometry(width, height);
-    
+
     // Rotate plane to match normal vector
     const quaternion = new THREE.Quaternion();
     const targetNormal = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
     const defaultNormal = new THREE.Vector3(0, 0, 1);
     quaternion.setFromUnitVectors(defaultNormal, targetNormal);
     geometry.applyQuaternion(quaternion);
-    
+
     return geometry;
   }, [width, height, normal]);
 
@@ -126,7 +126,7 @@ function PlaneRegion({
       <lineSegments geometry={edgesGeometry}>
         <lineBasicMaterial color={lineColor} linewidth={isSelected ? 3 : 2} />
       </lineSegments>
-      
+
       {/* Semi-transparent fill */}
       <mesh geometry={planeGeometry}>
         <meshBasicMaterial
@@ -136,7 +136,7 @@ function PlaneRegion({
           side={THREE.DoubleSide}
         />
       </mesh>
-      
+
       {/* Selection glow effect */}
       {isSelected && (
         <mesh geometry={planeGeometry}>
@@ -182,14 +182,14 @@ function CircleRegion({
   // Create circle geometry
   const circleGeometry = useMemo(() => {
     const geometry = new THREE.CircleGeometry(radius, 32);
-    
+
     // Rotate to match normal vector
     const quaternion = new THREE.Quaternion();
     const targetNormal = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
     const defaultNormal = new THREE.Vector3(0, 0, 1);
     quaternion.setFromUnitVectors(defaultNormal, targetNormal);
     geometry.applyQuaternion(quaternion);
-    
+
     return geometry;
   }, [radius, normal]);
 
@@ -209,7 +209,7 @@ function CircleRegion({
       <lineSegments geometry={edgesGeometry}>
         <lineBasicMaterial color={lineColor} linewidth={isSelected ? 3 : 2} />
       </lineSegments>
-      
+
       {/* Semi-transparent fill */}
       <mesh geometry={circleGeometry}>
         <meshBasicMaterial
@@ -219,7 +219,7 @@ function CircleRegion({
           side={THREE.DoubleSide}
         />
       </mesh>
-      
+
       {/* Selection glow effect */}
       {isSelected && (
         <mesh geometry={circleGeometry}>
@@ -275,7 +275,7 @@ function SphereRegion({
       <lineSegments geometry={wireframeGeometry}>
         <lineBasicMaterial color={lineColor} linewidth={isSelected ? 2 : 1} />
       </lineSegments>
-      
+
       {/* Semi-transparent surface */}
       <mesh geometry={sphereGeometry}>
         <meshBasicMaterial
@@ -285,7 +285,7 @@ function SphereRegion({
           side={THREE.DoubleSide}
         />
       </mesh>
-      
+
       {/* Selection glow effect */}
       {isSelected && (
         <mesh geometry={sphereGeometry}>
@@ -342,7 +342,7 @@ function CubeRegion({
       <lineSegments geometry={wireframeGeometry}>
         <lineBasicMaterial color={lineColor} linewidth={isSelected ? 2 : 1} />
       </lineSegments>
-      
+
       {/* Semi-transparent box */}
       <mesh geometry={boxGeometry}>
         <meshBasicMaterial
@@ -352,7 +352,7 @@ function CubeRegion({
           side={THREE.DoubleSide}
         />
       </mesh>
-      
+
       {/* Selection glow effect */}
       {isSelected && (
         <mesh geometry={boxGeometry}>
@@ -383,7 +383,7 @@ export function FieldRegionVisualization({
     selectedFieldId,
     fields: fieldDefinitions
   });
-  
+
   if (!visible || fieldDefinitions.length === 0) {
     console.log('[FieldRegionVisualization] Not rendering - visible:', visible, 'count:', fieldDefinitions.length);
     return null;
@@ -397,11 +397,11 @@ export function FieldRegionVisualization({
           console.log('[FieldRegionVisualization] Skipping hidden field:', field.id);
           return null;
         }
-        
+
         const color = getFieldColor(index);
         const isSelected = field.id === selectedFieldId;
         const regionOpacity = field.opacity ?? 0.3;
-        
+
         console.log('[FieldRegionVisualization] Rendering field:', {
           index,
           id: field.id,

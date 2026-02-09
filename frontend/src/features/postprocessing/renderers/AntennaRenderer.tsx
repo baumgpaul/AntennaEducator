@@ -43,7 +43,7 @@ export const AntennaRenderer: React.FC<AntennaRendererProps> = ({ item }) => {
   // Extract custom color and opacity from item properties
   const customColor = item.color;
   const customOpacity = item.opacity !== undefined ? item.opacity : 1.0;
-  
+
   return (
     <>
       {antennasToRender.map((element) => (

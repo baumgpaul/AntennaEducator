@@ -176,7 +176,7 @@ describe('designSlice', () => {
     expect(duplicate.config).toEqual(mockElement.config);
     expect(duplicate.visible).toBe(mockElement.visible);
     expect(duplicate.locked).toBe(mockElement.locked);
-    
+
     // Position slightly offset (0.1m in X) for spatial separation
     expect(duplicate.position[1]).toBe(mockElement.position[1]); // Y same
     expect(duplicate.position[2]).toBe(mockElement.position[2]); // Z same

@@ -14,7 +14,7 @@ resource "aws_cognito_user_pool" "main" {
 
   # User attributes - schema cannot be modified after creation
   # These were set during initial creation
-  
+
   # Email verification
   auto_verified_attributes = ["email"]
 
@@ -58,7 +58,7 @@ resource "aws_cognito_user_pool" "main" {
       sms_message   = "Your username is {username} and temporary password is {####}"
     }
   }
-  
+
   # Auto-confirm Lambda trigger
   lambda_config {
     pre_sign_up = aws_lambda_function.auto_confirm_user.arn

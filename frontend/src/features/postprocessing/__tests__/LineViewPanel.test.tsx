@@ -83,7 +83,7 @@ describe('LineViewPanel', () => {
     };
 
     renderWithStore(<LineViewPanel view={emptyView} />);
-    
+
     expect(screen.getByText(/No plots added to this view/)).toBeInTheDocument();
   });
 
@@ -119,7 +119,7 @@ describe('LineViewPanel', () => {
     };
 
     renderWithStore(<LineViewPanel view={view} />, storeState);
-    
+
     expect(screen.getByText('Input Impedance')).toBeInTheDocument();
   });
 
@@ -157,7 +157,7 @@ describe('LineViewPanel', () => {
     };
 
     renderWithStore(<LineViewPanel view={view} />, storeState);
-    
+
     expect(screen.getByText('Port Voltage')).toBeInTheDocument();
   });
 
@@ -198,7 +198,7 @@ describe('LineViewPanel', () => {
     };
 
     renderWithStore(<LineViewPanel view={view} />, storeState);
-    
+
     expect(screen.getByText('Antenna Current')).toBeInTheDocument();
   });
 
@@ -237,7 +237,7 @@ describe('LineViewPanel', () => {
     };
 
     renderWithStore(<LineViewPanel view={view} />, storeState);
-    
+
     expect(screen.getByText('Visible Plot')).toBeInTheDocument();
     expect(screen.queryByText('Hidden Plot')).not.toBeInTheDocument();
   });
@@ -262,7 +262,7 @@ describe('LineViewPanel', () => {
 
     // No frequency sweep data in solver state
     renderWithStore(<LineViewPanel view={view} />);
-    
+
     expect(screen.getByText(/No impedance data available/)).toBeInTheDocument();
   });
 });

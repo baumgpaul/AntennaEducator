@@ -16,7 +16,7 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD'; .\.ven
 
 Start-Sleep -Seconds 2
 
-Write-Host "[Starting Solver on port 8002]" -ForegroundColor Green  
+Write-Host "[Starting Solver on port 8002]" -ForegroundColor Green
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD'; .\.venv\Scripts\python.exe -m uvicorn backend.solver.main:app --port 8002 --reload"
 
 Start-Sleep -Seconds 2

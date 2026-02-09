@@ -12,13 +12,13 @@ interface ProtectedRouteProps {
 function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const location = useLocation();
-  
+
   if (!isAuthenticated) {
     // Redirect to login, but save the attempted location
     // User will be redirected back after successful login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
+
   return <>{children}</>;
 }
 

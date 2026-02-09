@@ -88,20 +88,20 @@ export const generateDipoleMesh = async (formData: {
   const rotX = (formData.orientation?.rotX || 0) * Math.PI / 180;
   const rotY = (formData.orientation?.rotY || 0) * Math.PI / 180;
   const rotZ = (formData.orientation?.rotZ || 0) * Math.PI / 180;
-  
+
   // Rotation matrices applied to [0, 0, 1] vector
   // Rz * Ry * Rx * [0, 0, 1]
   const cx = Math.cos(rotX), sx = Math.sin(rotX);
   const cy = Math.cos(rotY), sy = Math.sin(rotY);
   const cz = Math.cos(rotZ), sz = Math.sin(rotZ);
-  
+
   // After Rx: [0, -sx, cx]
   // After Ry: [sy*cx, -sx, cy*cx]
   // After Rz: [cz*sy*cx - sz*(-sx), sz*sy*cx + cz*(-sx), cy*cx]
   const orientX = cz * sy * cx + sz * sx;
   const orientY = sz * sy * cx - cz * sx;
   const orientZ = cy * cx;
-  
+
   const config: DipoleConfig = {
     length: formData.length,
     wire_radius: formData.radius,
@@ -121,7 +121,7 @@ export const generateDipoleMesh = async (formData: {
       position: 'center',
     },
   };
-  
+
   return createDipole(config);
 };
 
@@ -182,7 +182,7 @@ export const generateLoopMesh = async (formData: {
     const sides = formData.sides!;
     const r = formData.circumradius!;
     const vertices: [number, number, number][] = [];
-    
+
     for (let i = 0; i < sides; i++) {
       const angle = (2 * Math.PI * i) / sides;
       vertices.push([
@@ -259,7 +259,7 @@ export async function addLumpedElementToMesh(formData: any): Promise<LumpedEleme
   // Since backend doesn't have a separate endpoint for adding lumped elements,
   // we just return the converted data structure to be stored in Redux
   // and included in the next antenna creation/solver call
-  
+
   const base: LumpedElement = {
     type: 'rlc',
     node_start: formData.node1,
@@ -298,7 +298,7 @@ export async function addSourceToMesh(formData: any): Promise<Source> {
   // Since backend doesn't have a separate endpoint for adding sources,
   // we just return the converted data structure to be stored in Redux
   // and included in the next solver call
-  
+
   const source: Source = {
     type: formData.type, // 'voltage' or 'current'
     amplitude: { real: formData.value, imag: 0 }, // Assuming real amplitude from UI

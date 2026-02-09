@@ -25,16 +25,16 @@ export const Colorbar: React.FC<ColorbarProps> = ({
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
-  
+
   // Generate gradient for the colorbar
   const gradientStops = useMemo(() => {
     const numStops = 256;
-    const values = Array.from({ length: numStops }, (_, i) => 
+    const values = Array.from({ length: numStops }, (_, i) =>
       min + (max - min) * (i / (numStops - 1))
     );
-    
+
     const colors = createColorArray(values, colorMap, min, max);
-    
+
     // Convert to CSS gradient stops
     const stops: string[] = [];
     for (let i = 0; i < numStops; i++) {
@@ -44,7 +44,7 @@ export const Colorbar: React.FC<ColorbarProps> = ({
       const percentage = (i / (numStops - 1)) * 100;
       stops.push(`rgb(${r},${g},${b}) ${percentage.toFixed(1)}%`);
     }
-    
+
     return stops.join(', ');
   }, [min, max, colorMap]);
 
@@ -79,10 +79,10 @@ export const Colorbar: React.FC<ColorbarProps> = ({
       }}
     >
       {/* Label */}
-      <Typography 
-        variant="caption" 
-        sx={{ 
-          fontWeight: 'bold', 
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 'bold',
           mb: 0.5,
           color: isDark ? 'rgba(255,255,255,0.9)' : 'inherit'
         }}
@@ -103,27 +103,27 @@ export const Colorbar: React.FC<ColorbarProps> = ({
 
       {/* Value labels */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, mt: 0.5 }}>
-        <Typography 
-          variant="caption" 
-          sx={{ 
+        <Typography
+          variant="caption"
+          sx={{
             fontSize: '0.7rem',
             color: isDark ? 'rgba(255,255,255,0.8)' : 'inherit'
           }}
         >
           Max: {formatValue(max)} {unit}
         </Typography>
-        <Typography 
-          variant="caption" 
-          sx={{ 
+        <Typography
+          variant="caption"
+          sx={{
             fontSize: '0.7rem',
             color: isDark ? 'rgba(255,255,255,0.8)' : 'inherit'
           }}
         >
           Mid: {formatValue((max + min) / 2)} {unit}
         </Typography>
-        <Typography 
-          variant="caption" 
-          sx={{ 
+        <Typography
+          variant="caption"
+          sx={{
             fontSize: '0.7rem',
             color: isDark ? 'rgba(255,255,255,0.8)' : 'inherit'
           }}

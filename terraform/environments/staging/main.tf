@@ -3,14 +3,14 @@
 
 terraform {
   required_version = ">= 1.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
   }
-  
+
   # Remote state in S3 (created by bootstrap)
   backend "s3" {
     bucket         = "antenna-simulator-terraform-state-767397882329"
@@ -25,7 +25,7 @@ terraform {
 provider "aws" {
   region  = var.aws_region
   profile = var.aws_profile
-  
+
   default_tags {
     tags = {
       Project     = "antenna-simulator"
@@ -41,7 +41,7 @@ provider "aws" {
   alias   = "us_east_1"
   region  = "us-east-1"
   profile = var.aws_profile
-  
+
   default_tags {
     tags = {
       Project     = "antenna-simulator"
@@ -64,14 +64,14 @@ data "aws_caller_identity" "current" {}
 
 module "cognito" {
   source = "../../modules/cognito"
-  
+
   environment   = var.environment
   domain_name   = var.domain_name
   domain_suffix = "auth-${data.aws_caller_identity.current.account_id}"
-  
+
   # MFA disabled for MVP, can be enabled later
   enable_mfa = "OFF"
-  
+
   tags = {
     Component = "authentication"
   }
@@ -83,11 +83,11 @@ module "cognito" {
 
 module "dynamodb" {
   source = "../../modules/dynamodb"
-  
+
   table_name                     = "antenna-simulator-${var.environment}"
   enable_point_in_time_recovery  = true
   enable_streams                 = false  # Enable in Phase 2 for async jobs
-  
+
   tags = {
     Component = "database"
   }
@@ -99,13 +99,13 @@ module "dynamodb" {
 
 module "s3_data" {
   source = "../../modules/s3-data"
-  
+
   bucket_name                = "antenna-simulator-data-${var.environment}-${data.aws_caller_identity.current.account_id}"
   allowed_origins            = ["https://${var.domain_name}", "http://localhost:3000"]
   enable_lifecycle           = true
   data_retention_days        = 0  # Keep forever in staging
   enable_intelligent_tiering = false  # Disable for staging (low volume)
-  
+
   tags = {
     Component = "storage"
   }
@@ -117,11 +117,11 @@ module "s3_data" {
 
 module "s3_frontend" {
   source = "../../modules/s3-frontend"
-  
+
   bucket_name                   = "antenna-simulator-frontend-${var.environment}-${data.aws_caller_identity.current.account_id}"
   cloudfront_distribution_arn   = module.cloudfront.distribution_arn
   allowed_origins               = ["https://${var.domain_name}"]
-  
+
   tags = {
     Component = "frontend"
   }
@@ -133,19 +133,19 @@ module "s3_frontend" {
 
 module "route53" {
   source = "../../modules/route53"
-  
+
   domain_name                 = var.domain_name
   environment                 = var.environment
-  
+
   # Use existing parent zone (nyakyagyawa.com)
   use_existing_zone          = true
   existing_zone_id           = "Z044958815N0VJY4808JQ"  # Your existing nyakyagyawa.com zone
   parent_domain_name         = "nyakyagyawa.com"
-  
+
   cloudfront_domain_name      = module.cloudfront.distribution_domain_name
   cloudfront_hosted_zone_id   = module.cloudfront.distribution_hosted_zone_id
   create_www_subdomain        = false  # Set to true if you want www.antennaeducator.nyakyagyawa.com
-  
+
   tags = {
     Component = "dns"
   }
@@ -157,16 +157,16 @@ module "route53" {
 
 module "acm_certificate" {
   source = "../../modules/acm-certificate"
-  
+
   providers = {
     aws.us_east_1 = aws.us_east_1
   }
-  
+
   domain_name               = var.domain_name
   subject_alternative_names = []  # Add ["www.${var.domain_name}"] if needed
   route53_zone_id           = module.route53.zone_id
   environment               = var.environment
-  
+
   tags = {
     Component = "ssl-certificate"
   }
@@ -178,21 +178,21 @@ module "acm_certificate" {
 
 module "cloudfront" {
   source = "../../modules/cloudfront"
-  
+
   environment                       = var.environment
   s3_bucket_name                    = module.s3_frontend.bucket_name
   s3_bucket_regional_domain_name    = module.s3_frontend.bucket_regional_domain_name
-  
+
   # SSL Certificate - custom domain with ACM
   acm_certificate_arn = module.acm_certificate.certificate_arn
   domain_aliases      = [var.domain_name]  # Add "www.${var.domain_name}" if needed
-  
+
   price_class = "PriceClass_100"  # North America + Europe (cheapest)
-  
+
   tags = {
     Component = "cdn"
   }
-  
+
   depends_on = [module.acm_certificate]
 }
 
@@ -202,10 +202,10 @@ module "cloudfront" {
 
 module "ecr_projects" {
   source = "../../modules/ecr"
-  
+
   repository_name = "antenna-simulator-projects-${var.environment}"
   environment     = var.environment
-  
+
   tags = {
     Component = "backend"
     Service   = "projects"
@@ -214,10 +214,10 @@ module "ecr_projects" {
 
 module "ecr_preprocessor" {
   source = "../../modules/ecr"
-  
+
   repository_name = "antenna-simulator-preprocessor-${var.environment}"
   environment     = var.environment
-  
+
   tags = {
     Component = "backend"
     Service   = "preprocessor"
@@ -226,10 +226,10 @@ module "ecr_preprocessor" {
 
 module "ecr_solver" {
   source = "../../modules/ecr"
-  
+
   repository_name = "antenna-simulator-solver-${var.environment}"
   environment     = var.environment
-  
+
   tags = {
     Component = "backend"
     Service   = "solver"
@@ -238,10 +238,10 @@ module "ecr_solver" {
 
 module "ecr_postprocessor" {
   source = "../../modules/ecr"
-  
+
   repository_name = "antenna-simulator-postprocessor-${var.environment}"
   environment     = var.environment
-  
+
   tags = {
     Component = "backend"
     Service   = "postprocessor"
@@ -254,15 +254,15 @@ module "ecr_postprocessor" {
 
 module "lambda_projects" {
   source = "../../modules/lambda"
-  
+
   function_name = "antenna-simulator-projects-${var.environment}"
   image_uri     = "${module.ecr_projects.repository_url}:latest"
   environment   = var.environment
   region        = var.aws_region
-  
+
   memory_size = 512
   timeout     = 30
-  
+
   environment_variables = {
     USE_DYNAMODB           = "true"
     DYNAMODB_TABLE_NAME    = module.dynamodb.table_name
@@ -271,13 +271,13 @@ module "lambda_projects" {
     COGNITO_REGION         = var.aws_region
     COGNITO_USER_POOL_ID   = module.cognito.user_pool_id
   }
-  
+
   dynamodb_table_arns = [module.dynamodb.table_arn]
-  
+
   create_function_url    = true
   function_url_auth_type = "NONE"
   cors_allowed_origins   = ["*"]
-  
+
   tags = {
     Component = "backend"
     Service   = "projects"
@@ -286,21 +286,21 @@ module "lambda_projects" {
 
 module "lambda_preprocessor" {
   source = "../../modules/lambda"
-  
+
   function_name = "antenna-simulator-preprocessor-${var.environment}"
   image_uri     = "${module.ecr_preprocessor.repository_url}:latest"
   environment   = var.environment
   region        = var.aws_region
-  
+
   memory_size = 512
   timeout     = 30
-  
+
   environment_variables = {}
-  
+
   create_function_url    = true
   function_url_auth_type = "NONE"
   cors_allowed_origins   = ["*"]
-  
+
   tags = {
     Component = "backend"
     Service   = "preprocessor"
@@ -309,21 +309,21 @@ module "lambda_preprocessor" {
 
 module "lambda_solver" {
   source = "../../modules/lambda"
-  
+
   function_name = "antenna-simulator-solver-${var.environment}"
   image_uri     = "${module.ecr_solver.repository_url}:latest"
   environment   = var.environment
   region        = var.aws_region
-  
+
   memory_size = 2048
   timeout     = 900
-  
+
   environment_variables = {}
-  
+
   create_function_url    = true
   function_url_auth_type = "NONE"
   cors_allowed_origins   = ["*"]
-  
+
   tags = {
     Component = "backend"
     Service   = "solver"
@@ -332,21 +332,21 @@ module "lambda_solver" {
 
 module "lambda_postprocessor" {
   source = "../../modules/lambda"
-  
+
   function_name = "antenna-simulator-postprocessor-${var.environment}"
   image_uri     = "${module.ecr_postprocessor.repository_url}:latest"
   environment   = var.environment
   region        = var.aws_region
-  
+
   memory_size = 1024
   timeout     = 60
-  
+
   environment_variables = {}
-  
+
   create_function_url    = true
   function_url_auth_type = "NONE"
   cors_allowed_origins   = ["*"]
-  
+
   tags = {
     Component = "backend"
     Service   = "postprocessor"
@@ -359,15 +359,15 @@ module "lambda_postprocessor" {
 
 module "api_gateway" {
   source = "../../modules/api-gateway"
-  
+
   environment = var.environment
   enable_auth = false  # Disable auth for MVP, enable later with Cognito
-  
+
   # Cognito configuration (for when auth is enabled)
   cognito_user_pool_id = module.cognito.user_pool_id
   cognito_client_id    = module.cognito.client_id
   cognito_issuer_url   = module.cognito.issuer_url
-  
+
   # Lambda integrations
   lambda_projects_invoke_arn        = module.lambda_projects.invoke_arn
   lambda_projects_function_name     = module.lambda_projects.function_name
@@ -377,7 +377,7 @@ module "api_gateway" {
   lambda_solver_function_name       = module.lambda_solver.function_name
   lambda_postprocessor_invoke_arn   = module.lambda_postprocessor.invoke_arn
   lambda_postprocessor_function_name = module.lambda_postprocessor.function_name
-  
+
   # CORS configuration
   cors_allowed_origins = [
     "https://${var.domain_name}",
@@ -386,19 +386,19 @@ module "api_gateway" {
     "http://localhost:5173",
     "http://localhost:3004"
   ]
-  
+
   # Throttling (generous limits for staging)
   throttling_burst_limit = 100
   throttling_rate_limit  = 50
-  
+
   # Logging
   log_retention_days = 7
-  
+
   # Custom domain (optional - can be added later)
   # custom_domain_name   = "api.${var.domain_name}"
   # acm_certificate_arn  = var.acm_certificate_arn
   # route53_zone_id      = var.route53_zone_id
-  
+
   tags = {
     Component = "api-gateway"
   }

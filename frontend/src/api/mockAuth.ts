@@ -28,14 +28,14 @@ const delay = (ms: number = 500) => new Promise(resolve => setTimeout(resolve, m
 
 export async function login(data: LoginRequest): Promise<LoginResponse> {
   await delay();
-  
+
   const user = mockUsers.find(u => u.email === data.email && u.password === data.password);
   if (!user) {
     throw new Error('Invalid email or password');
   }
-  
+
   const token = `mock-token-${Date.now()}`;
-  
+
   return {
     access_token: token,
     token_type: 'Bearer',
@@ -45,12 +45,12 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
 
 export async function register(data: RegisterRequest): Promise<LoginResponse> {
   await delay();
-  
+
   // Check if user already exists
   if (mockUsers.find(u => u.email === data.email)) {
     throw new Error('Email already registered');
   }
-  
+
   const newUser: MockUser = {
     id: String(nextUserId++),
     email: data.email,
@@ -58,9 +58,9 @@ export async function register(data: RegisterRequest): Promise<LoginResponse> {
     name: data.username || data.email.split('@')[0],
   };
   mockUsers.push(newUser);
-  
+
   const token = `mock-token-${Date.now()}`;
-  
+
   return {
     access_token: token,
     token_type: 'Bearer',

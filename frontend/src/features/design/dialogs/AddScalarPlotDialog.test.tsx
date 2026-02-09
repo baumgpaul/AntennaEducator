@@ -51,13 +51,13 @@ describe('AddScalarPlotDialog', () => {
 
   it('shows port selector for voltage plot', async () => {
     renderDialog();
-    
+
     const select = screen.getByLabelText(/Data Type/i);
     fireEvent.mouseDown(select);
-    
+
     const voltageOption = screen.getByText('Voltage vs Frequency');
     fireEvent.click(voltageOption);
-    
+
     await waitFor(() => {
       expect(screen.getByLabelText(/Port Number/i)).toBeInTheDocument();
     });
@@ -65,13 +65,13 @@ describe('AddScalarPlotDialog', () => {
 
   it('hides port selector for impedance plot', async () => {
     renderDialog();
-    
+
     const select = screen.getByLabelText(/Data Type/i);
     fireEvent.mouseDown(select);
-    
+
     const impedanceOption = screen.getByText('Input Impedance');
     fireEvent.click(impedanceOption);
-    
+
     await waitFor(() => {
       expect(screen.queryByLabelText(/Port Number/i)).not.toBeInTheDocument();
     });
@@ -79,15 +79,15 @@ describe('AddScalarPlotDialog', () => {
 
   it('adds impedance plot to view', async () => {
     renderDialog();
-    
+
     const select = screen.getByLabelText(/Plot Type/i);
     fireEvent.mouseDown(select);
     const impedanceOption = screen.getByText('Input Impedance');
     fireEvent.click(impedanceOption);
-    
+
     const addButton = screen.getByRole('button', { name: /add/i });
     fireEvent.click(addButton);
-    
+
     await waitFor(() => {
       const state = store.getState();
       const view = state.postprocessing.viewConfigurations[0];
@@ -98,20 +98,20 @@ describe('AddScalarPlotDialog', () => {
 
   it('adds voltage plot with port number', async () => {
     renderDialog();
-    
+
     const select = screen.getByLabelText(/Plot Type/i);
     fireEvent.mouseDown(select);
     const voltageOption = screen.getByText('Voltage vs Frequency');
     fireEvent.click(voltageOption);
-    
+
     await waitFor(() => {
       const portInput = screen.getByLabelText(/Port Number/i);
       fireEvent.change(portInput, { target: { value: '2' } });
     });
-    
+
     const addButton = screen.getByRole('button', { name: /add/i });
     fireEvent.click(addButton);
-    
+
     await waitFor(() => {
       const state = store.getState();
       const view = state.postprocessing.viewConfigurations[0];

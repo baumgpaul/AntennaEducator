@@ -113,11 +113,11 @@ describe('PostprocessingTab', () => {
     // Check section headers
     expect(screen.getByText('Structure')).toBeInTheDocument();
     expect(screen.getByText('Solution Outputs')).toBeInTheDocument();
-    
+
     // Check structure content
     expect(screen.getByText('Dipole 1')).toBeInTheDocument();
     expect(screen.getByText('dipole')).toBeInTheDocument();
-    
+
     // Check solution outputs
     expect(screen.getByText('Currents')).toBeInTheDocument();
     expect(screen.getByText('Branch currents')).toBeInTheDocument();
@@ -179,10 +179,10 @@ describe('PostprocessingTab', () => {
         frequencySweep={null}
       />
     );
-    
+
     const currentsItem = screen.getByRole('button', { name: /currents/i });
     fireEvent.click(currentsItem);
-    
+
     expect(screen.getByText('Branch Currents')).toBeInTheDocument();
     expect(screen.getByText(/current distribution on antenna edges/i)).toBeInTheDocument();
   });
@@ -199,10 +199,10 @@ describe('PostprocessingTab', () => {
         frequencySweep={null}
         fieldData={null}        fieldData={null}      />
     );
-    
+
     const voltagesItem = screen.getByRole('button', { name: /voltages/i });
     fireEvent.click(voltagesItem);
-    
+
     expect(screen.getByText('Node Voltages')).toBeInTheDocument();
     expect(screen.getByText(/potential at antenna nodes/i)).toBeInTheDocument();
   });
@@ -218,10 +218,10 @@ describe('PostprocessingTab', () => {
         currentFrequency={300}
         frequencySweep={null}        fieldData={null}      />
     );
-    
+
     const directivityItem = screen.getByRole('button', { name: /directivity/i });
     fireEvent.click(directivityItem);
-    
+
     expect(screen.getByText('Directivity Pattern')).toBeInTheDocument();
     expect(screen.getByText(/2D polar plots and 3D visualization/i)).toBeInTheDocument();
   });
@@ -240,7 +240,7 @@ describe('PostprocessingTab', () => {
       visible: true,
       opacity: 80,
     };
-    
+
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
@@ -253,10 +253,10 @@ describe('PostprocessingTab', () => {
         fieldData={null}
       />
     );
-    
+
     const fieldItem = screen.getByRole('button', { name: /field 1/i });
     fireEvent.click(fieldItem);
-    
+
     expect(screen.getByText(/2D Region/i)).toBeInTheDocument();
     expect(screen.getByText(/\(1, 2, 3\) mm/i)).toBeInTheDocument();
     expect(screen.getByText(/Computed \(25 points\)/i)).toBeInTheDocument();
@@ -276,7 +276,7 @@ describe('PostprocessingTab', () => {
       visible: true,
       opacity: 80,
     };
-    
+
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
@@ -289,10 +289,10 @@ describe('PostprocessingTab', () => {
         fieldData={null}
       />
     );
-    
+
     const fieldItem = screen.getByRole('button', { name: /field 1/i });
     fireEvent.click(fieldItem);
-    
+
     // Check visualization controls are present
     expect(screen.getByText('Visualization Settings')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /magnitude/i })).toBeInTheDocument();
@@ -317,7 +317,7 @@ describe('PostprocessingTab', () => {
       visible: true,
       opacity: 80,
     };
-    
+
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
@@ -330,10 +330,10 @@ describe('PostprocessingTab', () => {
         fieldData={null}
       />
     );
-    
+
     const fieldItem = screen.getByRole('button', { name: /field 1/i });
     fireEvent.click(fieldItem);
-    
+
     // Visualization controls should not be present
     expect(screen.queryByText('Visualization Settings')).not.toBeInTheDocument();
     expect(screen.getByText(/visualization settings will be available after field computation/i)).toBeInTheDocument();
@@ -353,7 +353,7 @@ describe('PostprocessingTab', () => {
       visible: true,
       opacity: 80,
     };
-    
+
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
@@ -366,17 +366,17 @@ describe('PostprocessingTab', () => {
         fieldData={null}
       />
     );
-    
+
     const fieldItem = screen.getByRole('button', { name: /field 1/i });
     fireEvent.click(fieldItem);
-    
+
     // Should have 1 combobox initially (Color Map only, magnitude mode is default)
     expect(screen.getAllByRole('combobox')).toHaveLength(1);
-    
+
     // Click component mode button
     const componentButton = screen.getByRole('button', { name: 'Component' });
     fireEvent.click(componentButton);
-    
+
     // Component and complex value dropdowns should now be visible (3 comboboxes total)
     expect(screen.getAllByRole('combobox')).toHaveLength(3);
     // Check that both dropdown labels exist (will find multiple matches but that's ok)
@@ -398,7 +398,7 @@ describe('PostprocessingTab', () => {
       visible: true,
       opacity: 80,
     };
-    
+
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
@@ -411,18 +411,16 @@ describe('PostprocessingTab', () => {
         fieldData={null}
       />
     );
-    
+
     const fieldItem = screen.getByRole('button', { name: /field 1/i });
     fireEvent.click(fieldItem);
-    
+
     // Click phase mode button
     const phaseButton = screen.getByRole('button', { name: 'Phase' });
     fireEvent.click(phaseButton);
-    
+
     // Complex value dropdown should be visible (2 comboboxes: Color Map + Value)
     expect(screen.getAllByRole('combobox')).toHaveLength(2);
     expect(screen.getAllByText(/Value/).length).toBeGreaterThan(0);
   });
 });
-
-
