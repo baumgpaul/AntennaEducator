@@ -116,7 +116,9 @@ class LocalAuthProvider(AuthProvider):
 
     # ── Profile enrichment ────────────────────────────────────────────────
 
-    async def get_user_profile(self, user_id: str) -> Optional[UserIdentity]:
+    async def get_user_profile(
+        self, user_id: str, email_hint: Optional[str] = None
+    ) -> Optional[UserIdentity]:
         db_user = self._user_repo.get_user_by_id(user_id)
         if not db_user:
             return None
