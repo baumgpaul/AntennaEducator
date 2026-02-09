@@ -22,11 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from backend.auth.schemas import Token, UserCreate, UserLogin, UserResponse
-from backend.common.auth import (
-    UserIdentity,
-    create_auth_provider,
-    get_current_user,
-)
+from backend.common.auth import UserIdentity, create_auth_provider, get_current_user
 
 app = FastAPI(
     title="Antenna Simulator — Auth Service",

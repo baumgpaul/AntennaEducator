@@ -1,6 +1,5 @@
 """Quick end-to-end smoke test against AWS Lambda services."""
 
-import json
 import sys
 
 import requests

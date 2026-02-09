@@ -158,7 +158,7 @@ def example_3_calibration_coil():
     print(f"Antenna: {cal_coil.name}")
     print(f"Type: {cal_coil.type}")
     print(f"Parameters: {cal_coil.parameters['description']}")
-    print(f"\nCircuit Network:")
+    print("\nCircuit Network:")
     print(f"  Source: {cal_coil.source.tag} @ nodes 0 -> {feedpoint1}")
     print(f"\n  Lumped Elements ({len(cal_coil.lumped_elements)}):")
     for i, elem in enumerate(cal_coil.lumped_elements):
@@ -238,7 +238,7 @@ def example_4_multiple_antennas():
         if ant.lumped_elements:
             print(f"      Loads: {ant.lumped_elements[0].tag} ({ant.lumped_elements[0].impedance})")
         else:
-            print(f"      Loads: None (passive)")
+            print("      Loads: None (passive)")
 
     print("\n  Note: Each antenna maintains its own circuit definition.")
     print("  The solver will merge them following the standard PEEC multi-antenna pattern.")

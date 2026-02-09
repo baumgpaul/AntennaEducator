@@ -17,10 +17,7 @@ Reference Implementation:
 import numpy as np
 
 from backend.postprocessor.field import compute_far_field
-from backend.postprocessor.pattern import (
-    compute_directivity,
-    compute_total_radiated_power,
-)
+from backend.postprocessor.pattern import compute_directivity, compute_total_radiated_power
 from backend.preprocessor.builders import create_dipole, dipole_to_mesh
 from backend.solver.solver import solve_peec_frequency_sweep
 from backend.solver.system import CurrentSource

@@ -1,7 +1,6 @@
 # Setup DynamoDB Local for Testing
 # This script creates the table schema in DynamoDB Local
 
-import time
 
 import boto3
 from botocore.exceptions import ClientError
@@ -100,7 +99,7 @@ def verify_table():
     print(f"  Table Name: {table.table_name}")
     print(f"  Item Count: {table.item_count}")
     print(f"  Key Schema: {table.key_schema}")
-    print(f"  Global Secondary Indexes:")
+    print("  Global Secondary Indexes:")
     for gsi in table.global_secondary_indexes or []:
         print(f"    - {gsi['IndexName']}: {gsi['KeySchema']}")
 
@@ -164,11 +163,11 @@ def main():
         print("✅ Setup complete! DynamoDB Local is ready.")
         print("=" * 60)
         print(f"\nTable Name: {TABLE_NAME}")
-        print(f"Endpoint: http://localhost:8000")
-        print(f"\nYou can now start the projects service with:")
-        print(f"  USE_DYNAMODB=true")
+        print("Endpoint: http://localhost:8000")
+        print("\nYou can now start the projects service with:")
+        print("  USE_DYNAMODB=true")
         print(f"  DYNAMODB_TABLE={TABLE_NAME}")
-        print(f"  DYNAMODB_ENDPOINT=http://localhost:8000")
+        print("  DYNAMODB_ENDPOINT=http://localhost:8000")
 
     except Exception as e:
         print(f"\n❌ Error: {e}")

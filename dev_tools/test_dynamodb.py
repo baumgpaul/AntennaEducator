@@ -1,7 +1,6 @@
 """Test DynamoDB repository with DynamoDB Local."""
 
 import asyncio
-import os
 
 import boto3
 
@@ -27,7 +26,7 @@ async def test_dynamodb_project_repository():
         table = dynamodb.Table(table_name)
         table.load()
         print(f"✅ Table {table_name} exists")
-    except:
+    except Exception:
         print(f"Creating table {table_name}...")
         table = dynamodb.create_table(
             TableName=table_name,
