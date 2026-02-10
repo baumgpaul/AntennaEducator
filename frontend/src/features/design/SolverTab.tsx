@@ -34,6 +34,7 @@ import {
   selectSolverProgress,
   selectCurrentFrequency,
   selectFrequencySweep,
+  selectSweepInProgress,
   selectResultsStale,
   cancelPostprocessing,
 } from '@/store/solverSlice';
@@ -72,6 +73,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const solverProgress = useSelector(selectSolverProgress);
   const currentFrequency = useSelector(selectCurrentFrequency);
   const frequencySweep = useSelector(selectFrequencySweep);
+  const sweepInProgress = useSelector(selectSweepInProgress);
   const results = useSelector((state: RootState) => state.solver.results);
   const postprocessingStatus = useSelector((state: RootState) => state.solver.postprocessingStatus);
   const fieldResults = useSelector((state: RootState) => state.solver.fieldResults);
@@ -350,22 +352,78 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               Solve Control
             </Typography>
             {/* Show sweep solution if available, otherwise show single frequency */}
-            {(results && frequencySweep?.isComplete) ? (
-              <Chip
-                icon={<CheckCircleIcon />}
-                label={`Sweep: ${frequencySweep.completedCount} pts`}
-                size="small"
-                sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
-              />
-            ) : ((solverWorkflowState === 'solved' || solverWorkflowState === 'postprocessing-ready') && (results || frequencySweep)) ? (
-              (() => {
-                const freqValue = (typeof currentFrequency === 'number' && currentFrequency > 0)
+            {/* Determine display state for Solve Control */}
+            {(() => {
+              const isSweepMode = !!(frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1);
+              const hasResults = !!(results || (frequencySweep && frequencySweep.isComplete));
+              const isSolving = simulationStatus === 'running' || (isSweepMode && (frequencySweep?.isComplete === false) && sweepInProgress);
+              const isError = simulationStatus === 'failed';
+              const isOutdated = resultsStale || (!isSolved && hasResults);
+
+              // Solving: show 'Unsolved' label with loading animation (single vs sweep)
+              if (isSolving) {
+                return (
+                  <>
+                    <Chip
+                      icon={<CircularProgress size={12} />}
+                      label="Unsolved"
+                      size="small"
+                      sx={{ height: 20, fontSize: '0.65rem', color: 'info.main' }}
+                    />
+                    <Chip
+                      label={isSweepMode ? 'Sweep running' : 'Solving...'}
+                      size="small"
+                      sx={{ height: 20, fontSize: '0.65rem' }}
+                    />
+                  </>
+                );
+              }
+
+              // Error
+              if (isError && simulationError) {
+                return (
+                  <Chip
+                    label="Error"
+                    size="small"
+                    color="error"
+                    sx={{ height: 20, fontSize: '0.65rem' }}
+                    title={simulationError}
+                  />
+                );
+              }
+
+              // Solved (single or sweep)
+              if (hasResults && (solverWorkflowState === 'solved' || solverWorkflowState === 'postprocessing-ready')) {
+                if (isSweepMode && frequencySweep) {
+                  const start = frequencySweep.frequencies?.[0];
+                  const end = frequencySweep.frequencies?.[frequencySweep.frequencies.length - 1];
+                  const startLabel = start !== undefined ? start.toFixed(1) : 'N/A';
+                  const endLabel = end !== undefined ? end.toFixed(1) : 'N/A';
+                  return (
+                    <>
+                      <Chip
+                        icon={<CheckCircleIcon />}
+                        label={`Solved @ ${startLabel} .. ${endLabel} MHz`}
+                        size="small"
+                        sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
+                      />
+                      {isOutdated && (
+                        <Chip
+                          label="Solution Outdated"
+                          size="small"
+                          color="warning"
+                          sx={{ height: 20, fontSize: '0.65rem' }}
+                          title="Design changed after solving. Re-run solver to update results."
+                        />
+                      )}
+                    </>
+                  );
+                }
+
+                // Single frequency
+                const freqValue = typeof currentFrequency === 'number' && currentFrequency > 0
                   ? currentFrequency
-                  : (typeof currentFrequency === 'string' && !isNaN(Number(currentFrequency)))
-                    ? Number(currentFrequency)
-                    : (frequencySweep?.frequencies && frequencySweep.frequencies.length > 0
-                        ? frequencySweep.frequencies[0]
-                        : undefined);
+                  : frequencySweep?.frequencies?.[0];
                 const freqLabel = freqValue !== undefined ? freqValue.toFixed(1) : 'N/A';
                 return (
                   <>
@@ -375,7 +433,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                       size="small"
                       sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
                     />
-                    {!isSolved && (
+                    {isOutdated && (
                       <Chip
                         label="Solution Outdated"
                         size="small"
@@ -386,35 +444,20 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                     )}
                   </>
                 );
-              })()
-            ) : null}
-            {/* Show unsolved warning when geometry changed but no results yet */}
-            {!isSolved && !resultsStale && !results && (
-              <Chip
-                label="Unsolved"
-                size="small"
-                color="info"
-                sx={{ height: 20, fontSize: '0.65rem' }}
-                title="Geometry modified. Run solver to compute results."
-              />
-            )}
-            {simulationStatus === 'running' && (
-              <Chip
-                icon={<CircularProgress size={12} />}
-                label={solverProgress > 0 ? `${solverProgress}%` : 'Running...'}
-                size="small"
-                sx={{ height: 20, fontSize: '0.65rem', color: 'info.main' }}
-              />
-            )}
-            {simulationStatus === 'failed' && simulationError && (
-              <Chip
-                label="Error"
-                size="small"
-                color="error"
-                sx={{ height: 20, fontSize: '0.65rem' }}
-                title={simulationError}
-              />
-            )}
+              }
+
+              // Default: no solution
+              return (
+                <Chip
+                  label="Unsolved"
+                  size="small"
+                  color="info"
+                  sx={{ height: 20, fontSize: '0.65rem' }}
+                  title="No solver results available. Run the solver to compute results."
+                />
+              );
+            })()}
+
           </Box>
           <ButtonGroup size="small" variant="outlined">
             <Button

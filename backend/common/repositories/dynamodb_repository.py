@@ -213,15 +213,25 @@ class DynamoDBProjectRepository(ProjectRepository):
     @staticmethod
     def _to_dict(item: Dict[str, Any]) -> Dict[str, Any]:
         """Convert a DynamoDB item to a plain project dict."""
+
+        # Support both PascalCase (new) and snake_case (legacy) attribute names.
+        def pick(*keys, default=None):
+            for k in keys:
+                if k in item:
+                    return item[k]
+            return default
+
         return {
-            "id": item["ProjectId"],
-            "user_id": item["UserId"],
-            "name": item["Name"],
-            "description": item.get("Description", ""),
-            "design_state": _from_dynamodb(item.get("DesignState", {})),
-            "simulation_config": _from_dynamodb(item.get("SimulationConfig", {})),
-            "simulation_results": _from_dynamodb(item.get("SimulationResults", {})),
-            "ui_state": _from_dynamodb(item.get("UiState", {})),
-            "created_at": item["CreatedAt"],
-            "updated_at": item["UpdatedAt"],
+            "id": pick("ProjectId", "project_id"),
+            "user_id": pick("UserId", "user_id"),
+            "name": pick("Name", "name", ""),
+            "description": pick("Description", "description", ""),
+            "design_state": _from_dynamodb(pick("DesignState", "design_state", {})),
+            "simulation_config": _from_dynamodb(pick("SimulationConfig", "simulation_config", {})),
+            "simulation_results": _from_dynamodb(
+                pick("SimulationResults", "simulation_results", {})
+            ),
+            "ui_state": _from_dynamodb(pick("UiState", "ui_state", {})),
+            "created_at": pick("CreatedAt", "created_at"),
+            "updated_at": pick("UpdatedAt", "updated_at"),
         }
