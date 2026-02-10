@@ -121,8 +121,11 @@ function DesignPage() {
   const [currentTab, setCurrentTab] = useState<'designer' | 'solver' | 'postprocessing'>('designer');
 
   const handleTabChange = (_: unknown, newValue: 'designer' | 'solver' | 'postprocessing') => {
-    if (newValue === 'postprocessing' && solverWorkflowState === 'idle') {
-      return;
+    // Block entering Postprocessing tab when solver has no results (idle)
+    // or when postprocessing is actively running to avoid confusing state switches.
+    if (newValue === 'postprocessing') {
+      if (solverWorkflowState === 'idle') return;
+      if (solverState.postprocessingStatus === 'running') return;
     }
     setCurrentTab(newValue);
   };
