@@ -229,7 +229,6 @@ export interface FieldComputationRequest {
   edges: [number, number][]
   branch_currents: ComplexNumber[]
   field_points: Vector3D[]
-  field_type: 'near' | 'far'
 }
 
 export interface FieldComputationResult {

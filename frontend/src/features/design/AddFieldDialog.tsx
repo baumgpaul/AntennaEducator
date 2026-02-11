@@ -26,7 +26,7 @@ import {
 } from '@mui/material';
 import { ViewInAr, PanoramaFishEye } from '@mui/icons-material';
 
-const steps = ['Region Type', 'Shape', 'Parameters', 'Field Type', 'Field/Near Far'];
+const steps = ['Region Type', 'Shape', 'Parameters', 'Field Type'];
 
 interface AddFieldDialogProps {
   open: boolean;
@@ -53,7 +53,6 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   const [normalPreset, setNormalPreset] = useState<'XY' | 'YZ' | 'XZ'>('XY');
   const [sampling, setSampling] = useState({ x: 20, y: 20, radial: 10, angular: 20 });
   const [fieldType, setFieldType] = useState<'E' | 'H' | 'poynting'>('E');
-  const [farField, setFarField] = useState(false);
   const nameCounterRef = useRef(1);
   const [fieldName, setFieldName] = useState('E-field 2D plane 1');
 
@@ -94,7 +93,6 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
       type: regionType,
       shape,
       centerPoint: [center.x, center.y, center.z],
-      farField,
       opacity: 0.3,
       fieldType,
     };
@@ -134,7 +132,6 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
     setNormalPreset('XY');
     setSampling({ x: 20, y: 20, radial: 10, angular: 20 });
     setFieldType('E');
-    setFarField(false);
     nameCounterRef.current += 1;
     setFieldName(`E-field 2D plane ${nameCounterRef.current}`);
   };
@@ -410,35 +407,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
         );
 
       case 3:
-        // Step 4: Field Type Selection
-        return (
-          <FormControl component="fieldset">
-            <FormLabel component="legend">Select Field Type</FormLabel>
-            <RadioGroup
-              value={fieldType}
-              onChange={(e) => setFieldType(e.target.value as 'E' | 'H' | 'poynting')}
-            >
-              <FormControlLabel
-                value="E"
-                control={<Radio />}
-                label="E-field (Electric field)"
-              />
-              <FormControlLabel
-                value="H"
-                control={<Radio />}
-                label="H-field (Magnetic field)"
-              />
-              <FormControlLabel
-                value="poynting"
-                control={<Radio />}
-                label="Poynting (Power flow)"
-              />
-            </RadioGroup>
-          </FormControl>
-        );
-
-      case 4:
-        // Step 5: Near/Far Field
+        // Step 4: Field Type Selection + Name
         return (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
@@ -450,16 +419,27 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
               InputLabelProps={{ shrink: true }}
             />
             <FormControl component="fieldset">
-              <FormLabel component="legend">Field Computation</FormLabel>
-              <RadioGroup value={farField ? 'far' : 'near'} onChange={(e) => setFarField(e.target.value === 'far')}>
-                <FormControlLabel value="near" control={<Radio />} label="Near field (default)" />
-                <FormControlLabel value="far" control={<Radio />} label="Far field" />
+              <FormLabel component="legend">Select Field Type</FormLabel>
+              <RadioGroup
+                value={fieldType}
+                onChange={(e) => setFieldType(e.target.value as 'E' | 'H' | 'poynting')}
+              >
+                <FormControlLabel
+                  value="E"
+                  control={<Radio />}
+                  label="E-field (Electric field)"
+                />
+                <FormControlLabel
+                  value="H"
+                  control={<Radio />}
+                  label="H-field (Magnetic field)"
+                />
+                <FormControlLabel
+                  value="poynting"
+                  control={<Radio />}
+                  label="Poynting (Power flow)"
+                />
               </RadioGroup>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                {farField
-                  ? 'Far field: Computed at large distances from the antenna'
-                  : 'Near field: Computed in the region close to the antenna'}
-              </Typography>
             </FormControl>
           </Box>
         );

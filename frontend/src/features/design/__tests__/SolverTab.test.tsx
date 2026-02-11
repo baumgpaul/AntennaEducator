@@ -49,7 +49,6 @@ vi.mock('../AddFieldDialog', () => ({
             centerPoint: [0, 0, 0],
             dimensions: { width: 1, height: 1 },
             sampling: { x: 1, y: 1 },
-            farField: false,
             fieldType: 'E',
           })
         }
