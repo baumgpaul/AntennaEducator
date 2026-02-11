@@ -32,6 +32,7 @@ const initialState: PostprocessingState = {
   addAntennaDialogOpen: false,
   addFieldDialogOpen: false,
   addScalarPlotDialogOpen: false,
+  scalarPlotPreselect: null,
   exportPDFDialogOpen: false,
   exportType: null,
 };
@@ -256,6 +257,13 @@ const postprocessingSlice = createSlice({
 
     setAddScalarPlotDialogOpen: (state, action: PayloadAction<boolean>) => {
       state.addScalarPlotDialogOpen = action.payload;
+      if (!action.payload) {
+        state.scalarPlotPreselect = null;
+      }
+    },
+
+    setScalarPlotPreselect: (state, action: PayloadAction<'impedance' | 'voltage' | 'current' | null>) => {
+      state.scalarPlotPreselect = action.payload;
     },
 
     setExportPDFDialogOpen: (state, action: PayloadAction<boolean>) => {
@@ -286,6 +294,7 @@ export const {
   setAddAntennaDialogOpen,
   setAddFieldDialogOpen,
   setAddScalarPlotDialogOpen,
+  setScalarPlotPreselect,
   setExportPDFDialogOpen,
   setExportType,
 } = postprocessingSlice.actions;
