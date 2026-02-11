@@ -56,6 +56,7 @@ function PostprocessingTab({
   elements,
   currentFrequency,
   frequencySweep,
+  fieldResults,
   projectName,
 }: PostprocessingTabProps) {
   const dispatch = useAppDispatch();
@@ -175,6 +176,14 @@ function PostprocessingTab({
             : "No solver results found. Please run the solver first."}
         </Alert>
       ) : null}
+
+      {/* Warning when field definitions changed after postprocessing */}
+      {isSolved && fieldResults && Object.values(fieldResults).some(r => r && !r.computed) && (
+        <Alert severity="warning" sx={{ m: 2, mb: 0 }}>
+          <AlertTitle>Postprocessing Outdated</AlertTitle>
+          Field definitions have been modified since the last postprocessing run. Re-run postprocessing to update results.
+        </Alert>
+      )}
 
       {/* MAIN CONTENT - 3 PANELS */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

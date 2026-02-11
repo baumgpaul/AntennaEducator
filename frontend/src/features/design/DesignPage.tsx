@@ -22,6 +22,7 @@ import {
   setElementVisibility,
   setElementLocked,
   loadDesign,
+  markAsSolved,
 } from '@/store/designSlice';
 import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification } from '@/store/uiSlice';
@@ -179,6 +180,15 @@ function DesignPage() {
     } else {
       console.log('Empty project loaded, clearing design state');
       dispatch(loadDesign({ elements: [] }));
+    }
+
+    // Mark design as solved if project has solver results
+    // (loadDesign resets isSolved to false, so this must come AFTER)
+    if (currentProject.simulation_results && Object.keys(currentProject.simulation_results).length > 0) {
+      const solverState = currentProject.simulation_results.solverState;
+      if (solverState === 'solved' || solverState === 'postprocessing-ready') {
+        dispatch(markAsSolved());
+      }
     }
   }, [currentProject?.id, dispatch]); // Only re-run when project ID changes
 

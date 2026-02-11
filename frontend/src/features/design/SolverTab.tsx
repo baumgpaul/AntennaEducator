@@ -510,25 +510,32 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
               Postprocessing
             </Typography>
-            {postprocessingStatus === 'completed' && fieldResults && (
-              <>
-                <Chip
-                  icon={<CheckCircleIcon />}
-                  label="Ready"
-                  size="small"
-                  sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
-                />
-                {!isSolved && (
-                  <Chip
-                    label="Outdated"
-                    size="small"
-                    color="warning"
-                    sx={{ height: 20, fontSize: '0.65rem' }}
-                    title="Design changed after postprocessing. Re-run solver and postprocessing."
-                  />
-                )}
-              </>
-            )}
+            {postprocessingStatus === 'completed' && fieldResults && (() => {
+              const anyFieldOutdated = Object.values(fieldResults).some(r => r && !r.computed);
+              const isOutdated = !isSolved || anyFieldOutdated;
+              return (
+                <>
+                  {isOutdated ? (
+                    <Chip
+                      label="Outdated"
+                      size="small"
+                      color="warning"
+                      sx={{ height: 20, fontSize: '0.65rem' }}
+                      title={anyFieldOutdated && isSolved
+                        ? 'Field definitions changed after postprocessing. Re-run postprocessing to update.'
+                        : 'Design changed after postprocessing. Re-run solver and postprocessing.'}
+                    />
+                  ) : (
+                    <Chip
+                      icon={<CheckCircleIcon />}
+                      label="Ready"
+                      size="small"
+                      sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
+                    />
+                  )}
+                </>
+              );
+            })()}
             {postprocessingStatus === 'running' && (
               <Chip
                 icon={<CircularProgress size={12} />}
