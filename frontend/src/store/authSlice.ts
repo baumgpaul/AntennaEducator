@@ -10,6 +10,7 @@ import { getAuthService, type LoginCredentials, type RegisterData } from '@/serv
 
 interface AuthState {
   isAuthenticated: boolean
+  sessionValidated: boolean
   user: User | null
   tokens: AuthTokens | null
   loading: boolean
@@ -18,6 +19,7 @@ interface AuthState {
 
 const initialState: AuthState = {
   isAuthenticated: false,
+  sessionValidated: false,
   user: null,
   tokens: null,
   loading: false,
@@ -152,6 +154,29 @@ export const refreshTokenAsync = createAsyncThunk<
   }
 )
 
+/**
+ * Validate the current session on app startup.
+ * Attempts to refresh the token to verify it's still valid.
+ * If refresh fails, clears auth state so the user is redirected to login
+ * before any protected content is shown.
+ */
+export const validateSession = createAsyncThunk<
+  { accessToken: string; refreshToken?: string },
+  void,
+  { rejectValue: string }
+>(
+  'auth/validateSession',
+  async (_, { rejectWithValue }) => {
+    try {
+      const authService = getAuthService()
+      const tokens = await authService.refreshToken()
+      return tokens
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Session validation failed')
+    }
+  }
+)
+
 const authSlice = createSlice({
   name: 'auth',
   initialState: { ...initialState, ...loadAuthFromStorage() },
@@ -178,6 +203,7 @@ const authSlice = createSlice({
       })
       .addCase(loginAsync.fulfilled, (state, action) => {
         state.isAuthenticated = true
+        state.sessionValidated = true  // fresh login, no need to re-validate
         state.user = action.payload.user
         state.tokens = action.payload.tokens
         state.loading = false
@@ -257,6 +283,37 @@ const authSlice = createSlice({
         state.user = null
         state.tokens = null
         localStorage.removeItem('user')
+      })
+
+    // Validate session (startup token check)
+    builder
+      .addCase(validateSession.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(validateSession.fulfilled, (state, action) => {
+        // Session is valid — update tokens and mark as validated
+        state.sessionValidated = true
+        state.loading = false
+        if (state.tokens) {
+          state.tokens.access_token = action.payload.accessToken
+          if (action.payload.refreshToken) {
+            state.tokens.refresh_token = action.payload.refreshToken
+          }
+        }
+      })
+      .addCase(validateSession.rejected, (state) => {
+        // Session invalid — clear everything so ProtectedRoute redirects
+        console.warn('[Auth] Session validation failed — clearing auth state')
+        state.sessionValidated = true  // mark as "checked" even though it failed
+        state.isAuthenticated = false
+        state.user = null
+        state.tokens = null
+        state.loading = false
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('refresh_token')
+        localStorage.removeItem('id_token')
+        localStorage.removeItem('user')
+        localStorage.setItem('logout_reason', 'session_expired')
       })
   },
 })

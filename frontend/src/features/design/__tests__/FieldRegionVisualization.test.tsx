@@ -37,7 +37,6 @@ describe('FieldRegionVisualization', () => {
       x: 20,
       y: 20,
     },
-    farField: false,
     fieldType: 'E',
   };
 
@@ -51,7 +50,6 @@ describe('FieldRegionVisualization', () => {
       radial: 10,
       angular: 20,
     },
-    farField: false,
     fieldType: 'poynting',
   };
 

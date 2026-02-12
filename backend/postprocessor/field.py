@@ -98,10 +98,13 @@ def compute_electric_field_from_potential(
     """
     Compute electric field from vector potential using E = -jωA - ∇φ.
 
-    In the Lorenz gauge, the scalar potential φ is related to A by:
-        ∇²φ + k²φ = -(1/ε₀)∇·A
+    In the Lorenz gauge the scalar potential gradient is:
+        ∇φ = -(1 / (jωμ₀ε₀)) ∇(∇·A)
 
-    For wire antennas, we use the far-field approximation where ∇φ ≈ 0.
+    so the full expression becomes:
+        E = -jωA + (1 / (jωμ₀ε₀)) ∇(∇·A)
+
+    This includes near-field (reactive) terms and is valid at all distances.
 
     Args:
         A: Vector potential [Wb/m], shape (3,)
@@ -113,9 +116,84 @@ def compute_electric_field_from_potential(
     Returns:
         Electric field [V/m], shape (3,)
     """
-    # In far-field, E ≈ -jωA (radiation field)
-    # This is accurate for r >> λ/(2π)
+    # Radiation term: -jωA
     E = -1j * omega * A
+
+    # Near-field correction: + (1/(jωμ₀ε₀)) ∇(∇·A)
+    # Compute ∇(∇·A) via finite differences on the divergence of A
+    h = 0.01 / k if k > 0 else 0.01
+
+    # Evaluate A at 6 displaced points (±h in x, y, z)
+    A_xp = compute_total_vector_potential(observation_point + np.array([h, 0, 0]), sources, k)
+    A_xm = compute_total_vector_potential(observation_point - np.array([h, 0, 0]), sources, k)
+    A_yp = compute_total_vector_potential(observation_point + np.array([0, h, 0]), sources, k)
+    A_ym = compute_total_vector_potential(observation_point - np.array([0, h, 0]), sources, k)
+    A_zp = compute_total_vector_potential(observation_point + np.array([0, 0, h]), sources, k)
+    A_zm = compute_total_vector_potential(observation_point - np.array([0, 0, h]), sources, k)
+
+    # We need ∇(∇·A), i.e. the gradient of the scalar divergence of A.
+    # Compute div A at ±h along each axis using cross-evaluations.
+
+    A_xp_yp = compute_total_vector_potential(observation_point + np.array([h, h, 0]), sources, k)
+    A_xp_ym = compute_total_vector_potential(observation_point + np.array([h, -h, 0]), sources, k)
+    A_xp_zp = compute_total_vector_potential(observation_point + np.array([h, 0, h]), sources, k)
+    A_xp_zm = compute_total_vector_potential(observation_point + np.array([h, 0, -h]), sources, k)
+
+    A_xm_yp = compute_total_vector_potential(observation_point + np.array([-h, h, 0]), sources, k)
+    A_xm_ym = compute_total_vector_potential(observation_point + np.array([-h, -h, 0]), sources, k)
+    A_xm_zp = compute_total_vector_potential(observation_point + np.array([-h, 0, h]), sources, k)
+    A_xm_zm = compute_total_vector_potential(observation_point + np.array([-h, 0, -h]), sources, k)
+
+    A_yp_zp = compute_total_vector_potential(observation_point + np.array([0, h, h]), sources, k)
+    A_yp_zm = compute_total_vector_potential(observation_point + np.array([0, h, -h]), sources, k)
+    A_ym_zp = compute_total_vector_potential(observation_point + np.array([0, -h, h]), sources, k)
+    A_ym_zm = compute_total_vector_potential(observation_point + np.array([0, -h, -h]), sources, k)
+
+    # Divergences at ±h along each axis:
+    div_at_xp = (
+        (A_xp[0] - A[0]) / h  # forward-biased ∂Ax/∂x
+        + (A_xp_yp[1] - A_xp_ym[1]) / (2 * h)
+        + (A_xp_zp[2] - A_xp_zm[2]) / (2 * h)
+    )
+    div_at_xm = (
+        (A[0] - A_xm[0]) / h  # backward-biased ∂Ax/∂x
+        + (A_xm_yp[1] - A_xm_ym[1]) / (2 * h)
+        + (A_xm_zp[2] - A_xm_zm[2]) / (2 * h)
+    )
+    div_at_yp = (
+        (A_xp_yp[0] - A_xm_yp[0]) / (2 * h)
+        + (A_yp[1] - A[1]) / h
+        + (A_yp_zp[2] - A_yp_zm[2]) / (2 * h)
+    )
+    div_at_ym = (
+        (A_xp_ym[0] - A_xm_ym[0]) / (2 * h)
+        + (A[1] - A_ym[1]) / h
+        + (A_ym_zp[2] - A_ym_zm[2]) / (2 * h)
+    )
+    div_at_zp = (
+        (A_xp_zp[0] - A_xm_zp[0]) / (2 * h)
+        + (A_yp_zp[1] - A_ym_zp[1]) / (2 * h)
+        + (A_zp[2] - A[2]) / h
+    )
+    div_at_zm = (
+        (A_xp_zm[0] - A_xm_zm[0]) / (2 * h)
+        + (A_yp_zm[1] - A_ym_zm[1]) / (2 * h)
+        + (A[2] - A_zm[2]) / h
+    )
+
+    # ∇(∇·A)
+    grad_div_A = np.array(
+        [
+            (div_at_xp - div_at_xm) / (2 * h),
+            (div_at_yp - div_at_ym) / (2 * h),
+            (div_at_zp - div_at_zm) / (2 * h),
+        ],
+        dtype=complex,
+    )
+
+    # E = -jωA - ∇φ = -jωA + (1/(jωμ₀ε₀)) ∇(∇·A)
+    if omega > 0:
+        E += grad_div_A / (1j * omega * MU_0 * EPSILON_0)
 
     return E
 

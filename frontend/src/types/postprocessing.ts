@@ -168,6 +168,8 @@ export interface PostprocessingState {
   addFieldDialogOpen: boolean;
   /** Add Scalar Plot dialog open state */
   addScalarPlotDialogOpen: boolean;
+  /** Pre-selected data type for scalar plot dialog */
+  scalarPlotPreselect: 'impedance' | 'voltage' | 'current' | null;
 
   // Export states
   /** Export to PDF dialog open state */

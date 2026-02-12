@@ -649,14 +649,21 @@ function TreeViewPanel({
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                 Requested Quantities
               </Typography>
-              {!isSolved && fieldResults && Object.keys(fieldResults).length > 0 && (
-                <Chip
-                  label="Outdated"
-                  size="small"
-                  color="warning"
-                  sx={{ height: 18, fontSize: '0.6rem' }}
-                />
-              )}
+              {fieldResults && Object.keys(fieldResults).length > 0 && (() => {
+                const anyFieldOutdated = Object.values(fieldResults).some(r => r && !r.computed);
+                const isOutdated = !isSolved || anyFieldOutdated;
+                return isOutdated ? (
+                  <Chip
+                    label="Outdated"
+                    size="small"
+                    color="warning"
+                    sx={{ height: 18, fontSize: '0.6rem' }}
+                    title={anyFieldOutdated && isSolved
+                      ? 'Field definitions changed. Re-run postprocessing.'
+                      : 'Design changed. Re-run solver and postprocessing.'}
+                  />
+                ) : null;
+              })()}
             </Box>
             <List disablePadding>
               <ListItem disablePadding data-testid="currents-item">

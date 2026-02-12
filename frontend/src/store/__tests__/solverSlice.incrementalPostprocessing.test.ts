@@ -57,7 +57,6 @@ const makeTestField2D = (id: string): FieldDefinition2D => ({
   dimensions: { width: 100, height: 100 },
   normalPreset: 'XY',
   sampling: { x: 5, y: 5 },
-  farField: false,
   fieldType: 'E',
   visible: true,
   opacity: 30,
@@ -194,7 +193,6 @@ describe('Incremental Postprocessing Workflow', () => {
       dimensions: { width: 100, height: 100 },
       normalPreset: 'XY',
       sampling: { x: 5, y: 5 },
-      farField: false,
       fieldType: 'E',
     }));
 

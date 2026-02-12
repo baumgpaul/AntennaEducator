@@ -3,7 +3,7 @@
  * Select plot type (impedance/voltage/current) and port number
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -25,15 +25,24 @@ import {
   selectSelectedViewId,
   selectSelectedView,
 } from '@/store/postprocessingSlice';
+import type { RootState } from '@/store/store';
 
 function AddScalarPlotDialog() {
   const dispatch = useAppDispatch();
   const open = useAppSelector(selectAddScalarPlotDialogOpen);
   const selectedViewId = useAppSelector(selectSelectedViewId);
   const selectedView = useAppSelector(selectSelectedView);
+  const preselect = useAppSelector((state: RootState) => state.postprocessing.scalarPlotPreselect);
 
   const [dataType, setDataType] = useState<'impedance' | 'voltage' | 'current'>('impedance');
   const [portNumber, setPortNumber] = useState<number>(1);
+
+  // Apply preselect when dialog opens
+  useEffect(() => {
+    if (open && preselect) {
+      setDataType(preselect);
+    }
+  }, [open, preselect]);
 
   const handleClose = () => {
     dispatch(setAddScalarPlotDialogOpen(false));

@@ -782,6 +782,16 @@ const solverSlice = createSlice({
           ...state.requestedFields[index],
           ...action.payload.updates,
         } as FieldDefinition;
+
+        // Mark result as outdated when computation-affecting properties change
+        // (everything except cosmetic props like name, visible, opacity)
+        const cosmeticKeys = new Set(['name', 'visible', 'opacity']);
+        const hasComputationChange = Object.keys(action.payload.updates).some(
+          key => !cosmeticKeys.has(key)
+        );
+        if (hasComputationChange && state.fieldResults?.[action.payload.id]) {
+          state.fieldResults[action.payload.id] = { computed: false, num_points: 0 };
+        }
       }
     },
 

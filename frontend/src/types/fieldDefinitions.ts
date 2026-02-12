@@ -36,7 +36,6 @@ const FieldDefinition2DSchema = z.object({
     x: z.number().int().positive(),
     y: z.number().int().positive(),
   }),
-  farField: z.boolean(),
   fieldType: z.enum(['E', 'H', 'poynting']),
 });
 
@@ -60,7 +59,6 @@ const FieldDefinition3DSchema = z.object({
     radial: z.number().int().positive(),
     angular: z.number().int().positive(),
   }),
-  farField: z.boolean(),
   fieldType: z.enum(['E', 'H', 'poynting']),
 });
 
