@@ -136,8 +136,9 @@ class TestFarField:
         H_theta = H_field[0, 0, 0, 0]
         H_phi = H_field[0, 0, 0, 1]
 
-        np.testing.assert_allclose(H_theta, E_phi / eta_0, rtol=1e-10)
-        np.testing.assert_allclose(H_phi, -E_theta / eta_0, rtol=1e-10)
+        # Far-field: H = (r̂ × E) / η₀  →  H_θ = −E_φ/η₀,  H_φ = E_θ/η₀
+        np.testing.assert_allclose(H_theta, -E_phi / eta_0, rtol=1e-10)
+        np.testing.assert_allclose(H_phi, E_theta / eta_0, rtol=1e-10)
 
     def test_far_field_dipole_pattern(self):
         """Test dipole far-field pattern characteristics."""
