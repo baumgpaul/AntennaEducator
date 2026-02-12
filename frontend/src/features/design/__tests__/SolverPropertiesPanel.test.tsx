@@ -47,7 +47,6 @@ const sampleField2DPlane: FieldDefinition = {
   normalVector: [0, 0, 1],
   normalPreset: 'XY',
   sampling: { x: 20, y: 20 },
-  farField: false,
   fieldType: 'E',
   visible: true,
 };
@@ -62,7 +61,6 @@ const sampleField2DCircle: FieldDefinition = {
   normalVector: [0, 0, 1],
   normalPreset: 'XY',
   sampling: { x: 30, y: 30 },
-  farField: true,
   fieldType: 'poynting',
   visible: true,
 };
@@ -75,7 +73,6 @@ const sampleField3DSphere: FieldDefinition = {
   centerPoint: [0, 0, 150],
   sphereRadius: 200,
   sampling: { radial: 10, angular: 20 },
-  farField: false,
   fieldType: 'E',
   visible: true,
 };
@@ -88,7 +85,6 @@ const sampleField3DCube: FieldDefinition = {
   centerPoint: [50, 50, 50],
   cubeDimensions: { Lx: 100, Ly: 100, Lz: 100 },
   sampling: { radial: 15, angular: 25 },
-  farField: true,
   fieldType: 'H',
   visible: true,
 };
@@ -522,30 +518,6 @@ describe('SolverPropertiesPanel', () => {
   });
 
   // ============================================================================
-  // Far/Near Field Toggle Tests
-  // ============================================================================
-
-  it('toggles far/near field', async () => {
-    const store = createMockStore([sampleField2DPlane]);
-    const user = userEvent.setup();
-
-    render(
-      <Provider store={store}>
-        <SolverPropertiesPanel
-          selectedFieldId="field-1"
-          fieldRegionsVisible={true}
-          onFieldRegionsVisibleChange={mockOnFieldRegionsVisibleChange}
-        />
-      </Provider>
-    );
-
-    const farFieldRadio = screen.getByLabelText('Far field');
-    await user.click(farFieldRadio);
-
-    const state = store.getState();
-    expect(state.solver.requestedFields[0].farField).toBe(true);
-  });
-
   // ============================================================================
   // Delete Functionality Tests
   // ============================================================================

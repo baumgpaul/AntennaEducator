@@ -357,11 +357,6 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
     onUpdate({ fieldType: type });
   };
 
-  // Handler for far/near field
-  const handleFarFieldChange = (value: boolean) => {
-    onUpdate({ farField: value });
-  };
-
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Typography variant="subtitle2" fontWeight={600} gutterBottom>
@@ -698,19 +693,6 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
           control={<Radio size="small" />}
           label="Poynting (S)"
         />
-      </RadioGroup>
-
-      {/* Computation Type */}
-      <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-        Computation:
-      </Typography>
-      <RadioGroup
-        value={field.farField ? 'far' : 'near'}
-        onChange={(e) => handleFarFieldChange(e.target.value === 'far')}
-        sx={{ mb: 2 }}
-      >
-        <FormControlLabel value="near" control={<Radio size="small" />} label="Near field" />
-        <FormControlLabel value="far" control={<Radio size="small" />} label="Far field" />
       </RadioGroup>
 
       {/* Delete Button */}

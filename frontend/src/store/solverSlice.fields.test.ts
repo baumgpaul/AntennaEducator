@@ -7,6 +7,7 @@ import solverReducer, {
   addFieldRegion,
   deleteFieldRegion,
   updateFieldRegion,
+  updateFieldResult,
   clearFieldRegions,
   setDirectivityRequested,
   setSolverState,
@@ -26,7 +27,6 @@ const make2DField = (id: string, overrides: Partial<FieldDefinition> = {}): Fiel
   dimensions: { width: 100, height: 100 },
   normalPreset: 'XY',
   sampling: { x: 10, y: 10 },
-  farField: false,
   fieldType: 'E',
   visible: true,
   ...overrides,
@@ -39,7 +39,6 @@ const make3DField = (id: string, overrides: Partial<FieldDefinition> = {}): Fiel
   centerPoint: [0, 0, 100],
   sphereRadius: 50,
   sampling: { radial: 5, angular: 20 },
-  farField: true,
   fieldType: 'poynting',
   visible: true,
   ...overrides,
@@ -134,6 +133,162 @@ describe('solverSlice - Field Definitions', () => {
       );
 
       expect(state.requestedFields[0].sampling).toEqual({ x: 10, y: 10 });
+    });
+
+    it('marks field result as outdated when computation-affecting property changes', () => {
+      const field = make2DField('field-1');
+
+      let state = solverReducer(initialState, addFieldRegion(field));
+      // Simulate a computed field result
+      state = solverReducer(
+        state,
+        updateFieldResult({ fieldId: 'field-1', computed: true, num_points: 100 })
+      );
+      expect(state.fieldResults!['field-1'].computed).toBe(true);
+
+      // Change dimensions — should mark as outdated
+      state = solverReducer(
+        state,
+        updateFieldRegion({
+          id: 'field-1',
+          updates: { dimensions: { width: 200, height: 200 } },
+        })
+      );
+      expect(state.fieldResults!['field-1'].computed).toBe(false);
+    });
+
+    it('marks field result as outdated when center point changes', () => {
+      const field = make2DField('field-1');
+
+      let state = solverReducer(initialState, addFieldRegion(field));
+      state = solverReducer(
+        state,
+        updateFieldResult({ fieldId: 'field-1', computed: true, num_points: 100 })
+      );
+
+      state = solverReducer(
+        state,
+        updateFieldRegion({
+          id: 'field-1',
+          updates: { centerPoint: [10, 20, 30] },
+        })
+      );
+      expect(state.fieldResults!['field-1'].computed).toBe(false);
+    });
+
+    it('marks field result as outdated when sampling changes', () => {
+      const field = make2DField('field-1');
+
+      let state = solverReducer(initialState, addFieldRegion(field));
+      state = solverReducer(
+        state,
+        updateFieldResult({ fieldId: 'field-1', computed: true, num_points: 100 })
+      );
+
+      state = solverReducer(
+        state,
+        updateFieldRegion({
+          id: 'field-1',
+          updates: { sampling: { x: 50, y: 50 } },
+        })
+      );
+      expect(state.fieldResults!['field-1'].computed).toBe(false);
+    });
+
+    it('marks field result as outdated when fieldType changes', () => {
+      const field = make2DField('field-1');
+
+      let state = solverReducer(initialState, addFieldRegion(field));
+      state = solverReducer(
+        state,
+        updateFieldResult({ fieldId: 'field-1', computed: true, num_points: 100 })
+      );
+
+      state = solverReducer(
+        state,
+        updateFieldRegion({
+          id: 'field-1',
+          updates: { fieldType: 'H' },
+        })
+      );
+      expect(state.fieldResults!['field-1'].computed).toBe(false);
+    });
+
+    it('marks field result as outdated when normalPreset changes', () => {
+      const field = make2DField('field-1');
+
+      let state = solverReducer(initialState, addFieldRegion(field));
+      state = solverReducer(
+        state,
+        updateFieldResult({ fieldId: 'field-1', computed: true, num_points: 100 })
+      );
+
+      state = solverReducer(
+        state,
+        updateFieldRegion({
+          id: 'field-1',
+          updates: { normalPreset: 'YZ' },
+        })
+      );
+      expect(state.fieldResults!['field-1'].computed).toBe(false);
+    });
+
+    it('does NOT mark field result as outdated for cosmetic changes (name, visible, opacity)', () => {
+      const field = make2DField('field-1');
+
+      let state = solverReducer(initialState, addFieldRegion(field));
+      state = solverReducer(
+        state,
+        updateFieldResult({ fieldId: 'field-1', computed: true, num_points: 100 })
+      );
+
+      // Name change — cosmetic
+      state = solverReducer(
+        state,
+        updateFieldRegion({
+          id: 'field-1',
+          updates: { name: 'Renamed Field' },
+        })
+      );
+      expect(state.fieldResults!['field-1'].computed).toBe(true);
+
+      // Visibility change — cosmetic
+      state = solverReducer(
+        state,
+        updateFieldRegion({
+          id: 'field-1',
+          updates: { visible: false },
+        })
+      );
+      expect(state.fieldResults!['field-1'].computed).toBe(true);
+
+      // Opacity change — cosmetic
+      state = solverReducer(
+        state,
+        updateFieldRegion({
+          id: 'field-1',
+          updates: { opacity: 0.8 },
+        })
+      );
+      expect(state.fieldResults!['field-1'].computed).toBe(true);
+    });
+
+    it('does nothing if field has no computed result yet', () => {
+      const field = make2DField('field-1');
+
+      let state = solverReducer(initialState, addFieldRegion(field));
+      // No fieldResults set
+
+      state = solverReducer(
+        state,
+        updateFieldRegion({
+          id: 'field-1',
+          updates: { dimensions: { width: 200, height: 200 } },
+        })
+      );
+
+      // fieldResults should remain null — no crash
+      expect(state.fieldResults).toBeNull();
     });
   });
 

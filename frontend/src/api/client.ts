@@ -66,11 +66,15 @@ const refreshAccessToken = async (): Promise<string> => {
     // Cognito tokens: use Cognito SDK to refresh
     // Local tokens: use backend API
     if (authProvider === 'cognito') {
-      // For Cognito, we need to use the Cognito SDK to refresh
-      // For now, just fail and redirect to login
-      // TODO: Implement proper Cognito token refresh using amazon-cognito-identity-js
-      console.warn('[Auth] Cognito token refresh not implemented, redirecting to login')
-      throw new Error('Cognito token refresh not implemented')
+      // Use the auth service's Cognito SDK refresh
+      const { getAuthService } = await import('@/services/auth')
+      const authService = getAuthService()
+      const tokens = await authService.refreshToken()
+      localStorage.setItem('auth_token', tokens.accessToken)
+      if (tokens.idToken) {
+        localStorage.setItem('id_token', tokens.idToken)
+      }
+      return tokens.accessToken
     } else {
       // Local auth: use backend refresh endpoint
       const response = await axios.post(`${getAuthURL()}/api/auth/refresh`, {

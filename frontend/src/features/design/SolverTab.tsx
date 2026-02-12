@@ -38,7 +38,6 @@ import {
   selectResultsStale,
   cancelPostprocessing,
 } from '@/store/solverSlice';
-import { createViewConfiguration, addItemToView } from '@/store/postprocessingSlice';
 import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
@@ -232,25 +231,6 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
       console.log('[SolverTab] Starting postprocessing workflow, state:', solverWorkflowState);
       try {
         await dispatch(computePostprocessingWorkflow()).unwrap();
-
-        // Auto-create default view if none exist
-        const stateSnapshot = store.getState() as unknown as { postprocessing: { viewConfigurations: Array<{ id: string }> } };
-        if (stateSnapshot.postprocessing.viewConfigurations.length === 0) {
-          console.log('[SolverTab] No views exist, creating default view');
-          const viewAction = dispatch(createViewConfiguration({ name: 'Result View 1', viewType: '3D' }));
-          const newViewId = stateSnapshot.postprocessing.viewConfigurations[stateSnapshot.postprocessing.viewConfigurations.length - 1]?.id;
-
-          if (newViewId) {
-            dispatch(addItemToView({
-              viewId: newViewId,
-              item: {
-                type: 'antenna-system',
-                visible: true,
-                label: 'Antenna System',
-              },
-            }));
-          }
-        }
 
         setSnackbarMessage('Postprocessing complete!');
         setSnackbarSeverity('success');
@@ -510,25 +490,32 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
               Postprocessing
             </Typography>
-            {postprocessingStatus === 'completed' && fieldResults && (
-              <>
-                <Chip
-                  icon={<CheckCircleIcon />}
-                  label="Ready"
-                  size="small"
-                  sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
-                />
-                {!isSolved && (
-                  <Chip
-                    label="Outdated"
-                    size="small"
-                    color="warning"
-                    sx={{ height: 20, fontSize: '0.65rem' }}
-                    title="Design changed after postprocessing. Re-run solver and postprocessing."
-                  />
-                )}
-              </>
-            )}
+            {postprocessingStatus === 'completed' && fieldResults && (() => {
+              const anyFieldOutdated = Object.values(fieldResults).some(r => r && !r.computed);
+              const isOutdated = !isSolved || anyFieldOutdated;
+              return (
+                <>
+                  {isOutdated ? (
+                    <Chip
+                      label="Outdated"
+                      size="small"
+                      color="warning"
+                      sx={{ height: 20, fontSize: '0.65rem' }}
+                      title={anyFieldOutdated && isSolved
+                        ? 'Field definitions changed after postprocessing. Re-run postprocessing to update.'
+                        : 'Design changed after postprocessing. Re-run solver and postprocessing.'}
+                    />
+                  ) : (
+                    <Chip
+                      icon={<CheckCircleIcon />}
+                      label="Ready"
+                      size="small"
+                      sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
+                    />
+                  )}
+                </>
+              );
+            })()}
             {postprocessingStatus === 'running' && (
               <Chip
                 icon={<CircularProgress size={12} />}

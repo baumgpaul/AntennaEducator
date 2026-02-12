@@ -43,6 +43,7 @@ import {
   setAddAntennaDialogOpen,
   setAddFieldDialogOpen,
   setAddScalarPlotDialogOpen,
+  setScalarPlotPreselect,
   setExportPDFDialogOpen,
   setExportType,
   addItemToView,
@@ -182,18 +183,18 @@ function RibbonMenu({
   };
 
   const handleAddImpedancePlot = () => {
+    dispatch(setScalarPlotPreselect('impedance'));
     dispatch(setAddScalarPlotDialogOpen(true));
-    // TODO: Pre-select impedance in dialog
   };
 
   const handleAddVoltagePlot = () => {
+    dispatch(setScalarPlotPreselect('voltage'));
     dispatch(setAddScalarPlotDialogOpen(true));
-    // TODO: Pre-select voltage in dialog
   };
 
   const handleAddCurrentPlot = () => {
+    dispatch(setScalarPlotPreselect('current'));
     dispatch(setAddScalarPlotDialogOpen(true));
-    // TODO: Pre-select current in dialog
   };
 
   const handleExportPDF = () => {

@@ -74,7 +74,6 @@ describe('AddFieldDialog - T4.B1.2', () => {
       await user.click(nextButton); // Step 2
       await user.click(nextButton); // Step 3
       await user.click(nextButton); // Step 4
-      await user.click(nextButton); // Step 5
 
       expect(screen.getByRole('button', { name: /Create/i })).toBeInTheDocument();
     });
@@ -216,36 +215,6 @@ describe('AddFieldDialog - T4.B1.2', () => {
     });
   });
 
-  describe('Step 5: Near/Far Field', () => {
-    it('shows near and far field options', async () => {
-      const user = userEvent.setup();
-      render(<AddFieldDialog open={true} onClose={mockOnClose} onCreate={mockOnCreate} />);
-
-      // Navigate to step 5
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 2
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 3
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 4
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 5
-
-      expect(screen.getByLabelText(/Near field/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Far field/i)).toBeInTheDocument();
-    });
-
-    it('near field is selected by default', async () => {
-      const user = userEvent.setup();
-      render(<AddFieldDialog open={true} onClose={mockOnClose} onCreate={mockOnCreate} />);
-
-      // Navigate to step 5
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 2
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 3
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 4
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 5
-
-      const nearFieldRadio = screen.getByLabelText(/Near field/i) as HTMLInputElement;
-      expect(nearFieldRadio.checked).toBe(true);
-    });
-  });
-
   describe('Field Creation', () => {
     it('calls onCreate with field definition when Create is clicked', async () => {
       const user = userEvent.setup();
@@ -255,7 +224,6 @@ describe('AddFieldDialog - T4.B1.2', () => {
       await user.click(screen.getByRole('button', { name: /Next/i })); // Step 2
       await user.click(screen.getByRole('button', { name: /Next/i })); // Step 3
       await user.click(screen.getByRole('button', { name: /Next/i })); // Step 4
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 5
 
       // Click Create
       const createButton = screen.getByRole('button', { name: /Create/i });
@@ -266,7 +234,6 @@ describe('AddFieldDialog - T4.B1.2', () => {
           type: '2D',
           shape: 'plane',
           centerPoint: [0, 0, 0],
-          farField: false,
           fieldType: 'E',
         })
       );
@@ -280,7 +247,6 @@ describe('AddFieldDialog - T4.B1.2', () => {
       await user.click(screen.getByRole('button', { name: /Next/i })); // Step 2
       await user.click(screen.getByRole('button', { name: /Next/i })); // Step 3
       await user.click(screen.getByRole('button', { name: /Next/i })); // Step 4
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 5
       await user.click(screen.getByRole('button', { name: /Create/i }));
 
       expect(mockOnClose).toHaveBeenCalled();
@@ -294,7 +260,6 @@ describe('AddFieldDialog - T4.B1.2', () => {
       await user.click(screen.getByRole('button', { name: /Next/i })); // Step 2
       await user.click(screen.getByRole('button', { name: /Next/i })); // Step 3
       await user.click(screen.getByRole('button', { name: /Next/i })); // Step 4
-      await user.click(screen.getByRole('button', { name: /Next/i })); // Step 5
       await user.click(screen.getByRole('button', { name: /Create/i }));
 
       // Reopen dialog
