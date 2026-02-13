@@ -339,7 +339,7 @@ module "lambda_postprocessor" {
   region        = var.aws_region
 
   memory_size = 1024
-  timeout     = 60
+  timeout     = 300
 
   environment_variables = {}
 

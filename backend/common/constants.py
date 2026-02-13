@@ -83,7 +83,7 @@ MAX_RESULT_SIZE_BYTES = 1024 * 1024 * 1024  # 1 GB
 # Timeouts
 DEFAULT_API_TIMEOUT = 30  # seconds
 SOLVER_TIMEOUT = 300  # 5 minutes
-POSTPROCESSOR_TIMEOUT = 60  # 1 minute
+POSTPROCESSOR_TIMEOUT = 300  # 5 minutes
 
 # ===========================
 # Helper Functions
