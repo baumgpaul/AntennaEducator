@@ -297,9 +297,7 @@ def _compute_total_vector_potential_batch(
         chunks = []
         for i_chunk, start in enumerate(range(0, n_obs, _chunk_size)):
             end = min(start + _chunk_size, n_obs)
-            logger.debug(
-                "  Chunk %d/%d: points %d–%d", i_chunk + 1, n_chunks, start, end
-            )
+            logger.debug("  Chunk %d/%d: points %d–%d", i_chunk + 1, n_chunks, start, end)
             chunks.append(
                 _compute_total_vector_potential_batch(
                     obs_points[start:end],
@@ -427,8 +425,7 @@ def compute_near_field(
     #   (chunk × n_edges) arrays of float64/complex128 → ~40 bytes/element
     peak_mb = (min(total_eval_points, 50_000) * n_edges * 40) / (1024**2)
     logger.info(
-        "Near-field setup: %d obs × %d stencil = %d evals, %d edges, "
-        "est. peak ~%.0f MB/chunk",
+        "Near-field setup: %d obs × %d stencil = %d evals, %d edges, " "est. peak ~%.0f MB/chunk",
         n_points,
         n_stencil,
         total_eval_points,
