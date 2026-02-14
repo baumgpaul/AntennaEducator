@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     far_field_distance_factor: float = 10.0
     max_observation_points: int = 40_000
 
+    # Debug / logging
+    log_level: str = "INFO"
+    log_timing: bool = True
+    log_progress_interval: int = 10  # Log progress every N observation points
+
 
 # Global settings instance
 settings = Settings()

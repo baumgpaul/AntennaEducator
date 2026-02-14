@@ -14,11 +14,15 @@ Performance:
 - Near-field: O(n_freq) Python loops; observation points × stencil × edges vectorized.
 """
 
+import logging
+import time
 from typing import List, Tuple
 
 import numpy as np
 
 from backend.common.constants import C_0, EPSILON_0, MU_0
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Scalar (single-point) helpers — kept for backward compatibility / unit tests
@@ -395,6 +399,17 @@ def compute_near_field(
 
         h = 0.01 / k if k > 0 else 0.01
 
+        logger.info(
+            "Freq %d/%d: f=%.4f MHz, λ=%.4f m, k=%.4f, %d edges, %d obs points",
+            i_freq + 1,
+            n_freq,
+            freq / 1e6,
+            C_0 / freq,
+            k,
+            n_edges,
+            n_points,
+        )
+
         # 19-point stencil offsets for ∇(∇·A) and ∇×A
         #  0: centre
         #  1-6: ±x, ±y, ±z
@@ -430,8 +445,17 @@ def compute_near_field(
         all_pts_flat = all_pts.reshape(-1, 3)  # (n_points * 19, 3)
 
         # Single batched evaluation for ALL points
+        t_batch = time.perf_counter()
         A_all = _compute_total_vector_potential_batch(
             all_pts_flat, edge_starts, edge_ends, currents, k
+        )
+        batch_duration = time.perf_counter() - t_batch
+        logger.info(
+            "  Batch VP evaluation: %d points × %d stencil = %d evals in %.2f s",
+            n_points,
+            n_stencil,
+            len(all_pts_flat),
+            batch_duration,
         )
         # Reshape back: (n_points, 19, 3)
         A_s = A_all.reshape(n_points, n_stencil, 3)
@@ -507,6 +531,15 @@ def compute_near_field(
         curl[:, 2] = (Axp[:, 1] - Axm[:, 1]) / (2 * h) - (Ayp[:, 0] - Aym[:, 0]) / (2 * h)
 
         H_field[i_freq] = curl / MU_0
+
+        freq_duration = time.perf_counter() - t_batch  # includes E/H assembly
+        logger.info(
+            "  Freq %d/%d total: %.2f s (%.1f pts/s)",
+            i_freq + 1,
+            n_freq,
+            freq_duration,
+            n_points / freq_duration if freq_duration > 0 else 0,
+        )
 
     return E_field, H_field
 

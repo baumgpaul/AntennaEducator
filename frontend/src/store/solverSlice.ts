@@ -543,6 +543,18 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           observation_points,
         };
 
+        // Pre-flight estimate: warn if computation may timeout
+        const estEvals = observation_points.length * 19 * frequencies.length * mesh.edges.length;
+        const estSec = estEvals * 5e-7;
+        console.log(
+          `[Postprocessing] Field "${field.name}": ${observation_points.length} pts × ${mesh.edges.length} edges → est. ${estSec.toFixed(1)}s`
+        );
+        if (estSec > 250) {
+          console.warn(
+            `[Postprocessing] ⚠️ Field "${field.name}" estimated at ${estSec.toFixed(0)}s — may exceed Lambda 300s timeout!`
+          );
+        }
+
         const fieldData = await computeNearField(fieldRequest);
 
         // Store field data for all frequencies

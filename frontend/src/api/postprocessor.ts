@@ -73,50 +73,109 @@ export const computeNearField = async (request: {
   E_magnitudes: number[]
   H_magnitudes: number[]
   timestamp: string
+  _debug?: Record<string, unknown>
 }> => {
-  const response = await postprocessorClient.post('/api/fields/near', request)
-  const raw = handleApiResponse(response) as {
-    status: string
-    format?: string
-    frequency: number
-    num_points: number
-    // compact flat-array format
-    E_real?: number[]
-    E_imag?: number[]
-    H_real?: number[]
-    H_imag?: number[]
-    // legacy per-point format (kept for local dev backward compat)
-    E_field?: ComplexVector[]
-    H_field?: ComplexVector[]
-    E_magnitudes: number[]
-    H_magnitudes: number[]
-    timestamp: string
+  const nPoints = request.observation_points.length
+  const nEdges = request.edges.length
+  const nFreq = request.frequencies.length
+  const totalEvals = nPoints * 19 * nFreq * nEdges
+  const estSeconds = totalEvals * 5e-7 // ~0.5μs per eval (vectorized on Lambda 2048 MB)
+
+  console.log(
+    `[Postprocessor] Near-field request: ${nPoints} points, ${nEdges} edges, ${nFreq} freq(s)`,
+    `| est. ${estSeconds.toFixed(1)}s`,
+    `| ${(JSON.stringify(request).length / 1024).toFixed(0)} KB payload`,
+  )
+
+  if (estSeconds > 240) {
+    console.warn(
+      `[Postprocessor] ⚠️ Estimated computation time (${estSeconds.toFixed(0)}s) may exceed Lambda timeout.`,
+      `Consider reducing observation points (currently ${nPoints}) or mesh density.`,
+    )
   }
 
-  // If the backend returns the compact flat format, reconstruct vectors
-  if (raw.format === 'flat' && raw.E_real && raw.E_imag) {
-    return {
-      status: raw.status,
-      frequency: raw.frequency,
-      num_points: raw.num_points,
-      E_field: unflattenVectors(raw.E_real, raw.E_imag, raw.E_magnitudes),
-      H_field: unflattenVectors(raw.H_real!, raw.H_imag!, raw.H_magnitudes),
-      E_magnitudes: raw.E_magnitudes,
-      H_magnitudes: raw.H_magnitudes,
-      timestamp: raw.timestamp,
+  const t0 = performance.now()
+  try {
+    const response = await postprocessorClient.post('/api/fields/near', request)
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2)
+    console.log(`[Postprocessor] Near-field response received in ${elapsed}s, status=${response.status}`)
+
+    const raw = handleApiResponse(response) as {
+      status: string
+      format?: string
+      frequency: number
+      num_points: number
+      E_real?: number[]
+      E_imag?: number[]
+      H_real?: number[]
+      H_imag?: number[]
+      E_field?: ComplexVector[]
+      H_field?: ComplexVector[]
+      E_magnitudes: number[]
+      H_magnitudes: number[]
+      timestamp: string
+      _debug?: Record<string, unknown>
     }
-  }
 
-  // Legacy format — pass through as-is
-  return raw as {
-    status: string
-    frequency: number
-    num_points: number
-    E_field: ComplexVector[]
-    H_field: ComplexVector[]
-    E_magnitudes: number[]
-    H_magnitudes: number[]
-    timestamp: string
+    if (raw._debug) {
+      console.log('[Postprocessor] Backend debug info:', raw._debug)
+    }
+
+    // If the backend returns the compact flat format, reconstruct vectors
+    if (raw.format === 'flat' && raw.E_real && raw.E_imag) {
+      return {
+        status: raw.status,
+        frequency: raw.frequency,
+        num_points: raw.num_points,
+        E_field: unflattenVectors(raw.E_real, raw.E_imag, raw.E_magnitudes),
+        H_field: unflattenVectors(raw.H_real!, raw.H_imag!, raw.H_magnitudes),
+        E_magnitudes: raw.E_magnitudes,
+        H_magnitudes: raw.H_magnitudes,
+        timestamp: raw.timestamp,
+        _debug: raw._debug,
+      }
+    }
+
+    // Legacy format — pass through as-is
+    return raw as {
+      status: string
+      frequency: number
+      num_points: number
+      E_field: ComplexVector[]
+      H_field: ComplexVector[]
+      E_magnitudes: number[]
+      H_magnitudes: number[]
+      timestamp: string
+    }
+  } catch (error: unknown) {
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2)
+    const axiosErr = error as { response?: { status?: number; data?: unknown }; code?: string; message?: string }
+
+    if (axiosErr.response) {
+      console.error(
+        `[Postprocessor] Near-field FAILED after ${elapsed}s`,
+        `| HTTP ${axiosErr.response.status}`,
+        `| body:`, axiosErr.response.data,
+      )
+      if (axiosErr.response.status === 502) {
+        console.error(
+          '[Postprocessor] 502 Bad Gateway — likely Lambda timeout.',
+          `Estimated compute: ${estSeconds.toFixed(0)}s. Lambda timeout is 300s.`,
+          `Reduce observation points (${nPoints}) or mesh edges (${nEdges}).`,
+        )
+      }
+    } else if (axiosErr.code === 'ECONNABORTED') {
+      console.error(
+        `[Postprocessor] Request TIMED OUT after ${elapsed}s (client timeout: 300s).`,
+        `Estimated compute: ${estSeconds.toFixed(0)}s.`,
+      )
+    } else {
+      console.error(
+        `[Postprocessor] Near-field FAILED after ${elapsed}s:`,
+        axiosErr.message || error,
+      )
+    }
+    throw error
   }
 }
 
