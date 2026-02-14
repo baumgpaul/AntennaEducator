@@ -14,8 +14,6 @@ import {
   Home,
   Folder,
   AddCircle,
-  Dashboard,
-  Assessment,
   ExpandLess,
   ExpandMore,
   ChevronLeft,
@@ -100,30 +98,6 @@ function Sidebar() {
                 <Folder />
               </ListItemIcon>
               <ListItemText primary="Projects" />
-            </ListItemButton>
-          </ListItem>
-
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={location.pathname.startsWith('/design')}
-              onClick={() => handleNavigation('/design')}
-            >
-              <ListItemIcon>
-                <Dashboard />
-              </ListItemIcon>
-              <ListItemText primary="Design" />
-            </ListItemButton>
-          </ListItem>
-
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={location.pathname.startsWith('/results')}
-              onClick={() => handleNavigation('/results')}
-            >
-              <ListItemIcon>
-                <Assessment />
-              </ListItemIcon>
-              <ListItemText primary="Results" />
             </ListItemButton>
           </ListItem>
         </List>
