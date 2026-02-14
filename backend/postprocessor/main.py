@@ -2,6 +2,7 @@
 
 import base64
 import logging
+import time
 from datetime import datetime, timezone
 
 import numpy as np
@@ -15,6 +16,11 @@ from .field import compute_directivity_from_pattern, compute_far_field
 from .field import compute_near_field as compute_near_field_impl
 from .models import FarFieldRequest, FieldRequest, RadiationPatternResponse
 
+# Configure logging level from settings
+logging.basicConfig(
+    level=getattr(logging, settings.log_level.upper(), logging.INFO),
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI application
@@ -40,6 +46,14 @@ app.add_middleware(
 # GZip middleware is added after CORS so it wraps outermost —
 # the body is compressed while CORS headers remain unaffected.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+logger.info(
+    "Postprocessor service v%s starting (debug=%s, log_level=%s, log_timing=%s)",
+    settings.version,
+    settings.debug,
+    settings.log_level,
+    settings.log_timing,
+)
 
 
 def _parse_branch_currents(raw_currents: list) -> np.ndarray:
@@ -85,6 +99,27 @@ async def health_check():
     }
 
 
+def _estimate_computation_time(n_points: int, n_edges: int, n_freq: int) -> dict:
+    """Estimate computation time for near-field calculation.
+
+    The vectorized implementation processes all observation points × 19-point
+    stencil × all edges in a single batched NumPy call per frequency.
+    The bottleneck is the batch vector-potential evaluation.
+    """
+    stencil_points = 19  # finite-difference stencil size
+    total_evaluations = n_points * stencil_points * n_edges * n_freq
+    # Rough estimate: ~0.5μs per evaluation on Lambda (2048 MB) with vectorized code
+    est_seconds = total_evaluations * 5e-7
+    return {
+        "n_points": n_points,
+        "n_edges": n_edges,
+        "n_freq": n_freq,
+        "stencil_size": stencil_points,
+        "total_evaluations": total_evaluations,
+        "estimated_seconds": round(est_seconds, 1),
+    }
+
+
 @app.post(
     f"{settings.api_prefix}/fields/near",
     response_model=dict,
@@ -92,8 +127,34 @@ async def health_check():
 )
 async def compute_near_field(request: FieldRequest):
     """Compute electric and magnetic fields at specified observation points."""
+    t_start = time.perf_counter()
     try:
         n_points = len(request.observation_points)
+        n_edges = len(request.edges)
+        n_nodes = len(request.nodes)
+        n_freq = len(request.frequencies)
+        n_branches = len(request.branch_currents[0]) if request.branch_currents else 0
+
+        logger.info(
+            "=== Near-field request received ==="
+            " | frequencies=%d (%.2f MHz)"
+            " | observation_points=%d"
+            " | edges=%d, nodes=%d, branches=%d",
+            n_freq,
+            request.frequencies[0] / 1e6 if request.frequencies else 0,
+            n_points,
+            n_edges,
+            n_nodes,
+            n_branches,
+        )
+
+        estimate = _estimate_computation_time(n_points, n_edges, n_freq)
+        logger.info(
+            "Computation estimate: %d total evals, ~%.1f s",
+            estimate["total_evaluations"],
+            estimate["estimated_seconds"],
+        )
+
         if n_points > settings.max_observation_points:
             raise HTTPException(
                 status_code=422,
@@ -104,12 +165,24 @@ async def compute_near_field(request: FieldRequest):
                 ),
             )
 
+        t_parse = time.perf_counter()
         frequencies = np.array(request.frequencies)
         nodes = np.array(request.nodes)
         edges = np.array(request.edges)
         observation_points = np.array(request.observation_points)
         branch_currents = _parse_branch_currents(request.branch_currents)
+        logger.info("Request parsed in %.3f s", time.perf_counter() - t_parse)
 
+        logger.debug(
+            "Array shapes: frequencies=%s, nodes=%s, edges=%s, obs_points=%s, currents=%s",
+            frequencies.shape,
+            nodes.shape,
+            edges.shape,
+            observation_points.shape,
+            branch_currents.shape,
+        )
+
+        t_compute = time.perf_counter()
         E_field, H_field = compute_near_field_impl(
             frequencies=frequencies,
             branch_currents=branch_currents,
@@ -117,6 +190,8 @@ async def compute_near_field(request: FieldRequest):
             edges=edges,
             observation_points=observation_points,
         )
+        compute_duration = time.perf_counter() - t_compute
+        logger.info("Near-field computation completed in %.2f s", compute_duration)
 
         # Extract first frequency results (n_points x 3, complex)
         E_vectors = E_field[0]
@@ -124,6 +199,22 @@ async def compute_near_field(request: FieldRequest):
 
         E_magnitudes = np.linalg.norm(E_vectors, axis=1).tolist()
         H_magnitudes = np.linalg.norm(H_vectors, axis=1).tolist()
+
+        # Log field statistics
+        E_mag_arr = np.array(E_magnitudes)
+        H_mag_arr = np.array(H_magnitudes)
+        logger.info(
+            "Field stats: |E| min=%.4e max=%.4e mean=%.4e | |H| min=%.4e max=%.4e mean=%.4e",
+            E_mag_arr.min(),
+            E_mag_arr.max(),
+            E_mag_arr.mean(),
+            H_mag_arr.min(),
+            H_mag_arr.max(),
+            H_mag_arr.mean(),
+        )
+
+        total_duration = time.perf_counter() - t_start
+        logger.info("=== Near-field request completed in %.2f s ===", total_duration)
 
         # Compact flat-array format: 5-10× smaller than per-point dicts.
         # Each array is [x0, y0, z0, x1, y1, z1, ...] of length n_points * 3.
@@ -140,9 +231,17 @@ async def compute_near_field(request: FieldRequest):
             "E_magnitudes": E_magnitudes,
             "H_magnitudes": H_magnitudes,
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "_debug": {
+                "compute_seconds": round(compute_duration, 3),
+                "total_seconds": round(total_duration, 3),
+                "estimate": estimate,
+            },
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception("Near-field computation error")
+        total_duration = time.perf_counter() - t_start
+        logger.exception("Near-field computation error after %.2f s: %s", total_duration, str(e))
         raise HTTPException(status_code=500, detail=f"Near-field computation failed: {str(e)}")
 
 
@@ -326,6 +425,50 @@ def _generate_vtu_xml(
   </UnstructuredGrid>
 </VTKFile>
 """
+
+
+@app.get(f"{settings.api_prefix}/debug/config")
+async def debug_config():
+    """Return current configuration for debugging (no secrets)."""
+    import sys
+
+    return {
+        "service": "postprocessor",
+        "version": settings.version,
+        "python_version": sys.version,
+        "debug": settings.debug,
+        "log_level": settings.log_level,
+        "log_timing": settings.log_timing,
+        "max_observation_points": settings.max_observation_points,
+        "default_theta_points": settings.default_theta_points,
+        "default_phi_points": settings.default_phi_points,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.post(f"{settings.api_prefix}/debug/estimate")
+async def estimate_computation(request: FieldRequest):
+    """Estimate computation time without actually computing.
+
+    Useful for pre-flight checks before committing to a long computation.
+    """
+    n_points = len(request.observation_points)
+    n_edges = len(request.edges)
+    n_freq = len(request.frequencies)
+    estimate = _estimate_computation_time(n_points, n_edges, n_freq)
+    lambda_timeout = 300  # current Lambda config
+    return {
+        **estimate,
+        "lambda_timeout_seconds": lambda_timeout,
+        "will_likely_timeout": estimate["estimated_seconds"] > lambda_timeout * 0.8,
+        "recommendation": (
+            f"Reduce observation points from {n_points} to "
+            f"~{max(1, int(n_points * lambda_timeout * 0.7 / max(estimate['estimated_seconds'], 1)))} "
+            "for safe execution within Lambda timeout."
+            if estimate["estimated_seconds"] > lambda_timeout * 0.8
+            else "Computation should complete within Lambda timeout."
+        ),
+    }
 
 
 @app.get(f"{settings.api_prefix}/info")
