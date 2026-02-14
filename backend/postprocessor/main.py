@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
 
 from .config import settings
@@ -34,6 +35,11 @@ app.add_middleware(
     allow_methods=settings.cors_methods,
     allow_headers=settings.cors_headers,
 )
+
+# Compress responses to stay within Lambda 6 MB payload limit.
+# GZip middleware is added after CORS so it wraps outermost —
+# the body is compressed while CORS headers remain unaffected.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 def _parse_branch_currents(raw_currents: list) -> np.ndarray:
@@ -87,6 +93,17 @@ async def health_check():
 async def compute_near_field(request: FieldRequest):
     """Compute electric and magnetic fields at specified observation points."""
     try:
+        n_points = len(request.observation_points)
+        if n_points > settings.max_observation_points:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Too many observation points: {n_points}. "
+                    f"Maximum allowed is {settings.max_observation_points}. "
+                    f"Reduce sampling resolution."
+                ),
+            )
+
         frequencies = np.array(request.frequencies)
         nodes = np.array(request.nodes)
         edges = np.array(request.edges)
@@ -108,32 +125,18 @@ async def compute_near_field(request: FieldRequest):
         E_magnitudes = np.linalg.norm(E_vectors, axis=1).tolist()
         H_magnitudes = np.linalg.norm(H_vectors, axis=1).tolist()
 
-        E_field_json = []
-        H_field_json = []
-        for i in range(len(observation_points)):
-            E_field_json.append(
-                {
-                    "x": {"real": float(E_vectors[i, 0].real), "imag": float(E_vectors[i, 0].imag)},
-                    "y": {"real": float(E_vectors[i, 1].real), "imag": float(E_vectors[i, 1].imag)},
-                    "z": {"real": float(E_vectors[i, 2].real), "imag": float(E_vectors[i, 2].imag)},
-                    "magnitude": float(E_magnitudes[i]),
-                }
-            )
-            H_field_json.append(
-                {
-                    "x": {"real": float(H_vectors[i, 0].real), "imag": float(H_vectors[i, 0].imag)},
-                    "y": {"real": float(H_vectors[i, 1].real), "imag": float(H_vectors[i, 1].imag)},
-                    "z": {"real": float(H_vectors[i, 2].real), "imag": float(H_vectors[i, 2].imag)},
-                    "magnitude": float(H_magnitudes[i]),
-                }
-            )
-
+        # Compact flat-array format: 5-10× smaller than per-point dicts.
+        # Each array is [x0, y0, z0, x1, y1, z1, ...] of length n_points * 3.
+        # Frontend reconstructs complex vector objects from these arrays.
         return {
             "status": "success",
+            "format": "flat",
             "frequency": float(frequencies[0]),
             "num_points": len(observation_points),
-            "E_field": E_field_json,
-            "H_field": H_field_json,
+            "E_real": E_vectors.real.flatten().tolist(),
+            "E_imag": E_vectors.imag.flatten().tolist(),
+            "H_real": H_vectors.real.flatten().tolist(),
+            "H_imag": H_vectors.imag.flatten().tolist(),
             "E_magnitudes": E_magnitudes,
             "H_magnitudes": H_magnitudes,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -226,7 +229,6 @@ async def export_to_vtu(request: FieldRequest):
             branch_currents=branch_currents,
             nodes=np.array(request.nodes),
             edges=np.array(request.edges),
-            radii=np.array(request.radii),
             observation_points=observation_points,
         )
 

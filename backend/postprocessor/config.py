@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     default_theta_points: int = 181
     default_phi_points: int = 360
     far_field_distance_factor: float = 10.0
+    max_observation_points: int = 40_000
 
 
 # Global settings instance
