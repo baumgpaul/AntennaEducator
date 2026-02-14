@@ -261,6 +261,7 @@ def _compute_total_vector_potential_batch(
     edge_ends: np.ndarray,
     currents: np.ndarray,
     k: float,
+    _chunk_size: int = 50_000,
 ) -> np.ndarray:
     """
     Compute total vector potential at many observation points (vectorized).
@@ -268,16 +269,48 @@ def _compute_total_vector_potential_batch(
     Handles both far-field (point-source) and near-field (segment integration)
     regimes automatically per edge, vectorised over all observation points.
 
+    Automatically chunks large inputs to cap peak memory at ~200 MB,
+    preventing OOM on memory-constrained environments (e.g. AWS Lambda).
+
     Args:
         obs_points: Observation points [m], shape (N, 3)
         edge_starts: Edge start coordinates [m], shape (n_edges, 3)
         edge_ends: Edge end coordinates [m], shape (n_edges, 3)
         currents: Complex edge currents [A], shape (n_edges,)
         k: Wave number [rad/m]
+        _chunk_size: Max observation points per chunk (default 50 000).
+            With 42 edges this keeps peak memory under ~200 MB per chunk.
 
     Returns:
         Total vector potential [Wb/m], shape (N, 3)
     """
+    # --- Memory-safe chunking ------------------------------------------------
+    n_obs = len(obs_points)
+    if n_obs > _chunk_size:
+        n_chunks = -(-n_obs // _chunk_size)  # ceil division
+        logger.info(
+            "Chunking %d obs points into %d batches of <=%d",
+            n_obs,
+            n_chunks,
+            _chunk_size,
+        )
+        chunks = []
+        for i_chunk, start in enumerate(range(0, n_obs, _chunk_size)):
+            end = min(start + _chunk_size, n_obs)
+            logger.debug("  Chunk %d/%d: points %d–%d", i_chunk + 1, n_chunks, start, end)
+            chunks.append(
+                _compute_total_vector_potential_batch(
+                    obs_points[start:end],
+                    edge_starts,
+                    edge_ends,
+                    currents,
+                    k,
+                    _chunk_size,
+                )
+            )
+        return np.concatenate(chunks, axis=0)
+    # -------------------------------------------------------------------------
+
     edge_vecs = edge_ends - edge_starts  # (n_edges, 3)
     edge_lengths = np.linalg.norm(edge_vecs, axis=1)  # (n_edges,)
     edge_dirs = edge_vecs / np.maximum(edge_lengths[:, np.newaxis], 1e-30)  # (n_edges, 3)
@@ -384,6 +417,21 @@ def compute_near_field(
     nodes = np.asarray(nodes, dtype=float)
     edges = np.asarray(edges)
     observation_points = np.asarray(observation_points, dtype=float)
+
+    # Memory estimate for the stencil-expanded batch (19 offsets per point)
+    n_stencil = 19
+    total_eval_points = n_points * n_stencil
+    # Peak per-chunk in _compute_total_vector_potential_batch:
+    #   (chunk × n_edges) arrays of float64/complex128 → ~40 bytes/element
+    peak_mb = (min(total_eval_points, 50_000) * n_edges * 40) / (1024**2)
+    logger.info(
+        "Near-field setup: %d obs × %d stencil = %d evals, %d edges, " "est. peak ~%.0f MB/chunk",
+        n_points,
+        n_stencil,
+        total_eval_points,
+        n_edges,
+        peak_mb,
+    )
 
     E_field = np.zeros((n_freq, n_points, 3), dtype=complex)
     H_field = np.zeros((n_freq, n_points, 3), dtype=complex)

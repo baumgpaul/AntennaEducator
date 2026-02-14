@@ -24,26 +24,26 @@ def test_incremental_field_computation():
     # Step 1: Solve dipole at 300 MHz
     print("\n1. Solving dipole at 300 MHz...")
     solve_request = {
-        "frequencies": [300e6],
+        "frequency": 300e6,
         "nodes": [[0, 0, 0], [0, 0, 0.5]],
-        "edges": [[0, 1]],
+        "edges": [[1, 2]],
         "radii": [0.001],
-        "voltage_sources": [
-            {"node_start": 0, "node_end": 1, "voltage": {"real": 1.0, "imag": 0.0}}
-        ],
-        "lumped_impedances": [],
+        "voltage_sources": [{"node_start": 1, "node_end": 0, "value": 1.0}],
     }
 
-    solve_response = solver_client.post("/api/solver/solve", json=solve_request)
+    solve_response = solver_client.post("/api/solve/single", json=solve_request)
     assert solve_response.status_code == 200, f"Solve failed: {solve_response.text}"
     solve_data = solve_response.json()
-    print(f"   ✓ Solved with {len(solve_data['branch_currents'][0])} branches")
+    print(f"   ✓ Solved with {len(solve_data['branch_currents'])} branches")
+
+    # Wrap branch_currents in a list (single-frequency → per-frequency list)
+    branch_currents = [solve_data["branch_currents"]]
 
     # Step 2: Compute first field
     print("\n2. Computing field 1...")
     field1_request = {
         "frequencies": [300e6],
-        "branch_currents": solve_data["branch_currents"],
+        "branch_currents": branch_currents,
         "nodes": solve_request["nodes"],
         "edges": solve_request["edges"],
         "radii": solve_request["radii"],
@@ -80,7 +80,7 @@ def test_incremental_field_computation():
     print("\n5. Computing directivity with custom discretization...")
     directivity_request = {
         "frequencies": [300e6],
-        "branch_currents": solve_data["branch_currents"],
+        "branch_currents": branch_currents,
         "nodes": solve_request["nodes"],
         "edges": solve_request["edges"],
         "radii": solve_request["radii"],
@@ -178,18 +178,19 @@ def test_progress_tracking():
 
     # Solve first
     solve_request = {
-        "frequencies": [300e6],
+        "frequency": 300e6,
         "nodes": [[0, 0, 0], [0, 0, 0.5]],
-        "edges": [[0, 1]],
+        "edges": [[1, 2]],
         "radii": [0.001],
-        "voltage_sources": [
-            {"node_start": 0, "node_end": 1, "voltage": {"real": 1.0, "imag": 0.0}}
-        ],
-        "lumped_impedances": [],
+        "voltage_sources": [{"node_start": 1, "node_end": 0, "value": 1.0}],
     }
 
-    solve_response = solver_client.post("/api/solver/solve", json=solve_request)
+    solve_response = solver_client.post("/api/solve/single", json=solve_request)
+    assert solve_response.status_code == 200, f"Solve failed: {solve_response.text}"
     solve_data = solve_response.json()
+
+    # Wrap branch_currents in a list (single-frequency → per-frequency list)
+    branch_currents = [solve_data["branch_currents"]]
 
     # Simulate computing multiple fields
     num_fields = 5
@@ -199,7 +200,7 @@ def test_progress_tracking():
     for i in range(num_fields):
         field_request = {
             "frequencies": [300e6],
-            "branch_currents": solve_data["branch_currents"],
+            "branch_currents": branch_currents,
             "nodes": solve_request["nodes"],
             "edges": solve_request["edges"],
             "radii": solve_request["radii"],
