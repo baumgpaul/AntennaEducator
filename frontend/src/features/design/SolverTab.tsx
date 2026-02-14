@@ -229,14 +229,25 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
     // Allow postprocessing when solver has results (solved or postprocessing-ready)
     if (solverWorkflowState === 'solved' || solverWorkflowState === 'postprocessing-ready') {
       console.log('[SolverTab] Starting postprocessing workflow, state:', solverWorkflowState);
+      console.log('[SolverTab] Requested fields:', requestedFields.map(f => ({
+        id: f.id, name: f.name, type: f.type, shape: f.shape,
+        sampling: 'sampling' in f ? f.sampling : undefined,
+      })));
       try {
-        await dispatch(computePostprocessingWorkflow()).unwrap();
+        const result = await dispatch(computePostprocessingWorkflow()).unwrap();
+        console.log('[SolverTab] Postprocessing completed:', result.message);
 
         setSnackbarMessage('Postprocessing complete!');
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
       } catch (error: any) {
-        setSnackbarMessage(error || 'Postprocessing failed');
+        const msg = typeof error === 'string' ? error : error?.message || 'Postprocessing failed';
+        const is502 = msg.includes('502') || msg.includes('Bad Gateway');
+        const displayMsg = is502
+          ? 'Postprocessing timed out (502). Reduce observation points or mesh density.'
+          : msg;
+        console.error('[SolverTab] Postprocessing error:', error);
+        setSnackbarMessage(displayMsg);
         setSnackbarSeverity('error');
         setSnackbarOpen(true);
       }

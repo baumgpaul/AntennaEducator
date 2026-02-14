@@ -338,10 +338,12 @@ module "lambda_postprocessor" {
   environment   = var.environment
   region        = var.aws_region
 
-  memory_size = 1024
+  memory_size = 2048
   timeout     = 300
 
-  environment_variables = {}
+  environment_variables = {
+    POSTPROCESSOR_LOG_LEVEL = "INFO"
+  }
 
   create_function_url    = true
   function_url_auth_type = "NONE"
