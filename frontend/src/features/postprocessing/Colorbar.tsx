@@ -9,6 +9,8 @@ interface ColorbarProps {
   label?: string;
   unit?: string;
   position?: 'right' | 'left';
+  /** Index when stacking multiple colorbars (0 = first/top, 1 = second, ...) */
+  stackIndex?: number;
 }
 
 /**
@@ -21,7 +23,8 @@ export const Colorbar: React.FC<ColorbarProps> = ({
   colorMap,
   label = 'Value',
   unit = '',
-  position = 'right'
+  position = 'right',
+  stackIndex = 0,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -62,9 +65,8 @@ export const Colorbar: React.FC<ColorbarProps> = ({
     <Box
       sx={{
         position: 'absolute',
-        top: '50%',
+        top: `calc(16px + ${stackIndex * 280}px)`,
         [position]: 16,
-        transform: 'translateY(-50%)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: position === 'right' ? 'flex-start' : 'flex-end',
