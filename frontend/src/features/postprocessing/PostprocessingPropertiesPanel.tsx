@@ -35,6 +35,16 @@ import {
 } from '../../store/postprocessingSlice';
 
 /**
+ * Get ordinal suffix for density numbers (1st, 2nd, 3rd, 4th, etc.)
+ */
+function getDensitySuffix(n: number): string {
+  if (n === 1) return '';
+  const suffix = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return suffix[(v - 20) % 10] || suffix[v] || suffix[0];
+}
+
+/**
  * PostprocessingPropertiesPanel - Right-side properties editor for postprocessing views and items
  *
  * Displays:
@@ -186,6 +196,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
       edgeSize: selectedItem.edgeSize ?? 1.0,
       nodeSize: selectedItem.nodeSize ?? 1.0,
       arrowSize: selectedItem.arrowSize ?? 1.0,
+      arrowDensity: selectedItem.arrowDensity ?? 1,
       sizeFactor: selectedItem.sizeFactor ?? 1.0,
       lineStyle: selectedItem.lineStyle ?? 'solid',
       yAxisScale: selectedItem.yAxisScale ?? 'linear',
@@ -681,14 +692,35 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             {/* Arrow Size */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
-                Arrow Size: {commonProps.arrowSize.toFixed(1)}
+                Arrow Size: {commonProps.arrowSize.toFixed(2)}
               </Typography>
               <Slider
                 value={commonProps.arrowSize}
                 onChange={(_, value) => handleItemPropertyChange('arrowSize', value as number)}
+                min={0.1}
+                max={5}
+                step={0.1}
+                valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+
+            {/* Arrow Density */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Arrow Density: every {commonProps.arrowDensity === 1 ? '' : commonProps.arrowDensity + getDensitySuffix(commonProps.arrowDensity) + ' '}arrow
+              </Typography>
+              <Slider
+                value={commonProps.arrowDensity}
+                onChange={(_, value) => handleItemPropertyChange('arrowDensity', value as number)}
                 min={1}
                 max={10}
-                step={0.5}
+                step={1}
+                marks={[
+                  { value: 1, label: 'All' },
+                  { value: 5, label: '5th' },
+                  { value: 10, label: '10th' },
+                ]}
                 valueLabelDisplay="auto"
                 size="small"
               />

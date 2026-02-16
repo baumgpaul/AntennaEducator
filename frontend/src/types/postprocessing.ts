@@ -115,6 +115,8 @@ export interface ViewItem {
   nodeSize?: number;
   /** Arrow size for field vectors (arrow scale multiplier) */
   arrowSize?: number;
+  /** Arrow density: show every Nth arrow (1 = all, 2 = every 2nd, etc.) */
+  arrowDensity?: number;
   /** Size factor for directivity patterns (overall scale) */
   sizeFactor?: number;
 
