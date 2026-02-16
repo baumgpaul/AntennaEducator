@@ -311,7 +311,12 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
 
   // Handler for normal preset
   const handleNormalPresetChange = (preset: NormalPreset) => {
-    const presetVectors: Record<NormalPreset, [number, number, number]> = {
+    if (preset === 'Custom') {
+      // For Custom, just set the preset without changing the vector
+      onUpdate({ normalPreset: preset });
+      return;
+    }
+    const presetVectors: Record<Exclude<NormalPreset, 'Custom'>, [number, number, number]> = {
       'XY': [0, 0, 1],
       'YZ': [1, 0, 0],
       'XZ': [0, 1, 0],

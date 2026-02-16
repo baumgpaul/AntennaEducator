@@ -31,7 +31,7 @@ const FieldDefinition2DSchema = z.object({
     })
     .optional(),
   normalVector: z.tuple([z.number(), z.number(), z.number()]).optional(),
-  normalPreset: z.enum(['XY', 'YZ', 'XZ']).optional(),
+  normalPreset: z.enum(['XY', 'YZ', 'XZ', 'Custom']).optional(),
   sampling: z.object({
     x: z.number().int().positive(),
     y: z.number().int().positive(),
@@ -80,7 +80,7 @@ export type FieldType = 'E' | 'H' | 'poynting';
 /**
  * Normal preset options for 2D planes
  */
-export type NormalPreset = 'XY' | 'YZ' | 'XZ';
+export type NormalPreset = 'XY' | 'YZ' | 'XZ' | 'Custom';
 
 /**
  * Validate a field definition

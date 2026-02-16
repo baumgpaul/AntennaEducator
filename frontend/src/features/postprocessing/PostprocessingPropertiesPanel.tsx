@@ -156,6 +156,21 @@ const PostprocessingPropertiesPanel: React.FC = () => {
     }
   };
 
+  // Render the "Show Colorbar" toggle (reused for all color-mapped item types)
+  const renderColorbarToggle = () => (
+    <FormControlLabel
+      control={
+        <Checkbox
+          checked={selectedItem?.showColorbar !== false}
+          onChange={(e) => handleItemPropertyChange('showColorbar', e.target.checked)}
+          size="small"
+        />
+      }
+      label="Show Colorbar"
+      sx={{ mb: 1 }}
+    />
+  );
+
   // Render type-specific property editors
   const renderItemTypeProperties = () => {
     if (!selectedItem) return null;
@@ -164,6 +179,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
       opacity: selectedItem.opacity ?? 0.8,
       color: selectedItem.color ?? '#FF8C00',
       colorMap: selectedItem.colorMap ?? 'jet',
+      showColorbar: selectedItem.showColorbar !== false,
       valueRangeMode: selectedItem.valueRangeMode ?? 'auto',
       valueRangeMin: selectedItem.valueRangeMin ?? 0,
       valueRangeMax: selectedItem.valueRangeMax ?? 1,
@@ -246,6 +262,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 <MenuItem value="twilight">Twilight</MenuItem>
               </Select>
             </FormControl>
+            {renderColorbarToggle()}
 
             {/* Value Range Mode Toggle */}
             <Box sx={{ mb: 2 }}>
@@ -338,6 +355,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 <MenuItem value="twilight">Twilight</MenuItem>
               </Select>
             </FormControl>
+            {renderColorbarToggle()}
 
             {/* Value Range Mode Toggle */}
             <Box sx={{ mb: 2 }}>
@@ -431,6 +449,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 <MenuItem value="twilight">Twilight</MenuItem>
               </Select>
             </FormControl>
+            {renderColorbarToggle()}
 
             {/* Value Range Mode Toggle */}
             <Box sx={{ mb: 2 }}>
@@ -507,6 +526,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 <MenuItem value="twilight">Twilight</MenuItem>
               </Select>
             </FormControl>
+            {renderColorbarToggle()}
 
             {/* Scale Toggle (Linear/Logarithmic) */}
             <Box sx={{ mb: 2 }}>
@@ -617,6 +637,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 <MenuItem value="twilight">Twilight</MenuItem>
               </Select>
             </FormControl>
+            {renderColorbarToggle()}
 
             {/* Value Range Mode Toggle */}
             <Box sx={{ mb: 2 }}>
@@ -669,6 +690,30 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 max={10}
                 step={0.5}
                 valueLabelDisplay="auto"
+                size="small"
+              />
+            </Box>
+
+            {/* Phase Slider */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Phase: {selectedItem?.phase ?? 0}°
+              </Typography>
+              <Slider
+                value={selectedItem?.phase ?? 0}
+                onChange={(_, value) => handleItemPropertyChange('phase', value as number)}
+                min={0}
+                max={360}
+                step={5}
+                marks={[
+                  { value: 0, label: '0°' },
+                  { value: 90, label: '90°' },
+                  { value: 180, label: '180°' },
+                  { value: 270, label: '270°' },
+                  { value: 360, label: '360°' },
+                ]}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(v) => `${v}°`}
                 size="small"
               />
             </Box>

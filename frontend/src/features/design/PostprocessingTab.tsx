@@ -7,11 +7,12 @@ import {
   Snackbar,
 } from '@mui/material';
 import type { SolverWorkflowState } from '@/store/solverSlice';
-import { selectResultsStale, selectSolverResults, selectRadiationPattern } from '@/store/solverSlice';
+import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRequestedFields } from '@/store/solverSlice';
 import { selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
 import type { FrequencySweepResult } from '@/types/api';
+import { selectFieldMagnitudes } from './FieldVisualization';
 import Scene3D from './Scene3D';
 import RibbonMenu from './RibbonMenu';
 import TreeViewPanel from './TreeViewPanel';
@@ -60,6 +61,41 @@ function complexMag(c: ComplexNumber): number {
   return Math.sqrt((c.real || 0) * (c.real || 0) + (c.imag || 0) * (c.imag || 0));
 }
 
+/**
+ * Resolve the fieldType ('E' | 'H' | 'poynting') for a field-related view item.
+ * Looks up the field definition from requestedFields using the item's fieldId.
+ */
+export function resolveFieldType(
+  item: ViewItem,
+  requestedFields: FieldDefinition[] | null | undefined,
+): 'E' | 'H' | 'poynting' {
+  if (!item.fieldId || !requestedFields) return 'E';
+  const field = requestedFields.find((f) => f.id === item.fieldId);
+  return field?.fieldType ?? 'E';
+}
+
+/**
+ * Get the unit string for a field type.
+ */
+export function getFieldUnit(fieldType: 'E' | 'H' | 'poynting'): string {
+  switch (fieldType) {
+    case 'E': return 'V/m';
+    case 'H': return 'A/m';
+    case 'poynting': return 'W/m\u00B2';
+  }
+}
+
+/**
+ * Get the display label for a field type.
+ */
+export function getFieldLabel(fieldType: 'E' | 'H' | 'poynting', isVector = false): string {
+  switch (fieldType) {
+    case 'E': return isVector ? 'E-Field' : '|E|';
+    case 'H': return isVector ? 'H-Field' : '|H|';
+    case 'poynting': return isVector ? 'Poynting' : '|S|';
+  }
+}
+
 /** Compute auto min/max range from solver data, matching each renderer's logic */
 function computeAutoRange(
   item: ViewItem,
@@ -67,6 +103,7 @@ function computeAutoRange(
   fieldData: PostprocessingTabProps['fieldData'],
   radiationPattern: { pattern_db: number[]; [key: string]: unknown } | null,
   displayFrequencyHz: number | null,
+  requestedFields?: FieldDefinition[] | null,
 ): { min: number; max: number } {
   switch (item.type) {
     case 'current': {
@@ -89,7 +126,8 @@ function computeAutoRange(
     case 'field-vector': {
       if (fieldData && item.fieldId && displayFrequencyHz) {
         const freqData = fieldData[item.fieldId]?.[displayFrequencyHz];
-        const magnitudes = freqData?.E_mag || freqData?.H_mag;
+        const ft = resolveFieldType(item, requestedFields);
+        const magnitudes = selectFieldMagnitudes(freqData, ft);
         if (magnitudes && magnitudes.length > 0) {
           return { min: Math.min(...magnitudes), max: Math.max(...magnitudes) };
         }
@@ -127,6 +165,7 @@ function PostprocessingTab({
   const isSolved = useAppSelector(selectIsSolved);
   const solverResults = useAppSelector(selectSolverResults);
   const radiationPattern = useAppSelector(selectRadiationPattern);
+  const requestedFields = useAppSelector(selectRequestedFields);
 
   const [selectedFrequencyIndex] = useState<number>(0);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
@@ -329,66 +368,71 @@ function PostprocessingTab({
         {selectedViewId && (() => {
           const selectedView = viewConfigurations.find((view) => view.id === selectedViewId);
 
-          // Only show colorbar for 3D views
+          // Only show colorbars for 3D views
           if (selectedView?.viewType !== '3D') return null;
 
-          const visibleColorMappedItems = selectedView?.items.filter(
+          const COLOR_MAPPED_TYPES = ['current', 'voltage', 'field-magnitude', 'directivity', 'field-vector'];
+          const colorbarItems = selectedView?.items.filter(
             (item) =>
               item.visible &&
-              ['current', 'voltage', 'field-magnitude', 'directivity', 'field-vector'].includes(item.type)
+              item.showColorbar !== false &&
+              COLOR_MAPPED_TYPES.includes(item.type)
           ) || [];
 
-          // Show colorbar for the first visible color-mapped item
-          const firstColorItem = visibleColorMappedItems[0];
-          if (!firstColorItem) return null;
+          if (colorbarItems.length === 0) return null;
 
-          // Determine min/max and label based on item type
-          let min = 0, max = 1, label = 'Value', unit = '';
+          return colorbarItems.map((colorItem, index) => {
+            let min = 0, max = 1, label = 'Value', unit = '';
 
-          if (firstColorItem.valueRangeMode === 'manual') {
-            min = firstColorItem.valueRangeMin || 0;
-            max = firstColorItem.valueRangeMax || 1;
-          } else {
-            // Auto range - compute from actual solver data
-            const range = computeAutoRange(firstColorItem, solverResults, fieldData, radiationPattern, displayFrequencyHz);
-            min = range.min;
-            max = range.max;
-          }
+            if (colorItem.valueRangeMode === 'manual') {
+              min = colorItem.valueRangeMin || 0;
+              max = colorItem.valueRangeMax || 1;
+            } else {
+              const range = computeAutoRange(colorItem, solverResults, fieldData, radiationPattern, displayFrequencyHz, requestedFields);
+              min = range.min;
+              max = range.max;
+            }
 
-          // Set label and unit based on item type
-          switch (firstColorItem.type) {
-            case 'current':
-              label = 'Current';
-              unit = 'A';
-              break;
-            case 'voltage':
-              label = 'Voltage';
-              unit = 'V';
-              break;
-            case 'field-magnitude':
-              label = 'Field';
-              unit = 'V/m';
-              break;
-            case 'directivity':
-              label = 'Directivity';
-              unit = firstColorItem.scale === 'logarithmic' ? 'dBi' : 'linear';
-              break;
-            case 'field-vector':
-              label = 'Field Magnitude';
-              unit = 'V/m';
-              break;
-          }
+            switch (colorItem.type) {
+              case 'current':
+                label = 'Current';
+                unit = 'A';
+                break;
+              case 'voltage':
+                label = 'Voltage';
+                unit = 'V';
+                break;
+              case 'field-magnitude': {
+                const ft = resolveFieldType(colorItem, requestedFields);
+                label = getFieldLabel(ft, false);
+                unit = getFieldUnit(ft);
+                break;
+              }
+              case 'directivity':
+                label = 'Directivity';
+                unit = colorItem.scale === 'logarithmic' ? 'dBi' : 'linear';
+                break;
+              case 'field-vector': {
+                const ft = resolveFieldType(colorItem, requestedFields);
+                label = getFieldLabel(ft, true);
+                unit = getFieldUnit(ft);
+                break;
+              }
+            }
 
-          return (
-            <Colorbar
-              min={min}
-              max={max}
-              colorMap={(firstColorItem.colorMap || 'jet') as 'jet' | 'turbo' | 'viridis' | 'plasma' | 'twilight'}
-              label={label}
-              unit={unit}
-              position="right"
-            />
-          );
+            return (
+              <Colorbar
+                key={colorItem.id}
+                min={min}
+                max={max}
+                colorMap={(colorItem.colorMap || 'jet') as 'jet' | 'turbo' | 'viridis' | 'plasma' | 'twilight'}
+                label={label}
+                unit={unit}
+                position="right"
+                stackIndex={index}
+              />
+            );
+          });
         })()}
       </Box>
 

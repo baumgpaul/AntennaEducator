@@ -50,7 +50,8 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   const [shape, setShape] = useState<'plane' | 'circle' | 'sphere' | 'cube'>('plane');
   const [center, setCenter] = useState({ x: 0, y: 0, z: 0 });
   const [dimensions, setDimensions] = useState({ width: 100, height: 100, radius: 50 });
-  const [normalPreset, setNormalPreset] = useState<'XY' | 'YZ' | 'XZ'>('XY');
+  const [normalPreset, setNormalPreset] = useState<'XY' | 'YZ' | 'XZ' | 'Custom'>('XY');
+  const [customNormal, setCustomNormal] = useState({ x: 0, y: 0, z: 1 });
   const [sampling, setSampling] = useState({ x: 20, y: 20, radial: 10, angular: 20 });
   const [fieldType, setFieldType] = useState<'E' | 'H' | 'poynting'>('E');
   const nameCounterRef = useRef(1);
@@ -99,6 +100,9 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
 
     if (regionType === '2D') {
       fieldDefinition.normalPreset = normalPreset;
+      if (normalPreset === 'Custom') {
+        fieldDefinition.normalVector = [customNormal.x, customNormal.y, customNormal.z];
+      }
       if (shape === 'plane') {
         fieldDefinition.dimensions = { width: dimensions.width, height: dimensions.height };
       } else {
@@ -306,9 +310,44 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                       <MenuItem value="XY">XY Plane</MenuItem>
                       <MenuItem value="YZ">YZ Plane</MenuItem>
                       <MenuItem value="XZ">XZ Plane</MenuItem>
+                      <MenuItem value="Custom">Custom</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
+                {normalPreset === 'Custom' && (
+                  <>
+                    <Grid item xs={4}>
+                      <TextField
+                        fullWidth
+                        label="Normal X"
+                        type="number"
+                        value={customNormal.x}
+                        onChange={(e) => setCustomNormal({ ...customNormal, x: parseFloat(e.target.value) || 0 })}
+                        inputProps={{ step: 0.1 }}
+                      />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField
+                        fullWidth
+                        label="Normal Y"
+                        type="number"
+                        value={customNormal.y}
+                        onChange={(e) => setCustomNormal({ ...customNormal, y: parseFloat(e.target.value) || 0 })}
+                        inputProps={{ step: 0.1 }}
+                      />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField
+                        fullWidth
+                        label="Normal Z"
+                        type="number"
+                        value={customNormal.z}
+                        onChange={(e) => setCustomNormal({ ...customNormal, z: parseFloat(e.target.value) || 0 })}
+                        inputProps={{ step: 0.1 }}
+                      />
+                    </Grid>
+                  </>
+                )}
               </>
             )}
             {(shape === 'circle' || shape === 'sphere') && (
