@@ -133,7 +133,7 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType }: {
     );
 
     // Rotate plane to match normal vector
-    const normal = field.normalPreset
+    const normal = field.normalPreset && field.normalPreset !== 'Custom'
       ? getNormalFromPreset(field.normalPreset)
       : field.normalVector ?? [0, 0, 1];
 
@@ -194,7 +194,7 @@ function CircleField({ field, opacity, colorMap, fieldData, fieldType }: {
     const geom = new THREE.CircleGeometry(radius / 1000, segments); // mm to meters
 
     // Rotate circle to match normal vector
-    const normal = field.normalPreset
+    const normal = field.normalPreset && field.normalPreset !== 'Custom'
       ? getNormalFromPreset(field.normalPreset)
       : field.normalVector ?? [0, 0, 1];
 
