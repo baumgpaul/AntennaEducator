@@ -97,6 +97,8 @@ export interface ViewItem {
   colorMap?: string;
   /** Whether to show a colorbar legend for this item */
   showColorbar?: boolean;
+  /** Phase angle in degrees (0-360) for instantaneous field visualization */
+  phase?: number;
 
   // Value range control
   /** Value range mode: 'auto' (from data) or 'manual' (user-specified) */

@@ -43,35 +43,52 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   const opacity = item.opacity !== undefined ? item.opacity : 0.9;
   const arrowSize = item.arrowSize || 1.0;
   const valueRangeMode = item.valueRangeMode || 'auto';
+  const phaseDeg = item.phase ?? 0;
+  const phaseRad = (phaseDeg * Math.PI) / 180;
+
+  // Compute instantaneous magnitudes at the selected phase: |Re(V * e^{jφ})|
+  const instantMagnitudes = useMemo(() => {
+    if (!vectors) return magnitudes;
+    const cosP = Math.cos(phaseRad);
+    const sinP = Math.sin(phaseRad);
+    return vectors.map((v) => {
+      const rx = v.x.real * cosP - v.x.imag * sinP;
+      const ry = v.y.real * cosP - v.y.imag * sinP;
+      const rz = v.z.real * cosP - v.z.imag * sinP;
+      return Math.sqrt(rx * rx + ry * ry + rz * rz);
+    });
+  }, [vectors, phaseRad, magnitudes]);
 
   // Calculate value range
-  const min = (magnitudes && magnitudes.length > 0)
-    ? (valueRangeMode === 'manual' ? item.valueRangeMin || 0 : Math.min(...magnitudes))
+  const min = (instantMagnitudes && instantMagnitudes.length > 0)
+    ? (valueRangeMode === 'manual' ? item.valueRangeMin || 0 : Math.min(...instantMagnitudes))
     : 0;
-  const max = (magnitudes && magnitudes.length > 0)
-    ? (valueRangeMode === 'manual' ? item.valueRangeMax || 1 : Math.max(...magnitudes))
+  const max = (instantMagnitudes && instantMagnitudes.length > 0)
+    ? (valueRangeMode === 'manual' ? item.valueRangeMax || 1 : Math.max(...instantMagnitudes))
     : 1;
 
   // Create colors for each vector
   const colors = useMemo(() => {
-    if (!magnitudes) return new Float32Array(0);
-    return createColorArray(magnitudes, colorMap as any, min, max);
-  }, [magnitudes, colorMap, min, max]);
+    if (!instantMagnitudes) return new Float32Array(0);
+    return createColorArray(instantMagnitudes, colorMap as any, min, max);
+  }, [instantMagnitudes, colorMap, min, max]);
 
   // Create arrow helpers
   const arrows = useMemo(() => {
-    if (!dataForFrequency || !vectors || !magnitudes) return [];
+    if (!dataForFrequency || !vectors || !instantMagnitudes) return [];
+    const cosP = Math.cos(phaseRad);
+    const sinP = Math.sin(phaseRad);
     return dataForFrequency.points.map((point, index) => {
       if (index >= vectors.length) return null;
 
       const vector = vectors[index];
-      const magnitude = magnitudes[index];
+      const magnitude = instantMagnitudes[index];
 
-      // Convert complex vector to real direction (use real part)
+      // Compute instantaneous direction: Re(V * e^{jφ})
       const direction = new THREE.Vector3(
-        vector.x.real,
-        vector.y.real,
-        vector.z.real
+        vector.x.real * cosP - vector.x.imag * sinP,
+        vector.y.real * cosP - vector.y.imag * sinP,
+        vector.z.real * cosP - vector.z.imag * sinP,
       );
 
       // Normalize direction
@@ -97,9 +114,9 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
         color,
       };
     }).filter(Boolean);
-  }, [dataForFrequency?.points, vectors, magnitudes, colors, arrowSize, min, max]);
+  }, [dataForFrequency?.points, vectors, instantMagnitudes, colors, arrowSize, min, max, phaseRad]);
 
-  if (!field || !fieldData || !frequencyHz || !dataForFrequency || !vectors || !magnitudes) {
+  if (!field || !fieldData || !frequencyHz || !dataForFrequency || !vectors || !instantMagnitudes) {
     return null;
   }
 

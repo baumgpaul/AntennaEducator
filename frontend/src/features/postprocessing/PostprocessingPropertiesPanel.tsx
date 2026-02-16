@@ -693,6 +693,30 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 size="small"
               />
             </Box>
+
+            {/* Phase Slider */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Phase: {selectedItem?.phase ?? 0}°
+              </Typography>
+              <Slider
+                value={selectedItem?.phase ?? 0}
+                onChange={(_, value) => handleItemPropertyChange('phase', value as number)}
+                min={0}
+                max={360}
+                step={5}
+                marks={[
+                  { value: 0, label: '0°' },
+                  { value: 90, label: '90°' },
+                  { value: 180, label: '180°' },
+                  { value: 270, label: '270°' },
+                  { value: 360, label: '360°' },
+                ]}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(v) => `${v}°`}
+                size="small"
+              />
+            </Box>
           </>
         );
 
