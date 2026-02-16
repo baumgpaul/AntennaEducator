@@ -5,9 +5,80 @@
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import type { FieldDefinition, FieldDefinition2D, FieldDefinition3D } from '@/types/fieldDefinitions';
+import type { FieldDefinition, FieldDefinition2D, FieldDefinition3D, FieldType } from '@/types/fieldDefinitions';
 import type { ColorMapType } from '@/utils/colorMaps';
 import { createColorArray } from '@/utils/colorMaps';
+
+interface ComplexComponent {
+  real: number;
+  imag: number;
+}
+
+interface ComplexVector3D {
+  x: ComplexComponent;
+  y: ComplexComponent;
+  z: ComplexComponent;
+}
+
+export interface FieldDataInput {
+  E_mag?: number[];
+  H_mag?: number[];
+  E_vectors?: ComplexVector3D[];
+  H_vectors?: ComplexVector3D[];
+  [key: string]: unknown;
+}
+
+/**
+ * Compute time-averaged Poynting vector magnitudes from E and H vectors.
+ * S = 0.5 * Re(E × H*), returns |S| at each point in W/m².
+ */
+export function computePoyntingMagnitudes(
+  E_vectors: ComplexVector3D[],
+  H_vectors: ComplexVector3D[],
+): number[] {
+  const n = Math.min(E_vectors.length, H_vectors.length);
+  const mags = new Array<number>(n);
+  for (let i = 0; i < n; i++) {
+    const E = E_vectors[i];
+    const H = H_vectors[i];
+    // Cross product E × H* (complex): (E × H*)_x = Ey*Hz* - Ez*Hy*, etc.
+    // S = 0.5 * Re(E × H*)
+    const Sx = 0.5 * (
+      (E.y.real * H.z.real + E.y.imag * H.z.imag) -
+      (E.z.real * H.y.real + E.z.imag * H.y.imag)
+    );
+    const Sy = 0.5 * (
+      (E.z.real * H.x.real + E.z.imag * H.x.imag) -
+      (E.x.real * H.z.real + E.x.imag * H.z.imag)
+    );
+    const Sz = 0.5 * (
+      (E.x.real * H.y.real + E.x.imag * H.y.imag) -
+      (E.y.real * H.x.real + E.y.imag * H.x.imag)
+    );
+    mags[i] = Math.sqrt(Sx * Sx + Sy * Sy + Sz * Sz);
+  }
+  return mags;
+}
+
+/**
+ * Select the correct magnitude array based on fieldType.
+ * E-fields use E_mag, H-fields use H_mag, poynting computes |S| from vectors.
+ */
+export function selectFieldMagnitudes(
+  fieldData: FieldDataInput | undefined,
+  fieldType: FieldType,
+): number[] | undefined {
+  if (!fieldData) return undefined;
+  if (fieldType === 'H') return fieldData.H_mag;
+  if (fieldType === 'poynting') {
+    if (fieldData.E_vectors && fieldData.H_vectors &&
+        fieldData.E_vectors.length > 0 && fieldData.H_vectors.length > 0) {
+      return computePoyntingMagnitudes(fieldData.E_vectors, fieldData.H_vectors);
+    }
+    return undefined;
+  }
+  return fieldData.E_mag; // E-field
+}
 
 /**
  * Get normal vector from preset
@@ -42,11 +113,12 @@ interface FieldVisualizationProps {
 /**
  * Render a 2D plane field region
  */
-function PlaneField({ field, opacity, colorMap, fieldData }: {
+function PlaneField({ field, opacity, colorMap, fieldData, fieldType }: {
   field: FieldDefinition2D;
   opacity: number;
   colorMap: ColorMapType;
   fieldData?: FieldVisualizationProps['fieldData'];
+  fieldType: FieldType;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     // Calculate segments from sampling (n points → n-1 segments)
@@ -73,14 +145,15 @@ function PlaneField({ field, opacity, colorMap, fieldData }: {
 
     // Apply vertex colors if field data is available
     let hasColors = false;
-    if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
-      const colorArray = createColorArray(fieldData.E_mag, colorMap);
+    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    if (magnitudes && magnitudes.length > 0) {
+      const colorArray = createColorArray(magnitudes, colorMap);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData]);
+  }, [field, colorMap, fieldData, fieldType]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -107,11 +180,12 @@ function PlaneField({ field, opacity, colorMap, fieldData }: {
 /**
  * Render a 2D circular field region
  */
-function CircleField({ field, opacity, colorMap, fieldData }: {
+function CircleField({ field, opacity, colorMap, fieldData, fieldType }: {
   field: FieldDefinition2D;
   opacity: number;
   colorMap: ColorMapType;
   fieldData?: FieldVisualizationProps['fieldData'];
+  fieldType: FieldType;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const radius = field.dimensions?.radius || 50;
@@ -132,14 +206,15 @@ function CircleField({ field, opacity, colorMap, fieldData }: {
 
     // Apply vertex colors if field data is available
     let hasColors = false;
-    if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
-      const colorArray = createColorArray(fieldData.E_mag, colorMap);
+    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    if (magnitudes && magnitudes.length > 0) {
+      const colorArray = createColorArray(magnitudes, colorMap);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData]);
+  }, [field, colorMap, fieldData, fieldType]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -166,11 +241,12 @@ function CircleField({ field, opacity, colorMap, fieldData }: {
 /**
  * Render a 3D spherical field region
  */
-function SphereField({ field, opacity, colorMap, fieldData }: {
+function SphereField({ field, opacity, colorMap, fieldData, fieldType }: {
   field: FieldDefinition3D;
   opacity: number;
   colorMap: ColorMapType;
   fieldData?: FieldVisualizationProps['fieldData'];
+  fieldType: FieldType;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const radius = field.sphereRadius || 50;
@@ -185,14 +261,15 @@ function SphereField({ field, opacity, colorMap, fieldData }: {
 
     // Apply vertex colors if field data is available
     let hasColors = false;
-    if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
-      const colorArray = createColorArray(fieldData.E_mag, colorMap);
+    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    if (magnitudes && magnitudes.length > 0) {
+      const colorArray = createColorArray(magnitudes, colorMap);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData]);
+  }, [field, colorMap, fieldData, fieldType]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -218,11 +295,12 @@ function SphereField({ field, opacity, colorMap, fieldData }: {
 /**
  * Render a 3D cubic field region
  */
-function CubeField({ field, opacity, colorMap, fieldData }: {
+function CubeField({ field, opacity, colorMap, fieldData, fieldType }: {
   field: FieldDefinition3D;
   opacity: number;
   colorMap: ColorMapType;
   fieldData?: FieldVisualizationProps['fieldData'];
+  fieldType: FieldType;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const dims = field.cubeDimensions || { Lx: 100, Ly: 100, Lz: 100 };
@@ -242,14 +320,15 @@ function CubeField({ field, opacity, colorMap, fieldData }: {
 
     // Apply vertex colors if field data is available
     let hasColors = false;
-    if (fieldData && fieldData.E_mag && fieldData.E_mag.length > 0) {
-      const colorArray = createColorArray(fieldData.E_mag, colorMap);
+    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    if (magnitudes && magnitudes.length > 0) {
+      const colorArray = createColorArray(magnitudes, colorMap);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData]);
+  }, [field, colorMap, fieldData, fieldType]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -282,19 +361,20 @@ function FieldVisualization({
   colorMap,
   fieldData,
 }: FieldVisualizationProps) {
+  const fieldType = field.fieldType;
   // Route to appropriate renderer based on field shape
   // Type narrowing happens automatically based on shape
   if (field.type === '2D') {
     if (field.shape === 'plane') {
-      return <PlaneField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} />;
+      return <PlaneField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} />;
     } else if (field.shape === 'circle') {
-      return <CircleField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} />;
+      return <CircleField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} />;
     }
   } else if (field.type === '3D') {
     if (field.shape === 'sphere') {
-      return <SphereField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} />;
+      return <SphereField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} />;
     } else if (field.shape === 'cube') {
-      return <CubeField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} />;
+      return <CubeField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} />;
     }
   }
 
