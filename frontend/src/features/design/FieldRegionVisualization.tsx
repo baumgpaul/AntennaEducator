@@ -85,7 +85,7 @@ function PlaneRegion({
 
   // Get normal vector
   const normal: [number, number, number] = field.type === '2D'
-    ? (field.normalPreset
+    ? (field.normalPreset && field.normalPreset !== 'Custom'
       ? getNormalFromPreset(field.normalPreset)
       : (field.normalVector ?? [0, 0, 1]) as [number, number, number])
     : [0, 0, 1];
@@ -174,7 +174,7 @@ function CircleRegion({
 
   // Get normal vector
   const normal: [number, number, number] = field.type === '2D'
-    ? (field.normalPreset
+    ? (field.normalPreset && field.normalPreset !== 'Custom'
       ? getNormalFromPreset(field.normalPreset)
       : (field.normalVector ?? [0, 0, 1]) as [number, number, number])
     : [0, 0, 1];

@@ -34,7 +34,7 @@ function generate2DObservationPoints(field: FieldDefinition2D): number[][] {
 
     // Determine normal vector
     let normal: [number, number, number];
-    if (field.normalPreset) {
+    if (field.normalPreset && field.normalPreset !== 'Custom') {
       switch (field.normalPreset) {
         case 'XY':
           normal = [0, 0, 1]; // Normal to XY plane
@@ -79,7 +79,7 @@ function generate2DObservationPoints(field: FieldDefinition2D): number[][] {
 
     // Determine normal vector (same as plane)
     let normal: [number, number, number];
-    if (field.normalPreset) {
+    if (field.normalPreset && field.normalPreset !== 'Custom') {
       switch (field.normalPreset) {
         case 'XY':
           normal = [0, 0, 1];
