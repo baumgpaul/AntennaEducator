@@ -2,7 +2,6 @@
 
 import logging
 import os
-from functools import lru_cache
 
 from backend.common.storage.provider import ResultsStorageProvider
 
@@ -40,9 +39,7 @@ def get_storage_provider() -> ResultsStorageProvider:
         bucket = _provider_instance.bucket_name
         logger.info(f"Using S3 storage provider: {endpoint}, bucket: {bucket}")
     else:
-        raise NotImplementedError(
-            "Only S3/MinIO storage is currently supported. Set USE_S3=true."
-        )
+        raise NotImplementedError("Only S3/MinIO storage is currently supported. Set USE_S3=true.")
 
     return _provider_instance
 

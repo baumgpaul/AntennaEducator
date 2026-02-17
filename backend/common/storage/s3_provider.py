@@ -81,9 +81,7 @@ class S3ResultsProvider(ResultsStorageProvider):
                     else:
                         self.client.create_bucket(
                             Bucket=self.bucket_name,
-                            CreateBucketConfiguration={
-                                "LocationConstraint": self.region_name
-                            },
+                            CreateBucketConfiguration={"LocationConstraint": self.region_name},
                         )
                 except ClientError as create_err:
                     logger.warning(f"Could not create bucket: {create_err}")

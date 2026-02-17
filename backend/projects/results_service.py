@@ -82,9 +82,7 @@ class ResultsService:
         # Extract and store field data
         field_data = self._extract_field_data(simulation_results)
         if field_data:
-            key = await self.storage.store_result(
-                project_id, ResultType.FIELD_DATA, field_data
-            )
+            key = await self.storage.store_result(project_id, ResultType.FIELD_DATA, field_data)
             result_keys["field_data"] = key
             for field in ["fieldData", "fieldResults"]:
                 slim_results.pop(field, None)
@@ -92,9 +90,7 @@ class ResultsService:
         # Store the keys reference in slim_results
         slim_results["result_keys"] = result_keys
 
-        logger.info(
-            f"Stored {len(result_keys)} result types for project {project_id}"
-        )
+        logger.info(f"Stored {len(result_keys)} result types for project {project_id}")
         return slim_results, result_keys
 
     async def hydrate_results(
@@ -123,25 +119,19 @@ class ResultsService:
 
         # Fetch solver results
         if "solver_results" in result_keys:
-            solver_data = await self.storage.get_result(
-                project_id, ResultType.SOLVER_RESULTS
-            )
+            solver_data = await self.storage.get_result(project_id, ResultType.SOLVER_RESULTS)
             if solver_data:
                 hydrated.update(solver_data)
 
         # Fetch radiation pattern
         if "radiation_pattern" in result_keys:
-            pattern_data = await self.storage.get_result(
-                project_id, ResultType.RADIATION_PATTERN
-            )
+            pattern_data = await self.storage.get_result(project_id, ResultType.RADIATION_PATTERN)
             if pattern_data:
                 hydrated["radiationPattern"] = pattern_data
 
         # Fetch field data
         if "field_data" in result_keys:
-            field_data = await self.storage.get_result(
-                project_id, ResultType.FIELD_DATA
-            )
+            field_data = await self.storage.get_result(project_id, ResultType.FIELD_DATA)
             if field_data:
                 hydrated.update(field_data)
 

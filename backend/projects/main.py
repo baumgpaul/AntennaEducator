@@ -186,9 +186,7 @@ async def update_project(
     # Store large results in S3, keep only keys in DynamoDB
     slim_results = data.simulation_results
     if data.simulation_results:
-        slim_results, _ = await results_svc.extract_and_store(
-            project_id, data.simulation_results
-        )
+        slim_results, _ = await results_svc.extract_and_store(project_id, data.simulation_results)
 
     updated = await repo.update_project(
         project_id=project_id,
