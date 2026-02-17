@@ -2,6 +2,7 @@
 
 This service is a workspace persistence layer. It stores project metadata
 and JSON blobs for design state, simulation config, results, and UI state.
+Large simulation results are stored in S3/MinIO and referenced by keys.
 The actual physics lives in the preprocessor / solver / postprocessor services.
 """
 
@@ -29,6 +30,7 @@ from backend.auth.main import get_current_user_info, login, register
 from backend.common.auth import UserIdentity, get_current_user
 from backend.common.repositories.base import ProjectRepository
 from backend.common.repositories.factory import get_project_repository
+from backend.projects.results_service import ResultsService, get_results_service
 from backend.projects.schemas import (
     ProjectCreate,
     ProjectListResponse,
@@ -105,6 +107,7 @@ async def create_project(
     data: ProjectCreate,
     user: UserIdentity = Depends(get_current_user),
     repo: ProjectRepository = Depends(get_repository),
+    results_svc: ResultsService = Depends(get_results_service),
 ):
     project = await repo.create_project(
         user_id=user.id,
@@ -122,11 +125,18 @@ async def create_project(
         ]
     )
     if update_needed:
+        # Store large results in S3, keep only keys in DynamoDB
+        slim_results = None
+        if data.simulation_results:
+            slim_results, _ = await results_svc.extract_and_store(
+                project["id"], data.simulation_results
+            )
+
         project = await repo.update_project(
             project_id=project["id"],
             design_state=data.design_state,
             simulation_config=data.simulation_config,
-            simulation_results=data.simulation_results,
+            simulation_results=slim_results,
             ui_state=data.ui_state,
         )
 
@@ -146,10 +156,18 @@ async def get_project(
     project_id: str,
     user: UserIdentity = Depends(get_current_user),
     repo: ProjectRepository = Depends(get_repository),
+    results_svc: ResultsService = Depends(get_results_service),
 ):
     project = await repo.get_project(project_id=project_id)
     if not project or project["user_id"] != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    # Hydrate simulation_results from S3
+    if project.get("simulation_results"):
+        project["simulation_results"] = await results_svc.hydrate_results(
+            project_id, project["simulation_results"]
+        )
+
     return project
 
 
@@ -159,10 +177,16 @@ async def update_project(
     data: ProjectUpdate,
     user: UserIdentity = Depends(get_current_user),
     repo: ProjectRepository = Depends(get_repository),
+    results_svc: ResultsService = Depends(get_results_service),
 ):
     project = await repo.get_project(project_id=project_id)
     if not project or project["user_id"] != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    # Store large results in S3, keep only keys in DynamoDB
+    slim_results = data.simulation_results
+    if data.simulation_results:
+        slim_results, _ = await results_svc.extract_and_store(project_id, data.simulation_results)
 
     updated = await repo.update_project(
         project_id=project_id,
@@ -170,9 +194,16 @@ async def update_project(
         description=data.description,
         design_state=data.design_state,
         simulation_config=data.simulation_config,
-        simulation_results=data.simulation_results,
+        simulation_results=slim_results,
         ui_state=data.ui_state,
     )
+
+    # Hydrate results from S3 before returning (so frontend gets full data)
+    if updated.get("simulation_results"):
+        updated["simulation_results"] = await results_svc.hydrate_results(
+            project_id, updated["simulation_results"]
+        )
+
     return updated
 
 
@@ -181,10 +212,18 @@ async def delete_project(
     project_id: str,
     user: UserIdentity = Depends(get_current_user),
     repo: ProjectRepository = Depends(get_repository),
+    results_svc: ResultsService = Depends(get_results_service),
 ):
     project = await repo.get_project(project_id=project_id)
     if not project or project["user_id"] != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    # Delete results from S3 first
+    try:
+        await results_svc.delete_results(project_id)
+    except Exception as e:
+        logger.warning(f"Failed to delete S3 results for {project_id}: {e}")
+
     await repo.delete_project(project_id=project_id)
     return None
 
@@ -198,6 +237,7 @@ async def duplicate_project(
     project_id: str,
     user: UserIdentity = Depends(get_current_user),
     repo: ProjectRepository = Depends(get_repository),
+    results_svc: ResultsService = Depends(get_results_service),
 ):
     original = await repo.get_project(project_id=project_id)
     if not original or original["user_id"] != user.id:
@@ -209,12 +249,27 @@ async def duplicate_project(
         description=original.get("description", ""),
     )
 
+    # Duplicate S3 results
+    original_results = original.get("simulation_results", {})
+    result_keys = original_results.get("result_keys", {})
+    new_result_keys = {}
+
+    if result_keys:
+        new_result_keys = await results_svc.duplicate_results(
+            project_id, duplicate["id"], result_keys
+        )
+
+    # Build new simulation_results with duplicated S3 keys
+    new_simulation_results = dict(original_results)
+    if new_result_keys:
+        new_simulation_results["result_keys"] = new_result_keys
+
     # Copy all JSON blobs
     duplicate = await repo.update_project(
         project_id=duplicate["id"],
         design_state=original.get("design_state"),
         simulation_config=original.get("simulation_config"),
-        simulation_results=original.get("simulation_results"),
+        simulation_results=new_simulation_results if original_results else None,
         ui_state=original.get("ui_state"),
     )
     return duplicate

@@ -118,18 +118,44 @@ services:
       - USE_DYNAMODB=true
       - DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
       - DYNAMODB_TABLE_NAME=antenna-simulator-local
-      - AWS_ACCESS_KEY_ID=dummy
-      - AWS_SECRET_ACCESS_KEY=dummy
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
       - AWS_DEFAULT_REGION=eu-west-1
+      # S3-compatible storage: MinIO for Docker
+      - USE_S3=true
+      - S3_ENDPOINT_URL=http://minio:9000
+      - RESULTS_BUCKET_NAME=antenna-simulator-results-local
       # Authentication: JWT (not Cognito) with auto-approval
       - USE_COGNITO=false  # Docker mode: local JWT with auto-approval
       # Note: First registered user becomes admin automatically
       # All users are auto-approved in Docker mode
     depends_on:
       - dynamodb-local
+      - minio
     networks:
       - antenna-network
     restart: unless-stopped
+
+  # MinIO - S3-compatible object storage for simulation results
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"  # MinIO Console
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - antenna-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # DynamoDB Local - NoSQL database for testing
   dynamodb-local:
@@ -144,3 +170,7 @@ services:
 networks:
   antenna-network:
     driver: bridge
+
+volumes:
+  minio-data:
+    driver: local
