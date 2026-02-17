@@ -311,6 +311,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 orientationPrefix="orientation"
                 title="Global Position & Orientation"
                 subtitle="Additional offset and rotation applied to the rod after local coordinates"
+                showPresets={false}
               />
             </Grid>
 

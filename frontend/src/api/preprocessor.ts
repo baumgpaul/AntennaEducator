@@ -81,26 +81,12 @@ export const generateDipoleMesh = async (formData: {
   segments: number;
   feedType: 'gap' | 'balanced';
   position?: { x: number; y: number; z: number };
-  orientation?: { rotX: number; rotY: number; rotZ: number };
+  orientation?: { x: number; y: number; z: number };
 }): Promise<PreprocessorResponse> => {
-  // Convert rotation angles (degrees) to orientation vector
-  // Start with Z-axis [0, 0, 1], apply rotations
-  const rotX = (formData.orientation?.rotX || 0) * Math.PI / 180;
-  const rotY = (formData.orientation?.rotY || 0) * Math.PI / 180;
-  const rotZ = (formData.orientation?.rotZ || 0) * Math.PI / 180;
-
-  // Rotation matrices applied to [0, 0, 1] vector
-  // Rz * Ry * Rx * [0, 0, 1]
-  const cx = Math.cos(rotX), sx = Math.sin(rotX);
-  const cy = Math.cos(rotY), sy = Math.sin(rotY);
-  const cz = Math.cos(rotZ), sz = Math.sin(rotZ);
-
-  // After Rx: [0, -sx, cx]
-  // After Ry: [sy*cx, -sx, cy*cx]
-  // After Rz: [cz*sy*cx - sz*(-sx), sz*sy*cx + cz*(-sx), cy*cx]
-  const orientX = cz * sy * cx + sz * sx;
-  const orientY = sz * sy * cx - cz * sx;
-  const orientZ = cy * cx;
+  // Use orientation vector directly (backend will normalize it)
+  const orientX = formData.orientation?.x || 0;
+  const orientY = formData.orientation?.y || 0;
+  const orientZ = formData.orientation?.z || 1; // Default to Z-axis
 
   const config: DipoleConfig = {
     length: formData.length,
@@ -110,7 +96,7 @@ export const generateDipoleMesh = async (formData: {
     balanced_feed: formData.feedType === 'balanced',
     // Always generate at origin - frontend will apply position offset
     center_position: [0, 0, 0],
-    // Apply rotation to dipole orientation
+    // Use orientation vector directly
     orientation: [orientX, orientY, orientZ],
     // Default voltage source at gap
     source: {

@@ -455,6 +455,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                 orientationPrefix="orientation"
                 title="Position & Orientation"
                 subtitle="Set the loop placement and rotation in 3D space"
+                showPresets={false}
               />
             </Grid>
 

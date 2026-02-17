@@ -23,23 +23,26 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
   const theta_angles = radiationPattern?.theta_angles;
   const phi_angles = radiationPattern?.phi_angles;
   const pattern_db = radiationPattern?.pattern_db;
+  // Get actual directivity value in dBi (e.g., 1.76 for half-wave dipole)
+  const directivity_dbi = radiationPattern?.directivity || 0;
 
   // Get scale and value range properties
   const scaleMode = item.scale || 'logarithmic';
   const valueRangeMode = item.valueRangeMode || 'auto';
   const colorMap = item.colorMap || 'jet';
-  const sizeFactor = item.sizeFactor || 1.0;
+  const sizeFactor = item.sizeFactor || 0.5; // Default changed to 0.5
   const opacity = item.opacity !== undefined ? item.opacity : 0.8;
 
-  // Use pattern_db (already in dB) or convert if linear scale requested
+  // Convert normalized pattern_db to actual dBi values, or to linear
   const processedDirectivity = useMemo(() => {
     if (!pattern_db) return [];
     if (scaleMode === 'linear') {
-      // Convert dB back to linear
+      // Convert dB back to linear (no directivity offset needed for linear)
       return pattern_db.map((db) => Math.pow(10, db / 10));
     }
-    return pattern_db; // Already in dB
-  }, [pattern_db, scaleMode]);
+    // For logarithmic scale: add directivity offset to get actual dBi values
+    return pattern_db.map((db) => db + directivity_dbi);
+  }, [pattern_db, scaleMode, directivity_dbi]);
 
   // Calculate value range
   const min = valueRangeMode === 'manual'

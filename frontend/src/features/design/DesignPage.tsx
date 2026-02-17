@@ -284,7 +284,7 @@ function DesignPage() {
         solverState: solverState.solverState,
         currentFrequency: solverState.currentFrequency,
         fieldResults: solverState.fieldResults,
-        fieldData: solverState.fieldData,
+        // Note: fieldData excluded - too large for DynamoDB (must re-run postprocessing to regenerate)
       };
       saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
     }
@@ -310,7 +310,7 @@ function DesignPage() {
         solverState: solverState.solverState,
         currentFrequency: solverState.currentFrequency,
         fieldResults: solverState.fieldResults,
-        fieldData: solverState.fieldData,
+        // Note: fieldData excluded - too large for DynamoDB (must re-run postprocessing to regenerate)
       };
       saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
     } else if (elements && elements.length < previousElementCountRef.current) {
@@ -341,7 +341,7 @@ function DesignPage() {
         solverState: solverState.solverState,
         currentFrequency: solverState.currentFrequency,
         fieldResults: solverState.fieldResults,
-        fieldData: solverState.fieldData,
+        // Note: fieldData excluded - too large for DynamoDB (must re-run postprocessing to regenerate)
       };
       saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
     }
@@ -349,8 +349,9 @@ function DesignPage() {
 
   // Auto-save when view configurations change
   useEffect(() => {
-    if (projectId && viewConfigurations.length > 0) {
-      console.log('View configurations changed, saving...');
+    // Save view configurations even when empty (to persist deletions)
+    if (projectId) {
+      console.log('View configurations changed, saving...', viewConfigurations.length, 'views');
       const persistableSolverState = {
         results: solverState.results,
         currentDistribution: solverState.currentDistribution,
@@ -364,7 +365,7 @@ function DesignPage() {
         solverState: solverState.solverState,
         currentFrequency: solverState.currentFrequency,
         fieldResults: solverState.fieldResults,
-        fieldData: solverState.fieldData,
+        // Note: fieldData excluded - too large for DynamoDB (must re-run postprocessing to regenerate)
       };
       saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
     }
@@ -387,11 +388,11 @@ function DesignPage() {
         solverState: solverState.solverState,
         currentFrequency: solverState.currentFrequency,
         fieldResults: solverState.fieldResults,
-        fieldData: solverState.fieldData,
+        // Note: fieldData excluded - too large for DynamoDB (must re-run postprocessing to regenerate)
       };
       saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
     }
-  }, [solverState.results, solverState.radiationPattern, solverState.multiAntennaResults, solverState.frequencySweep, solverState.fieldData, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced, solverState]);
+  }, [solverState.results, solverState.radiationPattern, solverState.multiAntennaResults, solverState.frequencySweep, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced, solverState]);
 
   // Reset element count when opening a different project
   useEffect(() => {

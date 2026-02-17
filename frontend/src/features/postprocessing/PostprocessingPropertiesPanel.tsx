@@ -197,7 +197,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
       nodeSize: selectedItem.nodeSize ?? 1.0,
       arrowSize: selectedItem.arrowSize ?? 1.0,
       arrowDensity: selectedItem.arrowDensity ?? 1,
-      sizeFactor: selectedItem.sizeFactor ?? 1.0,
+      sizeFactor: selectedItem.sizeFactor ?? 0.5, // Default changed from 1.0 to 0.5
       lineStyle: selectedItem.lineStyle ?? 'solid',
       yAxisScale: selectedItem.yAxisScale ?? 'linear',
       scale: selectedItem.scale ?? 'logarithmic',
@@ -604,7 +604,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 value={commonProps.sizeFactor}
                 onChange={(_, value) => handleItemPropertyChange('sizeFactor', value as number)}
                 min={0.1}
-                max={10}
+                max={3}
                 step={0.1}
                 valueLabelDisplay="auto"
                 size="small"

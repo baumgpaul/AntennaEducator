@@ -99,7 +99,7 @@ export const generateDipole = createAsyncThunk(
       segments: number
       feedType: 'gap' | 'balanced'
       position: { x: number; y: number; z: number }
-      orientation: { rotX: number; rotY: number; rotZ: number }
+      orientation: { x: number; y: number; z: number }
     },
     { rejectWithValue }
   ) => {
@@ -482,14 +482,14 @@ const designSlice = createSlice({
 
         console.log('Redux: Dipole generated, payload:', action.payload);
 
-        // Extract position and rotation from formData
+        // Extract position from formData
         const formData = action.payload.formData;
         const position: [number, number, number] = formData
           ? [formData.position.x, formData.position.y, formData.position.z]
           : [0, 0, 0];
-        const rotation: [number, number, number] = formData
-          ? [formData.orientation.rotX, formData.orientation.rotY, formData.orientation.rotZ]
-          : [0, 0, 0];
+        // Orientation is now handled by the backend directly via orientation vector
+        // Store zeros for rotation since mesh is already oriented correctly
+        const rotation: [number, number, number] = [0, 0, 0];
 
         // Auto-assign color
         const color = getNextElementColor(state.elements);
