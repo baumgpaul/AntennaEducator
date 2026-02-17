@@ -112,6 +112,25 @@ module "s3_data" {
 }
 
 # ============================================================================
+# S3 - Simulation Results (solver/postprocessor output)
+# ============================================================================
+
+module "s3_results" {
+  source = "../../modules/s3-data"
+
+  bucket_name                = "antenna-simulator-results-${var.environment}"
+  allowed_origins            = ["https://${var.domain_name}", "http://localhost:3000"]
+  enable_lifecycle           = true
+  data_retention_days        = 0  # Keep forever in staging
+  enable_intelligent_tiering = false  # Disable for staging (low volume)
+
+  tags = {
+    Component = "storage"
+    Purpose   = "simulation-results"
+  }
+}
+
+# ============================================================================
 # S3 - Frontend (static website)
 # ============================================================================
 
@@ -270,9 +289,13 @@ module "lambda_projects" {
     USE_COGNITO            = "true"   # Use Cognito JWT validation
     COGNITO_REGION         = var.aws_region
     COGNITO_USER_POOL_ID   = module.cognito.user_pool_id
+    # S3 storage for simulation results
+    USE_S3                 = "true"
+    RESULTS_BUCKET_NAME    = module.s3_results.bucket_name
   }
 
   dynamodb_table_arns = [module.dynamodb.table_arn]
+  s3_bucket_arns      = [module.s3_results.bucket_arn]
 
   create_function_url    = true
   function_url_auth_type = "NONE"
