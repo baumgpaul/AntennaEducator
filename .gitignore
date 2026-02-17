@@ -41,6 +41,7 @@ htmlcov/
 .tox/
 coverage.xml
 *.cover
+.vite/
 
 # Development tools output
 dev_tools/**/*.png
