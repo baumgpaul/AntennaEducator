@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.common.storage.provider import ResultsStorageProvider, ResultType
+from backend.common.storage.provider import ResultType
 from backend.common.storage.s3_provider import S3ResultsProvider
 
 
