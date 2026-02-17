@@ -349,8 +349,9 @@ function DesignPage() {
 
   // Auto-save when view configurations change
   useEffect(() => {
-    if (projectId && viewConfigurations.length > 0) {
-      console.log('View configurations changed, saving...');
+    // Save view configurations even when empty (to persist deletions)
+    if (projectId) {
+      console.log('View configurations changed, saving...', viewConfigurations.length, 'views');
       const persistableSolverState = {
         results: solverState.results,
         currentDistribution: solverState.currentDistribution,
