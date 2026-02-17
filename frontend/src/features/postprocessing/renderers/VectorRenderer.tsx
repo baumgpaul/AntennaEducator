@@ -17,6 +17,36 @@ interface ComplexVector3D {
 }
 
 /**
+ * Seeded pseudo-random number generator (Linear Congruential Generator).
+ * Returns a function that generates numbers in [0, 1).
+ */
+export function createSeededRandom(initialSeed: number): () => number {
+  let seed = initialSeed;
+  return () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+}
+
+/**
+ * Generate a set of random indices for arrow display.
+ * Uses seeded pseudo-random for deterministic, stable visualization.
+ */
+export function generateRandomIndices(
+  totalPoints: number,
+  count: number,
+  seed: number
+): Set<number> {
+  const actualCount = Math.min(count, totalPoints);
+  const indices = new Set<number>();
+  const pseudoRandom = createSeededRandom(seed);
+  while (indices.size < actualCount) {
+    indices.add(Math.floor(pseudoRandom() * totalPoints));
+  }
+  return indices;
+}
+
+/**
  * Compute time-averaged Poynting vectors S = 0.5 * Re(E × H*).
  * Returns real-valued [Sx, Sy, Sz] for each point.
  */
@@ -78,7 +108,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
 
   // For Poynting, compute real-valued vectors; for E/H, use complex vectors
   const isPoynting = fieldType === 'poynting';
-  
+
   // Compute Poynting vectors if needed
   const poyntingVectors = useMemo(() => {
     if (!isPoynting || !dataForFrequency?.E_vectors || !dataForFrequency?.H_vectors) return null;
@@ -96,11 +126,23 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   // Get visualization properties
   const colorMap = item.colorMap || 'jet';
   const opacity = item.opacity !== undefined ? item.opacity : 0.9;
-  const arrowSize = item.arrowSize || 1.0;
+  // Default arrow size scaled to typical problem dimension (field region ~0.1m => 0.01m arrow base)
+  const arrowSize = item.arrowSize ?? 0.01;
   const arrowDensity = Math.max(1, Math.round(item.arrowDensity || 1)); // Show every Nth arrow
+  const arrowDisplayMode = item.arrowDisplayMode || 'every-nth';
+  const randomArrowCount = item.randomArrowCount || 50;
   const valueRangeMode = item.valueRangeMode || 'auto';
   const phaseDeg = item.phase ?? 0;
   const phaseRad = (phaseDeg * Math.PI) / 180;
+
+  // Generate random indices for random arrow mode
+  const randomIndices = useMemo(() => {
+    if (arrowDisplayMode !== 'random' || !dataForFrequency) return null;
+    const totalPoints = dataForFrequency.points.length;
+    // Use seeded random for stable visualization (based on field id)
+    const seed = item.fieldId ? item.fieldId.charCodeAt(0) : 42;
+    return generateRandomIndices(totalPoints, randomArrowCount, seed);
+  }, [arrowDisplayMode, randomArrowCount, dataForFrequency?.points.length, item.fieldId]);
 
   // Compute magnitudes: For Poynting use pre-computed, for E/H use phase-dependent
   const vectorMagnitudes = useMemo(() => {
@@ -137,12 +179,21 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   // Create arrow helpers
   const arrows = useMemo(() => {
     if (!dataForFrequency || !vectorMagnitudes) return [];
-    
+
+    // Helper to check if index should be rendered
+    const shouldRenderIndex = (index: number): boolean => {
+      if (arrowDisplayMode === 'random' && randomIndices) {
+        return randomIndices.has(index);
+      }
+      // every-nth mode
+      return index % arrowDensity === 0;
+    };
+
     // For Poynting: use pre-computed real vectors
     if (isPoynting && poyntingVectors) {
       return dataForFrequency.points.map((point, index) => {
-        // Skip arrows based on density setting
-        if (index % arrowDensity !== 0) return null;
+        // Skip arrows based on display mode
+        if (!shouldRenderIndex(index)) return null;
         if (index >= poyntingVectors.length) return null;
 
         const S = poyntingVectors[index];
@@ -163,7 +214,8 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
 
         // Scale arrow length by magnitude and size factor
         const normalizedMagnitude = max > min ? (magnitude - min) / (max - min) : 0.5;
-        const arrowLength = 5 * arrowSize * (0.2 + 0.8 * normalizedMagnitude); // 5mm base length
+        // Arrow length scaled by arrowSize (in meters) and normalized magnitude
+        const arrowLength = arrowSize * (0.2 + 0.8 * normalizedMagnitude);
 
         return {
           origin: new THREE.Vector3(point[0], point[1], point[2]),
@@ -179,8 +231,8 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
     const cosP = Math.cos(phaseRad);
     const sinP = Math.sin(phaseRad);
     return dataForFrequency.points.map((point, index) => {
-      // Skip arrows based on density setting
-      if (index % arrowDensity !== 0) return null;
+      // Skip arrows based on display mode
+      if (!shouldRenderIndex(index)) return null;
       if (index >= complexVectors.length) return null;
 
       const vector = complexVectors[index];
@@ -207,7 +259,8 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
 
       // Scale arrow length by magnitude and size factor
       const normalizedMagnitude = (magnitude - min) / (max - min);
-      const arrowLength = 5 * arrowSize * (0.5 + normalizedMagnitude); // 5mm base length
+      // Arrow length scaled by arrowSize (in meters) and normalized magnitude
+      const arrowLength = arrowSize * (0.5 + normalizedMagnitude);
 
       return {
         origin: new THREE.Vector3(point[0], point[1], point[2]),
@@ -216,10 +269,10 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
         color,
       };
     }).filter(Boolean);
-  }, [dataForFrequency?.points, complexVectors, vectorMagnitudes, poyntingVectors, colors, arrowSize, arrowDensity, min, max, phaseRad, isPoynting]);
+  }, [dataForFrequency?.points, complexVectors, vectorMagnitudes, poyntingVectors, colors, arrowSize, arrowDensity, arrowDisplayMode, randomIndices, min, max, phaseRad, isPoynting]);
 
   // Check if we have valid data to render
-  const hasData = isPoynting 
+  const hasData = isPoynting
     ? (poyntingVectors && poyntingVectors.length > 0)
     : (complexVectors && vectorMagnitudes && vectorMagnitudes.length > 0);
 

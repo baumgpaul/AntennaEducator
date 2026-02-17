@@ -119,6 +119,8 @@ function DesignPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const previousElementCountRef = useRef<number>(0);
   const [triggerSave, setTriggerSave] = useState(0);
+  // Track if project is being loaded to skip auto-saves during load
+  const projectLoadingRef = useRef<boolean>(true);
   const [currentTab, setCurrentTab] = useState<'designer' | 'solver' | 'postprocessing'>('designer');
 
   const handleTabChange = (_: unknown, newValue: 'designer' | 'solver' | 'postprocessing') => {
@@ -190,7 +192,17 @@ function DesignPage() {
         dispatch(markAsSolved());
       }
     }
+
+    // Mark project loading complete after state settles (skip auto-saves until then)
+    setTimeout(() => {
+      projectLoadingRef.current = false;
+    }, 500);
   }, [currentProject?.id, dispatch]); // Only re-run when project ID changes
+
+  // Reset loading flag when switching projects
+  useEffect(() => {
+    projectLoadingRef.current = true;
+  }, [projectId]);
 
   // Auto-save function with retry logic (debounced)
   const saveProjectDebounced = useRef(
@@ -268,6 +280,7 @@ function DesignPage() {
 
   // Auto-save when elements change due to property updates
   useEffect(() => {
+    if (projectLoadingRef.current) return; // Skip during project load
     if (triggerSave > 0 && projectId && elements.length > 0) {
       console.log('Triggering auto-save after property change, elements:', elements);
       // Extract persistable solver state (results, field data, etc.)
@@ -292,6 +305,7 @@ function DesignPage() {
 
   // Auto-save on element addition only (not on every property change)
   useEffect(() => {
+    if (projectLoadingRef.current) return; // Skip during project load
     // Only save if new elements were added (count increased)
     if (elements && elements.length > previousElementCountRef.current) {
       console.log(`New element(s) added: ${previousElementCountRef.current} -> ${elements.length}, saving...`);
@@ -326,6 +340,7 @@ function DesignPage() {
 
   // Auto-save when requested fields change
   useEffect(() => {
+    if (projectLoadingRef.current) return; // Skip during project load
     if (projectId && (elements.length > 0 || requestedFields.length > 0)) {
       console.log('Requested fields changed, saving...');
       const persistableSolverState = {
@@ -349,6 +364,11 @@ function DesignPage() {
 
   // Auto-save when view configurations change
   useEffect(() => {
+    // Skip auto-save during project load
+    if (projectLoadingRef.current) {
+      console.log('View configurations changed, skipping save during project load');
+      return;
+    }
     // Save view configurations even when empty (to persist deletions)
     if (projectId) {
       console.log('View configurations changed, saving...', viewConfigurations.length, 'views');
@@ -373,6 +393,7 @@ function DesignPage() {
 
   // Auto-save when solver completes (results, radiation pattern, field data, etc.)
   useEffect(() => {
+    if (projectLoadingRef.current) return; // Skip during project load
     if (projectId && solverState.results) {
       console.log('Solver results changed, saving...');
       const persistableSolverState = {

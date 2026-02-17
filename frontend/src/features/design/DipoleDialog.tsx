@@ -56,6 +56,8 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
     control,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<DipoleFormData>({
     resolver: zodResolver(dipoleSchema),
@@ -78,6 +80,36 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
       },
     },
   });
+
+  // Watch orientation values to determine which preset is active
+  const orientationX = watch('orientation.x');
+  const orientationY = watch('orientation.y');
+  const orientationZ = watch('orientation.z');
+
+  // Determine active preset based on current values
+  const getActivePreset = (): 'X' | 'Y' | 'Z' | 'Custom' => {
+    if (orientationX === 1 && orientationY === 0 && orientationZ === 0) return 'X';
+    if (orientationX === 0 && orientationY === 1 && orientationZ === 0) return 'Y';
+    if (orientationX === 0 && orientationY === 0 && orientationZ === 1) return 'Z';
+    return 'Custom';
+  };
+
+  const handlePresetChange = (_: React.MouseEvent<HTMLElement>, value: string | null) => {
+    if (value === 'X') {
+      setValue('orientation.x', 1, { shouldValidate: true });
+      setValue('orientation.y', 0, { shouldValidate: true });
+      setValue('orientation.z', 0, { shouldValidate: true });
+    } else if (value === 'Y') {
+      setValue('orientation.x', 0, { shouldValidate: true });
+      setValue('orientation.y', 1, { shouldValidate: true });
+      setValue('orientation.z', 0, { shouldValidate: true });
+    } else if (value === 'Z') {
+      setValue('orientation.x', 0, { shouldValidate: true });
+      setValue('orientation.y', 0, { shouldValidate: true });
+      setValue('orientation.z', 1, { shouldValidate: true });
+    }
+    // Custom preset doesn't change values, just indicates non-axis orientation
+  };
 
   const handleClose = () => {
     if (!isGenerating) {
@@ -324,32 +356,19 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
             </Grid>
 
             <Grid item xs={12}>
-              <Controller
-                name="orientation"
-                control={control}
-                render={({ field }) => (
-                  <ToggleButtonGroup
-                    value={
-                      field.value.x === 1 && field.value.y === 0 && field.value.z === 0 ? 'X' :
-                      field.value.x === 0 && field.value.y === 1 && field.value.z === 0 ? 'Y' :
-                      field.value.x === 0 && field.value.y === 0 && field.value.z === 1 ? 'Z' : null
-                    }
-                    exclusive
-                    onChange={(_, value) => {
-                      if (value === 'X') field.onChange({ x: 1, y: 0, z: 0 });
-                      else if (value === 'Y') field.onChange({ x: 0, y: 1, z: 0 });
-                      else if (value === 'Z') field.onChange({ x: 0, y: 0, z: 1 });
-                    }}
-                    size="small"
-                    disabled={isGenerating}
-                    sx={{ mb: 1 }}
-                  >
-                    <ToggleButton value="X">X-axis</ToggleButton>
-                    <ToggleButton value="Y">Y-axis</ToggleButton>
-                    <ToggleButton value="Z">Z-axis</ToggleButton>
-                  </ToggleButtonGroup>
-                )}
-              />
+              <ToggleButtonGroup
+                value={getActivePreset()}
+                exclusive
+                onChange={handlePresetChange}
+                size="small"
+                disabled={isGenerating}
+                sx={{ mb: 1 }}
+              >
+                <ToggleButton value="X">X-axis</ToggleButton>
+                <ToggleButton value="Y">Y-axis</ToggleButton>
+                <ToggleButton value="Z">Z-axis</ToggleButton>
+                <ToggleButton value="Custom">Custom</ToggleButton>
+              </ToggleButtonGroup>
             </Grid>
 
             <Grid item xs={4}>

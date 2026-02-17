@@ -113,10 +113,14 @@ export interface ViewItem {
   edgeSize?: number;
   /** Node size for voltage distributions (point size multiplier) */
   nodeSize?: number;
-  /** Arrow size for field vectors (arrow scale multiplier) */
+  /** Arrow size for field vectors (arrow scale in meters) */
   arrowSize?: number;
   /** Arrow density: show every Nth arrow (1 = all, 2 = every 2nd, etc.) */
   arrowDensity?: number;
+  /** Arrow display mode: 'every-nth' (regular sampling) or 'random' (random sampling) */
+  arrowDisplayMode?: 'every-nth' | 'random';
+  /** Number of random arrows to display (when arrowDisplayMode is 'random') */
+  randomArrowCount?: number;
   /** Size factor for directivity patterns (overall scale) */
   sizeFactor?: number;
 
