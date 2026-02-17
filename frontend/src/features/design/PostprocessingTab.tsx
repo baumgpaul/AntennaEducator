@@ -101,7 +101,7 @@ function computeAutoRange(
   item: ViewItem,
   solverResults: SolverResult | null,
   fieldData: PostprocessingTabProps['fieldData'],
-  radiationPattern: { pattern_db: number[]; [key: string]: unknown } | null,
+  radiationPattern: { pattern_db: number[]; directivity?: number; [key: string]: unknown } | null,
   displayFrequencyHz: number | null,
   requestedFields?: FieldDefinition[] | null,
 ): { min: number; max: number } {
@@ -136,10 +136,18 @@ function computeAutoRange(
     }
     case 'directivity': {
       if (radiationPattern?.pattern_db && radiationPattern.pattern_db.length > 0) {
-        const values = item.scale === 'logarithmic'
-          ? radiationPattern.pattern_db
-          : radiationPattern.pattern_db.map((db: number) => Math.pow(10, db / 10));
-        return { min: Math.min(...values), max: Math.max(...values) };
+        // Get actual directivity offset to convert normalized dB to absolute dBi
+        const directivityOffset = radiationPattern.directivity || 0;
+
+        if (item.scale === 'logarithmic') {
+          // Convert normalized pattern_db (max=0) to actual dBi values
+          const actualDbi = radiationPattern.pattern_db.map((db: number) => db + directivityOffset);
+          return { min: Math.min(...actualDbi), max: Math.max(...actualDbi) };
+        } else {
+          // Linear scale: convert dB to linear
+          const values = radiationPattern.pattern_db.map((db: number) => Math.pow(10, db / 10));
+          return { min: Math.min(...values), max: Math.max(...values) };
+        }
       }
       break;
     }

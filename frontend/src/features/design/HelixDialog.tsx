@@ -276,6 +276,7 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
                 orientationPrefix="orientation"
                 title="Position & Orientation"
                 subtitle="Set the helix placement and rotation in 3D space"
+                showPresets={false}
               />
             </Grid>
 

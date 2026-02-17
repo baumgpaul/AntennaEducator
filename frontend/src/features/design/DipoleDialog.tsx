@@ -11,11 +11,12 @@ import {
   Box,
   Typography,
   Divider,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PositionControl } from '@/components/PositionControl';
 import { parseDecimalNumber } from '@/utils/numberParser';
 
 // Validation schema - frequency removed, will be set during Solve phase
@@ -32,9 +33,11 @@ const dipoleSchema = z.object({
     z: z.number(),
   }),
   orientation: z.object({
-    rotX: z.number().min(-180).max(180),
-    rotY: z.number().min(-180).max(180),
-    rotZ: z.number().min(-180).max(180),
+    x: z.number(),
+    y: z.number(),
+    z: z.number(),
+  }).refine((o) => o.x !== 0 || o.y !== 0 || o.z !== 0, {
+    message: 'Orientation vector cannot be zero',
   }),
 });
 
@@ -69,9 +72,9 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
         z: 0,
       },
       orientation: {
-        rotX: 0,
-        rotY: 0,
-        rotZ: 0,
+        x: 0,
+        y: 0,
+        z: 1, // Default: Z-axis aligned dipole
       },
     },
   });
@@ -232,17 +235,185 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               />
             </Grid>
 
-            {/* Position and Orientation Controls */}
+            {/* Position Controls */}
             <Grid item xs={12}>
-              <Divider sx={{ my: 2 }} />
-              <PositionControl
+              <Divider sx={{ my: 2 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Position & Orientation
+                </Typography>
+              </Divider>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom>
+                Position (meters)
+              </Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="position.x"
                 control={control}
-                positionPrefix="position"
-                orientationPrefix="orientation"
-                title="Position & Orientation"
-                subtitle="Set the dipole placement and rotation in 3D space"
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value) || 0)}
+                    label="X"
+                    type="number"
+                    fullWidth
+                    disabled={isGenerating}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                    }}
+                    inputProps={{ step: 0.001 }}
+                  />
+                )}
               />
             </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="position.y"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value) || 0)}
+                    label="Y"
+                    type="number"
+                    fullWidth
+                    disabled={isGenerating}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                    }}
+                    inputProps={{ step: 0.001 }}
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="position.z"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value) || 0)}
+                    label="Z"
+                    type="number"
+                    fullWidth
+                    disabled={isGenerating}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                    }}
+                    inputProps={{ step: 0.001 }}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Orientation Vector Controls */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+                Orientation Vector
+              </Typography>
+              <Typography variant="caption" color="text.secondary" gutterBottom>
+                Direction the dipole points along (will be normalized)
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Controller
+                name="orientation"
+                control={control}
+                render={({ field }) => (
+                  <ToggleButtonGroup
+                    value={
+                      field.value.x === 1 && field.value.y === 0 && field.value.z === 0 ? 'X' :
+                      field.value.x === 0 && field.value.y === 1 && field.value.z === 0 ? 'Y' :
+                      field.value.x === 0 && field.value.y === 0 && field.value.z === 1 ? 'Z' : null
+                    }
+                    exclusive
+                    onChange={(_, value) => {
+                      if (value === 'X') field.onChange({ x: 1, y: 0, z: 0 });
+                      else if (value === 'Y') field.onChange({ x: 0, y: 1, z: 0 });
+                      else if (value === 'Z') field.onChange({ x: 0, y: 0, z: 1 });
+                    }}
+                    size="small"
+                    disabled={isGenerating}
+                    sx={{ mb: 1 }}
+                  >
+                    <ToggleButton value="X">X-axis</ToggleButton>
+                    <ToggleButton value="Y">Y-axis</ToggleButton>
+                    <ToggleButton value="Z">Z-axis</ToggleButton>
+                  </ToggleButtonGroup>
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="orientation.x"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value) || 0)}
+                    label="X"
+                    type="number"
+                    fullWidth
+                    disabled={isGenerating}
+                    inputProps={{ step: 0.1 }}
+                    error={!!errors.orientation}
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="orientation.y"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value) || 0)}
+                    label="Y"
+                    type="number"
+                    fullWidth
+                    disabled={isGenerating}
+                    inputProps={{ step: 0.1 }}
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="orientation.z"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value) || 0)}
+                    label="Z"
+                    type="number"
+                    fullWidth
+                    disabled={isGenerating}
+                    inputProps={{ step: 0.1 }}
+                  />
+                )}
+              />
+            </Grid>
+
+            {errors.orientation && (
+              <Grid item xs={12}>
+                <Typography variant="caption" color="error">
+                  {errors.orientation.message}
+                </Typography>
+              </Grid>
+            )}
 
             {/* Design Guidelines */}
             <Grid item xs={12}>
@@ -252,6 +423,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
                   bgcolor: 'rgba(33, 150, 243, 0.1)',
                   borderRadius: 1,
                   border: '1px solid rgba(33, 150, 243, 0.3)',
+                  mt: 1,
                 }}
               >
                 <Typography variant="caption" display="block" gutterBottom>
