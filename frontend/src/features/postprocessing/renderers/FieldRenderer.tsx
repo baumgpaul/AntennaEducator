@@ -37,6 +37,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
   // Get visualization properties
   const colorMap = item.colorMap || 'jet';
   const opacity = item.opacity !== undefined ? item.opacity : 0.7;
+  const valueRangeMode = item.valueRangeMode || 'auto';
+  const valueRangeMin = item.valueRangeMin;
+  const valueRangeMax = item.valueRangeMax;
 
   // Prepare field data object for FieldVisualization
   const visualizationData = {
@@ -56,6 +59,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
       selectedComponent="x"
       complexPart="magnitude"
       fieldData={visualizationData}
+      valueRangeMode={valueRangeMode}
+      valueRangeMin={valueRangeMin}
+      valueRangeMax={valueRangeMax}
     />
   );
 };

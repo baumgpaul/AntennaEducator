@@ -108,17 +108,24 @@ interface FieldVisualizationProps {
     E_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>;
     H_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>;
   };
+  // Optional manual color range
+  valueRangeMode?: 'auto' | 'manual';
+  valueRangeMin?: number;
+  valueRangeMax?: number;
 }
 
 /**
  * Render a 2D plane field region
  */
-function PlaneField({ field, opacity, colorMap, fieldData, fieldType }: {
+function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax }: {
   field: FieldDefinition2D;
   opacity: number;
   colorMap: ColorMapType;
   fieldData?: FieldVisualizationProps['fieldData'];
   fieldType: FieldType;
+  valueRangeMode?: 'auto' | 'manual';
+  valueRangeMin?: number;
+  valueRangeMax?: number;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     // Calculate segments from sampling (n points → n-1 segments)
@@ -147,13 +154,16 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType }: {
     let hasColors = false;
     const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
     if (magnitudes && magnitudes.length > 0) {
-      const colorArray = createColorArray(magnitudes, colorMap);
+      // Use manual range if specified, otherwise auto
+      const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
+      const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
+      const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -180,12 +190,15 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType }: {
 /**
  * Render a 2D circular field region
  */
-function CircleField({ field, opacity, colorMap, fieldData, fieldType }: {
+function CircleField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax }: {
   field: FieldDefinition2D;
   opacity: number;
   colorMap: ColorMapType;
   fieldData?: FieldVisualizationProps['fieldData'];
   fieldType: FieldType;
+  valueRangeMode?: 'auto' | 'manual';
+  valueRangeMin?: number;
+  valueRangeMax?: number;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const radius = field.dimensions?.radius || 50;
@@ -208,13 +221,16 @@ function CircleField({ field, opacity, colorMap, fieldData, fieldType }: {
     let hasColors = false;
     const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
     if (magnitudes && magnitudes.length > 0) {
-      const colorArray = createColorArray(magnitudes, colorMap);
+      // Use manual range if specified, otherwise auto
+      const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
+      const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
+      const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -241,12 +257,15 @@ function CircleField({ field, opacity, colorMap, fieldData, fieldType }: {
 /**
  * Render a 3D spherical field region
  */
-function SphereField({ field, opacity, colorMap, fieldData, fieldType }: {
+function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax }: {
   field: FieldDefinition3D;
   opacity: number;
   colorMap: ColorMapType;
   fieldData?: FieldVisualizationProps['fieldData'];
   fieldType: FieldType;
+  valueRangeMode?: 'auto' | 'manual';
+  valueRangeMin?: number;
+  valueRangeMax?: number;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const radius = field.sphereRadius || 50;
@@ -263,13 +282,16 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType }: {
     let hasColors = false;
     const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
     if (magnitudes && magnitudes.length > 0) {
-      const colorArray = createColorArray(magnitudes, colorMap);
+      // Use manual range if specified, otherwise auto
+      const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
+      const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
+      const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -295,12 +317,15 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType }: {
 /**
  * Render a 3D cubic field region
  */
-function CubeField({ field, opacity, colorMap, fieldData, fieldType }: {
+function CubeField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax }: {
   field: FieldDefinition3D;
   opacity: number;
   colorMap: ColorMapType;
   fieldData?: FieldVisualizationProps['fieldData'];
   fieldType: FieldType;
+  valueRangeMode?: 'auto' | 'manual';
+  valueRangeMin?: number;
+  valueRangeMax?: number;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const dims = field.cubeDimensions || { Lx: 100, Ly: 100, Lz: 100 };
@@ -322,13 +347,16 @@ function CubeField({ field, opacity, colorMap, fieldData, fieldType }: {
     let hasColors = false;
     const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
     if (magnitudes && magnitudes.length > 0) {
-      const colorArray = createColorArray(magnitudes, colorMap);
+      // Use manual range if specified, otherwise auto
+      const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
+      const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
+      const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -360,21 +388,24 @@ function FieldVisualization({
   opacity,
   colorMap,
   fieldData,
+  valueRangeMode,
+  valueRangeMin,
+  valueRangeMax,
 }: FieldVisualizationProps) {
   const fieldType = field.fieldType;
   // Route to appropriate renderer based on field shape
   // Type narrowing happens automatically based on shape
   if (field.type === '2D') {
     if (field.shape === 'plane') {
-      return <PlaneField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} />;
+      return <PlaneField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} />;
     } else if (field.shape === 'circle') {
-      return <CircleField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} />;
+      return <CircleField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} />;
     }
   } else if (field.type === '3D') {
     if (field.shape === 'sphere') {
-      return <SphereField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} />;
+      return <SphereField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} />;
     } else if (field.shape === 'cube') {
-      return <CubeField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} />;
+      return <CubeField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} />;
     }
   }
 

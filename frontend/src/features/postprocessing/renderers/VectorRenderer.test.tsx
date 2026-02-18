@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computePoyntingVectors } from './VectorRenderer';
+import { computePoyntingVectors, createSeededRandom, generateRandomIndices } from './VectorRenderer';
 
 /**
  * Tests for the VectorRenderer's Poynting vector computation.
@@ -15,6 +15,74 @@ const makeComplexVec = (xr: number, xi: number, yr: number, yi: number, zr: numb
   x: { real: xr, imag: xi },
   y: { real: yr, imag: yi },
   z: { real: zr, imag: zi },
+});
+
+describe('createSeededRandom', () => {
+  it('should produce deterministic sequence for same seed', () => {
+    const rng1 = createSeededRandom(42);
+    const rng2 = createSeededRandom(42);
+
+    expect(rng1()).toBe(rng2());
+    expect(rng1()).toBe(rng2());
+    expect(rng1()).toBe(rng2());
+  });
+
+  it('should produce different sequences for different seeds', () => {
+    const rng1 = createSeededRandom(42);
+    const rng2 = createSeededRandom(100);
+
+    expect(rng1()).not.toBe(rng2());
+  });
+
+  it('should produce values in [0, 1)', () => {
+    const rng = createSeededRandom(12345);
+    for (let i = 0; i < 100; i++) {
+      const val = rng();
+      expect(val).toBeGreaterThanOrEqual(0);
+      expect(val).toBeLessThan(1);
+    }
+  });
+});
+
+describe('generateRandomIndices', () => {
+  it('should generate requested count of indices', () => {
+    const indices = generateRandomIndices(1000, 50, 42);
+    expect(indices.size).toBe(50);
+  });
+
+  it('should not exceed total points', () => {
+    const indices = generateRandomIndices(10, 50, 42);
+    expect(indices.size).toBe(10); // Can't have more indices than points
+  });
+
+  it('should be deterministic for same seed', () => {
+    const indices1 = generateRandomIndices(1000, 50, 42);
+    const indices2 = generateRandomIndices(1000, 50, 42);
+
+    expect([...indices1]).toEqual([...indices2]);
+  });
+
+  it('should produce different results for different seeds', () => {
+    const indices1 = generateRandomIndices(1000, 50, 42);
+    const indices2 = generateRandomIndices(1000, 50, 100);
+
+    expect([...indices1]).not.toEqual([...indices2]);
+  });
+
+  it('should only contain valid indices', () => {
+    const totalPoints = 100;
+    const indices = generateRandomIndices(totalPoints, 50, 42);
+
+    for (const idx of indices) {
+      expect(idx).toBeGreaterThanOrEqual(0);
+      expect(idx).toBeLessThan(totalPoints);
+    }
+  });
+
+  it('should handle edge case of 0 requested count', () => {
+    const indices = generateRandomIndices(100, 0, 42);
+    expect(indices.size).toBe(0);
+  });
 });
 
 describe('computePoyntingVectors', () => {

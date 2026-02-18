@@ -142,10 +142,17 @@ function computeAutoRange(
         if (item.scale === 'logarithmic') {
           // Convert normalized pattern_db (max=0) to actual dBi values
           const actualDbi = radiationPattern.pattern_db.map((db: number) => db + directivityOffset);
-          return { min: Math.min(...actualDbi), max: Math.max(...actualDbi) };
+          const autoMin = Math.min(...actualDbi);
+          const autoMax = Math.max(...actualDbi);
+          // Clamp min to max - 30 dB for reasonable color range
+          const clampedMin = Math.max(autoMin, autoMax - 30);
+          return { min: clampedMin, max: autoMax };
         } else {
-          // Linear scale: convert dB to linear
-          const values = radiationPattern.pattern_db.map((db: number) => Math.pow(10, db / 10));
+          // Linear scale: convert to actual linear directivity
+          // D = 10^((pattern_db + directivity_dbi)/10)
+          const values = radiationPattern.pattern_db.map((db: number) =>
+            Math.pow(10, (db + directivityOffset) / 10)
+          );
           return { min: Math.min(...values), max: Math.max(...values) };
         }
       }
@@ -407,7 +414,7 @@ function PostprocessingTab({
                 unit = 'A';
                 break;
               case 'voltage':
-                label = 'Voltage';
+                label = 'Potential';
                 unit = 'V';
                 break;
               case 'field-magnitude': {
@@ -451,7 +458,7 @@ function PostprocessingTab({
           height: '100%',
           borderLeft: 1,
           borderColor: 'divider',
-          overflow: 'auto',
+          overflow: 'hidden',
           backgroundColor: 'background.paper',
         }}
       >

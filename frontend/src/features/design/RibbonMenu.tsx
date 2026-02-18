@@ -155,9 +155,10 @@ function RibbonMenu({
       item: {
         type: 'voltage',
         visible: true,
-        label: 'Voltages',
+        label: 'Potential',
         colorMap: 'jet',
         opacity: 0.8,
+        nodeSize: 0.01, // Default smaller node size appropriate for antenna scale
       },
     }));
   };

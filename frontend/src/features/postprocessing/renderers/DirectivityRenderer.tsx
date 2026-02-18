@@ -33,24 +33,32 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
   const sizeFactor = item.sizeFactor || 0.5; // Default changed to 0.5
   const opacity = item.opacity !== undefined ? item.opacity : 0.8;
 
-  // Convert normalized pattern_db to actual dBi values, or to linear
+  // Convert normalized pattern_db to actual dBi values, or to linear directivity
   const processedDirectivity = useMemo(() => {
     if (!pattern_db) return [];
     if (scaleMode === 'linear') {
-      // Convert dB back to linear (no directivity offset needed for linear)
-      return pattern_db.map((db) => Math.pow(10, db / 10));
+      // Convert to actual linear directivity: D = 10^((pattern_db + directivity_dbi)/10)
+      return pattern_db.map((db) => Math.pow(10, (db + directivity_dbi) / 10));
     }
     // For logarithmic scale: add directivity offset to get actual dBi values
     return pattern_db.map((db) => db + directivity_dbi);
   }, [pattern_db, scaleMode, directivity_dbi]);
 
-  // Calculate value range
+  // Calculate value range with reasonable defaults for logarithmic scale
+  const autoMin = processedDirectivity.length > 0 ? Math.min(...processedDirectivity) : 0;
+  const autoMax = processedDirectivity.length > 0 ? Math.max(...processedDirectivity) : 1;
+
+  // For logarithmic scale, clamp min to max - 30 dB for reasonable color range
+  const clampedAutoMin = scaleMode === 'logarithmic'
+    ? Math.max(autoMin, autoMax - 30)
+    : autoMin;
+
   const min = valueRangeMode === 'manual'
     ? item.valueRangeMin || 0
-    : processedDirectivity.length > 0 ? Math.min(...processedDirectivity) : 0;
+    : clampedAutoMin;
   const max = valueRangeMode === 'manual'
     ? item.valueRangeMax || 1
-    : processedDirectivity.length > 0 ? Math.max(...processedDirectivity) : 1;
+    : autoMax;
 
   // Create colors for each point
   const colors = useMemo(() => {

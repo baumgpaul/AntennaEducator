@@ -81,7 +81,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
     return (
       <Box
         sx={{
-          width: 300,
+          width: '100%',
           height: '100%',
           p: 3,
           display: 'flex',
@@ -89,6 +89,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'center',
           textAlign: 'center',
+          boxSizing: 'border-box',
         }}
       >
         <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -194,8 +195,8 @@ const PostprocessingPropertiesPanel: React.FC = () => {
       valueRangeMin: selectedItem.valueRangeMin ?? 0,
       valueRangeMax: selectedItem.valueRangeMax ?? 1,
       edgeSize: selectedItem.edgeSize ?? 1.0,
-      nodeSize: selectedItem.nodeSize ?? 1.0,
-      arrowSize: selectedItem.arrowSize ?? 1.0,
+      nodeSize: selectedItem.nodeSize ?? 0.01, // Smaller default for antenna scale
+      arrowSize: selectedItem.arrowSize ?? 0.01, // 10mm default
       arrowDensity: selectedItem.arrowDensity ?? 1,
       sizeFactor: selectedItem.sizeFactor ?? 0.5, // Default changed from 1.0 to 0.5
       lineStyle: selectedItem.lineStyle ?? 'solid',
@@ -410,15 +411,16 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             {/* Node Size */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
-                Node Size: {commonProps.nodeSize.toFixed(1)}
+                Node Size: {commonProps.nodeSize.toFixed(3)} m
               </Typography>
               <Slider
                 value={commonProps.nodeSize}
                 onChange={(_, value) => handleItemPropertyChange('nodeSize', value as number)}
-                min={0.01}
+                min={0.001}
                 max={0.05}
-                step={0.01}
+                step={0.001}
                 valueLabelDisplay="auto"
+                valueLabelFormat={(v) => `${(v * 1000).toFixed(1)} mm`}
                 size="small"
               />
             </Box>
@@ -692,39 +694,83 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             {/* Arrow Size */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
-                Arrow Size: {commonProps.arrowSize.toFixed(2)}
+                Arrow Size: {(commonProps.arrowSize * 1000).toFixed(1)} mm
               </Typography>
               <Slider
                 value={commonProps.arrowSize}
                 onChange={(_, value) => handleItemPropertyChange('arrowSize', value as number)}
-                min={0.1}
-                max={5}
-                step={0.1}
+                min={0.001}
+                max={0.1}
+                step={0.001}
+                scale={(x) => Math.pow(10, x)} // Semi-logarithmic scale
                 valueLabelDisplay="auto"
+                valueLabelFormat={(v) => `${(v * 1000).toFixed(1)} mm`}
                 size="small"
               />
             </Box>
 
-            {/* Arrow Density */}
+            {/* Arrow Display Mode Toggle */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
-                Arrow Density: every {commonProps.arrowDensity === 1 ? '' : commonProps.arrowDensity + getDensitySuffix(commonProps.arrowDensity) + ' '}arrow
+                Arrow Display
               </Typography>
-              <Slider
-                value={commonProps.arrowDensity}
-                onChange={(_, value) => handleItemPropertyChange('arrowDensity', value as number)}
-                min={1}
-                max={10}
-                step={1}
-                marks={[
-                  { value: 1, label: 'All' },
-                  { value: 5, label: '5th' },
-                  { value: 10, label: '10th' },
-                ]}
-                valueLabelDisplay="auto"
+              <ToggleButtonGroup
+                value={selectedItem?.arrowDisplayMode || 'every-nth'}
+                exclusive
+                onChange={(_, value) => value && handleItemPropertyChange('arrowDisplayMode', value)}
                 size="small"
-              />
+                fullWidth
+              >
+                <ToggleButton value="every-nth">Every Nth</ToggleButton>
+                <ToggleButton value="random">Random N</ToggleButton>
+              </ToggleButtonGroup>
             </Box>
+
+            {/* Arrow Density - shown when 'every-nth' mode */}
+            {(!selectedItem?.arrowDisplayMode || selectedItem.arrowDisplayMode === 'every-nth') && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" gutterBottom>
+                  Arrow Density: every {commonProps.arrowDensity === 1 ? '' : commonProps.arrowDensity + getDensitySuffix(commonProps.arrowDensity) + ' '}arrow
+                </Typography>
+                <Slider
+                  value={commonProps.arrowDensity}
+                  onChange={(_, value) => handleItemPropertyChange('arrowDensity', value as number)}
+                  min={1}
+                  max={10}
+                  step={1}
+                  marks={[
+                    { value: 1, label: 'All' },
+                    { value: 5, label: '5th' },
+                    { value: 10, label: '10th' },
+                  ]}
+                  valueLabelDisplay="auto"
+                  size="small"
+                />
+              </Box>
+            )}
+
+            {/* Random Arrow Count - shown when 'random' mode */}
+            {selectedItem?.arrowDisplayMode === 'random' && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" gutterBottom>
+                  Number of Arrows: {selectedItem?.randomArrowCount || 50}
+                </Typography>
+                <Slider
+                  value={selectedItem?.randomArrowCount || 50}
+                  onChange={(_, value) => handleItemPropertyChange('randomArrowCount', value as number)}
+                  min={10}
+                  max={500}
+                  step={10}
+                  marks={[
+                    { value: 10, label: '10' },
+                    { value: 100, label: '100' },
+                    { value: 500, label: '500' },
+                  ]}
+                  valueLabelDisplay="auto"
+                  size="small"
+                />
+              </Box>
+            )}
 
             {/* Phase Slider */}
             <Box sx={{ mb: 2 }}>
@@ -811,13 +857,14 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   return (
     <Box
       sx={{
-        width: 300,
+        width: '100%',
         height: '100%',
         p: 2,
         overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
         gap: 2,
+        boxSizing: 'border-box',
       }}
     >
       {/* View-Level Properties */}
