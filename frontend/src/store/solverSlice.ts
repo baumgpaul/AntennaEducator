@@ -417,6 +417,15 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     const { results, directivityRequested, requestedFields, frequencySweep, currentFrequency } = state.solver;
     const { elements } = state.design;
 
+    // Debug logging for branch currents issue
+    console.log('[Postprocessing] State check:', {
+      hasResults: !!results,
+      hasBranchCurrents: results ? !!results.branch_currents : false,
+      branchCurrentsLength: results?.branch_currents?.length,
+      frequencySweepResults: frequencySweep?.results?.length,
+      currentFrequency,
+    });
+
     // Check for either single solve results or sweep results
     const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
     const hasResults = results || (isSweepMode && frequencySweep.results && frequencySweep.results.length > 0);
@@ -517,6 +526,15 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 
         // Prepare branch currents for all frequencies
         let branch_currents_array;
+        console.log('[Postprocessing] Branch currents check:', {
+          isSweepMode,
+          hasFrequencySweep: !!frequencySweep,
+          sweepResultsCount: frequencySweep?.results?.length,
+          hasResults: !!results,
+          hasBranchCurrents: results ? !!results.branch_currents : false,
+          branchCurrentsLength: results?.branch_currents?.length,
+          branchCurrentsType: results?.branch_currents ? typeof results.branch_currents : 'undefined',
+        });
         if (isSweepMode && frequencySweep && frequencySweep.results && frequencySweep.results.length > 0) {
           // For sweep: get branch currents from each frequency's antenna_solutions
           // MultiAntennaSolutionResponse has antenna_solutions[], we use first antenna for now
@@ -530,6 +548,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           // For single frequency: use current results
           branch_currents_array = [results.branch_currents];
         } else {
+          console.error('[Postprocessing] No branch currents! results =', results);
           return rejectWithValue('No branch currents available for field computation');
         }
 
