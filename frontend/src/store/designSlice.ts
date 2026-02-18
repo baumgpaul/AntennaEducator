@@ -221,11 +221,18 @@ export const remeshElementOrientation = createAsyncThunk(
 
       let response
 
+      // Config may be in flat format or nested backend format (with .parameters)
+      const rawCfg = element.config as any
+      const params = rawCfg.parameters || rawCfg
+
       switch (element.type) {
         case 'dipole': {
-          const cfg = element.config as DipoleConfig
           const config: DipoleConfig = {
-            ...cfg,
+            length: params.length,
+            wire_radius: params.wire_radius,
+            gap: params.gap,
+            segments: params.segments,
+            balanced_feed: params.balanced_feed,
             center_position: [0, 0, 0],
             orientation,
           }
@@ -233,9 +240,8 @@ export const remeshElementOrientation = createAsyncThunk(
           break
         }
         case 'loop': {
-          const cfg = element.config as LoopConfig
           const config: LoopConfig = {
-            ...cfg,
+            ...params,
             center_position: [0, 0, 0],
             normal_vector: orientation,
           }
@@ -243,9 +249,8 @@ export const remeshElementOrientation = createAsyncThunk(
           break
         }
         case 'helix': {
-          const cfg = element.config as HelixConfig
           const config: HelixConfig = {
-            ...cfg,
+            ...params,
             center_position: [0, 0, 0],
             axis_direction: orientation,
           }
@@ -253,9 +258,8 @@ export const remeshElementOrientation = createAsyncThunk(
           break
         }
         case 'rod': {
-          const cfg = element.config as RodConfig
           const config: RodConfig = {
-            ...cfg,
+            ...params,
             direction: orientation,
           }
           response = await createRod(config)
@@ -386,19 +390,22 @@ const designSlice = createSlice({
         const element = state.elements[index]
         const orientation = action.payload.orientation
 
-        // Update the orientation in the config based on element type
+        // Update the orientation in the config (handle both flat and nested formats)
+        const cfg = element.config as any
+        const target = cfg.parameters || cfg
+
         switch (element.type) {
           case 'dipole':
-            (element.config as any).orientation = orientation
+            target.orientation = orientation
             break
           case 'loop':
-            (element.config as any).normal_vector = orientation
+            target.normal_vector = orientation
             break
           case 'helix':
-            (element.config as any).axis_direction = orientation
+            target.axis_direction = orientation
             break
           case 'rod':
-            (element.config as any).direction = orientation
+            target.direction = orientation
             break
         }
 
@@ -609,12 +616,18 @@ const designSlice = createSlice({
 
         console.log(`Auto-creating voltage source across gap: 1 → ${gapEndNode} (total nodes: ${numNodes})`);
 
+        // Normalize config: extract parameters from backend response to flat DipoleConfig format
+        const backendElement = action.payload.element;
+        const normalizedConfig = backendElement?.parameters
+          ? { ...backendElement.parameters }  // Backend format: extract parameters dict
+          : (backendElement?.config || backendElement || {});  // Already flat or fallback
+
         // Create AntennaElement from response (use ONLY the auto-source, ignore backend sources)
         const element: AntennaElement = {
           id: `dipole_${Date.now()}`,
           type: 'dipole',
           name: formData?.name || `Dipole ${state.elements.length + 1}`,
-          config: action.payload.element?.config || action.payload.element || {},
+          config: normalizedConfig,
           position,
           rotation,
           mesh: action.payload.mesh,
@@ -662,12 +675,18 @@ const designSlice = createSlice({
         // Auto-assign color
         const color = getNextElementColor(state.elements);
 
+        // Normalize config: extract parameters from backend response
+        const backendLoopElement = action.payload.element;
+        const normalizedLoopConfig = backendLoopElement?.parameters
+          ? { ...backendLoopElement.parameters }
+          : (backendLoopElement?.config || backendLoopElement || {});
+
         // Create AntennaElement from response
         const element: AntennaElement = {
           id: `loop_${Date.now()}`,
           type: 'loop',
           name: formData?.name || `Loop ${state.elements.length + 1}`,
-          config: action.payload.element?.config || action.payload.element || {},
+          config: normalizedLoopConfig,
           position,
           rotation,
           mesh: action.payload.mesh,
@@ -709,12 +728,18 @@ const designSlice = createSlice({
         // Auto-assign color
         const color = getNextElementColor(state.elements);
 
+        // Normalize config: extract parameters from backend response
+        const backendHelixElement = action.payload.element;
+        const normalizedHelixConfig = backendHelixElement?.parameters
+          ? { ...backendHelixElement.parameters }
+          : (backendHelixElement?.config || backendHelixElement || {});
+
         // Create AntennaElement from response
         const element: AntennaElement = {
           id: `helix_${Date.now()}`,
           type: 'helix',
           name: `Helix ${state.elements.length + 1}`,
-          config: action.payload.element?.config || action.payload.element || {},
+          config: normalizedHelixConfig,
           position,
           rotation,
           mesh: action.payload.mesh,
@@ -750,13 +775,19 @@ const designSlice = createSlice({
         // Auto-assign color
         const color = getNextElementColor(state.elements);
 
+        // Normalize config: extract parameters from backend response
+        const backendRodElement = action.payload.element;
+        const normalizedRodConfig = backendRodElement?.parameters
+          ? { ...backendRodElement.parameters }
+          : (backendRodElement?.config || backendRodElement || {});
+
         // Rod uses start/end coordinates, not separate position field
         // Position is implicitly defined by the rod geometry
         const element: AntennaElement = {
           id: `rod_${Date.now()}`,
           type: 'rod',
           name: `Rod ${state.elements.length + 1}`,
-          config: action.payload.element?.config || action.payload.element || {},
+          config: normalizedRodConfig,
           position: [0, 0, 0], // Rod position is in its geometry
           rotation: [0, 0, 0],
           mesh: action.payload.mesh,
@@ -794,19 +825,22 @@ const designSlice = createSlice({
           // Update mesh with new geometry
           element.mesh = mesh;
 
-          // Update the orientation in the config
+          // Update the orientation in the config (handle both flat and nested formats)
+          const cfg = element.config as any;
+          const target = cfg.parameters || cfg;
+
           switch (element.type) {
             case 'dipole':
-              (element.config as any).orientation = orientation;
+              target.orientation = orientation;
               break;
             case 'loop':
-              (element.config as any).normal_vector = orientation;
+              target.normal_vector = orientation;
               break;
             case 'helix':
-              (element.config as any).axis_direction = orientation;
+              target.axis_direction = orientation;
               break;
             case 'rod':
-              (element.config as any).direction = orientation;
+              target.direction = orientation;
               break;
           }
 

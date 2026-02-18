@@ -63,15 +63,17 @@ function toArray3(v: any): [number, number, number] {
 
 function getElementOrientation(element: AntennaElement): [number, number, number] {
   const cfg = element.config as any;
+  // Config can be in flat format (DipoleConfig) or nested backend format (with .parameters)
+  const params = cfg.parameters || cfg;
   switch (element.type) {
     case 'dipole':
-      return cfg.orientation ? toArray3(cfg.orientation) : [0, 0, 1];
+      return params.orientation ? toArray3(params.orientation) : [0, 0, 1];
     case 'loop':
-      return cfg.normal_vector ? toArray3(cfg.normal_vector) : [0, 0, 1];
+      return params.normal_vector ? toArray3(params.normal_vector) : [0, 0, 1];
     case 'helix':
-      return cfg.axis_direction ? toArray3(cfg.axis_direction) : [0, 0, 1];
+      return params.axis_direction ? toArray3(params.axis_direction) : [0, 0, 1];
     case 'rod':
-      return cfg.direction ? toArray3(cfg.direction) : [0, 0, 1];
+      return params.direction ? toArray3(params.direction) : [0, 0, 1];
     default:
       return [0, 0, 1];
   }
