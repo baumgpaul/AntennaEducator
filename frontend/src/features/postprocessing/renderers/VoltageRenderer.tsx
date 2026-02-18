@@ -75,8 +75,8 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
     return createColorArray(magnitudes, colorMap as any, min, max);
   }, [magnitudes, colorMap, min, max]);
 
-  // Get node size and opacity
-  const nodeSize = item.nodeSize || 1.0;
+  // Get node size and opacity - default smaller for antenna scale
+  const nodeSize = item.nodeSize ?? 0.01;
   const opacity = item.opacity !== undefined ? item.opacity : 1.0;
 
   // Create sphere geometry and material (shared for performance)
