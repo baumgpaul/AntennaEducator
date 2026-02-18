@@ -8,6 +8,7 @@ import {
   generateLoop,
   generateHelix,
   generateRod,
+  remeshElementOrientation,
   addLumpedElement,
   addLumpedElementToElement,
   addSource,
@@ -625,6 +626,40 @@ function DesignPage() {
     setTriggerSave(prev => prev + 1);
   };
 
+  // Orientation change handler — re-meshes element via preprocessor
+  const orientationChangeRef = useRef(
+    debounce(async (elementId: string, orientation: [number, number, number]) => {
+      // Validate that the orientation vector is not zero
+      if (orientation[0] === 0 && orientation[1] === 0 && orientation[2] === 0) {
+        return;
+      }
+      console.log('Orientation changed, re-meshing:', elementId, orientation);
+      try {
+        await dispatch(remeshElementOrientation({ elementId, orientation })).unwrap();
+        dispatch(addNotification({
+          id: Date.now(),
+          message: 'Mesh updated with new orientation',
+          severity: 'success',
+          duration: 2000,
+        }));
+        // Trigger auto-save after re-mesh
+        setTriggerSave(prev => prev + 1);
+      } catch (error: any) {
+        console.error('Re-mesh failed:', error);
+        dispatch(addNotification({
+          id: Date.now(),
+          message: `Failed to update orientation: ${error}`,
+          severity: 'error',
+          duration: 5000,
+        }));
+      }
+    }, 500)
+  );
+
+  const handleOrientationChange = (elementId: string, orientation: [number, number, number]) => {
+    orientationChangeRef.current(elementId, orientation);
+  };
+
   // Element management handlers
   const handleElementRename = (elementId: string, newName: string) => {
     dispatch(updateElement({ id: elementId, updates: { name: newName } }));
@@ -959,6 +994,7 @@ function DesignPage() {
             onColorChange={handleColorChange}
             onPositionChange={handlePositionChange}
             onRotationChange={handleRotationChange}
+            onOrientationChange={handleOrientationChange}
             selectedElement={
               selectedNodeId && !selectedElementId
                 ? {
