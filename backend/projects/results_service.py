@@ -189,7 +189,7 @@ class ResultsService:
         """Extract solver-related fields from simulation_results."""
         solver_data = {}
         for field in ["results", "frequencySweep", "multiAntennaResults"]:
-            if field in simulation_results:
+            if field in simulation_results and simulation_results[field] is not None:
                 solver_data[field] = simulation_results[field]
         return solver_data
 
@@ -197,7 +197,7 @@ class ResultsService:
         """Extract field-related data from simulation_results."""
         field_data = {}
         for field in ["fieldData", "fieldResults"]:
-            if field in simulation_results:
+            if field in simulation_results and simulation_results[field] is not None:
                 field_data[field] = simulation_results[field]
         return field_data
 
