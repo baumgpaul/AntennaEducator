@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -10,6 +11,8 @@ import {
   Chip,
   Stack,
   Paper,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import { MuiColorInput } from 'mui-color-input';
 import { parseDecimalNumber } from '@/utils/numberParser';
@@ -44,6 +47,58 @@ interface PropertiesPanelProps {
   onColorChange?: (elementId: string, color: string) => void;
   onPositionChange?: (elementId: string, position: [number, number, number]) => void;
   onRotationChange?: (elementId: string, rotation: [number, number, number]) => void;
+  onOrientationChange?: (elementId: string, orientation: [number, number, number]) => void;
+}
+
+/**
+ * Get the orientation vector from an antenna element's config.
+ * Each element type stores it under a different key.
+ * Handles both array [x,y,z] and object {x,y,z} formats from backend.
+ */
+function toArray3(v: any): [number, number, number] {
+  if (Array.isArray(v)) return [v[0] ?? 0, v[1] ?? 0, v[2] ?? 0];
+  if (v && typeof v === 'object') return [v.x ?? 0, v.y ?? 0, v.z ?? 0];
+  return [0, 0, 1];
+}
+
+function getElementOrientation(element: AntennaElement): [number, number, number] {
+  const cfg = element.config as any;
+  switch (element.type) {
+    case 'dipole':
+      return cfg.orientation ? toArray3(cfg.orientation) : [0, 0, 1];
+    case 'loop':
+      return cfg.normal_vector ? toArray3(cfg.normal_vector) : [0, 0, 1];
+    case 'helix':
+      return cfg.axis_direction ? toArray3(cfg.axis_direction) : [0, 0, 1];
+    case 'rod':
+      return cfg.direction ? toArray3(cfg.direction) : [0, 0, 1];
+    default:
+      return [0, 0, 1];
+  }
+}
+
+/**
+ * Get the label for the orientation vector based on element type.
+ */
+function getOrientationLabel(type: string): string {
+  switch (type) {
+    case 'dipole': return 'Orientation Vector';
+    case 'loop': return 'Normal Vector';
+    case 'helix': return 'Axis Direction';
+    case 'rod': return 'Direction';
+    default: return 'Orientation';
+  }
+}
+
+/**
+ * Determine which axis preset is active for an orientation vector.
+ */
+function getActivePreset(orientation: [number, number, number]): 'X' | 'Y' | 'Z' | 'Custom' {
+  const [x, y, z] = orientation;
+  if (x === 1 && y === 0 && z === 0) return 'X';
+  if (x === 0 && y === 1 && z === 0) return 'Y';
+  if (x === 0 && y === 0 && z === 1) return 'Z';
+  return 'Custom';
 }
 
 /**
@@ -56,8 +111,43 @@ function PropertiesPanel({
   antennaElement,
   onColorChange,
   onPositionChange,
-  onRotationChange
+  onRotationChange,
+  onOrientationChange,
 }: PropertiesPanelProps) {
+  // Track orientation locally for responsive UI
+  const elementOrientation = antennaElement ? getElementOrientation(antennaElement) : [0, 0, 1] as [number, number, number];
+  const [localOrientation, setLocalOrientation] = useState<[number, number, number]>(elementOrientation as [number, number, number]);
+
+  // Sync local orientation when element changes
+  useEffect(() => {
+    if (antennaElement) {
+      setLocalOrientation(getElementOrientation(antennaElement));
+    }
+  }, [antennaElement?.id, antennaElement?.config]);
+
+  const handlePresetChange = (_: React.MouseEvent<HTMLElement>, value: string | null) => {
+    if (!antennaElement || !onOrientationChange) return;
+    let newOrientation: [number, number, number];
+    if (value === 'X') {
+      newOrientation = [1, 0, 0];
+    } else if (value === 'Y') {
+      newOrientation = [0, 1, 0];
+    } else if (value === 'Z') {
+      newOrientation = [0, 0, 1];
+    } else {
+      return; // Custom doesn't change values
+    }
+    setLocalOrientation(newOrientation);
+    onOrientationChange(antennaElement.id, newOrientation);
+  };
+
+  const handleOrientationComponentChange = (index: number, value: number) => {
+    if (!antennaElement || !onOrientationChange) return;
+    const newOrientation: [number, number, number] = [...localOrientation] as [number, number, number];
+    newOrientation[index] = value;
+    setLocalOrientation(newOrientation);
+    onOrientationChange(antennaElement.id, newOrientation);
+  };
   const renderPropertyField = (key: string, field: PropertyField) => {
     const handleChange = (value: string | number) => {
       if (field.editable !== false) {
@@ -323,80 +413,65 @@ function PropertiesPanel({
                   </Stack>
                 </Box>
 
-                {/* Rotation */}
+                {/* Orientation Vector (replaces rotation for all antenna element types) */}
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                    Rotation
+                    {getOrientationLabel(antennaElement.type)}
                   </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontSize: '0.7rem' }}>
+                    Direction the {antennaElement.type} points along (will be normalized)
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={getActivePreset(localOrientation)}
+                    exclusive
+                    onChange={handlePresetChange}
+                    size="small"
+                    sx={{ mb: 1, display: 'flex' }}
+                  >
+                    <ToggleButton value="X" sx={{ flex: 1 }}>X-axis</ToggleButton>
+                    <ToggleButton value="Y" sx={{ flex: 1 }}>Y-axis</ToggleButton>
+                    <ToggleButton value="Z" sx={{ flex: 1 }}>Z-axis</ToggleButton>
+                    <ToggleButton value="Custom" sx={{ flex: 1 }}>Custom</ToggleButton>
+                  </ToggleButtonGroup>
                   <Stack spacing={1}>
                     <TextField
                       fullWidth
                       size="small"
                       label="X"
                       type="number"
-                      value={(antennaElement.rotation[0] * 180 / Math.PI).toFixed(1)}
+                      value={localOrientation[0]}
                       onInput={handleDecimalInput}
                       onChange={(e) => {
-                        if (onRotationChange) {
-                          const degToRad = parseFloat(e.target.value) * Math.PI / 180;
-                          const newRot: [number, number, number] = [
-                            degToRad,
-                            antennaElement.rotation[1],
-                            antennaElement.rotation[2]
-                          ];
-                          onRotationChange(antennaElement.id, newRot);
-                        }
+                        handleOrientationComponentChange(0, parseDecimalNumber(e.target.value) || 0);
                       }}
                       sx={{ bgcolor: 'background.default' }}
-                      InputProps={{
-                        endAdornment: <Typography variant="caption">°</Typography>,
-                      }}
+                      inputProps={{ step: 0.1 }}
                     />
                     <TextField
                       fullWidth
                       size="small"
                       label="Y"
                       type="number"
-                      value={(antennaElement.rotation[1] * 180 / Math.PI).toFixed(1)}
+                      value={localOrientation[1]}
                       onInput={handleDecimalInput}
                       onChange={(e) => {
-                        if (onRotationChange) {
-                          const degToRad = parseFloat(e.target.value) * Math.PI / 180;
-                          const newRot: [number, number, number] = [
-                            antennaElement.rotation[0],
-                            degToRad,
-                            antennaElement.rotation[2]
-                          ];
-                          onRotationChange(antennaElement.id, newRot);
-                        }
+                        handleOrientationComponentChange(1, parseDecimalNumber(e.target.value) || 0);
                       }}
                       sx={{ bgcolor: 'background.default' }}
-                      InputProps={{
-                        endAdornment: <Typography variant="caption">°</Typography>,
-                      }}
+                      inputProps={{ step: 0.1 }}
                     />
                     <TextField
                       fullWidth
                       size="small"
                       label="Z"
                       type="number"
-                      value={(antennaElement.rotation[2] * 180 / Math.PI).toFixed(1)}
+                      value={localOrientation[2]}
                       onInput={handleDecimalInput}
                       onChange={(e) => {
-                        if (onRotationChange) {
-                          const degToRad = parseFloat(e.target.value) * Math.PI / 180;
-                          const newRot: [number, number, number] = [
-                            antennaElement.rotation[0],
-                            antennaElement.rotation[1],
-                            degToRad
-                          ];
-                          onRotationChange(antennaElement.id, newRot);
-                        }
+                        handleOrientationComponentChange(2, parseDecimalNumber(e.target.value) || 0);
                       }}
                       sx={{ bgcolor: 'background.default' }}
-                      InputProps={{
-                        endAdornment: <Typography variant="caption">°</Typography>,
-                      }}
+                      inputProps={{ step: 0.1 }}
                     />
                   </Stack>
                 </Box>

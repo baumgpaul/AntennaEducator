@@ -15,7 +15,7 @@ import type {
   RodConfig,
   AntennaElement,
 } from '@/types/models'
-import { generateDipoleMesh, generateLoopMesh, generateHelixMesh, generateRodMesh } from '@/api/preprocessor'
+import { generateDipoleMesh, generateLoopMesh, generateHelixMesh, generateRodMesh, createDipole, createLoop, createHelix, createRod } from '@/api/preprocessor'
 import { getNextElementColor } from '@/utils/colors'
 
 interface DesignState {
@@ -202,6 +202,76 @@ export const generateRod = createAsyncThunk(
   }
 )
 
+/**
+ * Re-mesh an existing antenna element with a new orientation vector.
+ * Calls the preprocessor API with the element's existing config + new orientation.
+ */
+export const remeshElementOrientation = createAsyncThunk(
+  'design/remeshElementOrientation',
+  async (
+    { elementId, orientation }: { elementId: string; orientation: [number, number, number] },
+    { getState, rejectWithValue }
+  ) => {
+    try {
+      const state = (getState() as any).design as DesignState
+      const element = state.elements.find(el => el.id === elementId)
+      if (!element) {
+        return rejectWithValue('Element not found')
+      }
+
+      let response
+
+      switch (element.type) {
+        case 'dipole': {
+          const cfg = element.config as DipoleConfig
+          const config: DipoleConfig = {
+            ...cfg,
+            center_position: [0, 0, 0],
+            orientation,
+          }
+          response = await createDipole(config)
+          break
+        }
+        case 'loop': {
+          const cfg = element.config as LoopConfig
+          const config: LoopConfig = {
+            ...cfg,
+            center_position: [0, 0, 0],
+            normal_vector: orientation,
+          }
+          response = await createLoop(config)
+          break
+        }
+        case 'helix': {
+          const cfg = element.config as HelixConfig
+          const config: HelixConfig = {
+            ...cfg,
+            center_position: [0, 0, 0],
+            axis_direction: orientation,
+          }
+          response = await createHelix(config)
+          break
+        }
+        case 'rod': {
+          const cfg = element.config as RodConfig
+          const config: RodConfig = {
+            ...cfg,
+            direction: orientation,
+          }
+          response = await createRod(config)
+          break
+        }
+        default:
+          return rejectWithValue(`Unknown element type: ${element.type}`)
+      }
+
+      return { elementId, orientation, mesh: response.mesh }
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to re-mesh element')
+    }
+  }
+)
+
 // ============================================================================
 // Slice
 // ============================================================================
@@ -305,6 +375,33 @@ const designSlice = createSlice({
       const index = state.elements.findIndex(el => el.id === action.payload.id)
       if (index >= 0) {
         state.elements[index].rotation = action.payload.rotation
+        // Invalidate solved state since geometry changed
+        state.isSolved = false
+      }
+    },
+
+    setElementOrientation: (state, action: PayloadAction<{ id: string; orientation: [number, number, number] }>) => {
+      const index = state.elements.findIndex(el => el.id === action.payload.id)
+      if (index >= 0) {
+        const element = state.elements[index]
+        const orientation = action.payload.orientation
+
+        // Update the orientation in the config based on element type
+        switch (element.type) {
+          case 'dipole':
+            (element.config as any).orientation = orientation
+            break
+          case 'loop':
+            (element.config as any).normal_vector = orientation
+            break
+          case 'helix':
+            (element.config as any).axis_direction = orientation
+            break
+          case 'rod':
+            (element.config as any).direction = orientation
+            break
+        }
+
         // Invalidate solved state since geometry changed
         state.isSolved = false
       }
@@ -682,6 +779,47 @@ const designSlice = createSlice({
       .addCase(generateRod.rejected, (state, action) => {
         state.meshGenerating = false;
         state.meshError = action.payload as string || 'Mesh generation failed';
+      })
+      // Re-mesh element after orientation change
+      .addCase(remeshElementOrientation.pending, (state) => {
+        state.meshGenerating = true;
+        state.meshError = null;
+      })
+      .addCase(remeshElementOrientation.fulfilled, (state, action) => {
+        state.meshGenerating = false;
+        const { elementId, orientation, mesh } = action.payload;
+        const index = state.elements.findIndex(el => el.id === elementId);
+        if (index >= 0) {
+          const element = state.elements[index];
+          // Update mesh with new geometry
+          element.mesh = mesh;
+
+          // Update the orientation in the config
+          switch (element.type) {
+            case 'dipole':
+              (element.config as any).orientation = orientation;
+              break;
+            case 'loop':
+              (element.config as any).normal_vector = orientation;
+              break;
+            case 'helix':
+              (element.config as any).axis_direction = orientation;
+              break;
+            case 'rod':
+              (element.config as any).direction = orientation;
+              break;
+          }
+
+          // Invalidate solved state
+          state.isSolved = false;
+
+          // Update legacy mesh if this is the active element
+          state.mesh = mesh;
+        }
+      })
+      .addCase(remeshElementOrientation.rejected, (state, action) => {
+        state.meshGenerating = false;
+        state.meshError = action.payload as string || 'Failed to re-mesh element';
       });
   },
 })
@@ -697,6 +835,7 @@ export const {
   setElementColor,
   setElementPosition,
   setElementRotation,
+  setElementOrientation,
   setSelectedElement,
   setActiveElement,
   clearElements,
