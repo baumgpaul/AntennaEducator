@@ -417,6 +417,15 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     const { results, directivityRequested, requestedFields, frequencySweep, currentFrequency } = state.solver;
     const { elements } = state.design;
 
+    // Debug logging for branch currents issue
+    console.log('[Postprocessing] State check:', {
+      hasResults: !!results,
+      hasBranchCurrents: results ? !!results.branch_currents : false,
+      branchCurrentsLength: results?.branch_currents?.length,
+      frequencySweepResults: frequencySweep?.results?.length,
+      currentFrequency,
+    });
+
     // Check for either single solve results or sweep results
     const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
     const hasResults = results || (isSweepMode && frequencySweep.results && frequencySweep.results.length > 0);
@@ -489,19 +498,49 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 
     // Compute requested field regions
     if (fieldsToCompute.length > 0) {
-      // Get mesh data
-      const element = elements[0];
-      if (!element.mesh) {
+      // Get mesh data - combine from all elements for multi-antenna
+      const elementsWithMesh = elements.filter(e => e.mesh);
+      if (elementsWithMesh.length === 0) {
         return rejectWithValue('No mesh data available for field computation');
       }
 
-      const mesh = element.mesh;
+      // Combine mesh data from all elements
+      let combinedNodes: number[][] = [];
+      let combinedEdges: [number, number][] = [];
+      let combinedRadii: number[] = [];
+      let nodeOffset = 0;
 
-      // Ensure radii exists - if not, create from element edges or use default
-      let radii = mesh.radii;
-      if (!radii || radii.length === 0) {
-        radii = mesh.edges.map(() => 0.001); // Default 1mm radius
+      for (const element of elementsWithMesh) {
+        const mesh = element.mesh!;
+
+        // Add nodes
+        combinedNodes = combinedNodes.concat(mesh.nodes);
+
+        // Add edges with node index offset
+        const offsetEdges = mesh.edges.map(([a, b]: [number, number]) => [a + nodeOffset, b + nodeOffset] as [number, number]);
+        combinedEdges = combinedEdges.concat(offsetEdges);
+
+        // Add radii or defaults
+        if (mesh.radii && mesh.radii.length > 0) {
+          combinedRadii = combinedRadii.concat(mesh.radii);
+        } else {
+          combinedRadii = combinedRadii.concat(mesh.edges.map(() => 0.001)); // Default 1mm
+        }
+
+        nodeOffset += mesh.nodes.length;
       }
+
+      const mesh = {
+        nodes: combinedNodes,
+        edges: combinedEdges,
+        radii: combinedRadii,
+      };
+
+      console.log('[Postprocessing] Combined mesh:', {
+        elementsCount: elementsWithMesh.length,
+        totalNodes: mesh.nodes.length,
+        totalEdges: mesh.edges.length,
+      });
 
       // Compute fields for each requested region
       const fieldResults = [];
@@ -510,26 +549,47 @@ export const computePostprocessingWorkflow = createAsyncThunk<
         // Generate observation points based on field definition
         const observation_points = generateObservationPoints(field);
 
-        // Validate mesh data
-        if (!radii || radii.length === 0) {
+        // Validate mesh data (radii already combined above)
+        if (!mesh.radii || mesh.radii.length === 0) {
           return rejectWithValue('Unable to determine edge radii for field computation');
         }
 
         // Prepare branch currents for all frequencies
+        // Results can be in different formats:
+        // 1. Single antenna: results.branch_currents (array)
+        // 2. Multi-antenna single freq: results.antenna_solutions[].branch_currents
+        // 3. Frequency sweep: frequencySweep.results[].antenna_solutions[].branch_currents
         let branch_currents_array;
+        const multiAntennaResults = (results as any)?.antenna_solutions;
+
+        console.log('[Postprocessing] Branch currents check:', {
+          isSweepMode,
+          hasFrequencySweep: !!frequencySweep,
+          sweepResultsCount: frequencySweep?.results?.length,
+          hasResults: !!results,
+          hasBranchCurrents: results ? !!results.branch_currents : false,
+          hasAntennaSolutions: !!multiAntennaResults,
+          antennaSolutionsCount: multiAntennaResults?.length,
+        });
+
         if (isSweepMode && frequencySweep && frequencySweep.results && frequencySweep.results.length > 0) {
-          // For sweep: get branch currents from each frequency's antenna_solutions
-          // MultiAntennaSolutionResponse has antenna_solutions[], we use first antenna for now
+          // For sweep: combine branch currents from all antennas at each frequency
           branch_currents_array = frequencySweep.results.map(result => {
             if (result.antenna_solutions && result.antenna_solutions.length > 0) {
-              return result.antenna_solutions[0].branch_currents;
+              // Concatenate currents from all antennas
+              return result.antenna_solutions.flatMap((sol: any) => sol.branch_currents || []);
             }
             return [];
           });
         } else if (results && results.branch_currents) {
-          // For single frequency: use current results
+          // For single antenna, single frequency
           branch_currents_array = [results.branch_currents];
+        } else if (multiAntennaResults && multiAntennaResults.length > 0) {
+          // For multi-antenna, single frequency: combine currents from all antennas
+          const combinedCurrents = multiAntennaResults.flatMap((sol: any) => sol.branch_currents || []);
+          branch_currents_array = [combinedCurrents];
         } else {
+          console.error('[Postprocessing] No branch currents! results =', results);
           return rejectWithValue('No branch currents available for field computation');
         }
 
@@ -539,7 +599,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           branch_currents: branch_currents_array,
           nodes: mesh.nodes,
           edges: mesh.edges,
-          radii: radii,
+          radii: mesh.radii,
           observation_points,
         };
 
