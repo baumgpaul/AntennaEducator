@@ -231,7 +231,11 @@ class TestGenerateContentPreview:
         """Should not cut in the middle of a word."""
         text = "a " * 150
         preview = generate_content_preview(text)
-        assert not preview.endswith("a\u2026") or preview.endswith(" a\u2026") or preview.endswith("a\u2026")
+        assert (
+            not preview.endswith("a\u2026")
+            or preview.endswith(" a\u2026")
+            or preview.endswith("a\u2026")
+        )
         # Just verify it's not cutting mid-word for longer words
         text2 = "longword " * 40
         preview2 = generate_content_preview(text2)

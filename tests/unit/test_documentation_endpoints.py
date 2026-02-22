@@ -255,9 +255,7 @@ class TestGetImageUrl:
 
     def test_get_image_url(self, client, mock_deps):
         """Should return presigned GET URL for an image."""
-        response = client.get(
-            "/api/projects/proj-abc/documentation/images/img_abc123def456.png"
-        )
+        response = client.get("/api/projects/proj-abc/documentation/images/img_abc123def456.png")
         assert response.status_code == 200
 
         data = response.json()
@@ -268,13 +266,9 @@ class TestGetImageUrl:
 
     def test_get_image_url_path_traversal(self, client, mock_deps):
         """Should reject image keys that don't match the expected format."""
-        mock_deps["doc_svc"].get_image_url.side_effect = ValueError(
-            "Invalid image key"
-        )
+        mock_deps["doc_svc"].get_image_url.side_effect = ValueError("Invalid image key")
 
-        response = client.get(
-            "/api/projects/proj-abc/documentation/images/../../secrets.json"
-        )
+        response = client.get("/api/projects/proj-abc/documentation/images/../../secrets.json")
         # FastAPI may return 400 (our handler) or 404 (path doesn't match)
         assert response.status_code in (400, 404)
 
@@ -299,7 +293,9 @@ class TestDeleteImage:
         response = client.delete("/api/projects/proj-abc/documentation/images/img_abc123def456.png")
         assert response.status_code == 204
 
-        mock_deps["doc_svc"].delete_image.assert_called_once_with("proj-abc", "img_abc123def456.png")
+        mock_deps["doc_svc"].delete_image.assert_called_once_with(
+            "proj-abc", "img_abc123def456.png"
+        )
         # Should update DynamoDB to remove image from manifest
         mock_deps["repo"].update_project.assert_called_once()
         call_kwargs = mock_deps["repo"].update_project.call_args[1]

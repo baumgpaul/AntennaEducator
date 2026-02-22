@@ -52,6 +52,7 @@ def generate_content_preview(markdown: str) -> str:
         return text[:CONTENT_PREVIEW_MAX_LENGTH].rsplit(" ", 1)[0] + "…"
     return text
 
+
 # ── Documentation Metadata ────────────────────────────────────────────────────
 
 
