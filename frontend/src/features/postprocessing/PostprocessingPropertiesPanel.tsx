@@ -25,6 +25,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import ValueRangeInput from '../../components/common/ValueRangeInput';
 import SliderWithInput from '../../components/common/SliderWithInput';
+import { computeAutoRange } from '../design/PostprocessingTab';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   selectSelectedView,
@@ -60,6 +61,9 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   const selectedItem = useAppSelector(selectSelectedItem);
   const solverResults = useAppSelector((state) => state.solver.results);
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
+  const fieldData = useAppSelector((state) => state.solver.fieldData);
+  const radiationPattern = useAppSelector((state) => state.solver.radiationPattern);
+  const requestedFields = useAppSelector((state) => state.solver.requestedFields);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [viewName, setViewName] = React.useState('');
@@ -188,6 +192,23 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   const renderItemTypeProperties = () => {
     if (!selectedItem) return null;
 
+    // Compute auto range for current item (used for auto→manual default values)
+    const displayFrequencyHz = selectedView?.selectedFrequencyHz ?? null;
+    const autoRange = computeAutoRange(
+      selectedItem,
+      solverResults,
+      fieldData,
+      radiationPattern,
+      displayFrequencyHz,
+      requestedFields,
+    );
+
+    // Handler to save manual range values when switching to auto
+    const handleSaveManualRange = (savedMin: number, savedMax: number) => {
+      handleItemPropertyChange('savedManualMin', savedMin);
+      handleItemPropertyChange('savedManualMax', savedMax);
+    };
+
     const commonProps = {
       opacity: selectedItem.opacity ?? 0.8,
       color: selectedItem.color ?? '#FF8C00',
@@ -283,9 +304,14 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               mode={commonProps.valueRangeMode}
               min={commonProps.valueRangeMin}
               max={commonProps.valueRangeMax}
+              autoMin={autoRange.min}
+              autoMax={autoRange.max}
+              savedManualMin={selectedItem?.savedManualMin}
+              savedManualMax={selectedItem?.savedManualMax}
               onModeChange={(v) => handleItemPropertyChange('valueRangeMode', v)}
               onMinChange={(v) => handleItemPropertyChange('valueRangeMin', v)}
               onMaxChange={(v) => handleItemPropertyChange('valueRangeMax', v)}
+              onSaveManualRange={handleSaveManualRange}
             />
 
             {/* Edge Size */}
@@ -347,9 +373,14 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               mode={commonProps.valueRangeMode}
               min={commonProps.valueRangeMin}
               max={commonProps.valueRangeMax}
+              autoMin={autoRange.min}
+              autoMax={autoRange.max}
+              savedManualMin={selectedItem?.savedManualMin}
+              savedManualMax={selectedItem?.savedManualMax}
               onModeChange={(v) => handleItemPropertyChange('valueRangeMode', v)}
               onMinChange={(v) => handleItemPropertyChange('valueRangeMin', v)}
               onMaxChange={(v) => handleItemPropertyChange('valueRangeMax', v)}
+              onSaveManualRange={handleSaveManualRange}
             />
 
             {/* Node Size */}
@@ -413,9 +444,14 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               mode={commonProps.valueRangeMode}
               min={commonProps.valueRangeMin}
               max={commonProps.valueRangeMax}
+              autoMin={autoRange.min}
+              autoMax={autoRange.max}
+              savedManualMin={selectedItem?.savedManualMin}
+              savedManualMax={selectedItem?.savedManualMax}
               onModeChange={(v) => handleItemPropertyChange('valueRangeMode', v)}
               onMinChange={(v) => handleItemPropertyChange('valueRangeMin', v)}
               onMaxChange={(v) => handleItemPropertyChange('valueRangeMax', v)}
+              onSaveManualRange={handleSaveManualRange}
             />
 
             {/* Smooth Shading */}
@@ -437,7 +473,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 Interpolation
               </Typography>
               <ToggleButtonGroup
-                value={selectedItem?.interpolationLevel ?? 1}
+                value={selectedItem?.interpolationLevel ?? 2}
                 exclusive
                 onChange={(_, value) => value && handleItemPropertyChange('interpolationLevel', value)}
                 size="small"
@@ -446,6 +482,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 <ToggleButton value={1}>None</ToggleButton>
                 <ToggleButton value={2}>2×</ToggleButton>
                 <ToggleButton value={4}>4×</ToggleButton>
+                <ToggleButton value={8}>8×</ToggleButton>
               </ToggleButtonGroup>
             </Box>
           </>
@@ -509,10 +546,15 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               mode={commonProps.valueRangeMode}
               min={commonProps.valueRangeMin}
               max={commonProps.valueRangeMax}
+              autoMin={autoRange.min}
+              autoMax={autoRange.max}
+              savedManualMin={selectedItem?.savedManualMin}
+              savedManualMax={selectedItem?.savedManualMax}
               labelSuffix={commonProps.scale === 'logarithmic' ? '(dBi)' : ''}
               onModeChange={(v) => handleItemPropertyChange('valueRangeMode', v)}
               onMinChange={(v) => handleItemPropertyChange('valueRangeMin', v)}
               onMaxChange={(v) => handleItemPropertyChange('valueRangeMax', v)}
+              onSaveManualRange={handleSaveManualRange}
             />
 
             {/* Size Factor */}
@@ -537,6 +579,24 @@ const PostprocessingPropertiesPanel: React.FC = () => {
       case 'field-vector-component':
         return (
           <>
+            {/* Complex Part Selector */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Complex Part
+              </Typography>
+              <ToggleButtonGroup
+                value={selectedItem?.vectorComplexPart || 'magnitude'}
+                exclusive
+                onChange={(_, value) => value && handleItemPropertyChange('vectorComplexPart', value)}
+                size="small"
+                fullWidth
+              >
+                <ToggleButton value="real">Real</ToggleButton>
+                <ToggleButton value="imaginary">Imag</ToggleButton>
+                <ToggleButton value="magnitude">Magnitude</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
             {/* Opacity */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
@@ -575,9 +635,14 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               mode={commonProps.valueRangeMode}
               min={commonProps.valueRangeMin}
               max={commonProps.valueRangeMax}
+              autoMin={autoRange.min}
+              autoMax={autoRange.max}
+              savedManualMin={selectedItem?.savedManualMin}
+              savedManualMax={selectedItem?.savedManualMax}
               onModeChange={(v) => handleItemPropertyChange('valueRangeMode', v)}
               onMinChange={(v) => handleItemPropertyChange('valueRangeMin', v)}
               onMaxChange={(v) => handleItemPropertyChange('valueRangeMax', v)}
+              onSaveManualRange={handleSaveManualRange}
             />
 
             {/* Arrow Scaling Mode */}
@@ -673,30 +738,6 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 />
               </Box>
             )}
-
-            {/* Phase Slider */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" gutterBottom>
-                Phase: {selectedItem?.phase ?? 0}°
-              </Typography>
-              <Slider
-                value={selectedItem?.phase ?? 0}
-                onChange={(_, value) => handleItemPropertyChange('phase', value as number)}
-                min={0}
-                max={360}
-                step={5}
-                marks={[
-                  { value: 0, label: '0°' },
-                  { value: 90, label: '90°' },
-                  { value: 180, label: '180°' },
-                  { value: 270, label: '270°' },
-                  { value: 360, label: '360°' },
-                ]}
-                valueLabelDisplay="auto"
-                valueLabelFormat={(v) => `${v}°`}
-                size="small"
-              />
-            </Box>
           </>
         );
 

@@ -133,8 +133,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   const randomArrowCount = item.randomArrowCount || 50;
   const arrowScalingMode = item.arrowScalingMode || 'magnitude';
   const valueRangeMode = item.valueRangeMode || 'auto';
-  const phaseDeg = item.phase ?? 0;
-  const phaseRad = (phaseDeg * Math.PI) / 180;
+  const vectorComplexPart = item.vectorComplexPart || 'magnitude';
 
   // Generate random indices for random arrow mode
   const randomIndices = useMemo(() => {
@@ -163,41 +162,44 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
     });
   }, [isPoynting, poyntingVectors, magnitudes, complexVectors]);
 
-  // Instantaneous magnitudes (phase-dependent) — used for arrow length scaling
-  const instantaneousMagnitudes = useMemo(() => {
+  // Display magnitudes — based on selected complex part (real, imaginary, or peak magnitude)
+  const displayMagnitudes = useMemo(() => {
     if (isPoynting && poyntingVectors) {
-      // Poynting: time-averaged, no phase dependency
+      // Poynting: always time-averaged, complex part selection doesn't apply
       return poyntingVectors.map(v => v.mag);
     }
     if (!complexVectors) return magnitudes;
-    // E/H fields: compute instantaneous magnitude |Re(V * e^{jφ})|
-    const cosP = Math.cos(phaseRad);
-    const sinP = Math.sin(phaseRad);
-    return complexVectors.map((v) => {
-      const rx = v.x.real * cosP - v.x.imag * sinP;
-      const ry = v.y.real * cosP - v.y.imag * sinP;
-      const rz = v.z.real * cosP - v.z.imag * sinP;
-      return Math.sqrt(rx * rx + ry * ry + rz * rz);
-    });
-  }, [isPoynting, poyntingVectors, complexVectors, phaseRad, magnitudes]);
+    if (vectorComplexPart === 'real') {
+      return complexVectors.map((v) => {
+        return Math.sqrt(v.x.real * v.x.real + v.y.real * v.y.real + v.z.real * v.z.real);
+      });
+    }
+    if (vectorComplexPart === 'imaginary') {
+      return complexVectors.map((v) => {
+        return Math.sqrt(v.x.imag * v.x.imag + v.y.imag * v.y.imag + v.z.imag * v.z.imag);
+      });
+    }
+    // 'magnitude': use peak magnitudes
+    return peakMagnitudes;
+  }, [isPoynting, poyntingVectors, complexVectors, magnitudes, peakMagnitudes, vectorComplexPart]);
 
-  // Calculate value range from PEAK magnitudes (stable across phase changes)
-  const min = (peakMagnitudes && peakMagnitudes.length > 0)
-    ? (valueRangeMode === 'manual' ? (item.valueRangeMin ?? 0) : Math.min(...peakMagnitudes))
+  // Calculate value range from display magnitudes
+  const min = (displayMagnitudes && displayMagnitudes.length > 0)
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMin ?? 0) : Math.min(...displayMagnitudes))
     : 0;
-  const max = (peakMagnitudes && peakMagnitudes.length > 0)
-    ? (valueRangeMode === 'manual' ? (item.valueRangeMax ?? 1) : Math.max(...peakMagnitudes))
+  const max = (displayMagnitudes && displayMagnitudes.length > 0)
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMax ?? 1) : Math.max(...displayMagnitudes))
     : 1;
 
-  // Create colors from PEAK magnitudes (stable color mapping independent of phase)
+  // Create colors from display magnitudes
   const colors = useMemo(() => {
-    if (!peakMagnitudes) return new Float32Array(0);
-    return createColorArray(peakMagnitudes, colorMap as any, min, max);
-  }, [peakMagnitudes, colorMap, min, max]);
+    if (!displayMagnitudes) return new Float32Array(0);
+    return createColorArray(displayMagnitudes, colorMap as any, min, max);
+  }, [displayMagnitudes, colorMap, min, max]);
 
   // Create arrow helpers
   const arrows = useMemo(() => {
-    if (!dataForFrequency || !instantaneousMagnitudes || !peakMagnitudes) return [];
+    if (!dataForFrequency || !displayMagnitudes || !peakMagnitudes) return [];
 
     // Helper to check if index should be rendered
     const shouldRenderIndex = (index: number): boolean => {
@@ -251,43 +253,45 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
       }).filter(Boolean);
     }
 
-    // For E/H fields: use complex vectors with phase
+    // For E/H fields: use complex vectors with selected complex part
     if (!complexVectors) return [];
-    const cosP = Math.cos(phaseRad);
-    const sinP = Math.sin(phaseRad);
     return dataForFrequency.points.map((point, index) => {
       // Skip arrows based on display mode
       if (!shouldRenderIndex(index)) return null;
       if (index >= complexVectors.length) return null;
 
       const vector = complexVectors[index];
-      const instMag = instantaneousMagnitudes[index];
+      const dispMag = displayMagnitudes[index];
 
-      // Compute instantaneous direction: Re(V * e^{jφ})
-      const direction = new THREE.Vector3(
-        vector.x.real * cosP - vector.x.imag * sinP,
-        vector.y.real * cosP - vector.y.imag * sinP,
-        vector.z.real * cosP - vector.z.imag * sinP,
-      );
+      // Compute direction based on selected complex part
+      let direction: THREE.Vector3;
+      if (vectorComplexPart === 'real') {
+        direction = new THREE.Vector3(vector.x.real, vector.y.real, vector.z.real);
+      } else if (vectorComplexPart === 'imaginary') {
+        direction = new THREE.Vector3(vector.x.imag, vector.y.imag, vector.z.imag);
+      } else {
+        // 'magnitude': use real part as default direction (peak has no inherent direction)
+        direction = new THREE.Vector3(vector.x.real, vector.y.real, vector.z.real);
+      }
 
       // Normalize direction
       const length = direction.length();
       if (length === 0) return null;
       direction.normalize();
 
-      // Get color for this arrow (from peak magnitudes — stable across phase)
+      // Get color for this arrow
       const color = new THREE.Color(
         colors[index * 3],
         colors[index * 3 + 1],
         colors[index * 3 + 2]
       );
 
-      // Scale arrow length using instantaneous magnitude (shows phase effect)
+      // Scale arrow length using display magnitude
       let arrowLength: number;
       if (isUniform) {
         arrowLength = arrowSize;
       } else {
-        const normalizedMagnitude = max > min ? (instMag - min) / (max - min) : 0.5;
+        const normalizedMagnitude = max > min ? (dispMag - min) / (max - min) : 0.5;
         arrowLength = arrowSize * (0.2 + 0.8 * Math.max(0, normalizedMagnitude));
       }
 
@@ -298,7 +302,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
         color,
       };
     }).filter(Boolean);
-  }, [dataForFrequency?.points, complexVectors, instantaneousMagnitudes, peakMagnitudes, poyntingVectors, colors, arrowSize, arrowDensity, arrowDisplayMode, arrowScalingMode, randomIndices, min, max, phaseRad, isPoynting]);
+  }, [dataForFrequency?.points, complexVectors, displayMagnitudes, peakMagnitudes, poyntingVectors, colors, arrowSize, arrowDensity, arrowDisplayMode, arrowScalingMode, randomIndices, min, max, vectorComplexPart, isPoynting]);
 
   // Check if we have valid data to render
   const hasData = isPoynting

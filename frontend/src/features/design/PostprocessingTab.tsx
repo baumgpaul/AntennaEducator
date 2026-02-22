@@ -97,7 +97,7 @@ export function getFieldLabel(fieldType: 'E' | 'H' | 'poynting', isVector = fals
 }
 
 /** Compute auto min/max range from solver data, matching each renderer's logic */
-function computeAutoRange(
+export function computeAutoRange(
   item: ViewItem,
   solverResults: SolverResult | null,
   fieldData: PostprocessingTabProps['fieldData'],

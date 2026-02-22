@@ -114,7 +114,7 @@ interface FieldVisualizationProps {
   valueRangeMax?: number;
   // Smoothing options
   smoothShading?: boolean;
-  interpolationLevel?: 1 | 2 | 4;
+  interpolationLevel?: 1 | 2 | 4 | 8;
 }
 
 /**
@@ -180,7 +180,7 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
   valueRangeMin?: number;
   valueRangeMax?: number;
   smoothShading?: boolean;
-  interpolationLevel?: 1 | 2 | 4;
+  interpolationLevel?: 1 | 2 | 4 | 8;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     // Calculate segments from sampling (n points → n-1 segments)
@@ -247,14 +247,13 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
   return (
     <mesh geometry={geometry} position={position}>
       {smoothShading && hasColors ? (
-        <meshPhongMaterial
+        <meshLambertMaterial
           color="#ffffff"
+          emissive="#444444"
           transparent
           opacity={opacity / 100}
           side={THREE.DoubleSide}
           vertexColors
-          flatShading={false}
-          shininess={0}
         />
       ) : (
         <meshBasicMaterial
@@ -328,14 +327,13 @@ function CircleField({ field, opacity, colorMap, fieldData, fieldType, valueRang
   return (
     <mesh geometry={geometry} position={position}>
       {smoothShading && hasColors ? (
-        <meshPhongMaterial
+        <meshLambertMaterial
           color="#ffffff"
+          emissive="#444444"
           transparent
           opacity={opacity / 100}
           side={THREE.DoubleSide}
           vertexColors
-          flatShading={false}
-          shininess={0}
         />
       ) : (
         <meshBasicMaterial
@@ -403,13 +401,12 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
   return (
     <mesh geometry={geometry} position={position}>
       {smoothShading && hasColors ? (
-        <meshPhongMaterial
+        <meshLambertMaterial
           color="#ffffff"
+          emissive="#444444"
           transparent
           opacity={opacity / 100}
           vertexColors
-          flatShading={false}
-          shininess={0}
         />
       ) : (
         <meshBasicMaterial
@@ -481,13 +478,12 @@ function CubeField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
   return (
     <mesh geometry={geometry} position={position}>
       {smoothShading && hasColors ? (
-        <meshPhongMaterial
+        <meshLambertMaterial
           color="#ffffff"
+          emissive="#444444"
           transparent
           opacity={opacity / 100}
           vertexColors
-          flatShading={false}
-          shininess={0}
         />
       ) : (
         <meshBasicMaterial
@@ -519,7 +515,7 @@ function FieldVisualization({
 }: FieldVisualizationProps) {
   const fieldType = field.fieldType;
   const smooth = smoothShading ?? false;
-  const interp = interpolationLevel ?? 1;
+  const interp = interpolationLevel ?? 2;
   // Route to appropriate renderer based on field shape
   // Type narrowing happens automatically based on shape
   if (field.type === '2D') {

@@ -129,8 +129,18 @@ export interface ViewItem {
   // Field smoothing
   /** Enable smooth shading for field magnitude surfaces */
   smoothShading?: boolean;
-  /** Interpolation level for field surfaces (1 = none, 2 = 2x, 4 = 4x subdivision) */
-  interpolationLevel?: 1 | 2 | 4;
+  /** Interpolation level for field surfaces (1 = none, 2 = 2x, 4 = 4x, 8 = 8x subdivision) */
+  interpolationLevel?: 1 | 2 | 4 | 8;
+
+  // Vector complex part selection
+  /** Which part of the complex vector to visualize */
+  vectorComplexPart?: 'real' | 'imaginary' | 'magnitude';
+
+  // Saved manual range (persists across auto/manual toggles)
+  /** Saved manual min when switching to auto */
+  savedManualMin?: number;
+  /** Saved manual max when switching to auto */
+  savedManualMax?: number;
 
   // Line plot properties
   /** Line style for scalar plots */
