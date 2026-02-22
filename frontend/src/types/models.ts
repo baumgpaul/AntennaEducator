@@ -281,6 +281,7 @@ export interface Project {
   simulation_results?: Record<string, any> // Solver output summary + S3 keys
   ui_state?: Record<string, any>           // View configs, selected tabs, camera position
   has_documentation?: boolean              // Whether project has documentation content
+  documentation_preview?: string           // Plain-text preview of documentation content
   user_id?: string | number
   created_at: string
   updated_at: string

@@ -43,6 +43,7 @@ from backend.projects.schemas import (
     ProjectListResponse,
     ProjectResponse,
     ProjectUpdate,
+    generate_content_preview,
 )
 
 app = FastAPI(
@@ -162,10 +163,11 @@ async def list_projects(
     repo: ProjectRepository = Depends(get_repository),
 ):
     projects = await repo.list_projects(user_id=user.id)
-    # Compute has_documentation flag for list response
+    # Compute has_documentation flag and preview for list response
     for p in projects:
         doc = p.get("documentation", {})
         p["has_documentation"] = bool(doc.get("has_content", False))
+        p["documentation_preview"] = doc.get("content_preview", "")
     return projects
 
 
@@ -357,6 +359,7 @@ async def save_documentation(
     existing_doc = project.get("documentation", {})
     doc_meta = {
         "has_content": bool(data.content.strip()),
+        "content_preview": generate_content_preview(data.content),
         "image_keys": existing_doc.get("image_keys", []),
         "last_edited": datetime.now(timezone.utc).isoformat(),
         "last_edited_by": user.id,

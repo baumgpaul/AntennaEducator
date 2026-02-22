@@ -74,7 +74,9 @@ function getMarkdownFromEditor(editor: ReturnType<typeof useEditor>): string {
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const AUTO_SAVE_DELAY_MS = 2000;
-const PANEL_WIDTH = 420;
+const DEFAULT_PANEL_WIDTH = 420;
+const MIN_PANEL_WIDTH = 280;
+const MAX_PANEL_WIDTH = 700;
 
 /** Common KaTeX formula templates for quick insertion. */
 const FORMULA_TEMPLATES = [
@@ -99,9 +101,52 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
 
   const [mode, setMode] = useState<'edit' | 'view'>('edit');
   const [formulaMenuAnchor, setFormulaMenuAnchor] = useState<null | HTMLElement>(null);
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
 
   // Track whether initial load has happened for this project
   const loadedProjectRef = useRef<string | null>(null);
+  const isResizingRef = useRef(false);
+
+  // ── Resize drag handler ────────────────────────────────────────────────
+
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isResizingRef.current = true;
+      const startX = e.clientX;
+      const startWidth = panelWidth;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        if (!isResizingRef.current) return;
+        // Dragging LEFT increases width (panel is on the right)
+        const delta = startX - moveEvent.clientX;
+        const newWidth = Math.min(
+          MAX_PANEL_WIDTH,
+          Math.max(MIN_PANEL_WIDTH, startWidth + delta),
+        );
+        setPanelWidth(newWidth);
+      };
+
+      const onMouseUp = () => {
+        isResizingRef.current = false;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    },
+    [panelWidth],
+  );
+
+  // Double-click to reset width
+  const handleResizeDoubleClick = useCallback(() => {
+    setPanelWidth(DEFAULT_PANEL_WIDTH);
+  }, []);
 
   // ── TipTap editor setup ──────────────────────────────────────────────────
 
@@ -315,16 +360,48 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
   return (
     <Box
       sx={{
-        width: PANEL_WIDTH,
+        width: panelWidth,
         height: '100%',
         display: 'flex',
-        flexDirection: 'column',
-        borderLeft: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
+        flexDirection: 'row',
         overflow: 'hidden',
+        position: 'relative',
       }}
     >
+      {/* Resize drag handle */}
+      <Box
+        onMouseDown={handleResizeStart}
+        onDoubleClick={handleResizeDoubleClick}
+        sx={{
+          width: 6,
+          flexShrink: 0,
+          cursor: 'col-resize',
+          bgcolor: 'transparent',
+          borderLeft: 1,
+          borderColor: 'divider',
+          transition: 'background-color 0.15s',
+          '&:hover': {
+            bgcolor: 'primary.main',
+            borderColor: 'primary.main',
+          },
+          '&:active': {
+            bgcolor: 'primary.dark',
+            borderColor: 'primary.dark',
+          },
+        }}
+      />
+      {/* Panel content */}
+      <Box
+        sx={{
+          flex: 1,
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          bgcolor: 'background.paper',
+          overflow: 'hidden',
+          minWidth: 0,
+        }}
+      >
       {/* Header */}
       <Box
         sx={{
@@ -667,6 +744,7 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
           </MenuItem>
         ))}
       </Menu>
+      </Box>
     </Box>
   );
 }

@@ -1,4 +1,5 @@
 import {
+  Box,
   Card,
   CardContent,
   CardActions,
@@ -122,19 +123,37 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProp
 
         {/* Documentation indicator */}
         {project.has_documentation && (
-          <Typography
-            variant="caption"
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.5,
-              color: 'text.secondary',
-              mt: 0.5,
-            }}
-          >
-            <DescriptionIcon sx={{ fontSize: '0.875rem' }} />
-            Has documentation
-          </Typography>
+          <Box sx={{ mt: 0.5 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.5,
+                color: 'text.secondary',
+              }}
+            >
+              <DescriptionIcon sx={{ fontSize: '0.875rem' }} />
+              Documentation
+            </Typography>
+            {project.documentation_preview && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  display: 'block',
+                  mt: 0.25,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontStyle: 'italic',
+                  maxWidth: '100%',
+                }}
+              >
+                {project.documentation_preview}
+              </Typography>
+            )}
+          </Box>
         )}
       </CardContent>
 

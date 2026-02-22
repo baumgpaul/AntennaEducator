@@ -9,10 +9,48 @@ Changes from v1:
 - Auth schemas moved to ``backend.auth.schemas``
 """
 
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+# Maximum length for the plain-text content preview stored in DynamoDB.
+CONTENT_PREVIEW_MAX_LENGTH = 200
+
+
+def generate_content_preview(markdown: str) -> str:
+    """Strip Markdown formatting and return a short plain-text preview.
+
+    Used to store a lightweight snippet in DynamoDB so the project list
+    can display a documentation summary without fetching from S3.
+    """
+    if not markdown or not markdown.strip():
+        return ""
+    text = markdown
+    # Remove images: ![alt](url)
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
+    # Remove links but keep text: [text](url) → text
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    # Remove headings markers
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
+    # Remove bold/italic markers
+    text = re.sub(r"(\*{1,3}|_{1,3})", "", text)
+    # Remove inline code backticks
+    text = re.sub(r"`{1,3}", "", text)
+    # Remove block math $$...$$
+    text = re.sub(r"\$\$[^$]*\$\$", "[formula]", text, flags=re.DOTALL)
+    # Remove inline math $...$
+    text = re.sub(r"\$[^$]+\$", "[formula]", text)
+    # Remove blockquote markers
+    text = re.sub(r"^>\s?", "", text, flags=re.MULTILINE)
+    # Remove horizontal rules
+    text = re.sub(r"^[-*_]{3,}\s*$", "", text, flags=re.MULTILINE)
+    # Collapse whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) > CONTENT_PREVIEW_MAX_LENGTH:
+        return text[:CONTENT_PREVIEW_MAX_LENGTH].rsplit(" ", 1)[0] + "…"
+    return text
 
 # ── Documentation Metadata ────────────────────────────────────────────────────
 
@@ -27,6 +65,7 @@ class DocumentationMeta(BaseModel):
     """
 
     has_content: bool = False
+    content_preview: str = ""
     image_keys: List[str] = Field(default_factory=list)
     last_edited: Optional[str] = None
     last_edited_by: Optional[str] = None
@@ -116,6 +155,7 @@ class ProjectListResponse(BaseModel):
     name: str
     description: Optional[str] = None
     has_documentation: bool = False
+    documentation_preview: str = ""
     created_at: datetime
     updated_at: datetime
 

@@ -161,6 +161,7 @@ class TestSaveDocumentation:
         assert call_kwargs["project_id"] == "proj-abc"
         doc_meta = call_kwargs["documentation"]
         assert doc_meta["has_content"] is True
+        assert doc_meta["content_preview"] == "Updated New content here."
 
     def test_save_empty_documentation(self, client, mock_deps):
         """Should save empty content and set has_content=False."""
@@ -173,6 +174,7 @@ class TestSaveDocumentation:
         mock_deps["doc_svc"].save_content.assert_called_once_with("proj-abc", "")
         call_kwargs = mock_deps["repo"].update_project.call_args[1]
         assert call_kwargs["documentation"]["has_content"] is False
+        assert call_kwargs["documentation"]["content_preview"] == ""
 
     def test_save_documentation_project_not_found(self, client, mock_deps):
         """Should return 404 for non-existent project."""
@@ -290,3 +292,59 @@ class TestDeleteImage:
 
         response = client.delete("/api/projects/nonexistent/documentation/images/img.png")
         assert response.status_code == 404
+
+
+# ── GET /api/projects (list with documentation preview) ──────────────────────
+
+
+class TestListProjectsDocumentation:
+    """Test that list_projects returns documentation preview."""
+
+    def test_list_projects_with_preview(self, client, mock_deps):
+        """Should include documentation_preview in list response."""
+        mock_deps["repo"].list_projects = AsyncMock(
+            return_value=[
+                {
+                    "id": "proj-1",
+                    "user_id": "user-test-123",
+                    "name": "My Project",
+                    "description": "A project",
+                    "documentation": {
+                        "has_content": True,
+                        "content_preview": "Antenna design notes",
+                        "image_keys": [],
+                    },
+                    "created_at": "2026-01-01T00:00:00+00:00",
+                    "updated_at": "2026-01-01T00:00:00+00:00",
+                }
+            ]
+        )
+
+        response = client.get("/api/projects")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["has_documentation"] is True
+        assert data[0]["documentation_preview"] == "Antenna design notes"
+
+    def test_list_projects_no_documentation(self, client, mock_deps):
+        """Should default preview to empty when no documentation."""
+        mock_deps["repo"].list_projects = AsyncMock(
+            return_value=[
+                {
+                    "id": "proj-2",
+                    "user_id": "user-test-123",
+                    "name": "Empty Project",
+                    "description": "",
+                    "documentation": {},
+                    "created_at": "2026-01-01T00:00:00+00:00",
+                    "updated_at": "2026-01-01T00:00:00+00:00",
+                }
+            ]
+        )
+
+        response = client.get("/api/projects")
+        assert response.status_code == 200
+        data = response.json()
+        assert data[0]["has_documentation"] is False
+        assert data[0]["documentation_preview"] == ""
