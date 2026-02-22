@@ -118,3 +118,44 @@ class ProjectListResponse(BaseModel):
     has_documentation: bool = False
     created_at: datetime
     updated_at: datetime
+
+
+# ── Documentation API Schemas ─────────────────────────────────────────────────
+
+
+class DocumentationContentRequest(BaseModel):
+    """Request body for saving documentation content."""
+
+    content: str = Field("", description="Markdown content to save.")
+
+
+class DocumentationContentResponse(BaseModel):
+    """Response body for documentation content."""
+
+    content: str = ""
+    version: int = 1
+
+
+class ImageUploadRequest(BaseModel):
+    """Request body for generating an image upload URL."""
+
+    filename: str = Field(..., description="Original filename (for extension detection).")
+    content_type: Optional[str] = Field(
+        None,
+        description="MIME type. Auto-detected from filename if omitted.",
+    )
+
+
+class ImageUploadResponse(BaseModel):
+    """Response body for a presigned image upload URL."""
+
+    upload_url: str
+    image_key: str
+    s3_key: str
+    content_type: str
+
+
+class ImageUrlResponse(BaseModel):
+    """Response body for a presigned image GET URL."""
+
+    url: str

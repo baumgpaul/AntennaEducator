@@ -8,6 +8,7 @@ The actual physics lives in the preprocessor / solver / postprocessor services.
 
 import logging
 import os
+from datetime import datetime, timezone
 from typing import List
 
 from dotenv import load_dotenv
@@ -30,8 +31,14 @@ from backend.auth.main import get_current_user_info, login, register
 from backend.common.auth import UserIdentity, get_current_user
 from backend.common.repositories.base import ProjectRepository
 from backend.common.repositories.factory import get_project_repository
+from backend.projects.documentation_service import DocumentationService, get_documentation_service
 from backend.projects.results_service import ResultsService, get_results_service
 from backend.projects.schemas import (
+    DocumentationContentRequest,
+    DocumentationContentResponse,
+    ImageUploadRequest,
+    ImageUploadResponse,
+    ImageUrlResponse,
     ProjectCreate,
     ProjectListResponse,
     ProjectResponse,
@@ -60,6 +67,10 @@ else:
 
 def get_repository() -> ProjectRepository:
     return get_project_repository()
+
+
+def _get_doc_service() -> DocumentationService:
+    return get_documentation_service()
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
@@ -221,6 +232,7 @@ async def delete_project(
     user: UserIdentity = Depends(get_current_user),
     repo: ProjectRepository = Depends(get_repository),
     results_svc: ResultsService = Depends(get_results_service),
+    doc_svc: DocumentationService = Depends(_get_doc_service),
 ):
     project = await repo.get_project(project_id=project_id)
     if not project or project["user_id"] != user.id:
@@ -231,6 +243,12 @@ async def delete_project(
         await results_svc.delete_results(project_id)
     except Exception as e:
         logger.warning(f"Failed to delete S3 results for {project_id}: {e}")
+
+    # Delete documentation (content + images) from S3
+    try:
+        await doc_svc.delete_all(project_id)
+    except Exception as e:
+        logger.warning(f"Failed to delete documentation for {project_id}: {e}")
 
     await repo.delete_project(project_id=project_id)
     return None
@@ -282,6 +300,139 @@ async def duplicate_project(
         ui_state=original.get("ui_state"),
     )
     return duplicate
+
+
+# ── Documentation Endpoints ───────────────────────────────────────────────────
+
+
+async def _get_user_project(
+    project_id: str,
+    user: UserIdentity,
+    repo: ProjectRepository,
+) -> dict:
+    """Fetch a project and verify ownership. Raises 404 if not found / not owned."""
+    project = await repo.get_project(project_id=project_id)
+    if not project or project["user_id"] != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return project
+
+
+@app.get(
+    "/api/projects/{project_id}/documentation",
+    response_model=DocumentationContentResponse,
+)
+async def get_documentation(
+    project_id: str,
+    user: UserIdentity = Depends(get_current_user),
+    repo: ProjectRepository = Depends(get_repository),
+    doc_svc: DocumentationService = Depends(_get_doc_service),
+):
+    """Retrieve documentation content from S3."""
+    await _get_user_project(project_id, user, repo)
+
+    content_data = await doc_svc.load_content(project_id)
+    if content_data is None:
+        return DocumentationContentResponse(content="", version=1)
+    return DocumentationContentResponse(**content_data)
+
+
+@app.put(
+    "/api/projects/{project_id}/documentation",
+    response_model=DocumentationContentResponse,
+)
+async def save_documentation(
+    project_id: str,
+    data: DocumentationContentRequest,
+    user: UserIdentity = Depends(get_current_user),
+    repo: ProjectRepository = Depends(get_repository),
+    doc_svc: DocumentationService = Depends(_get_doc_service),
+):
+    """Save documentation content to S3 and update DynamoDB metadata."""
+    project = await _get_user_project(project_id, user, repo)
+
+    # Save content to S3
+    await doc_svc.save_content(project_id, data.content)
+
+    # Update documentation metadata in DynamoDB
+    existing_doc = project.get("documentation", {})
+    doc_meta = {
+        "has_content": bool(data.content.strip()),
+        "image_keys": existing_doc.get("image_keys", []),
+        "last_edited": datetime.now(timezone.utc).isoformat(),
+        "last_edited_by": user.id,
+    }
+    await repo.update_project(project_id=project_id, documentation=doc_meta)
+
+    return DocumentationContentResponse(content=data.content, version=1)
+
+
+@app.post(
+    "/api/projects/{project_id}/documentation/images",
+    response_model=ImageUploadResponse,
+)
+async def upload_image(
+    project_id: str,
+    data: ImageUploadRequest,
+    user: UserIdentity = Depends(get_current_user),
+    repo: ProjectRepository = Depends(get_repository),
+    doc_svc: DocumentationService = Depends(_get_doc_service),
+):
+    """Generate a presigned PUT URL for direct image upload to S3."""
+    await _get_user_project(project_id, user, repo)
+
+    try:
+        result = await doc_svc.generate_upload_url(project_id, data.filename, data.content_type)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    return ImageUploadResponse(**result)
+
+
+@app.get(
+    "/api/projects/{project_id}/documentation/images/{image_key}",
+    response_model=ImageUrlResponse,
+)
+async def get_image_url(
+    project_id: str,
+    image_key: str,
+    user: UserIdentity = Depends(get_current_user),
+    repo: ProjectRepository = Depends(get_repository),
+    doc_svc: DocumentationService = Depends(_get_doc_service),
+):
+    """Get a presigned GET URL for a documentation image."""
+    await _get_user_project(project_id, user, repo)
+
+    url = await doc_svc.get_image_url(project_id, image_key)
+    return ImageUrlResponse(url=url)
+
+
+@app.delete(
+    "/api/projects/{project_id}/documentation/images/{image_key}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_image(
+    project_id: str,
+    image_key: str,
+    user: UserIdentity = Depends(get_current_user),
+    repo: ProjectRepository = Depends(get_repository),
+    doc_svc: DocumentationService = Depends(_get_doc_service),
+):
+    """Delete a documentation image from S3 and update metadata."""
+    project = await _get_user_project(project_id, user, repo)
+
+    # Delete from S3
+    await doc_svc.delete_image(project_id, image_key)
+
+    # Update metadata: remove image from manifest
+    existing_doc = project.get("documentation", {})
+    image_keys = [k for k in existing_doc.get("image_keys", []) if k != image_key]
+    doc_meta = {
+        **existing_doc,
+        "image_keys": image_keys,
+    }
+    await repo.update_project(project_id=project_id, documentation=doc_meta)
+
+    return None
 
 
 if __name__ == "__main__":
