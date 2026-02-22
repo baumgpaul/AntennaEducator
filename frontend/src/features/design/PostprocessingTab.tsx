@@ -1,11 +1,15 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
   Alert,
   AlertTitle,
   Snackbar,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
+import ChevronLeft from '@mui/icons-material/ChevronLeft';
+import ChevronRight from '@mui/icons-material/ChevronRight';
 import type { SolverWorkflowState } from '@/store/solverSlice';
 import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRequestedFields } from '@/store/solverSlice';
 import { selectIsSolved } from '@/store/designSlice';
@@ -182,6 +186,15 @@ function PostprocessingTab({
   const radiationPattern = useAppSelector(selectRadiationPattern);
   const requestedFields = useAppSelector(selectRequestedFields);
 
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+
+  // Auto-open properties panel when a view or item is selected
+  useEffect(() => {
+    if (selectedItemId || selectedViewId) {
+      setRightPanelOpen(true);
+    }
+  }, [selectedItemId, selectedViewId]);
+
   const [selectedFrequencyIndex] = useState<number>(0);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
@@ -300,7 +313,7 @@ function PostprocessingTab({
       )}
 
       {/* MAIN CONTENT - 3 PANELS */}
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
         {/* LEFT PANEL - TreeView with View Configurations (280px fixed) */}
         <Box
           sx={{
@@ -451,19 +464,70 @@ function PostprocessingTab({
         })()}
       </Box>
 
-      {/* RIGHT PANEL - Properties Panel (320px fixed) */}
-      <Box
-        sx={{
-          width: 320,
-          height: '100%',
-          borderLeft: 1,
-          borderColor: 'divider',
-          overflow: 'hidden',
-          backgroundColor: 'background.paper',
-        }}
-      >
-        <PostprocessingPropertiesPanel />
-      </Box>
+      {/* RIGHT PANEL - Properties Panel (320px, collapsible) */}
+      {rightPanelOpen && (
+        <Box
+          sx={{
+            width: 320,
+            height: '100%',
+            borderLeft: 1,
+            borderColor: 'divider',
+            overflow: 'hidden',
+            backgroundColor: 'background.paper',
+            position: 'relative',
+            flexShrink: 0,
+          }}
+        >
+          <PostprocessingPropertiesPanel />
+          {/* Close toggle */}
+          <div style={{
+            position: 'absolute',
+            left: '-20px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 20,
+          }}>
+            <Tooltip title="Hide Properties" placement="left">
+              <IconButton
+                size="medium"
+                onClick={() => setRightPanelOpen(false)}
+                sx={{
+                  bgcolor: 'background.paper',
+                  boxShadow: 2,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <ChevronRight fontSize="large" />
+              </IconButton>
+            </Tooltip>
+          </div>
+        </Box>
+      )}
+
+      {/* Open toggle when panel is closed */}
+      {!rightPanelOpen && (
+        <div style={{
+          position: 'absolute',
+          right: 0,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 20,
+        }}>
+          <Tooltip title="Show Properties" placement="left">
+            <IconButton
+              size="medium"
+              onClick={() => setRightPanelOpen(true)}
+              sx={{
+                bgcolor: 'background.paper',
+                boxShadow: 2,
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <ChevronLeft fontSize="large" />
+            </IconButton>
+          </Tooltip>
+        </div>
+      )}
       </Box>
     </Box>
   );
