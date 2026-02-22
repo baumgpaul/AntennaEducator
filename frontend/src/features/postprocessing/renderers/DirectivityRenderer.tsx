@@ -54,10 +54,10 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
     : autoMin;
 
   const min = valueRangeMode === 'manual'
-    ? item.valueRangeMin || 0
+    ? (item.valueRangeMin ?? 0)
     : clampedAutoMin;
   const max = valueRangeMode === 'manual'
-    ? item.valueRangeMax || 1
+    ? (item.valueRangeMax ?? 1)
     : autoMax;
 
   // Create colors for each point
