@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, Snackbar, Alert, IconButton } from '@mui/material';
+import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
@@ -8,6 +8,8 @@ import GridOnIcon from '@mui/icons-material/GridOn';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StopIcon from '@mui/icons-material/Stop';
+import ChevronLeft from '@mui/icons-material/ChevronLeft';
+import ChevronRight from '@mui/icons-material/ChevronRight';
 import TreeViewPanel from './TreeViewPanel';
 import Scene3D from './Scene3D';
 import WireGeometry from './WireGeometry';
@@ -86,6 +88,14 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const [addFieldDialogOpen, setAddFieldDialogOpen] = useState(false);
   const [directivityDialogOpen, setDirectivityDialogOpen] = useState(false);
   const [selectedFieldId, setSelectedFieldId] = useState<string | undefined>(undefined);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+
+  // Auto-open properties panel when a field is selected
+  useEffect(() => {
+    if (selectedFieldId) {
+      setRightPanelOpen(true);
+    }
+  }, [selectedFieldId]);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info'>('success');
@@ -577,6 +587,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           display: 'flex',
           flex: 1,
           overflow: 'hidden',
+          position: 'relative',
         }}
       >
       {/* LEFT PANEL - Tree View (280px fixed) */}
@@ -642,23 +653,74 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         </Scene3D>
       </Box>
 
-      {/* RIGHT PANEL - Properties Panel (300px fixed) */}
-      <Box
-        sx={{
-          width: 300,
-          height: '100%',
-          borderLeft: 1,
-          borderColor: 'divider',
-          overflow: 'auto',
-          backgroundColor: 'background.paper',
-        }}
-      >
-        <SolverPropertiesPanel
-          selectedFieldId={selectedFieldId}
-          fieldRegionsVisible={fieldRegionsVisible}
-          onFieldRegionsVisibleChange={handleFieldRegionsVisibleChange}
-        />
-      </Box>
+      {/* RIGHT PANEL - Properties Panel (300px, collapsible) */}
+      {rightPanelOpen && (
+        <Box
+          sx={{
+            width: 300,
+            height: '100%',
+            borderLeft: 1,
+            borderColor: 'divider',
+            overflow: 'auto',
+            backgroundColor: 'background.paper',
+            position: 'relative',
+            flexShrink: 0,
+          }}
+        >
+          <SolverPropertiesPanel
+            selectedFieldId={selectedFieldId}
+            fieldRegionsVisible={fieldRegionsVisible}
+            onFieldRegionsVisibleChange={handleFieldRegionsVisibleChange}
+          />
+          {/* Close toggle */}
+          <div style={{
+            position: 'absolute',
+            left: '-20px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 20,
+          }}>
+            <Tooltip title="Hide Properties" placement="left">
+              <IconButton
+                size="medium"
+                onClick={() => setRightPanelOpen(false)}
+                sx={{
+                  bgcolor: 'background.paper',
+                  boxShadow: 2,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <ChevronRight fontSize="large" />
+              </IconButton>
+            </Tooltip>
+          </div>
+        </Box>
+      )}
+
+      {/* Open toggle when panel is closed */}
+      {!rightPanelOpen && (
+        <div style={{
+          position: 'absolute',
+          right: 0,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 20,
+        }}>
+          <Tooltip title="Show Properties" placement="left">
+            <IconButton
+              size="medium"
+              onClick={() => setRightPanelOpen(true)}
+              sx={{
+                bgcolor: 'background.paper',
+                boxShadow: 2,
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <ChevronLeft fontSize="large" />
+            </IconButton>
+          </Tooltip>
+        </div>
+      )}
       </Box>
 
       {/* DIALOGS */}

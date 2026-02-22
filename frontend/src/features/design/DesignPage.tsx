@@ -103,6 +103,24 @@ function DesignPage() {
   const solverState = useAppSelector((state) => state.solver); // Full solver state for persistence
   const docPanelOpen = useAppSelector((state) => state.documentation.panelOpen);
 
+  // Helper: extract persistable solver state for auto-save
+  // fieldData is included — the backend stores it in S3 (not DynamoDB)
+  const getPersistableSolverState = () => ({
+    results: solverState.results,
+    currentDistribution: solverState.currentDistribution,
+    radiationPattern: solverState.radiationPattern,
+    multiAntennaResults: solverState.multiAntennaResults,
+    frequencySweep: solverState.frequencySweep,
+    resultsHistory: solverState.resultsHistory,
+    requestedFields: solverState.requestedFields,
+    directivityRequested: solverState.directivityRequested,
+    directivitySettings: solverState.directivitySettings,
+    solverState: solverState.solverState,
+    currentFrequency: solverState.currentFrequency,
+    fieldResults: solverState.fieldResults,
+    fieldData: solverState.fieldData,
+  });
+
   // Map solver status to SolverTab-compatible type
   const solvableStatus: 'idle' | 'preparing' | 'running' | 'completed' | 'error' | 'postprocessing-ready' =
     solverStatus === 'failed' ? 'error' : solverStatus === 'cancelled' ? 'idle' : solverStatus;
@@ -291,23 +309,7 @@ function DesignPage() {
     if (projectLoadingRef.current) return; // Skip during project load
     if (triggerSave > 0 && projectId && elements.length > 0) {
       console.log('Triggering auto-save after property change, elements:', elements);
-      // Extract persistable solver state (results, field data, etc.)
-      const persistableSolverState = {
-        results: solverState.results,
-        currentDistribution: solverState.currentDistribution,
-        radiationPattern: solverState.radiationPattern,
-        multiAntennaResults: solverState.multiAntennaResults,
-        frequencySweep: solverState.frequencySweep,
-        resultsHistory: solverState.resultsHistory,
-        requestedFields: solverState.requestedFields,
-        directivityRequested: solverState.directivityRequested,
-        directivitySettings: solverState.directivitySettings,
-        solverState: solverState.solverState,
-        currentFrequency: solverState.currentFrequency,
-        fieldResults: solverState.fieldResults,
-        // Note: fieldData excluded - too large for DynamoDB (must re-run postprocessing to regenerate)
-      };
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState());
     }
   }, [triggerSave, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced, solverState]);
 
@@ -318,23 +320,7 @@ function DesignPage() {
     if (elements && elements.length > previousElementCountRef.current) {
       console.log(`New element(s) added: ${previousElementCountRef.current} -> ${elements.length}, saving...`);
       previousElementCountRef.current = elements.length;
-      // Extract persistable solver state
-      const persistableSolverState = {
-        results: solverState.results,
-        currentDistribution: solverState.currentDistribution,
-        radiationPattern: solverState.radiationPattern,
-        multiAntennaResults: solverState.multiAntennaResults,
-        frequencySweep: solverState.frequencySweep,
-        resultsHistory: solverState.resultsHistory,
-        requestedFields: solverState.requestedFields,
-        directivityRequested: solverState.directivityRequested,
-        directivitySettings: solverState.directivitySettings,
-        solverState: solverState.solverState,
-        currentFrequency: solverState.currentFrequency,
-        fieldResults: solverState.fieldResults,
-        // Note: fieldData excluded - too large for DynamoDB (must re-run postprocessing to regenerate)
-      };
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState());
     } else if (elements && elements.length < previousElementCountRef.current) {
       // Update count if elements were removed
       previousElementCountRef.current = elements.length;
@@ -351,22 +337,7 @@ function DesignPage() {
     if (projectLoadingRef.current) return; // Skip during project load
     if (projectId && (elements.length > 0 || requestedFields.length > 0)) {
       console.log('Requested fields changed, saving...');
-      const persistableSolverState = {
-        results: solverState.results,
-        currentDistribution: solverState.currentDistribution,
-        radiationPattern: solverState.radiationPattern,
-        multiAntennaResults: solverState.multiAntennaResults,
-        frequencySweep: solverState.frequencySweep,
-        resultsHistory: solverState.resultsHistory,
-        requestedFields: solverState.requestedFields,
-        directivityRequested: solverState.directivityRequested,
-        directivitySettings: solverState.directivitySettings,
-        solverState: solverState.solverState,
-        currentFrequency: solverState.currentFrequency,
-        fieldResults: solverState.fieldResults,
-        // Note: fieldData excluded - too large for DynamoDB (must re-run postprocessing to regenerate)
-      };
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState());
     }
   }, [requestedFields, projectId, elements, viewConfigurations, saveProjectDebounced, solverState]);
 
@@ -380,22 +351,7 @@ function DesignPage() {
     // Save view configurations even when empty (to persist deletions)
     if (projectId) {
       console.log('View configurations changed, saving...', viewConfigurations.length, 'views');
-      const persistableSolverState = {
-        results: solverState.results,
-        currentDistribution: solverState.currentDistribution,
-        radiationPattern: solverState.radiationPattern,
-        multiAntennaResults: solverState.multiAntennaResults,
-        frequencySweep: solverState.frequencySweep,
-        resultsHistory: solverState.resultsHistory,
-        requestedFields: solverState.requestedFields,
-        directivityRequested: solverState.directivityRequested,
-        directivitySettings: solverState.directivitySettings,
-        solverState: solverState.solverState,
-        currentFrequency: solverState.currentFrequency,
-        fieldResults: solverState.fieldResults,
-        // Note: fieldData excluded - too large for DynamoDB (must re-run postprocessing to regenerate)
-      };
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState());
     }
   }, [viewConfigurations, projectId, elements, requestedFields, saveProjectDebounced, solverState]);
 
@@ -404,22 +360,7 @@ function DesignPage() {
     if (projectLoadingRef.current) return; // Skip during project load
     if (projectId && solverState.results) {
       console.log('Solver results changed, saving...');
-      const persistableSolverState = {
-        results: solverState.results,
-        currentDistribution: solverState.currentDistribution,
-        radiationPattern: solverState.radiationPattern,
-        multiAntennaResults: solverState.multiAntennaResults,
-        frequencySweep: solverState.frequencySweep,
-        resultsHistory: solverState.resultsHistory,
-        requestedFields: solverState.requestedFields,
-        directivityRequested: solverState.directivityRequested,
-        directivitySettings: solverState.directivitySettings,
-        solverState: solverState.solverState,
-        currentFrequency: solverState.currentFrequency,
-        fieldResults: solverState.fieldResults,
-        // Note: fieldData excluded - too large for DynamoDB (must re-run postprocessing to regenerate)
-      };
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, persistableSolverState);
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState());
     }
   }, [solverState.results, solverState.radiationPattern, solverState.multiAntennaResults, solverState.frequencySweep, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced, solverState]);
 
