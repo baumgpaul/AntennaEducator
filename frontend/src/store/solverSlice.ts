@@ -414,7 +414,9 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 >('solver/computePostprocessingWorkflow', async (_, { getState, rejectWithValue, dispatch }) => {
   try {
     const state = getState();
-    const { results, directivityRequested, requestedFields, frequencySweep, currentFrequency } = state.solver;
+    const { results, directivityRequested, frequencySweep, currentFrequency } = state.solver;
+    // Cast needed: Immer's WritableNonArrayDraft mangles Zod-inferred tuple types
+    const requestedFields = state.solver.requestedFields as FieldDefinition[];
     const { elements } = state.design;
 
     // Debug logging for branch currents issue
@@ -1280,7 +1282,11 @@ export const selectSweepInProgress = (state: RootState) => state.solver.sweepInP
 export const selectRadiationPattern = (state: RootState) => state.solver.radiationPattern;
 
 // Field and postprocessing selectors
-export const selectRequestedFields = (state: RootState) => state.solver.requestedFields;
+// Cast needed: Immer's WritableNonArrayDraft mangles Zod-inferred tuple types (centerPoint)
+export const selectRequestedFields = (state: RootState) =>
+  state.solver.requestedFields as FieldDefinition[];
+export const selectRequestedFieldById = (state: RootState, id: string) =>
+  state.solver.requestedFields.find(f => f.id === id) as FieldDefinition | undefined;
 export const selectDirectivityRequested = (state: RootState) => state.solver.directivityRequested;
 export const selectDirectivitySettings = (state: RootState) => state.solver.directivitySettings;
 export const selectSolverState = (state: RootState) => state.solver.solverState;

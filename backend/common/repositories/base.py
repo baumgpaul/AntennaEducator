@@ -54,6 +54,7 @@ class ProjectRepository(ABC):
         simulation_config: Optional[Dict] = None,
         simulation_results: Optional[Dict] = None,
         ui_state: Optional[Dict] = None,
+        documentation: Optional[Dict] = None,
     ) -> Dict[str, Any]: ...
 
     @abstractmethod

@@ -100,6 +100,7 @@ class DynamoDBProjectRepository(ProjectRepository):
             "SimulationConfig": {},
             "SimulationResults": {},
             "UiState": {},
+            "Documentation": {},
             "CreatedAt": now,
             "UpdatedAt": now,
         }
@@ -141,6 +142,7 @@ class DynamoDBProjectRepository(ProjectRepository):
         simulation_config: Optional[Dict] = None,
         simulation_results: Optional[Dict] = None,
         ui_state: Optional[Dict] = None,
+        documentation: Optional[Dict] = None,
     ) -> Dict[str, Any]:
         project = await self.get_project(project_id)
         if not project:
@@ -177,6 +179,10 @@ class DynamoDBProjectRepository(ProjectRepository):
         if ui_state is not None:
             parts.append("UiState = :us")
             values[":us"] = ui_state
+
+        if documentation is not None:
+            parts.append("Documentation = :doc")
+            values[":doc"] = documentation
 
         params: Dict[str, Any] = {
             "Key": {
@@ -224,14 +230,17 @@ class DynamoDBProjectRepository(ProjectRepository):
         return {
             "id": pick("ProjectId", "project_id"),
             "user_id": pick("UserId", "user_id"),
-            "name": pick("Name", "name", ""),
-            "description": pick("Description", "description", ""),
-            "design_state": _from_dynamodb(pick("DesignState", "design_state", {})),
-            "simulation_config": _from_dynamodb(pick("SimulationConfig", "simulation_config", {})),
-            "simulation_results": _from_dynamodb(
-                pick("SimulationResults", "simulation_results", {})
+            "name": pick("Name", "name", default=""),
+            "description": pick("Description", "description", default=""),
+            "design_state": _from_dynamodb(pick("DesignState", "design_state", default={})),
+            "simulation_config": _from_dynamodb(
+                pick("SimulationConfig", "simulation_config", default={})
             ),
-            "ui_state": _from_dynamodb(pick("UiState", "ui_state", {})),
+            "simulation_results": _from_dynamodb(
+                pick("SimulationResults", "simulation_results", default={})
+            ),
+            "ui_state": _from_dynamodb(pick("UiState", "ui_state", default={})),
+            "documentation": _from_dynamodb(pick("Documentation", "documentation", default={})),
             "created_at": pick("CreatedAt", "created_at"),
             "updated_at": pick("UpdatedAt", "updated_at"),
         }
