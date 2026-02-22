@@ -129,7 +129,7 @@ export function computeAutoRange(
     case 'field-magnitude':
     case 'field-vector': {
       if (fieldData && item.fieldId && displayFrequencyHz) {
-        const freqData = fieldData[item.fieldId]?.[displayFrequencyHz];
+        const freqData = fieldData[item.fieldId]?.[displayFrequencyHz] ?? fieldData[item.fieldId]?.[String(displayFrequencyHz)];
         const ft = resolveFieldType(item, requestedFields);
         const magnitudes = selectFieldMagnitudes(freqData, ft);
         if (magnitudes && magnitudes.length > 0) {

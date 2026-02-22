@@ -46,7 +46,6 @@ import {
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import ImageExtension from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Markdown } from 'tiptap-markdown';
 import { debounce } from 'lodash';
@@ -69,6 +68,65 @@ function getMarkdownFromEditor(editor: ReturnType<typeof useEditor>): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const storage = editor.storage as any;
   return (storage.markdown?.getMarkdown?.() as string) ?? '';
+}
+
+// ── Doc-image URL helpers ────────────────────────────────────────────────────
+
+/** Regex matching doc-image:// stable references: doc-image://img_xxxxxxxxxxxx.ext */
+const DOC_IMAGE_REGEX = /doc-image:\/\/(img_[a-f0-9]{12}\.[a-z]+)/g;
+
+/**
+ * Regex matching presigned S3 URLs for documentation images.
+ * Captures the image key (e.g. img_abc123def456.png) from the URL path.
+ * Matches URLs containing /documentation/images/{image_key} with optional query params.
+ */
+const S3_DOC_IMAGE_REGEX =
+  /https?:\/\/[^\s")\]]+\/documentation\/images\/(img_[a-f0-9]{12}\.[a-z]+)(?:\?[^\s")\]]*)?/g;
+
+/**
+ * Replace presigned S3 URLs for documentation images with stable doc-image:// references.
+ * Used before saving content to the server — ensures stored content never contains
+ * expiring presigned URLs.
+ *
+ * Also handles backward-compatible stabilization of existing content that may
+ * already contain expired presigned URLs from before this fix.
+ */
+function stabilizeDocImageUrls(markdown: string): string {
+  return markdown.replace(S3_DOC_IMAGE_REGEX, (_match, imageKey: string) => {
+    return `doc-image://${imageKey}`;
+  });
+}
+
+/**
+ * Replace doc-image:// stable references with fresh presigned S3 URLs.
+ * Used when loading content from the server into the editor for display.
+ */
+async function resolveDocImageUrls(markdown: string, projectId: string): Promise<string> {
+  // Collect unique image keys
+  const matches = [...markdown.matchAll(DOC_IMAGE_REGEX)];
+  if (matches.length === 0) return markdown;
+
+  const imageKeys = [...new Set(matches.map((m) => m[1]))];
+
+  // Resolve all keys to presigned URLs in parallel
+  const { getImageUrl } = await import('@/api/documentation');
+  const urlMap = new Map<string, string>();
+  await Promise.all(
+    imageKeys.map(async (key) => {
+      try {
+        const url = await getImageUrl(projectId, key);
+        urlMap.set(key, url);
+      } catch {
+        // If resolution fails, leave the doc-image:// reference (image will be broken)
+        console.warn(`[DocumentationPanel] Failed to resolve image: ${key}`);
+      }
+    }),
+  );
+
+  // Replace all doc-image:// references with resolved URLs
+  return markdown.replace(DOC_IMAGE_REGEX, (fullMatch, key: string) => {
+    return urlMap.get(key) || fullMatch;
+  });
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -155,14 +213,14 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4] },
         codeBlock: false, // We'll use code fences via markdown
+        link: {
+          openOnClick: false,
+          autolink: true,
+        },
       }),
       ImageExtension.configure({
         inline: false,
         allowBase64: false,
-      }),
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
       }),
       Placeholder.configure({
         placeholder: 'Start writing documentation…\n\nUse the toolbar for formatting, or type Markdown directly.',
@@ -194,7 +252,10 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
   const debouncedSave = useCallback(
     debounce((md: string) => {
       if (projectId) {
-        dispatch(saveDocumentation({ projectId, content: md }));
+        // Convert any presigned S3 URLs back to stable doc-image:// references
+        // before persisting, so stored content never contains expiring URLs.
+        const stableMd = stabilizeDocImageUrls(md);
+        dispatch(saveDocumentation({ projectId, content: stableMd }));
       }
     }, AUTO_SAVE_DELAY_MS),
     [dispatch, projectId]
@@ -221,10 +282,20 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
     if (editor && !dirty && content !== undefined) {
       const currentMd = getMarkdownFromEditor(editor);
       if (currentMd !== content) {
-        editor.commands.setContent(content || '');
+        // First, stabilize any legacy presigned S3 URLs that were stored before
+        // the doc-image:// scheme was implemented. Then resolve all doc-image://
+        // references to fresh presigned URLs for display.
+        const stabilized = stabilizeDocImageUrls(content || '');
+        if (stabilized.includes('doc-image://') && projectId) {
+          resolveDocImageUrls(stabilized, projectId).then((resolved) => {
+            editor.commands.setContent(resolved);
+          });
+        } else {
+          editor.commands.setContent(stabilized || '');
+        }
       }
     }
-  }, [editor, content, dirty]);
+  }, [editor, content, dirty, projectId]);
 
   // ── Image handlers ───────────────────────────────────────────────────────
 
@@ -336,7 +407,8 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
     if (projectId && editor) {
       debouncedSave.cancel();
       const md = getMarkdownFromEditor(editor);
-      dispatch(saveDocumentation({ projectId, content: md }));
+      const stableMd = stabilizeDocImageUrls(md);
+      dispatch(saveDocumentation({ projectId, content: stableMd }));
     }
   }, [projectId, editor, debouncedSave, dispatch]);
 

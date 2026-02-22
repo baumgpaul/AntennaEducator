@@ -29,7 +29,8 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
   }
 
   // Get field data for this frequency
-  const dataForFrequency = fieldData[field.id]?.[frequencyHz];
+  // Use String() for defensive key lookup — after JSON round-trip, object keys are always strings
+  const dataForFrequency = fieldData[field.id]?.[frequencyHz] ?? fieldData[field.id]?.[String(frequencyHz)];
 
   if (!dataForFrequency) {
     return null;

@@ -583,7 +583,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             {/* Complex Part Selector */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
-                Complex Part
+                Rendered Quantity
               </Typography>
               <ToggleButtonGroup
                 value={selectedItem?.vectorComplexPart || 'magnitude'}
