@@ -10,9 +10,27 @@ Changes from v1:
 """
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+# ── Documentation Metadata ────────────────────────────────────────────────────
+
+
+class DocumentationMeta(BaseModel):
+    """Lightweight metadata stored in DynamoDB for documentation.
+
+    The actual Markdown content and images live in S3 under
+    ``projects/{project_id}/documentation/``.
+    Only flags and the image manifest are kept here to stay
+    well within the DynamoDB 400 KB item limit.
+    """
+
+    has_content: bool = False
+    image_keys: List[str] = Field(default_factory=list)
+    last_edited: Optional[str] = None
+    last_edited_by: Optional[str] = None
+
 
 # ── Project Schemas ───────────────────────────────────────────────────────────
 
@@ -50,6 +68,13 @@ class ProjectBase(BaseModel):
         None,
         description="Frontend-only state: selected tabs, camera position, etc.",
     )
+    documentation: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Documentation metadata (has_content flag, image manifest). "
+            "Full content stored in S3."
+        ),
+    )
 
 
 class ProjectCreate(ProjectBase):
@@ -67,6 +92,7 @@ class ProjectUpdate(BaseModel):
     simulation_config: Optional[Dict[str, Any]] = None
     simulation_results: Optional[Dict[str, Any]] = None
     ui_state: Optional[Dict[str, Any]] = None
+    documentation: Optional[Dict[str, Any]] = None
 
 
 class ProjectResponse(ProjectBase):
@@ -89,5 +115,6 @@ class ProjectListResponse(BaseModel):
     user_id: str
     name: str
     description: Optional[str] = None
+    has_documentation: bool = False
     created_at: datetime
     updated_at: datetime

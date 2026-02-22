@@ -122,6 +122,7 @@ async def create_project(
             data.simulation_config,
             data.simulation_results,
             data.ui_state,
+            data.documentation,
         ]
     )
     if update_needed:
@@ -138,6 +139,7 @@ async def create_project(
             simulation_config=data.simulation_config,
             simulation_results=slim_results,
             ui_state=data.ui_state,
+            documentation=data.documentation,
         )
 
     return project
@@ -148,7 +150,12 @@ async def list_projects(
     user: UserIdentity = Depends(get_current_user),
     repo: ProjectRepository = Depends(get_repository),
 ):
-    return await repo.list_projects(user_id=user.id)
+    projects = await repo.list_projects(user_id=user.id)
+    # Compute has_documentation flag for list response
+    for p in projects:
+        doc = p.get("documentation", {})
+        p["has_documentation"] = bool(doc.get("has_content", False))
+    return projects
 
 
 @app.get("/api/projects/{project_id}", response_model=ProjectResponse)
@@ -196,6 +203,7 @@ async def update_project(
         simulation_config=data.simulation_config,
         simulation_results=slim_results,
         ui_state=data.ui_state,
+        documentation=data.documentation,
     )
 
     # Hydrate results from S3 before returning (so frontend gets full data)
@@ -264,7 +272,8 @@ async def duplicate_project(
     if new_result_keys:
         new_simulation_results["result_keys"] = new_result_keys
 
-    # Copy all JSON blobs
+    # Copy all JSON blobs (documentation metadata only — S3 content/images
+    # are NOT duplicated; the copy starts with has_content=False)
     duplicate = await repo.update_project(
         project_id=duplicate["id"],
         design_state=original.get("design_state"),
