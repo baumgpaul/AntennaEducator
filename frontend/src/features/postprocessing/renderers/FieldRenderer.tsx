@@ -1,5 +1,6 @@
 import React from 'react';
 import { ViewItem } from '../../../types/postprocessing';
+import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { useAppSelector } from '../../../store/hooks';
 import FieldVisualization from '../../design/FieldVisualization';
 
@@ -17,7 +18,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
   frequencyHz,
 }) => {
   const fieldData = useAppSelector((state) => state.solver.fieldData);
-  const requestedFields = useAppSelector((state) => state.solver.requestedFields);
+  const requestedFields = useAppSelector((state) => state.solver.requestedFields) as FieldDefinition[];
 
   // Find the field definition for this item
   const fieldId = item.fieldId;
