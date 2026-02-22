@@ -26,6 +26,9 @@ interface DesignCanvasProps {
   bottomPanel?: React.ReactNode;
   showResultsPanel?: boolean;
 
+  // Panel control
+  hideRightPanel?: boolean;
+
   // Display options
   gridVisible?: boolean;
   cameraMode?: 'perspective' | 'orthographic';
@@ -55,6 +58,7 @@ function DesignCanvas({
   rightPanel,
   topToolbar,
   bottomPanel,
+  hideRightPanel = false,
   showResultsPanel = false,
   gridVisible = true,
   cameraMode = 'perspective',
@@ -73,12 +77,15 @@ function DesignCanvas({
   // Get visualization mode from Redux store
   const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
 
-  // Auto-open right panel when an element is selected
+  // Auto-open right panel when an element is selected (unless doc panel is shown)
   useEffect(() => {
-    if (selectedElementId) {
+    if (selectedElementId && !hideRightPanel) {
       setRightPanelOpen(true);
     }
-  }, [selectedElementId]);
+  }, [selectedElementId, hideRightPanel]);
+
+  // Effective right panel visibility: hidden when doc panel occupies the space
+  const showRightPanel = rightPanelOpen && !hideRightPanel;
 
   const leftPanelWidth = 280;
   const rightPanelWidth = 320;
@@ -258,7 +265,7 @@ function DesignCanvas({
         </div>
 
         {/* Right Panel (Properties) */}
-        {rightPanelOpen && (
+        {showRightPanel && (
           <div style={{
             width: `${rightPanelWidth}px`,
             flexShrink: 0,
@@ -297,7 +304,7 @@ function DesignCanvas({
         )}
 
         {/* Right Panel Toggle when closed */}
-        {!rightPanelOpen && (
+        {!showRightPanel && !hideRightPanel && (
           <div style={{
             position: 'absolute',
             right: 0,

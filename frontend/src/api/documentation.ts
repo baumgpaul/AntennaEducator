@@ -93,13 +93,16 @@ export async function uploadImageToS3(
   file: File | Blob,
   contentType: string
 ): Promise<void> {
-  await fetch(uploadUrl, {
+  const response = await fetch(uploadUrl, {
     method: 'PUT',
     body: file,
     headers: {
       'Content-Type': contentType,
     },
   });
+  if (!response.ok) {
+    throw new Error(`Image upload failed: ${response.status} ${response.statusText}`);
+  }
 }
 
 /**

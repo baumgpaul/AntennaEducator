@@ -79,8 +79,6 @@ def _get_doc_service() -> DocumentationService:
 
 @app.get("/health")
 async def health_check():
-    from datetime import datetime, timezone
-
     db_status = "unknown"
     try:
         repo = get_project_repository()
@@ -381,12 +379,20 @@ async def upload_image(
     doc_svc: DocumentationService = Depends(_get_doc_service),
 ):
     """Generate a presigned PUT URL for direct image upload to S3."""
-    await _get_user_project(project_id, user, repo)
+    project = await _get_user_project(project_id, user, repo)
 
     try:
         result = await doc_svc.generate_upload_url(project_id, data.filename, data.content_type)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    # Update image manifest in DynamoDB
+    existing_doc = project.get("documentation", {})
+    image_keys = existing_doc.get("image_keys", []) + [result["image_key"]]
+    await repo.update_project(
+        project_id=project_id,
+        documentation={**existing_doc, "image_keys": image_keys},
+    )
 
     return ImageUploadResponse(**result)
 
@@ -405,7 +411,10 @@ async def get_image_url(
     """Get a presigned GET URL for a documentation image."""
     await _get_user_project(project_id, user, repo)
 
-    url = await doc_svc.get_image_url(project_id, image_key)
+    try:
+        url = await doc_svc.get_image_url(project_id, image_key)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
     return ImageUrlResponse(url=url)
 
 
@@ -423,8 +432,11 @@ async def delete_image(
     """Delete a documentation image from S3 and update metadata."""
     project = await _get_user_project(project_id, user, repo)
 
-    # Delete from S3
-    await doc_svc.delete_image(project_id, image_key)
+    # Validate and delete from S3
+    try:
+        await doc_svc.delete_image(project_id, image_key)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     # Update metadata: remove image from manifest
     existing_doc = project.get("documentation", {})

@@ -153,24 +153,24 @@ class TestDocumentationService:
         """get_image_url should return a presigned GET URL."""
         mock_s3_client.generate_presigned_url.return_value = "https://s3.example.com/presigned-get"
 
-        url = await service.get_image_url("proj-1", "img_abc123.png")
+        url = await service.get_image_url("proj-1", "img_abc123def456.png")
 
         assert url == "https://s3.example.com/presigned-get"
         call_args = mock_s3_client.generate_presigned_url.call_args
         assert call_args[0][0] == "get_object"
         params = call_args[1]["Params"]
-        assert params["Key"] == "projects/proj-1/documentation/images/img_abc123.png"
+        assert params["Key"] == "projects/proj-1/documentation/images/img_abc123def456.png"
 
     # ── Image deletion ────────────────────────────────────────────────────
 
     @pytest.mark.asyncio
     async def test_delete_image(self, service, mock_s3_client):
         """delete_image should remove a single image from S3."""
-        await service.delete_image("proj-1", "img_abc123.png")
+        await service.delete_image("proj-1", "img_abc123def456.png")
 
         mock_s3_client.delete_object.assert_called_once_with(
             Bucket="test-bucket",
-            Key="projects/proj-1/documentation/images/img_abc123.png",
+            Key="projects/proj-1/documentation/images/img_abc123def456.png",
         )
 
     @pytest.mark.asyncio
@@ -244,3 +244,32 @@ class TestDocumentationService:
     def test_detect_content_type_unknown(self, service):
         """Should default to image/png for unknown extensions."""
         assert service._detect_content_type("file.bmp") == "image/png"
+
+    # ── Image key validation ──────────────────────────────────────────────
+
+    def test_validate_image_key_valid(self, service):
+        """Should accept valid image keys."""
+        service.validate_image_key("img_abc123def456.png")
+        service.validate_image_key("img_0123456789ab.jpeg")
+        service.validate_image_key("img_fedcba987654.svg")
+        service.validate_image_key("img_aabbccddee01.webp")
+
+    def test_validate_image_key_path_traversal(self, service):
+        """Should reject path traversal attempts."""
+        with pytest.raises(ValueError, match="Invalid image key"):
+            service.validate_image_key("../../secrets.json")
+
+    def test_validate_image_key_no_prefix(self, service):
+        """Should reject keys without the img_ prefix."""
+        with pytest.raises(ValueError, match="Invalid image key"):
+            service.validate_image_key("screenshot.png")
+
+    def test_validate_image_key_too_short(self, service):
+        """Should reject keys with wrong hex length."""
+        with pytest.raises(ValueError, match="Invalid image key"):
+            service.validate_image_key("img_abc.png")
+
+    def test_validate_image_key_special_chars(self, service):
+        """Should reject keys with special characters."""
+        with pytest.raises(ValueError, match="Invalid image key"):
+            service.validate_image_key("img_abc123def456/../x.png")

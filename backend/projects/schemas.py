@@ -166,7 +166,11 @@ class ProjectListResponse(BaseModel):
 class DocumentationContentRequest(BaseModel):
     """Request body for saving documentation content."""
 
-    content: str = Field("", description="Markdown content to save.")
+    content: str = Field(
+        "",
+        max_length=500_000,
+        description="Markdown content to save (max 500 KB).",
+    )
 
 
 class DocumentationContentResponse(BaseModel):
@@ -179,7 +183,11 @@ class DocumentationContentResponse(BaseModel):
 class ImageUploadRequest(BaseModel):
     """Request body for generating an image upload URL."""
 
-    filename: str = Field(..., description="Original filename (for extension detection).")
+    filename: str = Field(
+        ...,
+        max_length=255,
+        description="Original filename (for extension detection).",
+    )
     content_type: Optional[str] = Field(
         None,
         description="MIME type. Auto-detected from filename if omitted.",

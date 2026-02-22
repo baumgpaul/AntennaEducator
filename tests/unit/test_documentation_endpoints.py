@@ -194,7 +194,7 @@ class TestUploadImage:
     """Test image upload URL generation."""
 
     def test_generate_upload_url(self, client, mock_deps):
-        """Should return presigned upload URL + image key."""
+        """Should return presigned upload URL, image key, and update manifest."""
         response = client.post(
             "/api/projects/proj-abc/documentation/images",
             json={"filename": "screenshot.png", "content_type": "image/png"},
@@ -208,6 +208,10 @@ class TestUploadImage:
         mock_deps["doc_svc"].generate_upload_url.assert_called_once_with(
             "proj-abc", "screenshot.png", "image/png"
         )
+        # Should update image_keys manifest in DynamoDB
+        mock_deps["repo"].update_project.assert_called_once()
+        call_kwargs = mock_deps["repo"].update_project.call_args[1]
+        assert "img_abc123def456.png" in call_kwargs["documentation"]["image_keys"]
 
     def test_generate_upload_url_auto_detect_type(self, client, mock_deps):
         """Should work without explicit content_type."""
@@ -251,12 +255,28 @@ class TestGetImageUrl:
 
     def test_get_image_url(self, client, mock_deps):
         """Should return presigned GET URL for an image."""
-        response = client.get("/api/projects/proj-abc/documentation/images/img_abc123.png")
+        response = client.get(
+            "/api/projects/proj-abc/documentation/images/img_abc123def456.png"
+        )
         assert response.status_code == 200
 
         data = response.json()
         assert data["url"] == "https://s3.example.com/presigned-get"
-        mock_deps["doc_svc"].get_image_url.assert_called_once_with("proj-abc", "img_abc123.png")
+        mock_deps["doc_svc"].get_image_url.assert_called_once_with(
+            "proj-abc", "img_abc123def456.png"
+        )
+
+    def test_get_image_url_path_traversal(self, client, mock_deps):
+        """Should reject image keys that don't match the expected format."""
+        mock_deps["doc_svc"].get_image_url.side_effect = ValueError(
+            "Invalid image key"
+        )
+
+        response = client.get(
+            "/api/projects/proj-abc/documentation/images/../../secrets.json"
+        )
+        # FastAPI may return 400 (our handler) or 404 (path doesn't match)
+        assert response.status_code in (400, 404)
 
 
 # ── DELETE /api/projects/{pid}/documentation/images/{key} ────────────────────
@@ -272,19 +292,19 @@ class TestDeleteImage:
             **MOCK_PROJECT,
             "documentation": {
                 "has_content": True,
-                "image_keys": ["img_abc123.png", "other.jpg"],
+                "image_keys": ["img_abc123def456.png", "img_def456789abc.jpg"],
             },
         }
 
-        response = client.delete("/api/projects/proj-abc/documentation/images/img_abc123.png")
+        response = client.delete("/api/projects/proj-abc/documentation/images/img_abc123def456.png")
         assert response.status_code == 204
 
-        mock_deps["doc_svc"].delete_image.assert_called_once_with("proj-abc", "img_abc123.png")
+        mock_deps["doc_svc"].delete_image.assert_called_once_with("proj-abc", "img_abc123def456.png")
         # Should update DynamoDB to remove image from manifest
         mock_deps["repo"].update_project.assert_called_once()
         call_kwargs = mock_deps["repo"].update_project.call_args[1]
-        assert "img_abc123.png" not in call_kwargs["documentation"]["image_keys"]
-        assert "other.jpg" in call_kwargs["documentation"]["image_keys"]
+        assert "img_abc123def456.png" not in call_kwargs["documentation"]["image_keys"]
+        assert "img_def456789abc.jpg" in call_kwargs["documentation"]["image_keys"]
 
     def test_delete_image_project_not_found(self, client, mock_deps):
         """Should return 404 for non-existent project."""

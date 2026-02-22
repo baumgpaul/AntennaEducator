@@ -58,7 +58,7 @@ import AddAntennaElementDialog from './dialogs/AddAntennaElementDialog';
 import AddFieldVisualizationDialog from './dialogs/AddFieldVisualizationDialog';
 import AddScalarPlotDialog from './dialogs/AddScalarPlotDialog';
 import DocumentationPanel from './DocumentationPanel';
-import { togglePanel as toggleDocPanel, clearDocumentation } from '@/store/documentationSlice';
+import { togglePanel as toggleDocPanel, closePanel as closeDocPanel, clearDocumentation } from '@/store/documentationSlice';
 import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 
 
@@ -603,10 +603,11 @@ function DesignPage() {
   };
   // Element selection handler
   const handleElementSelect = (elementId: string) => {
-    console.log('Element selected:', elementId);
-    console.log('Current elements:', elements);
-    console.log('Found element:', elements?.find(el => el.id === elementId));
     dispatch(setSelectedElement(elementId));
+    // Close doc panel so properties panel can show on the Designer tab
+    if (docPanelOpen && currentTab === 'designer') {
+      dispatch(closeDocPanel());
+    }
   };
 
   // Color change handler
@@ -973,6 +974,7 @@ function DesignPage() {
         onElementSelect={handleElementSelect}
         mesh={mesh || undefined} // Keep for backward compatibility
         currentDistribution={currentDistribution || undefined} // Pass solver results
+        hideRightPanel={docPanelOpen}
         gridVisible={gridVisible}
         cameraMode={cameraMode}
         scene3DRef={scene3DRef}
@@ -1003,15 +1005,11 @@ function DesignPage() {
         }
         rightPanel={
           <PropertiesPanel
-            antennaElement={(() => {
-              const found = selectedElementId
+            antennaElement={
+              selectedElementId
                 ? elements?.find(el => el.id === selectedElementId)
-                : undefined;
-              console.log('PropertiesPanel - selectedElementId:', selectedElementId);
-              console.log('PropertiesPanel - elements:', elements);
-              console.log('PropertiesPanel - found element:', found);
-              return found;
-            })()}
+                : undefined
+            }
             onColorChange={handleColorChange}
             onPositionChange={handlePositionChange}
             onRotationChange={handleRotationChange}

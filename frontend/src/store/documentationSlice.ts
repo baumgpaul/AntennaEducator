@@ -7,7 +7,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import * as documentationApi from '@/api/documentation'
-import type { DocumentationContent, ImageUploadResponse } from '@/api/documentation'
+import type { ImageUploadResponse } from '@/api/documentation'
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -91,15 +91,6 @@ export const deleteImage = createAsyncThunk(
   async ({ projectId, imageKey }: { projectId: string; imageKey: string }) => {
     await documentationApi.deleteImage(projectId, imageKey)
     return imageKey
-  }
-)
-
-/** Resolve a presigned GET URL for an image. */
-export const resolveImageUrl = createAsyncThunk(
-  'documentation/resolveImageUrl',
-  async ({ projectId, imageKey }: { projectId: string; imageKey: string }) => {
-    const url = await documentationApi.getImageUrl(projectId, imageKey)
-    return { imageKey, url }
   }
 )
 
