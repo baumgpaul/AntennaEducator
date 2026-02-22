@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Box, Snackbar, Alert, Tabs, Tab, Typography } from '@mui/material';
+import { Box, Snackbar, Alert, Tabs, Tab, Typography, IconButton, Tooltip, Badge } from '@mui/material';
+import { Description as DescriptionIcon } from '@mui/icons-material';
 import { debounce } from 'lodash';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -56,6 +57,8 @@ import AddViewDialog from './dialogs/AddViewDialog';
 import AddAntennaElementDialog from './dialogs/AddAntennaElementDialog';
 import AddFieldVisualizationDialog from './dialogs/AddFieldVisualizationDialog';
 import AddScalarPlotDialog from './dialogs/AddScalarPlotDialog';
+import DocumentationPanel from './DocumentationPanel';
+import { togglePanel as toggleDocPanel } from '@/store/documentationSlice';
 import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 
 
@@ -98,6 +101,7 @@ function DesignPage() {
   const fieldData = useAppSelector((state) => state.solver.fieldData);
   const viewConfigurations = useAppSelector((state) => state.postprocessing.viewConfigurations);
   const solverState = useAppSelector((state) => state.solver); // Full solver state for persistence
+  const docPanelOpen = useAppSelector((state) => state.documentation.panelOpen);
 
   // Map solver status to SolverTab-compatible type
   const solvableStatus: 'idle' | 'preparing' | 'running' | 'completed' | 'error' | 'postprocessing-ready' =
@@ -932,19 +936,33 @@ function DesignPage() {
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Tab Navigation */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', backgroundColor: 'background.paper' }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', backgroundColor: 'background.paper', display: 'flex', alignItems: 'center' }}>
         <Tabs
           value={currentTab}
           onChange={handleTabChange}
           aria-label="design workspace tabs"
+          sx={{ flex: 1 }}
         >
           <Tab label="Designer" value="designer" />
           <Tab label="Solver" value="solver" />
           <Tab label="Postprocessing" value="postprocessing" disabled={solverWorkflowState === 'idle'} />
         </Tabs>
+        <Tooltip title={docPanelOpen ? 'Hide Documentation' : 'Show Documentation'}>
+          <IconButton
+            size="small"
+            onClick={() => dispatch(toggleDocPanel())}
+            color={docPanelOpen ? 'primary' : 'default'}
+            sx={{ mr: 1 }}
+          >
+            <DescriptionIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Box>
 
-      {/* Tab Content */}
+      {/* Tab Content + Documentation Panel */}
+      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Tab Content */}
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {currentTab === 'designer' && (
       <DesignCanvas
         elements={elements}
@@ -1081,6 +1099,13 @@ function DesignPage() {
           projectName={currentProject?.name}
         />
       )}
+        </Box>
+
+        {/* Documentation Panel (right-side, all tabs) */}
+        {docPanelOpen && projectId && (
+          <DocumentationPanel projectId={projectId} />
+        )}
+      </Box>
 
       {/* Antenna Configuration Dialogs */}
       <DipoleDialog
