@@ -903,7 +903,17 @@ const solverSlice = createSlice({
       if (savedState.solverState !== undefined) state.solverState = savedState.solverState;
       if (savedState.currentFrequency !== undefined) state.currentFrequency = savedState.currentFrequency;
       if (savedState.fieldResults !== undefined) state.fieldResults = savedState.fieldResults;
-      if (savedState.fieldData !== undefined) state.fieldData = savedState.fieldData;
+      if (savedState.fieldData !== undefined) {
+        state.fieldData = savedState.fieldData;
+        // Debug: log field data restoration for diagnosing load issues
+        if (savedState.fieldData) {
+          const fieldIds = Object.keys(savedState.fieldData);
+          console.log('[loadSolverState] Restored fieldData:', {
+            fieldIds,
+            frequencyKeys: fieldIds.map(id => Object.keys(savedState.fieldData![id])),
+          });
+        }
+      }
 
       // Don't restore status/progress/error/jobId - these are runtime state
       // Don't restore currentRequest - this is transient
