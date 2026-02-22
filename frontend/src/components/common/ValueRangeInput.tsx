@@ -29,6 +29,10 @@ interface ValueRangeInputProps {
   autoMin?: number;
   /** Auto-computed max value (used as default when switching to manual) */
   autoMax?: number;
+  /** Previously saved manual min (restored when switching back to manual) */
+  savedManualMin?: number;
+  /** Previously saved manual max (restored when switching back to manual) */
+  savedManualMax?: number;
   /** Label prefix for Min/Max fields (e.g. ' (dBi)') */
   labelSuffix?: string;
   /** Label for the section */
@@ -39,6 +43,8 @@ interface ValueRangeInputProps {
   onMinChange: (value: number) => void;
   /** Called when max value changes (only valid numbers) */
   onMaxChange: (value: number) => void;
+  /** Called to save manual values when switching to auto */
+  onSaveManualRange?: (min: number, max: number) => void;
 }
 
 const ValueRangeInput: React.FC<ValueRangeInputProps> = ({
@@ -47,11 +53,14 @@ const ValueRangeInput: React.FC<ValueRangeInputProps> = ({
   max,
   autoMin,
   autoMax,
+  savedManualMin,
+  savedManualMax,
   labelSuffix = '',
   label = 'Value Range',
   onModeChange,
   onMinChange,
   onMaxChange,
+  onSaveManualRange,
 }) => {
   // Local text state for controlled input (allows intermediate states like "1." or "1e")
   const [minText, setMinText] = useState(String(min));
@@ -71,17 +80,22 @@ const ValueRangeInput: React.FC<ValueRangeInputProps> = ({
     const newMode = value as 'auto' | 'manual';
 
     if (newMode === 'manual' && mode === 'auto') {
-      // Default manual range to auto-computed values
-      const defaultMin = autoMin ?? 0;
-      const defaultMax = autoMax ?? 1;
-      onMinChange(defaultMin);
-      onMaxChange(defaultMax);
-      setMinText(formatForDisplay(defaultMin));
-      setMaxText(formatForDisplay(defaultMax));
+      // Switching to manual: restore saved values if available, otherwise use auto range
+      const restoredMin = savedManualMin ?? autoMin ?? 0;
+      const restoredMax = savedManualMax ?? autoMax ?? 1;
+      onMinChange(restoredMin);
+      onMaxChange(restoredMax);
+      setMinText(formatForDisplay(restoredMin));
+      setMaxText(formatForDisplay(restoredMax));
+    } else if (newMode === 'auto' && mode === 'manual') {
+      // Switching to auto: save current manual values for later restoration
+      if (onSaveManualRange) {
+        onSaveManualRange(min, max);
+      }
     }
 
     onModeChange(newMode);
-  }, [mode, autoMin, autoMax, onModeChange, onMinChange, onMaxChange]);
+  }, [mode, autoMin, autoMax, savedManualMin, savedManualMax, min, max, onModeChange, onMinChange, onMaxChange, onSaveManualRange]);
 
   const handleMinTextChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const text = e.target.value;
