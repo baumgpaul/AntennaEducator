@@ -41,7 +41,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
   const valueRangeMin = item.valueRangeMin;
   const valueRangeMax = item.valueRangeMax;
   const smoothShading = item.smoothShading ?? false;
-  const interpolationLevel = item.interpolationLevel ?? 1;
+  const interpolationLevel = item.interpolationLevel ?? 2;
 
   // Prepare field data object for FieldVisualization
   const visualizationData = {
