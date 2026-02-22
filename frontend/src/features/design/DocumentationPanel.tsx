@@ -9,7 +9,7 @@
  *   - Collapsible right-side panel (appears on all tabs)
  */
 
-import { useEffect, useCallback, useRef, useMemo, useState } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import {
   Box,
   IconButton,
@@ -52,6 +52,13 @@ import { Markdown } from 'tiptap-markdown';
 import { debounce } from 'lodash';
 
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+  fetchDocumentation,
+  saveDocumentation,
+  uploadImage,
+  setContent,
+  closePanel,
+} from '@/store/documentationSlice';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,13 +70,6 @@ function getMarkdownFromEditor(editor: ReturnType<typeof useEditor>): string {
   const storage = editor.storage as any;
   return (storage.markdown?.getMarkdown?.() as string) ?? '';
 }
-import {
-  fetchDocumentation,
-  saveDocumentation,
-  uploadImage,
-  setContent,
-  closePanel,
-} from '@/store/documentationSlice';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -287,13 +287,26 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
     input.click();
   };
 
-  const handleManualSave = () => {
+  const handleManualSave = useCallback(() => {
     if (projectId && editor) {
       debouncedSave.cancel();
       const md = getMarkdownFromEditor(editor);
       dispatch(saveDocumentation({ projectId, content: md }));
     }
-  };
+  }, [projectId, editor, debouncedSave, dispatch]);
+
+  // ── Keyboard shortcut: Ctrl+S to save ────────────────────────────────────
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleManualSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleManualSave]);
 
   // ── Render ───────────────────────────────────────────────────────────────
 

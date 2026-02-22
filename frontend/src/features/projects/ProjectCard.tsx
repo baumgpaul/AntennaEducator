@@ -13,6 +13,7 @@ import {
   Delete as DeleteIcon,
   FileCopy as CopyIcon,
   OpenInNew as OpenIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -119,7 +120,22 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProp
           </Typography>
         )}
 
-        {/* Future: Add chips for antenna/simulation counts when available */}
+        {/* Documentation indicator */}
+        {project.has_documentation && (
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              color: 'text.secondary',
+              mt: 0.5,
+            }}
+          >
+            <DescriptionIcon sx={{ fontSize: '0.875rem' }} />
+            Has documentation
+          </Typography>
+        )}
       </CardContent>
 
       <CardActions sx={{ px: 2, pb: 2, pt: 0, justifyContent: 'space-between' }}>

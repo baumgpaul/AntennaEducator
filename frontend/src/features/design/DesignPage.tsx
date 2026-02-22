@@ -58,7 +58,7 @@ import AddAntennaElementDialog from './dialogs/AddAntennaElementDialog';
 import AddFieldVisualizationDialog from './dialogs/AddFieldVisualizationDialog';
 import AddScalarPlotDialog from './dialogs/AddScalarPlotDialog';
 import DocumentationPanel from './DocumentationPanel';
-import { togglePanel as toggleDocPanel } from '@/store/documentationSlice';
+import { togglePanel as toggleDocPanel, clearDocumentation } from '@/store/documentationSlice';
 import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 
 
@@ -145,6 +145,9 @@ function DesignPage() {
   useEffect(() => {
     if (projectId) {
       dispatch(fetchProject(projectId));
+      // Clear documentation state so stale content from a previous project
+      // isn't shown while the new project's docs load
+      dispatch(clearDocumentation());
     }
   }, [projectId, dispatch]);
 
