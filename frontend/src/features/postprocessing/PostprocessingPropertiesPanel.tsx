@@ -23,6 +23,8 @@ import {
   ToggleButton,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ValueRangeInput from '../../components/common/ValueRangeInput';
+import SliderWithInput from '../../components/common/SliderWithInput';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   selectSelectedView,
@@ -276,44 +278,15 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             </FormControl>
             {renderColorbarToggle()}
 
-            {/* Value Range Mode Toggle */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" gutterBottom>
-                Value Range
-              </Typography>
-              <ToggleButtonGroup
-                value={commonProps.valueRangeMode}
-                exclusive
-                onChange={(_, value) => value && handleItemPropertyChange('valueRangeMode', value)}
-                size="small"
-                fullWidth
-              >
-                <ToggleButton value="auto">Auto</ToggleButton>
-                <ToggleButton value="manual">Manual</ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
-
-            {/* Manual Range Inputs */}
-            {commonProps.valueRangeMode === 'manual' && (
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <TextField
-                  label="Min"
-                  type="number"
-                  value={commonProps.valueRangeMin}
-                  onChange={(e) => handleItemPropertyChange('valueRangeMin', parseFloat(e.target.value))}
-                  size="small"
-                  fullWidth
-                />
-                <TextField
-                  label="Max"
-                  type="number"
-                  value={commonProps.valueRangeMax}
-                  onChange={(e) => handleItemPropertyChange('valueRangeMax', parseFloat(e.target.value))}
-                  size="small"
-                  fullWidth
-                />
-              </Box>
-            )}
+            {/* Value Range */}
+            <ValueRangeInput
+              mode={commonProps.valueRangeMode}
+              min={commonProps.valueRangeMin}
+              max={commonProps.valueRangeMax}
+              onModeChange={(v) => handleItemPropertyChange('valueRangeMode', v)}
+              onMinChange={(v) => handleItemPropertyChange('valueRangeMin', v)}
+              onMaxChange={(v) => handleItemPropertyChange('valueRangeMax', v)}
+            />
 
             {/* Edge Size */}
             <Box sx={{ mb: 2 }}>
@@ -369,44 +342,15 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             </FormControl>
             {renderColorbarToggle()}
 
-            {/* Value Range Mode Toggle */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" gutterBottom>
-                Value Range
-              </Typography>
-              <ToggleButtonGroup
-                value={commonProps.valueRangeMode}
-                exclusive
-                onChange={(_, value) => value && handleItemPropertyChange('valueRangeMode', value)}
-                size="small"
-                fullWidth
-              >
-                <ToggleButton value="auto">Auto</ToggleButton>
-                <ToggleButton value="manual">Manual</ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
-
-            {/* Manual Range Inputs */}
-            {commonProps.valueRangeMode === 'manual' && (
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <TextField
-                  label="Min"
-                  type="number"
-                  value={commonProps.valueRangeMin}
-                  onChange={(e) => handleItemPropertyChange('valueRangeMin', parseFloat(e.target.value))}
-                  size="small"
-                  fullWidth
-                />
-                <TextField
-                  label="Max"
-                  type="number"
-                  value={commonProps.valueRangeMax}
-                  onChange={(e) => handleItemPropertyChange('valueRangeMax', parseFloat(e.target.value))}
-                  size="small"
-                  fullWidth
-                />
-              </Box>
-            )}
+            {/* Value Range */}
+            <ValueRangeInput
+              mode={commonProps.valueRangeMode}
+              min={commonProps.valueRangeMin}
+              max={commonProps.valueRangeMax}
+              onModeChange={(v) => handleItemPropertyChange('valueRangeMode', v)}
+              onMinChange={(v) => handleItemPropertyChange('valueRangeMin', v)}
+              onMaxChange={(v) => handleItemPropertyChange('valueRangeMax', v)}
+            />
 
             {/* Node Size */}
             <Box sx={{ mb: 2 }}>
@@ -464,44 +408,46 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             </FormControl>
             {renderColorbarToggle()}
 
-            {/* Value Range Mode Toggle */}
+            {/* Value Range */}
+            <ValueRangeInput
+              mode={commonProps.valueRangeMode}
+              min={commonProps.valueRangeMin}
+              max={commonProps.valueRangeMax}
+              onModeChange={(v) => handleItemPropertyChange('valueRangeMode', v)}
+              onMinChange={(v) => handleItemPropertyChange('valueRangeMin', v)}
+              onMaxChange={(v) => handleItemPropertyChange('valueRangeMax', v)}
+            />
+
+            {/* Smooth Shading */}
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={selectedItem?.smoothShading ?? false}
+                  onChange={(e) => handleItemPropertyChange('smoothShading', e.target.checked)}
+                  size="small"
+                />
+              }
+              label="Smooth Shading"
+              sx={{ mb: 1 }}
+            />
+
+            {/* Interpolation Level */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
-                Value Range
+                Interpolation
               </Typography>
               <ToggleButtonGroup
-                value={commonProps.valueRangeMode}
+                value={selectedItem?.interpolationLevel ?? 1}
                 exclusive
-                onChange={(_, value) => value && handleItemPropertyChange('valueRangeMode', value)}
+                onChange={(_, value) => value && handleItemPropertyChange('interpolationLevel', value)}
                 size="small"
                 fullWidth
               >
-                <ToggleButton value="auto">Auto</ToggleButton>
-                <ToggleButton value="manual">Manual</ToggleButton>
+                <ToggleButton value={1}>None</ToggleButton>
+                <ToggleButton value={2}>2×</ToggleButton>
+                <ToggleButton value={4}>4×</ToggleButton>
               </ToggleButtonGroup>
             </Box>
-
-            {/* Manual Range Inputs */}
-            {commonProps.valueRangeMode === 'manual' && (
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <TextField
-                  label="Min"
-                  type="number"
-                  value={commonProps.valueRangeMin}
-                  onChange={(e) => handleItemPropertyChange('valueRangeMin', parseFloat(e.target.value))}
-                  size="small"
-                  fullWidth
-                />
-                <TextField
-                  label="Max"
-                  type="number"
-                  value={commonProps.valueRangeMax}
-                  onChange={(e) => handleItemPropertyChange('valueRangeMax', parseFloat(e.target.value))}
-                  size="small"
-                  fullWidth
-                />
-              </Box>
-            )}
           </>
         );
 
@@ -558,44 +504,16 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               </ToggleButtonGroup>
             </Box>
 
-            {/* Value Range Mode Toggle */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" gutterBottom>
-                Value Range {commonProps.scale === 'logarithmic' ? '(dBi)' : ''}
-              </Typography>
-              <ToggleButtonGroup
-                value={commonProps.valueRangeMode}
-                exclusive
-                onChange={(_, value) => value && handleItemPropertyChange('valueRangeMode', value)}
-                size="small"
-                fullWidth
-              >
-                <ToggleButton value="auto">Auto</ToggleButton>
-                <ToggleButton value="manual">Manual</ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
-
-            {/* Manual Range Inputs */}
-            {commonProps.valueRangeMode === 'manual' && (
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <TextField
-                  label={`Min${commonProps.scale === 'logarithmic' ? ' (dBi)' : ''}`}
-                  type="number"
-                  value={commonProps.valueRangeMin}
-                  onChange={(e) => handleItemPropertyChange('valueRangeMin', parseFloat(e.target.value))}
-                  size="small"
-                  fullWidth
-                />
-                <TextField
-                  label={`Max${commonProps.scale === 'logarithmic' ? ' (dBi)' : ''}`}
-                  type="number"
-                  value={commonProps.valueRangeMax}
-                  onChange={(e) => handleItemPropertyChange('valueRangeMax', parseFloat(e.target.value))}
-                  size="small"
-                  fullWidth
-                />
-              </Box>
-            )}
+            {/* Value Range */}
+            <ValueRangeInput
+              mode={commonProps.valueRangeMode}
+              min={commonProps.valueRangeMin}
+              max={commonProps.valueRangeMax}
+              labelSuffix={commonProps.scale === 'logarithmic' ? '(dBi)' : ''}
+              onModeChange={(v) => handleItemPropertyChange('valueRangeMode', v)}
+              onMinChange={(v) => handleItemPropertyChange('valueRangeMin', v)}
+              onMaxChange={(v) => handleItemPropertyChange('valueRangeMax', v)}
+            />
 
             {/* Size Factor */}
             <Box sx={{ mb: 2 }}>
@@ -652,62 +570,46 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             </FormControl>
             {renderColorbarToggle()}
 
-            {/* Value Range Mode Toggle */}
+            {/* Value Range */}
+            <ValueRangeInput
+              mode={commonProps.valueRangeMode}
+              min={commonProps.valueRangeMin}
+              max={commonProps.valueRangeMax}
+              onModeChange={(v) => handleItemPropertyChange('valueRangeMode', v)}
+              onMinChange={(v) => handleItemPropertyChange('valueRangeMin', v)}
+              onMaxChange={(v) => handleItemPropertyChange('valueRangeMax', v)}
+            />
+
+            {/* Arrow Scaling Mode */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
-                Value Range
+                Arrow Scaling
               </Typography>
               <ToggleButtonGroup
-                value={commonProps.valueRangeMode}
+                value={selectedItem?.arrowScalingMode || 'magnitude'}
                 exclusive
-                onChange={(_, value) => value && handleItemPropertyChange('valueRangeMode', value)}
+                onChange={(_, value) => value && handleItemPropertyChange('arrowScalingMode', value)}
                 size="small"
                 fullWidth
               >
-                <ToggleButton value="auto">Auto</ToggleButton>
-                <ToggleButton value="manual">Manual</ToggleButton>
+                <ToggleButton value="magnitude">Magnitude</ToggleButton>
+                <ToggleButton value="uniform">Uniform</ToggleButton>
               </ToggleButtonGroup>
             </Box>
 
-            {/* Manual Range Inputs */}
-            {commonProps.valueRangeMode === 'manual' && (
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <TextField
-                  label="Min"
-                  type="number"
-                  value={commonProps.valueRangeMin}
-                  onChange={(e) => handleItemPropertyChange('valueRangeMin', parseFloat(e.target.value))}
-                  size="small"
-                  fullWidth
-                />
-                <TextField
-                  label="Max"
-                  type="number"
-                  value={commonProps.valueRangeMax}
-                  onChange={(e) => handleItemPropertyChange('valueRangeMax', parseFloat(e.target.value))}
-                  size="small"
-                  fullWidth
-                />
-              </Box>
-            )}
-
-            {/* Arrow Size */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" gutterBottom>
-                Arrow Size: {(commonProps.arrowSize * 1000).toFixed(1)} mm
-              </Typography>
-              <Slider
-                value={commonProps.arrowSize}
-                onChange={(_, value) => handleItemPropertyChange('arrowSize', value as number)}
-                min={0.001}
-                max={0.1}
-                step={0.001}
-                scale={(x) => Math.pow(10, x)} // Semi-logarithmic scale
-                valueLabelDisplay="auto"
-                valueLabelFormat={(v) => `${(v * 1000).toFixed(1)} mm`}
-                size="small"
-              />
-            </Box>
+            {/* Arrow Size (slider + textbox) */}
+            <SliderWithInput
+              value={commonProps.arrowSize}
+              min={0.001}
+              max={0.1}
+              step={0.001}
+              label="Arrow Size"
+              formatValue={(v) => `${(v * 1000).toFixed(1)} mm`}
+              formatSliderLabel={(v) => `${(v * 1000).toFixed(1)} mm`}
+              scale={(x) => Math.pow(10, x)}
+              onChange={(v) => handleItemPropertyChange('arrowSize', v)}
+              inputWidth={70}
+            />
 
             {/* Arrow Display Mode Toggle */}
             <Box sx={{ mb: 2 }}>

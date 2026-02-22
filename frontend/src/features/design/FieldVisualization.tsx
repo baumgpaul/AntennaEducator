@@ -112,12 +112,65 @@ interface FieldVisualizationProps {
   valueRangeMode?: 'auto' | 'manual';
   valueRangeMin?: number;
   valueRangeMax?: number;
+  // Smoothing options
+  smoothShading?: boolean;
+  interpolationLevel?: 1 | 2 | 4;
+}
+
+/**
+ * Bilinear interpolation of a 2D grid of values.
+ * Takes a grid of (rows × cols) values and returns a (newRows × newCols) upsampled grid.
+ */
+function bilinearInterpolate(values: number[], cols: number, rows: number, factor: number): {
+  interpolated: number[];
+  newCols: number;
+  newRows: number;
+} {
+  if (factor <= 1 || values.length === 0) {
+    return { interpolated: values, newCols: cols, newRows: rows };
+  }
+
+  const newCols = (cols - 1) * factor + 1;
+  const newRows = (rows - 1) * factor + 1;
+  const result = new Array(newCols * newRows);
+
+  for (let j = 0; j < newRows; j++) {
+    for (let i = 0; i < newCols; i++) {
+      // Fractional position in original grid
+      const srcX = i / factor;
+      const srcY = j / factor;
+
+      // Integer indices of surrounding cells
+      const x0 = Math.floor(srcX);
+      const y0 = Math.floor(srcY);
+      const x1 = Math.min(x0 + 1, cols - 1);
+      const y1 = Math.min(y0 + 1, rows - 1);
+
+      // Fractional part
+      const fx = srcX - x0;
+      const fy = srcY - y0;
+
+      // Bilinear interpolation
+      const v00 = values[y0 * cols + x0] ?? 0;
+      const v10 = values[y0 * cols + x1] ?? 0;
+      const v01 = values[y1 * cols + x0] ?? 0;
+      const v11 = values[y1 * cols + x1] ?? 0;
+
+      result[j * newCols + i] =
+        v00 * (1 - fx) * (1 - fy) +
+        v10 * fx * (1 - fy) +
+        v01 * (1 - fx) * fy +
+        v11 * fx * fy;
+    }
+  }
+
+  return { interpolated: result, newCols, newRows };
 }
 
 /**
  * Render a 2D plane field region
  */
-function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax }: {
+function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, interpolationLevel }: {
   field: FieldDefinition2D;
   opacity: number;
   colorMap: ColorMapType;
@@ -126,17 +179,24 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
   valueRangeMode?: 'auto' | 'manual';
   valueRangeMin?: number;
   valueRangeMax?: number;
+  smoothShading?: boolean;
+  interpolationLevel?: 1 | 2 | 4;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     // Calculate segments from sampling (n points → n-1 segments)
-    const segmentsX = (field.sampling?.x || 20) - 1;
-    const segmentsY = (field.sampling?.y || 20) - 1;
+    const samplingX = field.sampling?.x || 20;
+    const samplingY = field.sampling?.y || 20;
+    const factor = interpolationLevel ?? 1;
+
+    // If interpolating, increase geometry resolution
+    const effectiveSegX = factor > 1 ? (samplingX - 1) * factor : samplingX - 1;
+    const effectiveSegY = factor > 1 ? (samplingY - 1) * factor : samplingY - 1;
 
     const geom = new THREE.PlaneGeometry(
       (field.dimensions?.width || 100) / 1000, // mm to meters
       (field.dimensions?.height || 100) / 1000, // mm to meters
-      segmentsX,
-      segmentsY
+      effectiveSegX,
+      effectiveSegY
     );
 
     // Rotate plane to match normal vector
@@ -152,18 +212,29 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
 
     // Apply vertex colors if field data is available
     let hasColors = false;
-    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    let magnitudes = selectFieldMagnitudes(fieldData, fieldType);
     if (magnitudes && magnitudes.length > 0) {
+      // Apply bilinear interpolation if requested
+      if (factor > 1) {
+        const { interpolated } = bilinearInterpolate(magnitudes, samplingX, samplingY, factor);
+        magnitudes = interpolated;
+      }
+
       // Use manual range if specified, otherwise auto
       const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
       const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
       const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
+
+      // Compute smooth normals if smooth shading is enabled
+      if (smoothShading) {
+        geom.computeVertexNormals();
+      }
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, interpolationLevel]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -175,14 +246,26 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
 
   return (
     <mesh geometry={geometry} position={position}>
-      <meshBasicMaterial
-        color={hasColors ? "#ffffff" : "#4488ff"}
-        transparent
-        opacity={opacity / 100}
-        side={THREE.DoubleSide}
-        wireframe={!hasColors}
-        vertexColors={hasColors}
-      />
+      {smoothShading && hasColors ? (
+        <meshPhongMaterial
+          color="#ffffff"
+          transparent
+          opacity={opacity / 100}
+          side={THREE.DoubleSide}
+          vertexColors
+          flatShading={false}
+          shininess={0}
+        />
+      ) : (
+        <meshBasicMaterial
+          color={hasColors ? "#ffffff" : "#4488ff"}
+          transparent
+          opacity={opacity / 100}
+          side={THREE.DoubleSide}
+          wireframe={!hasColors}
+          vertexColors={hasColors}
+        />
+      )}
     </mesh>
   );
 }
@@ -190,7 +273,7 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
 /**
  * Render a 2D circular field region
  */
-function CircleField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax }: {
+function CircleField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading }: {
   field: FieldDefinition2D;
   opacity: number;
   colorMap: ColorMapType;
@@ -199,6 +282,7 @@ function CircleField({ field, opacity, colorMap, fieldData, fieldType, valueRang
   valueRangeMode?: 'auto' | 'manual';
   valueRangeMin?: number;
   valueRangeMax?: number;
+  smoothShading?: boolean;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const radius = field.dimensions?.radius || 50;
@@ -227,10 +311,11 @@ function CircleField({ field, opacity, colorMap, fieldData, fieldType, valueRang
       const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
+      if (smoothShading) geom.computeVertexNormals();
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -242,14 +327,26 @@ function CircleField({ field, opacity, colorMap, fieldData, fieldType, valueRang
 
   return (
     <mesh geometry={geometry} position={position}>
-      <meshBasicMaterial
-        color={hasColors ? "#ffffff" : "#44ff88"}
-        transparent
-        opacity={opacity / 100}
-        side={THREE.DoubleSide}
-        wireframe={!hasColors}
-        vertexColors={hasColors}
-      />
+      {smoothShading && hasColors ? (
+        <meshPhongMaterial
+          color="#ffffff"
+          transparent
+          opacity={opacity / 100}
+          side={THREE.DoubleSide}
+          vertexColors
+          flatShading={false}
+          shininess={0}
+        />
+      ) : (
+        <meshBasicMaterial
+          color={hasColors ? "#ffffff" : "#44ff88"}
+          transparent
+          opacity={opacity / 100}
+          side={THREE.DoubleSide}
+          wireframe={!hasColors}
+          vertexColors={hasColors}
+        />
+      )}
     </mesh>
   );
 }
@@ -257,7 +354,7 @@ function CircleField({ field, opacity, colorMap, fieldData, fieldType, valueRang
 /**
  * Render a 3D spherical field region
  */
-function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax }: {
+function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading }: {
   field: FieldDefinition3D;
   opacity: number;
   colorMap: ColorMapType;
@@ -266,6 +363,7 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
   valueRangeMode?: 'auto' | 'manual';
   valueRangeMin?: number;
   valueRangeMax?: number;
+  smoothShading?: boolean;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const radius = field.sphereRadius || 50;
@@ -288,10 +386,11 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
       const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
+      if (smoothShading) geom.computeVertexNormals();
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -303,13 +402,24 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
 
   return (
     <mesh geometry={geometry} position={position}>
-      <meshBasicMaterial
-        color={hasColors ? "#ffffff" : "#ff8844"}
-        transparent
-        opacity={opacity / 100}
-        wireframe={!hasColors}
-        vertexColors={hasColors}
-      />
+      {smoothShading && hasColors ? (
+        <meshPhongMaterial
+          color="#ffffff"
+          transparent
+          opacity={opacity / 100}
+          vertexColors
+          flatShading={false}
+          shininess={0}
+        />
+      ) : (
+        <meshBasicMaterial
+          color={hasColors ? "#ffffff" : "#ff8844"}
+          transparent
+          opacity={opacity / 100}
+          wireframe={!hasColors}
+          vertexColors={hasColors}
+        />
+      )}
     </mesh>
   );
 }
@@ -317,7 +427,7 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
 /**
  * Render a 3D cubic field region
  */
-function CubeField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax }: {
+function CubeField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading }: {
   field: FieldDefinition3D;
   opacity: number;
   colorMap: ColorMapType;
@@ -326,6 +436,7 @@ function CubeField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
   valueRangeMode?: 'auto' | 'manual';
   valueRangeMin?: number;
   valueRangeMax?: number;
+  smoothShading?: boolean;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const dims = field.cubeDimensions || { Lx: 100, Ly: 100, Lz: 100 };
@@ -353,10 +464,11 @@ function CubeField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
       const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
       geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
+      if (smoothShading) geom.computeVertexNormals();
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -368,13 +480,24 @@ function CubeField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
 
   return (
     <mesh geometry={geometry} position={position}>
-      <meshBasicMaterial
-        color={hasColors ? "#ffffff" : "#ff44aa"}
-        transparent
-        opacity={opacity / 100}
-        wireframe={!hasColors}
-        vertexColors={hasColors}
-      />
+      {smoothShading && hasColors ? (
+        <meshPhongMaterial
+          color="#ffffff"
+          transparent
+          opacity={opacity / 100}
+          vertexColors
+          flatShading={false}
+          shininess={0}
+        />
+      ) : (
+        <meshBasicMaterial
+          color={hasColors ? "#ffffff" : "#ff44aa"}
+          transparent
+          opacity={opacity / 100}
+          wireframe={!hasColors}
+          vertexColors={hasColors}
+        />
+      )}
     </mesh>
   );
 }
@@ -391,21 +514,25 @@ function FieldVisualization({
   valueRangeMode,
   valueRangeMin,
   valueRangeMax,
+  smoothShading,
+  interpolationLevel,
 }: FieldVisualizationProps) {
   const fieldType = field.fieldType;
+  const smooth = smoothShading ?? false;
+  const interp = interpolationLevel ?? 1;
   // Route to appropriate renderer based on field shape
   // Type narrowing happens automatically based on shape
   if (field.type === '2D') {
     if (field.shape === 'plane') {
-      return <PlaneField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} />;
+      return <PlaneField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} interpolationLevel={interp} />;
     } else if (field.shape === 'circle') {
-      return <CircleField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} />;
+      return <CircleField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} />;
     }
   } else if (field.type === '3D') {
     if (field.shape === 'sphere') {
-      return <SphereField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} />;
+      return <SphereField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} />;
     } else if (field.shape === 'cube') {
-      return <CubeField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} />;
+      return <CubeField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} />;
     }
   }
 

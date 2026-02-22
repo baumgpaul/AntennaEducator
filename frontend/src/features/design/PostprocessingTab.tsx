@@ -400,8 +400,8 @@ function PostprocessingTab({
             let min = 0, max = 1, label = 'Value', unit = '';
 
             if (colorItem.valueRangeMode === 'manual') {
-              min = colorItem.valueRangeMin || 0;
-              max = colorItem.valueRangeMax || 1;
+              min = colorItem.valueRangeMin ?? 0;
+              max = colorItem.valueRangeMax ?? 1;
             } else {
               const range = computeAutoRange(colorItem, solverResults, fieldData, radiationPattern, displayFrequencyHz, requestedFields);
               min = range.min;
