@@ -12,6 +12,7 @@ export { default as ColorScaleLegend } from './ColorScaleLegend'
 export { default as RadiationPatternPanel } from './RadiationPatternPanel'
 export { default as PolarPlot2D } from './PolarPlot2D'
 export { default as Pattern3D } from './Pattern3D'
+export { default as DocumentationPanel } from './DocumentationPanel'
 // Dialog components (Task 12)
 export * from './DipoleDialog'
 export * from './LoopDialog'

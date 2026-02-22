@@ -1,4 +1,5 @@
 import {
+  Box,
   Card,
   CardContent,
   CardActions,
@@ -13,6 +14,7 @@ import {
   Delete as DeleteIcon,
   FileCopy as CopyIcon,
   OpenInNew as OpenIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -119,7 +121,40 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProp
           </Typography>
         )}
 
-        {/* Future: Add chips for antenna/simulation counts when available */}
+        {/* Documentation indicator */}
+        {project.has_documentation && (
+          <Box sx={{ mt: 0.5 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.5,
+                color: 'text.secondary',
+              }}
+            >
+              <DescriptionIcon sx={{ fontSize: '0.875rem' }} />
+              Documentation
+            </Typography>
+            {project.documentation_preview && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  display: 'block',
+                  mt: 0.25,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontStyle: 'italic',
+                  maxWidth: '100%',
+                }}
+              >
+                {project.documentation_preview}
+              </Typography>
+            )}
+          </Box>
+        )}
       </CardContent>
 
       <CardActions sx={{ px: 2, pb: 2, pt: 0, justifyContent: 'space-between' }}>

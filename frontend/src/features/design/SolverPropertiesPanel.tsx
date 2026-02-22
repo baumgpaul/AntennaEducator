@@ -55,7 +55,7 @@ export function SolverPropertiesPanel({
   // Get selected field from Redux
   const selectedField = useSelector((state: RootState) =>
     state.solver.requestedFields.find(f => f.id === selectedFieldId)
-  );
+  ) as FieldDefinition | undefined;
 
   // Get directivity settings
   const directivitySettings = useSelector((state: RootState) => state.solver.directivitySettings);

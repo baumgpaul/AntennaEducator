@@ -63,7 +63,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const store = useAppStore();
 
   // Redux state
-  const requestedFields = useSelector((state: RootState) => state.solver.requestedFields);
+  const requestedFields = useSelector((state: RootState) => state.solver.requestedFields) as FieldDefinition[];
   const directivityRequested = useSelector((state: RootState) => state.solver.directivityRequested);
   const directivitySettings = useSelector((state: RootState) => state.solver.directivitySettings);
   const solverWorkflowState = useSelector((state: RootState) => state.solver.solverState);

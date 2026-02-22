@@ -26,6 +26,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ValueRangeInput from '../../components/common/ValueRangeInput';
 import SliderWithInput from '../../components/common/SliderWithInput';
 import { computeAutoRange } from '../design/PostprocessingTab';
+import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   selectSelectedView,
@@ -63,7 +64,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const fieldData = useAppSelector((state) => state.solver.fieldData);
   const radiationPattern = useAppSelector((state) => state.solver.radiationPattern);
-  const requestedFields = useAppSelector((state) => state.solver.requestedFields);
+  const requestedFields = useAppSelector((state) => state.solver.requestedFields) as FieldDefinition[];
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [viewName, setViewName] = React.useState('');

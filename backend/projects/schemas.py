@@ -9,10 +9,68 @@ Changes from v1:
 - Auth schemas moved to ``backend.auth.schemas``
 """
 
+import re
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+# Maximum length for the plain-text content preview stored in DynamoDB.
+CONTENT_PREVIEW_MAX_LENGTH = 200
+
+
+def generate_content_preview(markdown: str) -> str:
+    """Strip Markdown formatting and return a short plain-text preview.
+
+    Used to store a lightweight snippet in DynamoDB so the project list
+    can display a documentation summary without fetching from S3.
+    """
+    if not markdown or not markdown.strip():
+        return ""
+    text = markdown
+    # Remove images: ![alt](url)
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
+    # Remove links but keep text: [text](url) → text
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    # Remove headings markers
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
+    # Remove bold/italic markers
+    text = re.sub(r"(\*{1,3}|_{1,3})", "", text)
+    # Remove inline code backticks
+    text = re.sub(r"`{1,3}", "", text)
+    # Remove block math $$...$$
+    text = re.sub(r"\$\$[^$]*\$\$", "[formula]", text, flags=re.DOTALL)
+    # Remove inline math $...$
+    text = re.sub(r"\$[^$]+\$", "[formula]", text)
+    # Remove blockquote markers
+    text = re.sub(r"^>\s?", "", text, flags=re.MULTILINE)
+    # Remove horizontal rules
+    text = re.sub(r"^[-*_]{3,}\s*$", "", text, flags=re.MULTILINE)
+    # Collapse whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) > CONTENT_PREVIEW_MAX_LENGTH:
+        return text[:CONTENT_PREVIEW_MAX_LENGTH].rsplit(" ", 1)[0] + "…"
+    return text
+
+
+# ── Documentation Metadata ────────────────────────────────────────────────────
+
+
+class DocumentationMeta(BaseModel):
+    """Lightweight metadata stored in DynamoDB for documentation.
+
+    The actual Markdown content and images live in S3 under
+    ``projects/{project_id}/documentation/``.
+    Only flags and the image manifest are kept here to stay
+    well within the DynamoDB 400 KB item limit.
+    """
+
+    has_content: bool = False
+    content_preview: str = ""
+    image_keys: List[str] = Field(default_factory=list)
+    last_edited: Optional[str] = None
+    last_edited_by: Optional[str] = None
+
 
 # ── Project Schemas ───────────────────────────────────────────────────────────
 
@@ -50,6 +108,13 @@ class ProjectBase(BaseModel):
         None,
         description="Frontend-only state: selected tabs, camera position, etc.",
     )
+    documentation: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Documentation metadata (has_content flag, image manifest). "
+            "Full content stored in S3."
+        ),
+    )
 
 
 class ProjectCreate(ProjectBase):
@@ -67,6 +132,7 @@ class ProjectUpdate(BaseModel):
     simulation_config: Optional[Dict[str, Any]] = None
     simulation_results: Optional[Dict[str, Any]] = None
     ui_state: Optional[Dict[str, Any]] = None
+    documentation: Optional[Dict[str, Any]] = None
 
 
 class ProjectResponse(ProjectBase):
@@ -89,5 +155,56 @@ class ProjectListResponse(BaseModel):
     user_id: str
     name: str
     description: Optional[str] = None
+    has_documentation: bool = False
+    documentation_preview: str = ""
     created_at: datetime
     updated_at: datetime
+
+
+# ── Documentation API Schemas ─────────────────────────────────────────────────
+
+
+class DocumentationContentRequest(BaseModel):
+    """Request body for saving documentation content."""
+
+    content: str = Field(
+        "",
+        max_length=500_000,
+        description="Markdown content to save (max 500 KB).",
+    )
+
+
+class DocumentationContentResponse(BaseModel):
+    """Response body for documentation content."""
+
+    content: str = ""
+    version: int = 1
+
+
+class ImageUploadRequest(BaseModel):
+    """Request body for generating an image upload URL."""
+
+    filename: str = Field(
+        ...,
+        max_length=255,
+        description="Original filename (for extension detection).",
+    )
+    content_type: Optional[str] = Field(
+        None,
+        description="MIME type. Auto-detected from filename if omitted.",
+    )
+
+
+class ImageUploadResponse(BaseModel):
+    """Response body for a presigned image upload URL."""
+
+    upload_url: str
+    image_key: str
+    s3_key: str
+    content_type: str
+
+
+class ImageUrlResponse(BaseModel):
+    """Response body for a presigned image GET URL."""
+
+    url: str
