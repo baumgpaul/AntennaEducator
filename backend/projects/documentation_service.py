@@ -1,0 +1,310 @@
+"""Documentation service — S3 storage for project documentation.
+
+Handles markdown content and images, stored in S3 under:
+  projects/{project_id}/documentation/content.json   — markdown text
+  projects/{project_id}/documentation/images/{key}   — uploaded images
+
+The same S3 bucket used for simulation results is reused here.
+Only lightweight metadata (has_content, image_keys) is stored in DynamoDB.
+"""
+
+import json
+import logging
+import os
+import uuid
+from typing import Any, Dict, Optional
+
+import boto3
+from botocore.exceptions import ClientError
+
+logger = logging.getLogger(__name__)
+
+# Allowed image content types
+ALLOWED_IMAGE_TYPES = {
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+}
+
+# Extension → content type mapping
+EXTENSION_TO_CONTENT_TYPE = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".webp": "image/webp",
+}
+
+# Presigned URL expiry (15 minutes)
+PRESIGNED_URL_EXPIRY = 900
+
+# Max image size (5 MB) — enforced client-side, documented here
+MAX_IMAGE_SIZE = 5 * 1024 * 1024
+
+
+class DocumentationService:
+    """S3-backed storage for project documentation (markdown + images)."""
+
+    def __init__(
+        self,
+        bucket_name: Optional[str] = None,
+        endpoint_url: Optional[str] = None,
+        region_name: Optional[str] = None,
+        s3_client=None,
+    ):
+        """Initialize the documentation service.
+
+        Args:
+            bucket_name: S3 bucket name. Defaults to env RESULTS_BUCKET_NAME.
+            endpoint_url: S3 endpoint URL (for MinIO). Defaults to env S3_ENDPOINT_URL.
+            region_name: AWS region. Defaults to env AWS_REGION or 'eu-west-1'.
+            s3_client: Optional pre-configured boto3 S3 client (for testing).
+        """
+        self.bucket_name = bucket_name or os.getenv(
+            "RESULTS_BUCKET_NAME",
+            f"antenna-simulator-results-{os.getenv('ENVIRONMENT', 'dev')}",
+        )
+        self._endpoint_url = endpoint_url or os.getenv("S3_ENDPOINT_URL")
+        self._region_name = region_name or os.getenv("AWS_REGION", "eu-west-1")
+        self._client = s3_client
+
+    @property
+    def client(self):
+        """Lazy-initialize S3 client."""
+        if self._client is None:
+            client_kwargs = {"region_name": self._region_name}
+            if self._endpoint_url:
+                client_kwargs["endpoint_url"] = self._endpoint_url
+                if "localhost" in self._endpoint_url or "minio" in self._endpoint_url:
+                    client_kwargs["aws_access_key_id"] = os.getenv(
+                        "AWS_ACCESS_KEY_ID", "minioadmin"
+                    )
+                    client_kwargs["aws_secret_access_key"] = os.getenv(
+                        "AWS_SECRET_ACCESS_KEY", "minioadmin"
+                    )
+            self._client = boto3.client("s3", **client_kwargs)
+        return self._client
+
+    # ── Key helpers ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def content_key(project_id: str) -> str:
+        """S3 key for the documentation markdown content."""
+        return f"projects/{project_id}/documentation/content.json"
+
+    @staticmethod
+    def image_key(project_id: str, image_key: str) -> str:
+        """S3 key for a documentation image."""
+        return f"projects/{project_id}/documentation/images/{image_key}"
+
+    # ── Content save/load ─────────────────────────────────────────────────
+
+    async def save_content(self, project_id: str, content: str) -> str:
+        """Save markdown content to S3.
+
+        Args:
+            project_id: The project ID.
+            content: The markdown text to store.
+
+        Returns:
+            The S3 key of the stored content.
+        """
+        key = self.content_key(project_id)
+        body = json.dumps({"content": content, "version": 1})
+
+        self.client.put_object(
+            Bucket=self.bucket_name,
+            Key=key,
+            Body=body,
+            ContentType="application/json",
+        )
+        logger.info(f"Saved documentation content for project {project_id} ({len(body)} bytes)")
+        return key
+
+    async def load_content(self, project_id: str) -> Optional[Dict[str, Any]]:
+        """Load markdown content from S3.
+
+        Args:
+            project_id: The project ID.
+
+        Returns:
+            Dict with 'content' and 'version', or None if not found.
+        """
+        key = self.content_key(project_id)
+
+        try:
+            response = self.client.get_object(Bucket=self.bucket_name, Key=key)
+            body = response["Body"].read().decode("utf-8")
+            return json.loads(body)
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            if error_code in ("NoSuchKey", "404"):
+                logger.debug(f"No documentation found for project {project_id}")
+                return None
+            logger.error(f"Failed to load documentation for {project_id}: {e}")
+            raise
+
+    async def delete_content(self, project_id: str) -> None:
+        """Delete the markdown content from S3.
+
+        Args:
+            project_id: The project ID.
+        """
+        key = self.content_key(project_id)
+        self.client.delete_object(Bucket=self.bucket_name, Key=key)
+        logger.info(f"Deleted documentation content for project {project_id}")
+
+    # ── Image management ──────────────────────────────────────────────────
+
+    async def generate_upload_url(
+        self,
+        project_id: str,
+        filename: str,
+        content_type: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """Generate a presigned PUT URL for image upload.
+
+        The frontend uploads directly to S3 using this URL, avoiding the
+        Lambda 6 MB payload limit.
+
+        Args:
+            project_id: The project ID.
+            filename: Original filename (used for extension detection).
+            content_type: MIME type. Auto-detected from filename if omitted.
+
+        Returns:
+            Dict with: upload_url, image_key, s3_key, content_type.
+
+        Raises:
+            ValueError: If the content type is not an allowed image type.
+        """
+        if content_type is None:
+            content_type = self._detect_content_type(filename)
+
+        if content_type not in ALLOWED_IMAGE_TYPES:
+            raise ValueError(
+                f"Unsupported content type: {content_type}. "
+                f"Allowed: {', '.join(sorted(ALLOWED_IMAGE_TYPES))}"
+            )
+
+        # Generate a unique key preserving the original extension
+        ext = self._get_extension(filename)
+        image_id = f"img_{uuid.uuid4().hex[:12]}{ext}"
+        s3_key = self.image_key(project_id, image_id)
+
+        upload_url = self.client.generate_presigned_url(
+            "put_object",
+            Params={
+                "Bucket": self.bucket_name,
+                "Key": s3_key,
+                "ContentType": content_type,
+            },
+            ExpiresIn=PRESIGNED_URL_EXPIRY,
+        )
+
+        logger.info(f"Generated upload URL for project {project_id}, image {image_id}")
+        return {
+            "upload_url": upload_url,
+            "image_key": image_id,
+            "s3_key": s3_key,
+            "content_type": content_type,
+        }
+
+    async def get_image_url(self, project_id: str, image_key: str) -> str:
+        """Generate a presigned GET URL for an image.
+
+        Args:
+            project_id: The project ID.
+            image_key: The image key (e.g., "img_abc123.png").
+
+        Returns:
+            Presigned GET URL valid for PRESIGNED_URL_EXPIRY seconds.
+        """
+        s3_key = self.image_key(project_id, image_key)
+
+        url = self.client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": self.bucket_name,
+                "Key": s3_key,
+            },
+            ExpiresIn=PRESIGNED_URL_EXPIRY,
+        )
+        return url
+
+    async def delete_image(self, project_id: str, image_key: str) -> None:
+        """Delete a single image from S3.
+
+        Args:
+            project_id: The project ID.
+            image_key: The image key (e.g., "img_abc123.png").
+        """
+        s3_key = self.image_key(project_id, image_key)
+        self.client.delete_object(Bucket=self.bucket_name, Key=s3_key)
+        logger.info(f"Deleted image {image_key} for project {project_id}")
+
+    async def delete_all(self, project_id: str) -> int:
+        """Delete all documentation (content + images) for a project.
+
+        Args:
+            project_id: The project ID.
+
+        Returns:
+            Number of S3 objects deleted.
+        """
+        prefix = f"projects/{project_id}/documentation/"
+        deleted_count = 0
+
+        paginator = self.client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
+            objects = page.get("Contents", [])
+            if not objects:
+                continue
+
+            delete_keys = [{"Key": obj["Key"]} for obj in objects]
+            self.client.delete_objects(
+                Bucket=self.bucket_name,
+                Delete={"Objects": delete_keys},
+            )
+            deleted_count += len(delete_keys)
+
+        logger.info(f"Deleted {deleted_count} documentation objects for project {project_id}")
+        return deleted_count
+
+    # ── Internal helpers ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _detect_content_type(filename: str) -> str:
+        """Detect content type from filename extension."""
+        ext = DocumentationService._get_extension(filename).lower()
+        return EXTENSION_TO_CONTENT_TYPE.get(ext, "image/png")
+
+    @staticmethod
+    def _get_extension(filename: str) -> str:
+        """Extract file extension from filename."""
+        dot_idx = filename.rfind(".")
+        if dot_idx == -1:
+            return ".png"
+        return filename[dot_idx:]
+
+
+# ── Singleton ─────────────────────────────────────────────────────────────────
+
+_documentation_service: Optional[DocumentationService] = None
+
+
+def get_documentation_service() -> DocumentationService:
+    """Get the documentation service singleton."""
+    global _documentation_service
+    if _documentation_service is None:
+        _documentation_service = DocumentationService()
+    return _documentation_service
+
+
+def reset_documentation_service() -> None:
+    """Reset the singleton (for testing)."""
+    global _documentation_service
+    _documentation_service = None
