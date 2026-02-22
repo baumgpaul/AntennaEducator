@@ -102,8 +102,9 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   const fieldType = field?.fieldType;
 
   // Get field data for this frequency (safe access before early return)
+  // Use String() fallback for defensive key lookup — after JSON round-trip, object keys are always strings
   const dataForFrequency = (field && fieldData && frequencyHz)
-    ? fieldData[field.id]?.[frequencyHz]
+    ? (fieldData[field.id]?.[frequencyHz] ?? fieldData[field.id]?.[String(frequencyHz)])
     : undefined;
 
   // For Poynting, compute real-valued vectors; for E/H, use complex vectors
@@ -320,7 +321,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
 
         return (
           <primitive
-            key={index}
+            key={`${vectorComplexPart}-${arrowScalingMode}-${index}`}
             object={new ArrowHelper(
               arrow.direction,
               arrow.origin,
