@@ -15,7 +15,8 @@ function MainLayout() {
   const location = useLocation();
 
   // Hide footer on design pages (full-screen workspaces like Designer, Solver, Postprocessing)
-  const isDesignPage = location.pathname.includes('/design/');
+  // Match both /design and /project/:id/design (with or without trailing slash)
+  const isDesignPage = /\/design(\/|$)/.test(location.pathname);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}>

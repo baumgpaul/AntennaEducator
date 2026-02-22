@@ -63,10 +63,10 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
   const colorMap = item.colorMap || 'jet';
   const valueRangeMode = item.valueRangeMode || 'auto';
   const min = magnitudes.length > 0
-    ? (valueRangeMode === 'manual' ? item.valueRangeMin || 0 : Math.min(...magnitudes))
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMin ?? 0) : Math.min(...magnitudes))
     : 0;
   const max = magnitudes.length > 0
-    ? (valueRangeMode === 'manual' ? item.valueRangeMax || 1 : Math.max(...magnitudes))
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMax ?? 1) : Math.max(...magnitudes))
     : 1;
 
   // Create colors for each node

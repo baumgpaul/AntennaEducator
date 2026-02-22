@@ -155,8 +155,8 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
   // Get color map and value range
   const colorMap = item.colorMap || 'jet';
   const valueRangeMode = item.valueRangeMode || 'auto';
-  const min = valueRangeMode === 'manual' ? item.valueRangeMin || 0 : Math.min(...magnitudes);
-  const max = valueRangeMode === 'manual' ? item.valueRangeMax || 1 : Math.max(...magnitudes);
+  const min = valueRangeMode === 'manual' ? (item.valueRangeMin ?? 0) : Math.min(...magnitudes);
+  const max = valueRangeMode === 'manual' ? (item.valueRangeMax ?? 1) : Math.max(...magnitudes);
 
   console.log('[CurrentRenderer] === COLOR MAPPING ===');
   console.log('[CurrentRenderer] Color map:', colorMap);

@@ -131,6 +131,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   const arrowDensity = Math.max(1, Math.round(item.arrowDensity || 1)); // Show every Nth arrow
   const arrowDisplayMode = item.arrowDisplayMode || 'every-nth';
   const randomArrowCount = item.randomArrowCount || 50;
+  const arrowScalingMode = item.arrowScalingMode || 'magnitude';
   const valueRangeMode = item.valueRangeMode || 'auto';
   const phaseDeg = item.phase ?? 0;
   const phaseRad = (phaseDeg * Math.PI) / 180;
@@ -144,10 +145,28 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
     return generateRandomIndices(totalPoints, randomArrowCount, seed);
   }, [arrowDisplayMode, randomArrowCount, dataForFrequency?.points.length, item.fieldId]);
 
-  // Compute magnitudes: For Poynting use pre-computed, for E/H use phase-dependent
-  const vectorMagnitudes = useMemo(() => {
+  // Peak magnitudes (phase-independent) — used for color mapping and auto range
+  // These represent the maximum possible magnitude at each point over all phases
+  const peakMagnitudes = useMemo(() => {
     if (isPoynting && poyntingVectors) {
-      // Poynting: use pre-computed magnitudes (time-averaged, no phase dependency)
+      return poyntingVectors.map(v => v.mag);
+    }
+    // For E/H: use the original peak magnitudes (|V| = sqrt(Vr² + Vi²) per component)
+    if (magnitudes && magnitudes.length > 0) return magnitudes;
+    // Fallback: compute from complex vectors
+    if (!complexVectors) return undefined;
+    return complexVectors.map((v) => {
+      const mx = Math.sqrt(v.x.real * v.x.real + v.x.imag * v.x.imag);
+      const my = Math.sqrt(v.y.real * v.y.real + v.y.imag * v.y.imag);
+      const mz = Math.sqrt(v.z.real * v.z.real + v.z.imag * v.z.imag);
+      return Math.sqrt(mx * mx + my * my + mz * mz);
+    });
+  }, [isPoynting, poyntingVectors, magnitudes, complexVectors]);
+
+  // Instantaneous magnitudes (phase-dependent) — used for arrow length scaling
+  const instantaneousMagnitudes = useMemo(() => {
+    if (isPoynting && poyntingVectors) {
+      // Poynting: time-averaged, no phase dependency
       return poyntingVectors.map(v => v.mag);
     }
     if (!complexVectors) return magnitudes;
@@ -162,23 +181,23 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
     });
   }, [isPoynting, poyntingVectors, complexVectors, phaseRad, magnitudes]);
 
-  // Calculate value range
-  const min = (vectorMagnitudes && vectorMagnitudes.length > 0)
-    ? (valueRangeMode === 'manual' ? item.valueRangeMin || 0 : Math.min(...vectorMagnitudes))
+  // Calculate value range from PEAK magnitudes (stable across phase changes)
+  const min = (peakMagnitudes && peakMagnitudes.length > 0)
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMin ?? 0) : Math.min(...peakMagnitudes))
     : 0;
-  const max = (vectorMagnitudes && vectorMagnitudes.length > 0)
-    ? (valueRangeMode === 'manual' ? item.valueRangeMax || 1 : Math.max(...vectorMagnitudes))
+  const max = (peakMagnitudes && peakMagnitudes.length > 0)
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMax ?? 1) : Math.max(...peakMagnitudes))
     : 1;
 
-  // Create colors for each vector
+  // Create colors from PEAK magnitudes (stable color mapping independent of phase)
   const colors = useMemo(() => {
-    if (!vectorMagnitudes) return new Float32Array(0);
-    return createColorArray(vectorMagnitudes, colorMap as any, min, max);
-  }, [vectorMagnitudes, colorMap, min, max]);
+    if (!peakMagnitudes) return new Float32Array(0);
+    return createColorArray(peakMagnitudes, colorMap as any, min, max);
+  }, [peakMagnitudes, colorMap, min, max]);
 
   // Create arrow helpers
   const arrows = useMemo(() => {
-    if (!dataForFrequency || !vectorMagnitudes) return [];
+    if (!dataForFrequency || !instantaneousMagnitudes || !peakMagnitudes) return [];
 
     // Helper to check if index should be rendered
     const shouldRenderIndex = (index: number): boolean => {
@@ -188,6 +207,8 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
       // every-nth mode
       return index % arrowDensity === 0;
     };
+
+    const isUniform = arrowScalingMode === 'uniform';
 
     // For Poynting: use pre-computed real vectors
     if (isPoynting && poyntingVectors) {
@@ -205,17 +226,21 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
         if (length === 0) return null;
         direction.normalize();
 
-        // Get color for this arrow
+        // Get color for this arrow (from peak magnitudes)
         const color = new THREE.Color(
           colors[index * 3],
           colors[index * 3 + 1],
           colors[index * 3 + 2]
         );
 
-        // Scale arrow length by magnitude and size factor
-        const normalizedMagnitude = max > min ? (magnitude - min) / (max - min) : 0.5;
-        // Arrow length scaled by arrowSize (in meters) and normalized magnitude
-        const arrowLength = arrowSize * (0.2 + 0.8 * normalizedMagnitude);
+        // Scale arrow length
+        let arrowLength: number;
+        if (isUniform) {
+          arrowLength = arrowSize;
+        } else {
+          const normalizedMagnitude = max > min ? (magnitude - min) / (max - min) : 0.5;
+          arrowLength = arrowSize * (0.2 + 0.8 * normalizedMagnitude);
+        }
 
         return {
           origin: new THREE.Vector3(point[0], point[1], point[2]),
@@ -236,7 +261,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
       if (index >= complexVectors.length) return null;
 
       const vector = complexVectors[index];
-      const magnitude = vectorMagnitudes[index];
+      const instMag = instantaneousMagnitudes[index];
 
       // Compute instantaneous direction: Re(V * e^{jφ})
       const direction = new THREE.Vector3(
@@ -250,17 +275,21 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
       if (length === 0) return null;
       direction.normalize();
 
-      // Get color for this arrow
+      // Get color for this arrow (from peak magnitudes — stable across phase)
       const color = new THREE.Color(
         colors[index * 3],
         colors[index * 3 + 1],
         colors[index * 3 + 2]
       );
 
-      // Scale arrow length by magnitude and size factor
-      const normalizedMagnitude = (magnitude - min) / (max - min);
-      // Arrow length scaled by arrowSize (in meters) and normalized magnitude
-      const arrowLength = arrowSize * (0.5 + normalizedMagnitude);
+      // Scale arrow length using instantaneous magnitude (shows phase effect)
+      let arrowLength: number;
+      if (isUniform) {
+        arrowLength = arrowSize;
+      } else {
+        const normalizedMagnitude = max > min ? (instMag - min) / (max - min) : 0.5;
+        arrowLength = arrowSize * (0.2 + 0.8 * Math.max(0, normalizedMagnitude));
+      }
 
       return {
         origin: new THREE.Vector3(point[0], point[1], point[2]),
@@ -269,12 +298,12 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
         color,
       };
     }).filter(Boolean);
-  }, [dataForFrequency?.points, complexVectors, vectorMagnitudes, poyntingVectors, colors, arrowSize, arrowDensity, arrowDisplayMode, randomIndices, min, max, phaseRad, isPoynting]);
+  }, [dataForFrequency?.points, complexVectors, instantaneousMagnitudes, peakMagnitudes, poyntingVectors, colors, arrowSize, arrowDensity, arrowDisplayMode, arrowScalingMode, randomIndices, min, max, phaseRad, isPoynting]);
 
   // Check if we have valid data to render
   const hasData = isPoynting
     ? (poyntingVectors && poyntingVectors.length > 0)
-    : (complexVectors && vectorMagnitudes && vectorMagnitudes.length > 0);
+    : (complexVectors && peakMagnitudes && peakMagnitudes.length > 0);
 
   if (!field || !fieldData || !frequencyHz || !dataForFrequency || !hasData) {
     return null;

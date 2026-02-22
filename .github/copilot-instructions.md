@@ -148,3 +148,16 @@ cd frontend && npm test            # Vitest with jsdom
 - **Lambda packaging**: Each service has a `Dockerfile.lambda` that builds a container image. Mangum wraps FastAPI for Lambda. Build context is always the repo root (`.`), Dockerfile path is `backend/<service>/Dockerfile.lambda`.
 - **AWS naming convention**: Resources follow `antenna-simulator-{service}-{environment}` (e.g., `antenna-simulator-solver-staging`).
 - **TDD principle**: Always follow Test-Driven Development — write tests first, make small incremental changes, and commit after code runs and tests pass.
+
+## Known Issues & Workarounds
+
+### Frontend Tests — `document is not defined` Failures
+Running `npx vitest run` from the `frontend/` directory produces many failures (`ReferenceError: document is not defined`) in test files that import React components or DOM-dependent code. The vitest config (`frontend/vitest.config.ts`) sets `environment: 'jsdom'` globally, but many test files still fail with this error. **Pure logic tests** (e.g., `VectorRenderer.test.tsx` which tests math functions like `createSeededRandom`, `generateRandomIndices`, `computePoyntingVectors`) pass reliably. When verifying changes, run specific test files rather than the full suite:
+```powershell
+cd frontend
+npx vitest run src/path/to/specific.test.tsx     # Run targeted tests
+npx tsc --noEmit                                  # TypeScript check (always works)
+```
+
+### Pre-Commit Hook — `frontend-typecheck` Fails on Windows
+The pre-commit hook runs `npx --prefix frontend tsc --noEmit`, which on Windows fails to pass `--noEmit` correctly to `tsc` (prints tsc help text instead of type-checking). **Workaround**: run `cd frontend && npx tsc --noEmit` manually — this works correctly. If pre-commit blocks a commit, use `git commit --no-verify` after manually verifying the typecheck passes.

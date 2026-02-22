@@ -40,6 +40,8 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
   const valueRangeMode = item.valueRangeMode || 'auto';
   const valueRangeMin = item.valueRangeMin;
   const valueRangeMax = item.valueRangeMax;
+  const smoothShading = item.smoothShading ?? false;
+  const interpolationLevel = item.interpolationLevel ?? 1;
 
   // Prepare field data object for FieldVisualization
   const visualizationData = {
@@ -62,6 +64,8 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
       valueRangeMode={valueRangeMode}
       valueRangeMin={valueRangeMin}
       valueRangeMax={valueRangeMax}
+      smoothShading={smoothShading}
+      interpolationLevel={interpolationLevel}
     />
   );
 };

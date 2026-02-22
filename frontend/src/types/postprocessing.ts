@@ -121,8 +121,16 @@ export interface ViewItem {
   arrowDisplayMode?: 'every-nth' | 'random';
   /** Number of random arrows to display (when arrowDisplayMode is 'random') */
   randomArrowCount?: number;
+  /** Arrow scaling mode: 'magnitude' (scaled by field strength) or 'uniform' (constant length) */
+  arrowScalingMode?: 'magnitude' | 'uniform';
   /** Size factor for directivity patterns (overall scale) */
   sizeFactor?: number;
+
+  // Field smoothing
+  /** Enable smooth shading for field magnitude surfaces */
+  smoothShading?: boolean;
+  /** Interpolation level for field surfaces (1 = none, 2 = 2x, 4 = 4x subdivision) */
+  interpolationLevel?: 1 | 2 | 4;
 
   // Line plot properties
   /** Line style for scalar plots */
