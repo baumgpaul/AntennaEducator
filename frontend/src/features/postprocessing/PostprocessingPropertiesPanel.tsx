@@ -486,6 +486,31 @@ const PostprocessingPropertiesPanel: React.FC = () => {
                 <ToggleButton value={8}>8×</ToggleButton>
               </ToggleButtonGroup>
             </Box>
+
+            {/* Line Width (for 1D fields only) */}
+            {(() => {
+              const fieldDef = requestedFields?.find(f => f.id === selectedItem?.fieldId);
+              if (fieldDef?.type === '1D') {
+                return (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" gutterBottom>
+                      Line Width: {(selectedItem?.lineWidth ?? 5).toFixed(1)} mm
+                    </Typography>
+                    <Slider
+                      value={selectedItem?.lineWidth ?? 5}
+                      onChange={(_, value) => handleItemPropertyChange('lineWidth', value as number)}
+                      min={1}
+                      max={20}
+                      step={0.5}
+                      valueLabelDisplay="auto"
+                      valueLabelFormat={(v) => `${v} mm`}
+                      size="small"
+                    />
+                  </Box>
+                );
+              }
+              return null;
+            })()}
           </>
         );
 

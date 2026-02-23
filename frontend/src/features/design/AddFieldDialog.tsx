@@ -764,12 +764,14 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
               </>
             )}
 
-            {/* Sampling */}
-            <Grid item xs={12}>
-              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-                Sampling Resolution
-              </Typography>
-            </Grid>
+            {/* Sampling Resolution (only for 2D/3D shapes, not line/arc) */}
+            {(shape === 'plane' || shape === 'ellipse' || shape === 'sphere' || shape === 'cuboid') && (
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                  Sampling Resolution
+                </Typography>
+              </Grid>
+            )}
 
             {/* 2D sampling: plane uses x/y; ellipse uses angle/radius */}
             {shape === 'plane' && (

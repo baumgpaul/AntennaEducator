@@ -181,6 +181,7 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
   const fieldOpacity = field.opacity ?? 0.3;
 
   // Cast helpers for type-narrowed access
+  const field1D = field.type === '1D' ? (field as FieldDefinition1D) : undefined;
   const field2D = field.type === '2D' ? (field as FieldDefinition2D) : undefined;
   const field3D = field.type === '3D' ? (field as FieldDefinition3D) : undefined;
 
@@ -242,14 +243,15 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
     setLocalValues(rest);
   };
 
-  // ---- Center Point ----
+  // ---- Center Point (for shapes that have centerPoint) ----
   const handleCenterChange = (axis: 0 | 1 | 2, value: string) => {
     const num = validateNumber(value, -10000, 10000);
     if (num !== null) {
+      const currentCenter = field.centerPoint ?? [0, 0, 0];
       const newCenter: [number, number, number] = [
-        field.centerPoint[0] ?? 0,
-        field.centerPoint[1] ?? 0,
-        field.centerPoint[2] ?? 0,
+        currentCenter[0] ?? 0,
+        currentCenter[1] ?? 0,
+        currentCenter[2] ?? 0,
       ];
       newCenter[axis] = num;
       onUpdate({ centerPoint: newCenter });
@@ -258,6 +260,97 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
     } else {
       setErrors({ ...errors, [`center_${axis}`]: 'Invalid value (-10000 to 10000)' });
     }
+  };
+
+  // ---- Line Start/End Points ----
+  const handleLinePointChange = (pointKey: 'startPoint' | 'endPoint', axis: 0 | 1 | 2, value: string) => {
+    const num = validateNumber(value, -10000, 10000);
+    if (num !== null && field1D) {
+      const currentPoint = field1D[pointKey] ?? [0, 0, 0];
+      const newPoint: [number, number, number] = [
+        currentPoint[0] ?? 0,
+        currentPoint[1] ?? 0,
+        currentPoint[2] ?? 0,
+      ];
+      newPoint[axis] = num;
+      onUpdate({ [pointKey]: newPoint });
+      setErrors({ ...errors, [`${pointKey}_${axis}`]: '' });
+      clearLocalValue(`${pointKey}_${axis}`);
+    } else {
+      setErrors({ ...errors, [`${pointKey}_${axis}`]: 'Invalid value (-10000 to 10000)' });
+    }
+  };
+
+  // ---- 1D numPoints ----
+  const handleNumPointsChange = (value: string) => {
+    const num = validateInteger(value, 2);
+    if (num !== null) {
+      onUpdate({ numPoints: num });
+      setErrors({ ...errors, numPoints: '' });
+      clearLocalValue('numPoints');
+    } else {
+      setErrors({ ...errors, numPoints: 'Must be integer ≥ 2' });
+    }
+  };
+
+  // ---- Arc radii ----
+  const handleArcRadiusChange = (key: 'radiusA' | 'radiusB', value: string) => {
+    const num = validateNumber(value, 0.1);
+    if (num !== null) {
+      onUpdate({ [key]: num });
+      setErrors({ ...errors, [key]: '' });
+      clearLocalValue(key);
+    } else {
+      setErrors({ ...errors, [key]: 'Must be positive' });
+    }
+  };
+
+  // ---- Arc angles ----
+  const handleArcAngleChange = (key: 'startAngle' | 'endAngle', value: string) => {
+    const num = validateNumber(value);
+    if (num !== null) {
+      onUpdate({ [key]: num });
+      setErrors({ ...errors, [key]: '' });
+      clearLocalValue(key);
+    } else {
+      setErrors({ ...errors, [key]: 'Invalid angle' });
+    }
+  };
+
+  // ---- Arc axis vectors ----
+  const handleArcAxisChange = (
+    axisKey: 'axis1' | 'axis2',
+    component: 0 | 1 | 2,
+    value: string,
+  ) => {
+    const num = validateNumber(value);
+    if (num !== null && field1D) {
+      const cur = field1D[axisKey] ?? (axisKey === 'axis1' ? [1, 0, 0] : [0, 1, 0]);
+      const newVec: [number, number, number] = [cur[0], cur[1], cur[2]];
+      newVec[component] = num;
+      if (validateNonZeroVector(newVec[0], newVec[1], newVec[2])) {
+        const length = Math.sqrt(newVec[0] ** 2 + newVec[1] ** 2 + newVec[2] ** 2);
+        const normalized: [number, number, number] = [
+          newVec[0] / length,
+          newVec[1] / length,
+          newVec[2] / length,
+        ];
+        onUpdate({ [axisKey]: normalized, normalPreset: 'Custom' as NormalPreset });
+        setErrors({ ...errors, [`arc_${axisKey}`]: '' });
+      } else {
+        setErrors({ ...errors, [`arc_${axisKey}`]: 'Axis vector cannot be zero' });
+      }
+    }
+  };
+
+  // ---- Arc orientation preset ----
+  const handleArcNormalPresetChange = (preset: NormalPreset) => {
+    if (preset === 'Custom') {
+      onUpdate({ normalPreset: preset });
+      return;
+    }
+    const { axis1, axis2 } = getEllipseAxesFromPreset(preset);
+    onUpdate({ normalPreset: preset, axis1, axis2 });
   };
 
   // ---- Plane dimensions ----
@@ -465,27 +558,271 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
         />
       </Box>
 
-      {/* Center Point */}
-      <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-        Center Point (mm):
-      </Typography>
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        {([0, 1, 2] as const).map((i) => (
-          <TextField
-            key={i}
-            label={['X', 'Y', 'Z'][i]}
-            type="number"
-            size="small"
-            value={getLocalValue(`center_${i}`, field.centerPoint[i])}
-            onBlur={(e) => handleCenterChange(i, e.target.value)}
-            onChange={(e) => setLocalValues({ ...localValues, [`center_${i}`]: e.target.value })}
-            error={!!errors[`center_${i}`]}
-            helperText={errors[`center_${i}`]}
-            InputLabelProps={{ shrink: true }}
-            sx={{ flex: 1 }}
-          />
-        ))}
-      </Box>
+      {/* ========== 1D Fields ========== */}
+      {field1D && (
+        <>
+          {/* ---- Line ---- */}
+          {field1D.shape === 'line' && (
+            <>
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                Start Point (mm):
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                {([0, 1, 2] as const).map((i) => (
+                  <TextField
+                    key={i}
+                    label={['X', 'Y', 'Z'][i]}
+                    type="number"
+                    size="small"
+                    value={getLocalValue(`startPoint_${i}`, field1D.startPoint?.[i] ?? 0)}
+                    onBlur={(e) => handleLinePointChange('startPoint', i, e.target.value)}
+                    onChange={(e) => setLocalValues({ ...localValues, [`startPoint_${i}`]: e.target.value })}
+                    error={!!errors[`startPoint_${i}`]}
+                    helperText={errors[`startPoint_${i}`]}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ flex: 1 }}
+                  />
+                ))}
+              </Box>
+
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                End Point (mm):
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                {([0, 1, 2] as const).map((i) => (
+                  <TextField
+                    key={i}
+                    label={['X', 'Y', 'Z'][i]}
+                    type="number"
+                    size="small"
+                    value={getLocalValue(`endPoint_${i}`, field1D.endPoint?.[i] ?? 0)}
+                    onBlur={(e) => handleLinePointChange('endPoint', i, e.target.value)}
+                    onChange={(e) => setLocalValues({ ...localValues, [`endPoint_${i}`]: e.target.value })}
+                    error={!!errors[`endPoint_${i}`]}
+                    helperText={errors[`endPoint_${i}`]}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ flex: 1 }}
+                  />
+                ))}
+              </Box>
+
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                Sampling:
+              </Typography>
+              <TextField
+                label="Number of Points"
+                type="number"
+                size="small"
+                fullWidth
+                value={getLocalValue('numPoints', field1D.numPoints ?? 10)}
+                onBlur={(e) => handleNumPointsChange(e.target.value)}
+                onChange={(e) => setLocalValues({ ...localValues, numPoints: e.target.value })}
+                error={!!errors.numPoints}
+                helperText={errors.numPoints || 'Uniformly distributed along the line'}
+                InputLabelProps={{ shrink: true }}
+                sx={{ mb: 2 }}
+              />
+            </>
+          )}
+
+          {/* ---- Arc ---- */}
+          {field1D.shape === 'arc' && (
+            <>
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                Center Point (mm):
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                {([0, 1, 2] as const).map((i) => (
+                  <TextField
+                    key={i}
+                    label={['X', 'Y', 'Z'][i]}
+                    type="number"
+                    size="small"
+                    value={getLocalValue(`center_${i}`, field1D.centerPoint?.[i] ?? 0)}
+                    onBlur={(e) => handleCenterChange(i, e.target.value)}
+                    onChange={(e) => setLocalValues({ ...localValues, [`center_${i}`]: e.target.value })}
+                    error={!!errors[`center_${i}`]}
+                    helperText={errors[`center_${i}`]}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ flex: 1 }}
+                  />
+                ))}
+              </Box>
+
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                Radii (mm):
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <TextField
+                  label="Radius A"
+                  type="number"
+                  size="small"
+                  value={getLocalValue('radiusA', field1D.radiusA ?? 100)}
+                  onBlur={(e) => handleArcRadiusChange('radiusA', e.target.value)}
+                  onChange={(e) => setLocalValues({ ...localValues, radiusA: e.target.value })}
+                  error={!!errors.radiusA}
+                  helperText={errors.radiusA || 'Along Axis 1'}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ flex: 1 }}
+                />
+                <TextField
+                  label="Radius B"
+                  type="number"
+                  size="small"
+                  value={getLocalValue('radiusB', field1D.radiusB ?? 100)}
+                  onBlur={(e) => handleArcRadiusChange('radiusB', e.target.value)}
+                  onChange={(e) => setLocalValues({ ...localValues, radiusB: e.target.value })}
+                  error={!!errors.radiusB}
+                  helperText={errors.radiusB || 'Along Axis 2'}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ flex: 1 }}
+                />
+              </Box>
+
+              {/* Arc Orientation Preset */}
+              <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                <InputLabel>Orientation</InputLabel>
+                <Select
+                  value={field1D.normalPreset || 'XY'}
+                  label="Orientation"
+                  onChange={(e) => handleArcNormalPresetChange(e.target.value as NormalPreset)}
+                >
+                  <MenuItem value="XY">XY Plane</MenuItem>
+                  <MenuItem value="YZ">YZ Plane</MenuItem>
+                  <MenuItem value="XZ">XZ Plane</MenuItem>
+                  <MenuItem value="Custom">Custom</MenuItem>
+                </Select>
+              </FormControl>
+
+              {/* Custom Axis inputs */}
+              {field1D.normalPreset === 'Custom' && (
+                <Box sx={{ pl: 2, mb: 2 }}>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                    Axis 1 (0° direction):
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                    {([0, 1, 2] as const).map((i) => (
+                      <TextField
+                        key={i}
+                        label={['X', 'Y', 'Z'][i]}
+                        type="number"
+                        size="small"
+                        value={getLocalValue(`arc_axis1_${i}`, field1D.axis1?.[i] ?? [1, 0, 0][i])}
+                        onBlur={(e) => handleArcAxisChange('axis1', i, e.target.value)}
+                        onChange={(e) =>
+                          setLocalValues({ ...localValues, [`arc_axis1_${i}`]: e.target.value })
+                        }
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{ step: 0.1 }}
+                        sx={{ flex: 1 }}
+                      />
+                    ))}
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                    Axis 2 (90° direction):
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    {([0, 1, 2] as const).map((i) => (
+                      <TextField
+                        key={i}
+                        label={['X', 'Y', 'Z'][i]}
+                        type="number"
+                        size="small"
+                        value={getLocalValue(`arc_axis2_${i}`, field1D.axis2?.[i] ?? [0, 1, 0][i])}
+                        onBlur={(e) => handleArcAxisChange('axis2', i, e.target.value)}
+                        onChange={(e) =>
+                          setLocalValues({ ...localValues, [`arc_axis2_${i}`]: e.target.value })
+                        }
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{ step: 0.1 }}
+                        sx={{ flex: 1 }}
+                      />
+                    ))}
+                  </Box>
+                  {(errors.arc_axis1 || errors.arc_axis2) && (
+                    <FormHelperText error>
+                      {errors.arc_axis1 || errors.arc_axis2}
+                    </FormHelperText>
+                  )}
+                </Box>
+              )}
+
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                Arc Angles (degrees):
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <TextField
+                  label="Start Angle"
+                  type="number"
+                  size="small"
+                  value={getLocalValue('startAngle', field1D.startAngle ?? 0)}
+                  onBlur={(e) => handleArcAngleChange('startAngle', e.target.value)}
+                  onChange={(e) => setLocalValues({ ...localValues, startAngle: e.target.value })}
+                  error={!!errors.startAngle}
+                  helperText={errors.startAngle || '0° = along Axis 1'}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ flex: 1 }}
+                />
+                <TextField
+                  label="End Angle"
+                  type="number"
+                  size="small"
+                  value={getLocalValue('endAngle', field1D.endAngle ?? 360)}
+                  onBlur={(e) => handleArcAngleChange('endAngle', e.target.value)}
+                  onChange={(e) => setLocalValues({ ...localValues, endAngle: e.target.value })}
+                  error={!!errors.endAngle}
+                  helperText={errors.endAngle || '360° = full ellipse'}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ flex: 1 }}
+                />
+              </Box>
+
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                Sampling:
+              </Typography>
+              <TextField
+                label="Number of Points"
+                type="number"
+                size="small"
+                fullWidth
+                value={getLocalValue('numPoints', field1D.numPoints ?? 10)}
+                onBlur={(e) => handleNumPointsChange(e.target.value)}
+                onChange={(e) => setLocalValues({ ...localValues, numPoints: e.target.value })}
+                error={!!errors.numPoints}
+                helperText={errors.numPoints || 'Uniformly distributed along the arc'}
+                InputLabelProps={{ shrink: true }}
+                sx={{ mb: 2 }}
+              />
+            </>
+          )}
+        </>
+      )}
+
+      {/* Center Point (for 2D and 3D fields) */}
+      {(field2D || field3D) && (
+        <>
+          <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+            Center Point (mm):
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            {([0, 1, 2] as const).map((i) => (
+              <TextField
+                key={i}
+                label={['X', 'Y', 'Z'][i]}
+                type="number"
+                size="small"
+                value={getLocalValue(`center_${i}`, field.centerPoint?.[i] ?? 0)}
+                onBlur={(e) => handleCenterChange(i, e.target.value)}
+                onChange={(e) => setLocalValues({ ...localValues, [`center_${i}`]: e.target.value })}
+                error={!!errors[`center_${i}`]}
+                helperText={errors[`center_${i}`]}
+                InputLabelProps={{ shrink: true }}
+                sx={{ flex: 1 }}
+              />
+            ))}
+          </Box>
+        </>
+      )}
 
       {/* ========== 2D Fields ========== */}
       {field2D && (

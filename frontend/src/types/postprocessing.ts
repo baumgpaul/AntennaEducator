@@ -113,6 +113,8 @@ export interface ViewItem {
   edgeSize?: number;
   /** Node size for voltage distributions (point size multiplier) */
   nodeSize?: number;
+  /** Line width for 1D field visualizations (tube radius in mm) */
+  lineWidth?: number;
   /** Arrow size for field vectors (arrow scale in meters) */
   arrowSize?: number;
   /** Arrow density: show every Nth arrow (1 = all, 2 = every 2nd, etc.) */
