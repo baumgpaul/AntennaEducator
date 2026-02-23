@@ -26,7 +26,7 @@ import { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '@/store/store';
 import { updateFieldRegion, deleteFieldRegion, setDirectivitySettings, updateFieldResult } from '@/store/solverSlice';
-import type { FieldDefinition, FieldDefinition2D, FieldDefinition3D, NormalPreset, SphereSampling, CuboidSampling } from '@/types/fieldDefinitions';
+import type { FieldDefinition, FieldDefinition1D, FieldDefinition2D, FieldDefinition3D, NormalPreset, SphereSampling, CuboidSampling } from '@/types/fieldDefinitions';
 import { getEllipseAxesFromPreset } from '@/types/fieldDefinitions';
 
 /**
@@ -380,12 +380,14 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
     }
   };
 
-  // ---- Sampling (generic) ----
+  // ---- Sampling (generic for 2D/3D only) ----
   const handleSamplingChange = (key: string, value: string) => {
+    if (field.type === '1D') return; // 1D uses numPoints, not sampling object
     const num = validateInteger(value, 2);
     if (num !== null) {
+      const currentField = field as FieldDefinition2D | FieldDefinition3D;
       onUpdate({
-        sampling: { ...field.sampling, [key]: num } as any,
+        sampling: { ...currentField.sampling, [key]: num } as any,
       });
       setErrors({ ...errors, [`sampling_${key}`]: '' });
       clearLocalValue(`sampling_${key}`);

@@ -4,6 +4,10 @@ import { z } from 'zod';
  * Field Definition Types for Solver
  * Defines regions where electromagnetic fields will be computed
  *
+ * 1D shapes:
+ *   - line: Straight line from start to end point with N samples
+ *   - arc: Elliptical arc with center, 2 axis vectors, 2 radii, start/end angle
+ *
  * 2D shapes:
  *   - plane: Rectangular region with width/height, normal preset or custom
  *   - ellipse: Elliptical region with 2 axis vectors and 2 radii
@@ -22,6 +26,31 @@ const Point3DSchema = z.object({
   x: z.number().min(-10000).max(10000),
   y: z.number().min(-10000).max(10000),
   z: z.number().min(-10000).max(10000),
+});
+
+const FieldDefinition1DSchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  visible: z.boolean().optional().default(true),
+  opacity: z.number().min(0).max(1).optional().default(0.3),
+  type: z.literal('1D'),
+  shape: z.enum(['line', 'arc']),
+  // Common: number of sampling points
+  numPoints: z.number().int().positive().min(2),
+  // Line: start and end points
+  startPoint: z.tuple([z.number(), z.number(), z.number()]).optional(),
+  endPoint: z.tuple([z.number(), z.number(), z.number()]).optional(),
+  // Arc: center, axis vectors, radii, angles
+  centerPoint: z.tuple([z.number(), z.number(), z.number()]).optional(),
+  axis1: z.tuple([z.number(), z.number(), z.number()]).optional(),
+  axis2: z.tuple([z.number(), z.number(), z.number()]).optional(),
+  radiusA: z.number().positive().optional(),
+  radiusB: z.number().positive().optional(),
+  startAngle: z.number().optional(),  // degrees
+  endAngle: z.number().optional(),    // degrees
+  // Orientation preset for arcs (XY, XZ, YZ, Custom)
+  normalPreset: z.enum(['XY', 'YZ', 'XZ', 'Custom']).optional(),
+  fieldType: z.enum(['E', 'H', 'poynting']),
 });
 
 const FieldDefinition2DSchema = z.object({
@@ -88,12 +117,17 @@ const FieldDefinition3DSchema = z.object({
   fieldType: z.enum(['E', 'H', 'poynting']),
 });
 
-export const FieldDefinitionSchema = z.union([FieldDefinition2DSchema, FieldDefinition3DSchema]);
+export const FieldDefinitionSchema = z.union([
+  FieldDefinition1DSchema,
+  FieldDefinition2DSchema,
+  FieldDefinition3DSchema,
+]);
 
 // ============================================================================
 // TypeScript Types
 // ============================================================================
 
+export type FieldDefinition1D = z.infer<typeof FieldDefinition1DSchema>;
 export type FieldDefinition2D = z.infer<typeof FieldDefinition2DSchema>;
 export type FieldDefinition3D = z.infer<typeof FieldDefinition3DSchema>;
 export type FieldDefinition = z.infer<typeof FieldDefinitionSchema>;
@@ -164,7 +198,9 @@ export function getFieldDisplayName(field: FieldDefinition, index: number): stri
  * Calculate total sampling points for a field definition
  */
 export function getTotalSamplingPoints(field: FieldDefinition): number {
-  if (field.type === '2D') {
+  if (field.type === '1D') {
+    return field.numPoints;
+  } else if (field.type === '2D') {
     return field.sampling.x * field.sampling.y;
   } else {
     const s = field.sampling;

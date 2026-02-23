@@ -24,7 +24,7 @@ import {
   FormLabel,
   Box,
 } from '@mui/material';
-import { ViewInAr, PanoramaFishEye } from '@mui/icons-material';
+import { ViewInAr, PanoramaFishEye, Timeline } from '@mui/icons-material';
 import { getEllipseAxesFromPreset } from '@/types/fieldDefinitions';
 
 const steps = ['Region Type', 'Shape', 'Parameters', 'Field Type'];
@@ -46,9 +46,16 @@ interface AddFieldDialogProps {
  */
 export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps) {
   const [activeStep, setActiveStep] = useState(0);
-  const [regionType, setRegionType] = useState<'2D' | '3D'>('2D');
-  const [shape, setShape] = useState<'plane' | 'ellipse' | 'sphere' | 'cuboid'>('plane');
+  const [regionType, setRegionType] = useState<'1D' | '2D' | '3D'>('2D');
+  const [shape, setShape] = useState<'line' | 'arc' | 'plane' | 'ellipse' | 'sphere' | 'cuboid'>('plane');
   const [center, setCenter] = useState({ x: 0, y: 0, z: 0 });
+  // Line start/end points
+  const [lineStart, setLineStart] = useState({ x: 0, y: 0, z: 0 });
+  const [lineEnd, setLineEnd] = useState({ x: 100, y: 0, z: 0 });
+  // Arc angles
+  const [arcAngles, setArcAngles] = useState({ start: 0, end: 360 });
+  // 1D numPoints
+  const [numPoints, setNumPoints] = useState(20);
   // Plane dimensions
   const [planeDims, setPlaneDims] = useState({ width: 100, height: 100 });
   // Ellipse radii
@@ -76,7 +83,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   const [fieldName, setFieldName] = useState('E-field 2D plane 1');
 
   const generateDefaultName = () => {
-    const typeLabel = regionType === '2D' ? '2D' : '3D';
+    const typeLabel = regionType;
     const shapeLabel = shape;
     const selectedLabel = fieldType === 'E' ? 'E-field' : fieldType === 'H' ? 'H-field' : 'Poynting';
     return `${selectedLabel} ${typeLabel} ${shapeLabel} ${nameCounterRef.current}`;
@@ -84,7 +91,9 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
 
   // Reset shape when region type changes
   useEffect(() => {
-    if (regionType === '2D') {
+    if (regionType === '1D') {
+      setShape('line');
+    } else if (regionType === '2D') {
       setShape('plane');
     } else {
       setShape('sphere');
@@ -120,12 +129,27 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
       name: fieldName.trim() || generateDefaultName(),
       type: regionType,
       shape,
-      centerPoint: [center.x, center.y, center.z],
       opacity: 0.3,
       fieldType,
     };
 
-    if (regionType === '2D') {
+    if (regionType === '1D') {
+      fieldDefinition.numPoints = numPoints;
+      if (shape === 'line') {
+        fieldDefinition.startPoint = [lineStart.x, lineStart.y, lineStart.z];
+        fieldDefinition.endPoint = [lineEnd.x, lineEnd.y, lineEnd.z];
+      } else if (shape === 'arc') {
+        fieldDefinition.centerPoint = [center.x, center.y, center.z];
+        fieldDefinition.normalPreset = normalPreset;
+        fieldDefinition.axis1 = [customAxis1.x, customAxis1.y, customAxis1.z];
+        fieldDefinition.axis2 = [customAxis2.x, customAxis2.y, customAxis2.z];
+        fieldDefinition.radiusA = radiusA;
+        fieldDefinition.radiusB = radiusB;
+        fieldDefinition.startAngle = arcAngles.start;
+        fieldDefinition.endAngle = arcAngles.end;
+      }
+    } else if (regionType === '2D') {
+      fieldDefinition.centerPoint = [center.x, center.y, center.z];
       fieldDefinition.normalPreset = normalPreset;
       if (normalPreset === 'Custom') {
         fieldDefinition.normalVector = [customNormal.x, customNormal.y, customNormal.z];
@@ -143,6 +167,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
         fieldDefinition.sampling = { x: sampling2D.x, y: sampling2D.y };
       }
     } else {
+      fieldDefinition.centerPoint = [center.x, center.y, center.z];
       if (shape === 'sphere') {
         fieldDefinition.sphereRadius = sphereRadius;
         fieldDefinition.sampling = {
@@ -175,6 +200,12 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
     setRegionType('2D');
     setShape('plane');
     setCenter({ x: 0, y: 0, z: 0 });
+    // 1D states
+    setLineStart({ x: 0, y: 0, z: 0 });
+    setLineEnd({ x: 100, y: 0, z: 0 });
+    setArcAngles({ start: 0, end: 360 });
+    setNumPoints(20);
+    // 2D states
     setPlaneDims({ width: 100, height: 100 });
     setRadiusA(50);
     setRadiusB(50);
@@ -182,6 +213,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
     setCustomNormal({ x: 0, y: 0, z: 1 });
     setCustomAxis1({ x: 1, y: 0, z: 0 });
     setCustomAxis2({ x: 0, y: 1, z: 0 });
+    // 3D states
     setSphereRadius(50);
     setCuboidDims({ Lx: 100, Ly: 100, Lz: 100 });
     setSampling2D({ x: 20, y: 20 });
@@ -207,7 +239,23 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
         // Step 1: Region Type
         return (
           <Grid container spacing={2}>
-            <Grid item xs={6}>
+            <Grid item xs={4}>
+              <Card variant="outlined" sx={{ bgcolor: regionType === '1D' ? 'action.selected' : 'background.paper' }}>
+                <CardActionArea onClick={() => {
+                  setRegionType('1D');
+                  setTimeout(() => handleNext(), 100);
+                }}>
+                  <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                    <Timeline sx={{ fontSize: 60, mb: 2 }} />
+                    <Typography variant="h6">1D Region</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Line or Arc
+                    </Typography>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            </Grid>
+            <Grid item xs={4}>
               <Card variant="outlined" sx={{ bgcolor: regionType === '2D' ? 'action.selected' : 'background.paper' }}>
                 <CardActionArea onClick={() => {
                   setRegionType('2D');
@@ -223,7 +271,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 </CardActionArea>
               </Card>
             </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={4}>
               <Card variant="outlined" sx={{ bgcolor: regionType === '3D' ? 'action.selected' : 'background.paper' }}>
                 <CardActionArea onClick={() => {
                   setRegionType('3D');
@@ -256,6 +304,20 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 label="Shape"
                 onChange={(e) => setShape(e.target.value as any)}
               >
+                {/* 1D options */}
+                <MenuItem
+                  value="line"
+                  sx={{ display: regionType === '1D' ? 'block' : 'none' }}
+                >
+                  Straight Line
+                </MenuItem>
+                <MenuItem
+                  value="arc"
+                  sx={{ display: regionType === '1D' ? 'block' : 'none' }}
+                >
+                  Elliptical Arc
+                </MenuItem>
+
                 {/* 2D options */}
                 <MenuItem
                   value="plane"
@@ -292,46 +354,217 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
         // Step 3: Parameters
         return (
           <Grid container spacing={2}>
-            {/* Center Point (all shapes) */}
-            <Grid item xs={12}>
-              <Typography variant="subtitle2" gutterBottom>
-                Center Point
-              </Typography>
-            </Grid>
-            <Grid item xs={4}>
-              <TextField
-                fullWidth
-                label="X (mm)"
-                type="number"
-                value={center.x}
-                onChange={(e) => setCenter({ ...center, x: parseFloat(e.target.value) || 0 })}
-              />
-            </Grid>
-            <Grid item xs={4}>
-              <TextField
-                fullWidth
-                label="Y (mm)"
-                type="number"
-                value={center.y}
-                onChange={(e) => setCenter({ ...center, y: parseFloat(e.target.value) || 0 })}
-              />
-            </Grid>
-            <Grid item xs={4}>
-              <TextField
-                fullWidth
-                label="Z (mm)"
-                type="number"
-                value={center.z}
-                onChange={(e) => setCenter({ ...center, z: parseFloat(e.target.value) || 0 })}
-              />
-            </Grid>
+            {/* ── Line: Start and End Points ── */}
+            {shape === 'line' && (
+              <>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Start Point (mm)
+                  </Typography>
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField fullWidth label="X" type="number" value={lineStart.x}
+                    onChange={(e) => setLineStart({ ...lineStart, x: parseFloat(e.target.value) || 0 })} />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField fullWidth label="Y" type="number" value={lineStart.y}
+                    onChange={(e) => setLineStart({ ...lineStart, y: parseFloat(e.target.value) || 0 })} />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField fullWidth label="Z" type="number" value={lineStart.z}
+                    onChange={(e) => setLineStart({ ...lineStart, z: parseFloat(e.target.value) || 0 })} />
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+                    End Point (mm)
+                  </Typography>
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField fullWidth label="X" type="number" value={lineEnd.x}
+                    onChange={(e) => setLineEnd({ ...lineEnd, x: parseFloat(e.target.value) || 0 })} />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField fullWidth label="Y" type="number" value={lineEnd.y}
+                    onChange={(e) => setLineEnd({ ...lineEnd, y: parseFloat(e.target.value) || 0 })} />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField fullWidth label="Z" type="number" value={lineEnd.z}
+                    onChange={(e) => setLineEnd({ ...lineEnd, z: parseFloat(e.target.value) || 0 })} />
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                    Sampling
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth label="Number of Points" type="number" value={numPoints}
+                    onChange={(e) => setNumPoints(parseInt(e.target.value) || 2)}
+                    helperText="Uniformly distributed along the line" inputProps={{ min: 2 }} />
+                </Grid>
+              </>
+            )}
 
-            {/* Shape-specific parameters */}
-            <Grid item xs={12}>
-              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-                Dimensions
-              </Typography>
-            </Grid>
+            {/* ── Arc: Center, Axes, Radii, Angles ── */}
+            {shape === 'arc' && (
+              <>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Center Point (mm)
+                  </Typography>
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField fullWidth label="X" type="number" value={center.x}
+                    onChange={(e) => setCenter({ ...center, x: parseFloat(e.target.value) || 0 })} />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField fullWidth label="Y" type="number" value={center.y}
+                    onChange={(e) => setCenter({ ...center, y: parseFloat(e.target.value) || 0 })} />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField fullWidth label="Z" type="number" value={center.z}
+                    onChange={(e) => setCenter({ ...center, z: parseFloat(e.target.value) || 0 })} />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                    Ellipse Radii (mm)
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField fullWidth label="Radius A" type="number" value={radiusA}
+                    onChange={(e) => setRadiusA(parseFloat(e.target.value) || 1)}
+                    helperText="Along Axis 1" />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField fullWidth label="Radius B" type="number" value={radiusB}
+                    onChange={(e) => setRadiusB(parseFloat(e.target.value) || 1)}
+                    helperText="Along Axis 2" />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <FormControl fullWidth sx={{ mt: 1 }}>
+                    <InputLabel>Orientation</InputLabel>
+                    <Select value={normalPreset} label="Orientation"
+                      onChange={(e) => setNormalPreset(e.target.value as any)}>
+                      <MenuItem value="XY">XY Plane</MenuItem>
+                      <MenuItem value="YZ">YZ Plane</MenuItem>
+                      <MenuItem value="XZ">XZ Plane</MenuItem>
+                      <MenuItem value="Custom">Custom</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                {normalPreset === 'Custom' && (
+                  <>
+                    <Grid item xs={12}>
+                      <Typography variant="caption" color="text.secondary">
+                        Axis 1 (0° direction):
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="X" type="number" value={customAxis1.x}
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, x: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="Y" type="number" value={customAxis1.y}
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, y: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="Z" type="number" value={customAxis1.z}
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, z: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="caption" color="text.secondary">
+                        Axis 2 (90° direction):
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="X" type="number" value={customAxis2.x}
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, x: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="Y" type="number" value={customAxis2.y}
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, y: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="Z" type="number" value={customAxis2.z}
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, z: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                  </>
+                )}
+
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                    Arc Angles (degrees)
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField fullWidth label="Start Angle" type="number" value={arcAngles.start}
+                    onChange={(e) => setArcAngles({ ...arcAngles, start: parseFloat(e.target.value) || 0 })}
+                    helperText="0° = along Axis 1" />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField fullWidth label="End Angle" type="number" value={arcAngles.end}
+                    onChange={(e) => setArcAngles({ ...arcAngles, end: parseFloat(e.target.value) || 360 })}
+                    helperText="360° = full ellipse" />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                    Sampling
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth label="Number of Points" type="number" value={numPoints}
+                    onChange={(e) => setNumPoints(parseInt(e.target.value) || 2)}
+                    helperText="Uniformly distributed along the arc" inputProps={{ min: 2 }} />
+                </Grid>
+              </>
+            )}
+
+            {/* Center Point (2D and 3D shapes) */}
+            {(shape === 'plane' || shape === 'ellipse' || shape === 'sphere' || shape === 'cuboid') && (
+              <>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Center Point
+                  </Typography>
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    label="X (mm)"
+                    type="number"
+                    value={center.x}
+                    onChange={(e) => setCenter({ ...center, x: parseFloat(e.target.value) || 0 })}
+                  />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    label="Y (mm)"
+                    type="number"
+                    value={center.y}
+                    onChange={(e) => setCenter({ ...center, y: parseFloat(e.target.value) || 0 })}
+                  />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    label="Z (mm)"
+                    type="number"
+                    value={center.z}
+                    onChange={(e) => setCenter({ ...center, z: parseFloat(e.target.value) || 0 })}
+                  />
+                </Grid>
+
+                {/* Shape-specific parameters */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                    Dimensions
+                  </Typography>
+                </Grid>
+              </>
+            )}
 
             {/* ── Plane ── */}
             {shape === 'plane' && (
