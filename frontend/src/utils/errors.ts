@@ -81,6 +81,13 @@ export const parseApiError = (error: unknown): ErrorResponse => {
           retryable: false,
         }
 
+      case 413:
+        return {
+          title: 'Data Too Large',
+          message: 'The data is too large to save. Try reducing the number of field sampling points or clearing some results.',
+          retryable: false,
+        }
+
       case 422:
         return {
           title: 'Validation Error',

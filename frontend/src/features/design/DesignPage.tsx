@@ -4,6 +4,7 @@ import { Description as DescriptionIcon } from '@mui/icons-material';
 import { debounce } from 'lodash';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { parseApiError } from '@/utils/errors';
 import {
   generateDipole,
   generateLoop,
@@ -279,7 +280,10 @@ function DesignPage() {
       } catch (error) {
         console.error(`Auto-save failed (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, error);
 
-        if (retryCount < MAX_RETRIES) {
+        // Check if error is retryable (e.g., 413 Payload Too Large is NOT retryable)
+        const parsedError = parseApiError(error);
+
+        if (parsedError.retryable && retryCount < MAX_RETRIES) {
           // Retry after delay
           const delay = RETRY_DELAYS[retryCount];
           setSaveStatus('saving');
@@ -289,9 +293,9 @@ function DesignPage() {
             saveProjectDebounced(projectElements, fields, views, solverData, retryCount + 1);
           }, delay);
         } else {
-          // All retries failed
+          // Non-retryable error or all retries failed
           setSaveStatus('error');
-          setSaveError('Failed to save changes. Please check your connection.');
+          setSaveError(parsedError.message || 'Failed to save changes. Please check your connection.');
 
           // Keep error visible longer
           setTimeout(() => {
