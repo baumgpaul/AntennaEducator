@@ -175,13 +175,21 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
   const isResizingRef = useRef(false);
   // Track current content to avoid save loops
   const contentRef = useRef<string>(content);
+  // Track when we're programmatically loading content (to ignore onUpdate during load)
+  const isLoadingContentRef = useRef(false);
+  // Track current mode so onUpdate callback can access it (useEditor captures closure)
+  const modeRef = useRef<'edit' | 'view'>(mode);
   // Ref to the editor wrapper for KaTeX rendering
   const editorWrapperRef = useRef<HTMLDivElement>(null);
 
-  // Keep contentRef in sync
+  // Keep refs in sync with state
   useEffect(() => {
     contentRef.current = content;
   }, [content]);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   // ── Resize drag handler ────────────────────────────────────────────────
 
@@ -252,6 +260,10 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
     editable: mode === 'edit',
     content: '',
     onUpdate: ({ editor: ed }) => {
+      // Never trigger saves in view mode (use ref to get current mode value)
+      if (modeRef.current !== 'edit') return;
+      // Ignore programmatic updates (e.g., loading content from server)
+      if (isLoadingContentRef.current) return;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const md: string = (ed.storage as any).markdown?.getMarkdown?.() ?? '';
       // Only set dirty / trigger save when content actually changed
@@ -355,16 +367,31 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
     if (editor && !dirty && content !== undefined) {
       const currentMd = getMarkdownFromEditor(editor);
       if (currentMd !== content) {
+        // Mark that we're loading content programmatically to prevent save loop
+        isLoadingContentRef.current = true;
         // First, stabilize any legacy presigned S3 URLs that were stored before
         // the doc-image:// scheme was implemented. Then resolve all doc-image://
         // references to fresh presigned URLs for display.
         const stabilized = stabilizeDocImageUrls(content || '');
+
+        const finishLoading = () => {
+          // After setContent, update contentRef to the actual normalized markdown
+          // to prevent false diffs from markdown normalization differences
+          const normalizedMd = getMarkdownFromEditor(editor);
+          contentRef.current = normalizedMd;
+          isLoadingContentRef.current = false;
+        };
+
         if (stabilized.includes('doc-image://') && projectId) {
           resolveDocImageUrls(stabilized, projectId).then((resolved) => {
             editor.commands.setContent(resolved);
+            // Small delay to let TipTap process the content
+            setTimeout(finishLoading, 50);
           });
         } else {
           editor.commands.setContent(stabilized || '');
+          // Small delay to let TipTap process the content
+          setTimeout(finishLoading, 50);
         }
       }
     }
