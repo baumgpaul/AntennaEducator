@@ -38,7 +38,7 @@ const make3DField = (id: string, overrides: Partial<FieldDefinition> = {}): Fiel
   shape: 'sphere',
   centerPoint: [0, 0, 100],
   sphereRadius: 50,
-  sampling: { radial: 5, angular: 20 },
+  sampling: { theta: 10, phi: 20, radial: 5 },
   fieldType: 'poynting',
   visible: true,
   ...overrides,
@@ -82,7 +82,7 @@ describe('solverSlice - Field Definitions', () => {
   describe('deleteFieldRegion', () => {
     it('deletes a field by id', () => {
       const field1 = make2DField('field-1');
-      const field2 = make2DField('field-2', { shape: 'circle', dimensions: { radius: 25 } });
+      const field2 = make2DField('field-2', { shape: 'ellipse', radiusA: 25, radiusB: 25 } as any);
 
       let state = solverReducer(initialState, addFieldRegion(field1));
       state = solverReducer(state, addFieldRegion(field2));

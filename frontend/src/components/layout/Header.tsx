@@ -29,6 +29,7 @@ function Header() {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
   const { mode } = useAppSelector((state) => state.ui.theme);
+  const projectName = useAppSelector((state) => state.projects.currentProject?.name);
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(anchorEl);
@@ -73,6 +74,15 @@ function Header() {
         {/* Application title */}
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
           Antenna Educator
+          {projectName && (
+            <Typography
+              component="span"
+              variant="subtitle1"
+              sx={{ ml: 1.5, opacity: 0.85, fontWeight: 400 }}
+            >
+              — {projectName}
+            </Typography>
+          )}
         </Typography>
 
         {/* Right side controls */}

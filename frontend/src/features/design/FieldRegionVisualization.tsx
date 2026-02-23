@@ -7,9 +7,9 @@ import type { FieldDefinition } from '@/types/fieldDefinitions';
  *
  * Supports:
  * - 2D Plane: Wireframe rectangle with semi-transparent fill
- * - 2D Circle: Wireframe circle with semi-transparent disk
+ * - 2D Ellipse: Wireframe ellipse with semi-transparent disk
  * - 3D Sphere: Wireframe sphere with semi-transparent surface
- * - 3D Cube: Wireframe box with semi-transparent faces
+ * - 3D Cuboid: Wireframe box with semi-transparent faces
  *
  * Features:
  * - Color-coded by field index (5-color palette cycling)
@@ -154,9 +154,9 @@ function PlaneRegion({
 }
 
 /**
- * Component for rendering a single 2D circle field region
+ * Component for rendering a single 2D ellipse field region
  */
-function CircleRegion({
+function EllipseRegion({
   field,
   color,
   opacity,
@@ -167,38 +167,73 @@ function CircleRegion({
   opacity: number;
   isSelected: boolean;
 }) {
-  // Convert radius from mm to meters (safe default for non-2D types)
-  const radius = field.type === '2D' ? ((field.dimensions?.radius ?? 50) / 1000) : 0.05;
+  if (field.type !== '2D' || field.shape !== 'ellipse') return null;
+
+  // Convert radii from mm to meters
+  const radiusA = (field.radiusA ?? 50) / 1000;
+  const radiusB = (field.radiusB ?? 50) / 1000;
   // Convert center point from mm to meters
   const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
 
-  // Get normal vector
-  const normal: [number, number, number] = field.type === '2D'
-    ? (field.normalPreset && field.normalPreset !== 'Custom'
-      ? getNormalFromPreset(field.normalPreset)
-      : (field.normalVector ?? [0, 0, 1]) as [number, number, number])
-    : [0, 0, 1];
+  // Get axis directions
+  const axis1: [number, number, number] = (field.axis1 ?? [1, 0, 0]) as [number, number, number];
+  const axis2: [number, number, number] = (field.axis2 ?? [0, 1, 0]) as [number, number, number];
 
-  // Create circle geometry
-  const circleGeometry = useMemo(() => {
-    const geometry = new THREE.CircleGeometry(radius, 32);
+  // Create ellipse geometry using a custom shape
+  const ellipseGeometry = useMemo(() => {
+    // Create a circle geometry with radius 1 and scale to ellipse
+    const segments = 48;
+    const geometry = new THREE.BufferGeometry();
+    const vertices: number[] = [];
+    const indices: number[] = [];
 
-    // Rotate to match normal vector
-    const quaternion = new THREE.Quaternion();
-    const targetNormal = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
-    const defaultNormal = new THREE.Vector3(0, 0, 1);
-    quaternion.setFromUnitVectors(defaultNormal, targetNormal);
-    geometry.applyQuaternion(quaternion);
+    // Center vertex
+    vertices.push(0, 0, 0);
 
+    // Perimeter vertices
+    for (let i = 0; i <= segments; i++) {
+      const theta = (i / segments) * Math.PI * 2;
+      const x = radiusA * Math.cos(theta);
+      const y = radiusB * Math.sin(theta);
+      vertices.push(
+        x * axis1[0] + y * axis2[0],
+        x * axis1[1] + y * axis2[1],
+        x * axis1[2] + y * axis2[2],
+      );
+    }
+
+    // Triangle fan from center
+    for (let i = 1; i <= segments; i++) {
+      indices.push(0, i, i + 1);
+    }
+
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(vertices, 3),
+    );
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
     return geometry;
-  }, [radius, normal]);
+  }, [radiusA, radiusB, axis1, axis2]);
 
-  // Create edges for wireframe
+  // Create edge ring for wireframe
   const edgesGeometry = useMemo(() => {
-    return new THREE.EdgesGeometry(circleGeometry);
-  }, [circleGeometry]);
-
-  if (field.type !== '2D' || field.shape !== 'circle') return null;
+    const segments = 48;
+    const points: THREE.Vector3[] = [];
+    for (let i = 0; i <= segments; i++) {
+      const theta = (i / segments) * Math.PI * 2;
+      const x = radiusA * Math.cos(theta);
+      const y = radiusB * Math.sin(theta);
+      points.push(
+        new THREE.Vector3(
+          x * axis1[0] + y * axis2[0],
+          x * axis1[1] + y * axis2[1],
+          x * axis1[2] + y * axis2[2],
+        ),
+      );
+    }
+    return new THREE.BufferGeometry().setFromPoints(points);
+  }, [radiusA, radiusB, axis1, axis2]);
 
   const finalOpacity = isSelected ? Math.min(opacity * 1.5, 1) : opacity;
   const lineColor = isSelected ? '#FFFFFF' : color;
@@ -206,12 +241,12 @@ function CircleRegion({
   return (
     <group position={[cx, cy, cz]}>
       {/* Wireframe outline */}
-      <lineSegments geometry={edgesGeometry}>
+      <lineLoop geometry={edgesGeometry}>
         <lineBasicMaterial color={lineColor} linewidth={isSelected ? 3 : 2} />
-      </lineSegments>
+      </lineLoop>
 
       {/* Semi-transparent fill */}
-      <mesh geometry={circleGeometry}>
+      <mesh geometry={ellipseGeometry}>
         <meshBasicMaterial
           color={color}
           transparent
@@ -222,7 +257,7 @@ function CircleRegion({
 
       {/* Selection glow effect */}
       {isSelected && (
-        <mesh geometry={circleGeometry}>
+        <mesh geometry={ellipseGeometry}>
           <meshBasicMaterial
             color={color}
             transparent
@@ -302,9 +337,9 @@ function SphereRegion({
 }
 
 /**
- * Component for rendering a single 3D cube field region
+ * Component for rendering a single 3D cuboid field region
  */
-function CubeRegion({
+function CuboidRegion({
   field,
   color,
   opacity,
@@ -316,9 +351,9 @@ function CubeRegion({
   isSelected: boolean;
 }) {
   // Convert dimensions from mm to meters (safe defaults for non-3D types)
-  const Lx = field.type === '3D' ? ((field.cubeDimensions?.Lx ?? 100) / 1000) : 0.1;
-  const Ly = field.type === '3D' ? ((field.cubeDimensions?.Ly ?? 100) / 1000) : 0.1;
-  const Lz = field.type === '3D' ? ((field.cubeDimensions?.Lz ?? 100) / 1000) : 0.1;
+  const Lx = field.type === '3D' ? ((field.cuboidDimensions?.Lx ?? 100) / 1000) : 0.1;
+  const Ly = field.type === '3D' ? ((field.cuboidDimensions?.Ly ?? 100) / 1000) : 0.1;
+  const Lz = field.type === '3D' ? ((field.cuboidDimensions?.Lz ?? 100) / 1000) : 0.1;
   // Convert center point from mm to meters
   const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
 
@@ -331,7 +366,7 @@ function CubeRegion({
     return new THREE.WireframeGeometry(boxGeometry);
   }, [boxGeometry]);
 
-  if (field.type !== '3D' || field.shape !== 'cube') return null;
+  if (field.type !== '3D' || field.shape !== 'cuboid') return null;
 
   const finalOpacity = isSelected ? Math.min(opacity * 1.5, 1) : opacity;
   const lineColor = isSelected ? '#FFFFFF' : color;
@@ -424,9 +459,9 @@ export function FieldRegionVisualization({
                 isSelected={isSelected}
               />
             );
-          } else if (field.shape === 'circle') {
+          } else if (field.shape === 'ellipse') {
             return (
-              <CircleRegion
+              <EllipseRegion
                 key={field.id}
                 field={field}
                 color={color}
@@ -446,9 +481,9 @@ export function FieldRegionVisualization({
                 isSelected={isSelected}
               />
             );
-          } else if (field.shape === 'cube') {
+          } else if (field.shape === 'cuboid') {
             return (
-              <CubeRegion
+              <CuboidRegion
                 key={field.id}
                 field={field}
                 color={color}

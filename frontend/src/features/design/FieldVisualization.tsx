@@ -270,9 +270,9 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
 }
 
 /**
- * Render a 2D circular field region
+ * Render a 2D elliptical field region
  */
-function CircleField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading }: {
+function EllipseField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading }: {
   field: FieldDefinition2D;
   opacity: number;
   colorMap: ColorMapType;
@@ -284,27 +284,47 @@ function CircleField({ field, opacity, colorMap, fieldData, fieldType, valueRang
   smoothShading?: boolean;
 }) {
   const { geometry, hasColors } = useMemo(() => {
-    const radius = field.dimensions?.radius || 50;
-    const segments = (field.sampling?.x || 32) - 1; // Radial segments
+    const radiusA = (field.radiusA || 50) / 1000; // mm to meters
+    const radiusB = (field.radiusB || 50) / 1000;
+    const segments = (field.sampling?.x || 32) - 1;
 
-    const geom = new THREE.CircleGeometry(radius / 1000, segments); // mm to meters
+    // Get axis directions
+    const axis1 = field.axis1 ?? [1, 0, 0];
+    const axis2 = field.axis2 ?? [0, 1, 0];
 
-    // Rotate circle to match normal vector
-    const normal = field.normalPreset && field.normalPreset !== 'Custom'
-      ? getNormalFromPreset(field.normalPreset)
-      : field.normalVector ?? [0, 0, 1];
+    // Build ellipse geometry manually
+    const geom = new THREE.BufferGeometry();
+    const vertices: number[] = [];
+    const indices: number[] = [];
 
-    const quaternion = new THREE.Quaternion();
-    const targetNormal = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
-    const defaultNormal = new THREE.Vector3(0, 0, 1);
-    quaternion.setFromUnitVectors(defaultNormal, targetNormal);
-    geom.applyQuaternion(quaternion);
+    // Center vertex
+    vertices.push(0, 0, 0);
+
+    // Perimeter vertices
+    for (let i = 0; i <= segments; i++) {
+      const theta = (i / segments) * Math.PI * 2;
+      const x = radiusA * Math.cos(theta);
+      const y = radiusB * Math.sin(theta);
+      vertices.push(
+        x * axis1[0] + y * axis2[0],
+        x * axis1[1] + y * axis2[1],
+        x * axis1[2] + y * axis2[2],
+      );
+    }
+
+    // Triangle fan from center
+    for (let i = 1; i <= segments; i++) {
+      indices.push(0, i, i + 1);
+    }
+
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geom.setIndex(indices);
+    geom.computeVertexNormals();
 
     // Apply vertex colors if field data is available
     let hasColors = false;
     const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
     if (magnitudes && magnitudes.length > 0) {
-      // Use manual range if specified, otherwise auto
       const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
       const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
       const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
@@ -365,8 +385,9 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const radius = field.sphereRadius || 50;
-    const widthSegments = field.sampling?.angular || 20;
-    const heightSegments = field.sampling?.radial || 10;
+    const sampling = field.sampling as { theta?: number; phi?: number; radial?: number };
+    const widthSegments = sampling.phi || 20;
+    const heightSegments = sampling.theta || 10;
 
     const geom = new THREE.SphereGeometry(
       radius / 1000, // mm to meters
@@ -422,9 +443,9 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
 }
 
 /**
- * Render a 3D cubic field region
+ * Render a 3D cuboid field region
  */
-function CubeField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading }: {
+function CuboidField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading }: {
   field: FieldDefinition3D;
   opacity: number;
   colorMap: ColorMapType;
@@ -436,11 +457,12 @@ function CubeField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
   smoothShading?: boolean;
 }) {
   const { geometry, hasColors } = useMemo(() => {
-    const dims = field.cubeDimensions || { Lx: 100, Ly: 100, Lz: 100 };
+    const dims = field.cuboidDimensions || { Lx: 100, Ly: 100, Lz: 100 };
     // Use sampling to determine segments (n points → n-1 segments)
-    const segmentsX = (field.sampling?.radial || 10) - 1;
-    const segmentsY = (field.sampling?.angular || 10) - 1;
-    const segmentsZ = (field.sampling?.angular || 10) - 1;
+    const sampling = field.sampling as { Nx?: number; Ny?: number; Nz?: number };
+    const segmentsX = (sampling.Nx || 10) - 1;
+    const segmentsY = (sampling.Ny || 10) - 1;
+    const segmentsZ = (sampling.Nz || 10) - 1;
 
     const geom = new THREE.BoxGeometry(
       dims.Lx / 1000,
@@ -521,14 +543,14 @@ function FieldVisualization({
   if (field.type === '2D') {
     if (field.shape === 'plane') {
       return <PlaneField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} interpolationLevel={interp} />;
-    } else if (field.shape === 'circle') {
-      return <CircleField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} />;
+    } else if (field.shape === 'ellipse') {
+      return <EllipseField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} />;
     }
   } else if (field.type === '3D') {
     if (field.shape === 'sphere') {
       return <SphereField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} />;
-    } else if (field.shape === 'cube') {
-      return <CubeField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} />;
+    } else if (field.shape === 'cuboid') {
+      return <CuboidField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} />;
     }
   }
 

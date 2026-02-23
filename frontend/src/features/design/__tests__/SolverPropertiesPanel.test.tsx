@@ -51,14 +51,16 @@ const sampleField2DPlane: FieldDefinition = {
   visible: true,
 };
 
-const sampleField2DCircle: FieldDefinition = {
+const sampleField2DEllipse: FieldDefinition = {
   id: 'field-2',
   name: 'Test Field 2',
   type: '2D',
-  shape: 'circle',
+  shape: 'ellipse',
   centerPoint: [0, 0, 100],
-  dimensions: { radius: 50 },
-  normalVector: [0, 0, 1],
+  radiusA: 50,
+  radiusB: 50,
+  axis1: [1, 0, 0],
+  axis2: [0, 1, 0],
   normalPreset: 'XY',
   sampling: { x: 30, y: 30 },
   fieldType: 'poynting',
@@ -72,19 +74,19 @@ const sampleField3DSphere: FieldDefinition = {
   shape: 'sphere',
   centerPoint: [0, 0, 150],
   sphereRadius: 200,
-  sampling: { radial: 10, angular: 20 },
+  sampling: { theta: 10, phi: 20, radial: 5 },
   fieldType: 'E',
   visible: true,
 };
 
-const sampleField3DCube: FieldDefinition = {
+const sampleField3DCuboid: FieldDefinition = {
   id: 'field-4',
   name: 'Test Field 4',
   type: '3D',
-  shape: 'cube',
+  shape: 'cuboid',
   centerPoint: [50, 50, 50],
-  cubeDimensions: { Lx: 100, Ly: 100, Lz: 100 },
-  sampling: { radial: 15, angular: 25 },
+  cuboidDimensions: { Lx: 100, Ly: 100, Lz: 100 },
+  sampling: { Nx: 15, Ny: 15, Nz: 15 },
   fieldType: 'H',
   visible: true,
 };
@@ -329,11 +331,11 @@ describe('SolverPropertiesPanel', () => {
   });
 
   // ============================================================================
-  // 2D Circle Field Editing Tests
+  // 2D Ellipse Field Editing Tests
   // ============================================================================
 
-  it('renders 2D circle field editor', () => {
-    const store = createMockStore([sampleField2DCircle]);
+  it('renders 2D ellipse field editor', () => {
+    const store = createMockStore([sampleField2DEllipse]);
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -344,12 +346,12 @@ describe('SolverPropertiesPanel', () => {
       </Provider>
     );
 
-    expect(screen.getByLabelText('Radius')).toBeInTheDocument();
-    expect(screen.getByText('Circle Radius (mm):')).toBeInTheDocument();
+    expect(screen.getByLabelText('Radius A')).toBeInTheDocument();
+    expect(screen.getByText('Ellipse Radii (mm):')).toBeInTheDocument();
   });
 
-  it('updates circle radius', async () => {
-    const store = createMockStore([sampleField2DCircle]);
+  it('updates ellipse radius', async () => {
+    const store = createMockStore([sampleField2DEllipse]);
     const user = userEvent.setup();
 
     render(
@@ -362,13 +364,13 @@ describe('SolverPropertiesPanel', () => {
       </Provider>
     );
 
-    const radiusInput = screen.getByLabelText('Radius');
+    const radiusInput = screen.getByLabelText('Radius A');
     await user.clear(radiusInput);
     await user.type(radiusInput, '75');
     fireEvent.blur(radiusInput);
 
     const state = store.getState();
-    expect(state.solver.requestedFields[0].dimensions?.radius).toBe(75);
+    expect(state.solver.requestedFields[0].radiusA).toBe(75);
   });
 
   // ============================================================================
@@ -388,8 +390,9 @@ describe('SolverPropertiesPanel', () => {
     );
 
     expect(screen.getByText('Sphere Radius (mm):')).toBeInTheDocument();
-    expect(screen.getByLabelText('Radial Points')).toBeInTheDocument();
-    expect(screen.getByLabelText('Angular Points')).toBeInTheDocument();
+    expect(screen.getByLabelText('Theta (elevation)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Phi (azimuth)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Radial layers')).toBeInTheDocument();
   });
 
   it('updates sphere radius', async () => {
@@ -429,7 +432,7 @@ describe('SolverPropertiesPanel', () => {
       </Provider>
     );
 
-    const radialInput = screen.getByLabelText('Radial Points');
+    const radialInput = screen.getByLabelText('Radial layers');
     await user.clear(radialInput);
     await user.type(radialInput, '15');
     fireEvent.blur(radialInput);
@@ -439,11 +442,11 @@ describe('SolverPropertiesPanel', () => {
   });
 
   // ============================================================================
-  // 3D Cube Field Editing Tests
+  // 3D Cuboid Field Editing Tests
   // ============================================================================
 
-  it('renders 3D cube field editor', () => {
-    const store = createMockStore([sampleField3DCube]);
+  it('renders 3D cuboid field editor', () => {
+    const store = createMockStore([sampleField3DCuboid]);
     render(
       <Provider store={store}>
         <SolverPropertiesPanel
@@ -454,14 +457,14 @@ describe('SolverPropertiesPanel', () => {
       </Provider>
     );
 
-    expect(screen.getByText('Cube Dimensions (mm):')).toBeInTheDocument();
+    expect(screen.getByText('Cuboid Dimensions (mm):')).toBeInTheDocument();
     expect(screen.getByLabelText('Length X')).toBeInTheDocument();
     expect(screen.getByLabelText('Length Y')).toBeInTheDocument();
     expect(screen.getByLabelText('Length Z')).toBeInTheDocument();
   });
 
-  it('updates cube dimensions', async () => {
-    const store = createMockStore([sampleField3DCube]);
+  it('updates cuboid dimensions', async () => {
+    const store = createMockStore([sampleField3DCuboid]);
     const user = userEvent.setup();
 
     render(
@@ -480,7 +483,7 @@ describe('SolverPropertiesPanel', () => {
     fireEvent.blur(lxInput);
 
     const state = store.getState();
-    expect(state.solver.requestedFields[0].cubeDimensions?.Lx).toBe(120);
+    expect(state.solver.requestedFields[0].cuboidDimensions?.Lx).toBe(120);
   });
 
   // ============================================================================
