@@ -272,6 +272,188 @@ function EllipseRegion({
 }
 
 /**
+ * Component for rendering a 1D line field region
+ */
+function LineRegion({
+  field,
+  color,
+  opacity,
+  isSelected,
+}: {
+  field: FieldDefinition;
+  color: string;
+  opacity: number;
+  isSelected: boolean;
+}) {
+  if (field.type !== '1D' || field.shape !== 'line') return null;
+
+  // Convert start/end points from mm to meters
+  const startPt = field.startPoint ?? [0, 0, 0];
+  const endPt = field.endPoint ?? [100, 0, 0];
+  const start: [number, number, number] = [startPt[0] / 1000, startPt[1] / 1000, startPt[2] / 1000];
+  const end: [number, number, number] = [endPt[0] / 1000, endPt[1] / 1000, endPt[2] / 1000];
+
+  const lineColor = isSelected ? '#FFFFFF' : color;
+
+  // Create line object (using THREE.Line with primitive to avoid SVG conflicts)
+  const lineObject = useMemo(() => {
+    const geometry = new THREE.BufferGeometry();
+    const vertices = new Float32Array([...start, ...end]);
+    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    const material = new THREE.LineBasicMaterial({ color: lineColor });
+    return new THREE.Line(geometry, material);
+  }, [start, end, lineColor]);
+
+  // Create spheres at endpoints
+  const sphereGeometry = useMemo(() => {
+    // Sphere radius proportional to line length
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    const dz = end[2] - start[2];
+    const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    return new THREE.SphereGeometry(length * 0.02, 8, 8);
+  }, [start, end]);
+
+  const finalOpacity = isSelected ? Math.min(opacity * 1.5, 1) : opacity;
+
+  return (
+    <group>
+      {/* Line segment */}
+      <primitive object={lineObject} />
+
+      {/* Start point sphere */}
+      <mesh position={start} geometry={sphereGeometry}>
+        <meshBasicMaterial color={color} transparent opacity={finalOpacity} />
+      </mesh>
+
+      {/* End point sphere */}
+      <mesh position={end} geometry={sphereGeometry}>
+        <meshBasicMaterial color={color} transparent opacity={finalOpacity} />
+      </mesh>
+
+      {/* Selection glow */}
+      {isSelected && (
+        <>
+          <mesh position={start} geometry={sphereGeometry}>
+            <meshBasicMaterial color={color} transparent opacity={0.3} blending={THREE.AdditiveBlending} />
+          </mesh>
+          <mesh position={end} geometry={sphereGeometry}>
+            <meshBasicMaterial color={color} transparent opacity={0.3} blending={THREE.AdditiveBlending} />
+          </mesh>
+        </>
+      )}
+    </group>
+  );
+}
+
+/**
+ * Component for rendering a 1D elliptical arc field region
+ */
+function ArcRegion({
+  field,
+  color,
+  opacity,
+  isSelected,
+}: {
+  field: FieldDefinition;
+  color: string;
+  opacity: number;
+  isSelected: boolean;
+}) {
+  if (field.type !== '1D' || field.shape !== 'arc') return null;
+
+  // Convert center point from mm to meters
+  const centerPt = field.centerPoint ?? [0, 0, 0];
+  const center: [number, number, number] = [centerPt[0] / 1000, centerPt[1] / 1000, centerPt[2] / 1000];
+
+  // Convert radii from mm to meters
+  const radiusA = (field.radiusA ?? 100) / 1000;
+  const radiusB = (field.radiusB ?? 100) / 1000;
+
+  // Get axis directions
+  const axis1: [number, number, number] = (field.axis1 ?? [1, 0, 0]) as [number, number, number];
+  const axis2: [number, number, number] = (field.axis2 ?? [0, 1, 0]) as [number, number, number];
+
+  // Convert angles from degrees to radians
+  const startAngle = ((field.startAngle ?? 0) * Math.PI) / 180;
+  const endAngle = ((field.endAngle ?? 360) * Math.PI) / 180;
+
+  const lineColor = isSelected ? '#FFFFFF' : color;
+
+  // Create arc line object (using THREE.Line with primitive to avoid SVG conflicts)
+  const arcLineObject = useMemo(() => {
+    const geometry = new THREE.BufferGeometry();
+    const segments = 64;
+    const vertices: number[] = [];
+
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const theta = startAngle + t * (endAngle - startAngle);
+      const x = radiusA * Math.cos(theta) * axis1[0] + radiusB * Math.sin(theta) * axis2[0];
+      const y = radiusA * Math.cos(theta) * axis1[1] + radiusB * Math.sin(theta) * axis2[1];
+      const z = radiusA * Math.cos(theta) * axis1[2] + radiusB * Math.sin(theta) * axis2[2];
+      vertices.push(x, y, z);
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+    const material = new THREE.LineBasicMaterial({ color: lineColor });
+    return new THREE.Line(geometry, material);
+  }, [radiusA, radiusB, axis1, axis2, startAngle, endAngle, lineColor]);
+
+  // Create spheres at endpoints
+  const sphereGeometry = useMemo(() => {
+    // Sphere radius proportional to arc size
+    return new THREE.SphereGeometry(Math.max(radiusA, radiusB) * 0.03, 8, 8);
+  }, [radiusA, radiusB]);
+
+  // Calculate endpoint positions
+  const startPos: [number, number, number] = useMemo(() => {
+    const x = radiusA * Math.cos(startAngle) * axis1[0] + radiusB * Math.sin(startAngle) * axis2[0];
+    const y = radiusA * Math.cos(startAngle) * axis1[1] + radiusB * Math.sin(startAngle) * axis2[1];
+    const z = radiusA * Math.cos(startAngle) * axis1[2] + radiusB * Math.sin(startAngle) * axis2[2];
+    return [x, y, z];
+  }, [radiusA, radiusB, axis1, axis2, startAngle]);
+
+  const endPos: [number, number, number] = useMemo(() => {
+    const x = radiusA * Math.cos(endAngle) * axis1[0] + radiusB * Math.sin(endAngle) * axis2[0];
+    const y = radiusA * Math.cos(endAngle) * axis1[1] + radiusB * Math.sin(endAngle) * axis2[1];
+    const z = radiusA * Math.cos(endAngle) * axis1[2] + radiusB * Math.sin(endAngle) * axis2[2];
+    return [x, y, z];
+  }, [radiusA, radiusB, axis1, axis2, endAngle]);
+
+  const finalOpacity = isSelected ? Math.min(opacity * 1.5, 1) : opacity;
+
+  return (
+    <group position={center}>
+      {/* Arc line */}
+      <primitive object={arcLineObject} />
+
+      {/* Start point sphere */}
+      <mesh position={startPos} geometry={sphereGeometry}>
+        <meshBasicMaterial color={color} transparent opacity={finalOpacity} />
+      </mesh>
+
+      {/* End point sphere */}
+      <mesh position={endPos} geometry={sphereGeometry}>
+        <meshBasicMaterial color={color} transparent opacity={finalOpacity} />
+      </mesh>
+
+      {/* Selection glow */}
+      {isSelected && (
+        <>
+          <mesh position={startPos} geometry={sphereGeometry}>
+            <meshBasicMaterial color={color} transparent opacity={0.3} blending={THREE.AdditiveBlending} />
+          </mesh>
+          <mesh position={endPos} geometry={sphereGeometry}>
+            <meshBasicMaterial color={color} transparent opacity={0.3} blending={THREE.AdditiveBlending} />
+          </mesh>
+        </>
+      )}
+    </group>
+  );
+}
+
+/**
  * Component for rendering a single 3D sphere field region
  */
 function SphereRegion({
@@ -484,6 +666,28 @@ export function FieldRegionVisualization({
           } else if (field.shape === 'cuboid') {
             return (
               <CuboidRegion
+                key={field.id}
+                field={field}
+                color={color}
+                opacity={regionOpacity}
+                isSelected={isSelected}
+              />
+            );
+          }
+        } else if (field.type === '1D') {
+          if (field.shape === 'line') {
+            return (
+              <LineRegion
+                key={field.id}
+                field={field}
+                color={color}
+                opacity={regionOpacity}
+                isSelected={isSelected}
+              />
+            );
+          } else if (field.shape === 'arc') {
+            return (
+              <ArcRegion
                 key={field.id}
                 field={field}
                 color={color}
