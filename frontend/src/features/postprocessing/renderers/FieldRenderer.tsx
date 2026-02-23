@@ -44,6 +44,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
   const valueRangeMax = item.valueRangeMax;
   const smoothShading = item.smoothShading ?? false;
   const interpolationLevel = item.interpolationLevel ?? 2;
+  const lineWidth = item.lineWidth ?? 5; // Default 5mm for 1D fields
 
   // Prepare field data object for FieldVisualization
   const visualizationData = {
@@ -68,6 +69,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
       valueRangeMax={valueRangeMax}
       smoothShading={smoothShading}
       interpolationLevel={interpolationLevel}
+      lineWidth={lineWidth}
     />
   );
 };
