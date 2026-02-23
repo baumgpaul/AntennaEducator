@@ -57,7 +57,7 @@ phases:
 
       # ── Build & deploy frontend ──
       - echo "=== Building frontend ==="
-      - cd frontend && npm ci && npm run build && cd ..
+      - cd frontend && npm ci && NODE_OPTIONS="--max-old-space-size=4096" npm run build && cd ..
 
       - echo "=== Deploying frontend to S3 ==="
       - aws s3 sync frontend/dist/ s3://$S3_FRONTEND_BUCKET/ --delete
@@ -70,5 +70,5 @@ phases:
   post_build:
     commands:
       - echo "=== Running smoke tests ==="
-      - python dev_tools/test_aws_pipeline.py
+      - cd $CODEBUILD_SRC_DIR && python dev_tools/test_aws_pipeline.py
       - echo "Deployment complete!"
