@@ -3,19 +3,90 @@
  * Convert field definitions to observation points for postprocessor
  */
 
-import type { FieldDefinition, FieldDefinition2D, FieldDefinition3D } from '@/types/fieldDefinitions';
+import type {
+  FieldDefinition,
+  FieldDefinition1D,
+  FieldDefinition2D,
+  FieldDefinition3D,
+} from '@/types/fieldDefinitions';
+import { getEllipseAxesFromPreset } from '@/types/fieldDefinitions';
 
 /**
  * Generate observation points from field definition
- * @param field Field definition (2D or 3D)
+ * @param field Field definition (1D, 2D or 3D)
  * @returns Array of observation points [[x,y,z], ...]
  */
 export function generateObservationPoints(field: FieldDefinition): number[][] {
-  if (field.type === '2D') {
+  if (field.type === '1D') {
+    return generate1DObservationPoints(field);
+  } else if (field.type === '2D') {
     return generate2DObservationPoints(field);
   } else {
     return generate3DObservationPoints(field);
   }
+}
+
+/**
+ * Generate observation points for 1D field (line or arc)
+ */
+function generate1DObservationPoints(field: FieldDefinition1D): number[][] {
+  const points: number[][] = [];
+  const n = field.numPoints;
+
+  if (field.shape === 'line') {
+    // Get start and end points, convert from mm to m
+    const startPt = field.startPoint ?? [0, 0, 0];
+    const endPt = field.endPoint ?? [0, 0, 0];
+    const start = [startPt[0] / 1000, startPt[1] / 1000, startPt[2] / 1000];
+    const end = [endPt[0] / 1000, endPt[1] / 1000, endPt[2] / 1000];
+
+    // Sample uniformly from start to end
+    for (let i = 0; i < n; i++) {
+      const t = n === 1 ? 0 : i / (n - 1);
+      const x = start[0] + t * (end[0] - start[0]);
+      const y = start[1] + t * (end[1] - start[1]);
+      const z = start[2] + t * (end[2] - start[2]);
+      points.push([x, y, z]);
+    }
+  } else if (field.shape === 'arc') {
+    // Get center, convert from mm to m
+    const centerPt = field.centerPoint ?? [0, 0, 0];
+    const center = [centerPt[0] / 1000, centerPt[1] / 1000, centerPt[2] / 1000];
+
+    // Get axis directions (use preset or explicit)
+    let axis1: [number, number, number];
+    let axis2: [number, number, number];
+    if (field.normalPreset && field.normalPreset !== 'Custom') {
+      const axes = getEllipseAxesFromPreset(field.normalPreset);
+      axis1 = axes.axis1;
+      axis2 = axes.axis2;
+    } else {
+      axis1 = (field.axis1 ?? [1, 0, 0]) as [number, number, number];
+      axis2 = (field.axis2 ?? [0, 1, 0]) as [number, number, number];
+    }
+
+    // Get radii in meters
+    const rA = (field.radiusA ?? 100) / 1000;
+    const rB = (field.radiusB ?? 100) / 1000;
+
+    // Get angles in radians
+    const startAngle = ((field.startAngle ?? 0) * Math.PI) / 180;
+    const endAngle = ((field.endAngle ?? 360) * Math.PI) / 180;
+
+    // Sample arc uniformly by angle
+    for (let i = 0; i < n; i++) {
+      const t = n === 1 ? 0 : i / (n - 1);
+      const theta = startAngle + t * (endAngle - startAngle);
+
+      // Parametric ellipse: P = center + rA*cos(θ)*axis1 + rB*sin(θ)*axis2
+      const x = center[0] + rA * Math.cos(theta) * axis1[0] + rB * Math.sin(theta) * axis2[0];
+      const y = center[1] + rA * Math.cos(theta) * axis1[1] + rB * Math.sin(theta) * axis2[1];
+      const z = center[2] + rA * Math.cos(theta) * axis1[2] + rB * Math.sin(theta) * axis2[2];
+      points.push([x, y, z]);
+    }
+  }
+
+  return points;
 }
 
 /**
