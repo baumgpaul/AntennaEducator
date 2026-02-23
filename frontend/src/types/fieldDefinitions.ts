@@ -3,6 +3,15 @@ import { z } from 'zod';
 /**
  * Field Definition Types for Solver
  * Defines regions where electromagnetic fields will be computed
+ *
+ * 2D shapes:
+ *   - plane: Rectangular region with width/height, normal preset or custom
+ *   - ellipse: Elliptical region with 2 axis vectors and 2 radii
+ *              (circular when radiusA === radiusB)
+ *
+ * 3D shapes:
+ *   - sphere: Spherical shell sampled with theta, phi, radial
+ *   - cuboid: Axis-aligned box with Lx/Ly/Lz dimensions and Nx/Ny/Nz resolution
  */
 
 // ============================================================================
@@ -21,15 +30,22 @@ const FieldDefinition2DSchema = z.object({
   visible: z.boolean().optional().default(true),
   opacity: z.number().min(0).max(1).optional().default(0.3),
   type: z.literal('2D'),
-  shape: z.enum(['plane', 'circle']),
+  shape: z.enum(['plane', 'ellipse']),
   centerPoint: z.tuple([z.number(), z.number(), z.number()]),
+  // Plane dimensions
   dimensions: z
     .object({
       width: z.number().positive().optional(),
       height: z.number().positive().optional(),
-      radius: z.number().positive().optional(),
     })
     .optional(),
+  // Ellipse radii (radiusA along axis1, radiusB along axis2)
+  radiusA: z.number().positive().optional(),
+  radiusB: z.number().positive().optional(),
+  // Ellipse axis directions (unit vectors defining the ellipse plane & axes)
+  axis1: z.tuple([z.number(), z.number(), z.number()]).optional(),
+  axis2: z.tuple([z.number(), z.number(), z.number()]).optional(),
+  // Normal / preset for plane (and as preset selector for ellipse)
   normalVector: z.tuple([z.number(), z.number(), z.number()]).optional(),
   normalPreset: z.enum(['XY', 'YZ', 'XZ', 'Custom']).optional(),
   sampling: z.object({
@@ -45,20 +61,30 @@ const FieldDefinition3DSchema = z.object({
   visible: z.boolean().optional().default(true),
   opacity: z.number().min(0).max(1).optional().default(0.3),
   type: z.literal('3D'),
-  shape: z.enum(['sphere', 'cube']),
+  shape: z.enum(['sphere', 'cuboid']),
   centerPoint: z.tuple([z.number(), z.number(), z.number()]),
   sphereRadius: z.number().positive().optional(),
-  cubeDimensions: z
+  cuboidDimensions: z
     .object({
       Lx: z.number().positive(),
       Ly: z.number().positive(),
       Lz: z.number().positive(),
     })
     .optional(),
-  sampling: z.object({
-    radial: z.number().int().positive(),
-    angular: z.number().int().positive(),
-  }),
+  // Sphere sampling: theta (elevation), phi (azimuth), radial
+  // Cuboid sampling: Nx, Ny, Nz grid resolution
+  sampling: z.union([
+    z.object({
+      theta: z.number().int().positive(),
+      phi: z.number().int().positive(),
+      radial: z.number().int().positive(),
+    }),
+    z.object({
+      Nx: z.number().int().positive(),
+      Ny: z.number().int().positive(),
+      Nz: z.number().int().positive(),
+    }),
+  ]),
   fieldType: z.enum(['E', 'H', 'poynting']),
 });
 
@@ -78,9 +104,43 @@ export type FieldDefinition = z.infer<typeof FieldDefinitionSchema>;
 export type FieldType = 'E' | 'H' | 'poynting';
 
 /**
- * Normal preset options for 2D planes
+ * Normal preset options for 2D planes / ellipse orientation
  */
 export type NormalPreset = 'XY' | 'YZ' | 'XZ' | 'Custom';
+
+/**
+ * Sphere sampling parameters
+ */
+export interface SphereSampling {
+  theta: number;
+  phi: number;
+  radial: number;
+}
+
+/**
+ * Cuboid sampling parameters
+ */
+export interface CuboidSampling {
+  Nx: number;
+  Ny: number;
+  Nz: number;
+}
+
+/**
+ * Helper: get axis vectors from a normal preset for ellipse orientation
+ */
+export function getEllipseAxesFromPreset(
+  preset: Exclude<NormalPreset, 'Custom'>,
+): { axis1: [number, number, number]; axis2: [number, number, number] } {
+  switch (preset) {
+    case 'XY':
+      return { axis1: [1, 0, 0], axis2: [0, 1, 0] };
+    case 'XZ':
+      return { axis1: [1, 0, 0], axis2: [0, 0, 1] };
+    case 'YZ':
+      return { axis1: [0, 1, 0], axis2: [0, 0, 1] };
+  }
+}
 
 /**
  * Validate a field definition
@@ -107,6 +167,10 @@ export function getTotalSamplingPoints(field: FieldDefinition): number {
   if (field.type === '2D') {
     return field.sampling.x * field.sampling.y;
   } else {
-    return field.sampling.radial * field.sampling.angular;
+    const s = field.sampling;
+    if ('Nx' in s) {
+      return s.Nx * s.Ny * s.Nz;
+    }
+    return s.theta * s.phi * s.radial;
   }
 }
