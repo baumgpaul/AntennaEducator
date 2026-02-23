@@ -34,8 +34,6 @@ import {
   FormatListNumbered,
   FormatQuote,
   HorizontalRule,
-  Undo,
-  Redo,
   Image as ImageIcon,
   Functions as FunctionsIcon,
   Title as TitleIcon,
@@ -43,6 +41,8 @@ import {
   Edit as EditIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import ImageExtension from '@tiptap/extension-image';
@@ -136,15 +136,24 @@ const DEFAULT_PANEL_WIDTH = 420;
 const MIN_PANEL_WIDTH = 280;
 const MAX_PANEL_WIDTH = 700;
 
-/** Common KaTeX formula templates for quick insertion. */
+/** Common KaTeX symbol/snippet templates for quick insertion. */
 const FORMULA_TEMPLATES = [
-  { label: 'Inline math', template: '$E = mc^2$', description: 'Inline equation' },
-  { label: 'Block math', template: '\n$$\n\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}\n$$\n', description: 'Display equation' },
-  { label: 'Impedance', template: '$Z = R + jX$', description: 'Complex impedance' },
-  { label: 'Wavelength', template: '$\\lambda = \\frac{c}{f}$', description: 'Wavelength formula' },
-  { label: 'Directivity', template: '$D = \\frac{4\\pi U_{max}}{P_{rad}}$', description: 'Directivity' },
-  { label: 'Friis', template: '$\\frac{P_r}{P_t} = G_t G_r \\left(\\frac{\\lambda}{4\\pi d}\\right)^2$', description: 'Friis equation' },
-  { label: 'Array factor', template: '$AF = \\sum_{n=0}^{N-1} a_n e^{jn(kd\\cos\\theta + \\beta)}$', description: 'Array factor' },
+  { label: 'Inline $…$', template: '$ $', description: 'Inline math delimiters' },
+  { label: 'Block $$…$$', template: '\n$$\n\n$$\n', description: 'Display math block' },
+  { label: 'Greek α β γ δ', template: '$\\alpha\\ \\beta\\ \\gamma\\ \\delta$', description: 'Lower-case Greek' },
+  { label: 'Greek Θ Φ Ω Λ', template: '$\\Theta\\ \\Phi\\ \\Omega\\ \\Lambda$', description: 'Upper-case Greek' },
+  { label: 'Fraction', template: '$\\frac{a}{b}$', description: '\\frac{…}{…}' },
+  { label: 'Square root', template: '$\\sqrt{x}$', description: '\\sqrt{…}' },
+  { label: 'Subscript / super', template: '$x_{i}^{n}$', description: 'x_{sub}^{sup}' },
+  { label: 'Sum ∑', template: '$\\sum_{i=0}^{N}$', description: '\\sum_{…}^{…}' },
+  { label: 'Integral ∫', template: '$\\int_{a}^{b}$', description: '\\int_{…}^{…}' },
+  { label: 'Vector arrow', template: '$\\vec{E}$', description: '\\vec{…}' },
+  { label: 'Hat / bar', template: '$\\hat{x}\\ \\bar{y}$', description: '\\hat  \\bar' },
+  { label: 'Partial ∂', template: '$\\partial$', description: '\\partial' },
+  { label: 'Nabla ∇', template: '$\\nabla$', description: '\\nabla' },
+  { label: 'Infinity ∞', template: '$\\infty$', description: '\\infty' },
+  { label: 'Approx ≈', template: '$\\approx$', description: '\\approx' },
+  { label: 'Cross / dot ×·', template: '$\\times\\ \\cdot$', description: '\\times  \\cdot' },
 ];
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -164,6 +173,15 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
   // Track whether initial load has happened for this project
   const loadedProjectRef = useRef<string | null>(null);
   const isResizingRef = useRef(false);
+  // Track current content to avoid save loops
+  const contentRef = useRef<string>(content);
+  // Ref to the editor wrapper for KaTeX rendering
+  const editorWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Keep contentRef in sync
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
 
   // ── Resize drag handler ────────────────────────────────────────────────
 
@@ -223,7 +241,7 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
         allowBase64: false,
       }),
       Placeholder.configure({
-        placeholder: 'Start writing documentation…\n\nUse the toolbar for formatting, or type Markdown directly.',
+        placeholder: 'Start writing notes…\n\nUse the toolbar for formatting, or type Markdown directly.',
       }),
       Markdown.configure({
         html: false,
@@ -236,8 +254,11 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
     onUpdate: ({ editor: ed }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const md: string = (ed.storage as any).markdown?.getMarkdown?.() ?? '';
-      dispatch(setContent(md));
-      debouncedSave(md);
+      // Only set dirty / trigger save when content actually changed
+      if (md !== contentRef.current) {
+        dispatch(setContent(md));
+        debouncedSave(md);
+      }
     },
   });
 
@@ -245,6 +266,58 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
   useEffect(() => {
     editor?.setEditable(mode === 'edit');
   }, [mode, editor]);
+
+  // ── KaTeX rendering for view mode ───────────────────────────────────────
+
+  useEffect(() => {
+    if (mode !== 'view' || !editorWrapperRef.current) return;
+    // Render KaTeX math expressions within the editor content
+    const el = editorWrapperRef.current;
+    const renderMath = () => {
+      // Process block math first ($$...$$), then inline ($...$)
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      const textNodes: Text[] = [];
+      while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+
+      for (const node of textNodes) {
+        const text = node.textContent || '';
+        // Match $$...$$ (block) or $...$ (inline) but not \$ escaped
+        const mathRegex = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g;
+        if (!mathRegex.test(text)) continue;
+        mathRegex.lastIndex = 0;
+
+        const span = document.createElement('span');
+        let lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = mathRegex.exec(text)) !== null) {
+          // Text before the match
+          if (match.index > lastIndex) {
+            span.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+          }
+          const isBlock = !!match[1];
+          const latex = (match[1] || match[2]).trim();
+          try {
+            const rendered = document.createElement(isBlock ? 'div' : 'span');
+            katex.render(latex, rendered, {
+              throwOnError: false,
+              displayMode: isBlock,
+            });
+            span.appendChild(rendered);
+          } catch {
+            span.appendChild(document.createTextNode(match[0]));
+          }
+          lastIndex = match.index + match[0].length;
+        }
+        if (lastIndex < text.length) {
+          span.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+        node.parentNode?.replaceChild(span, node);
+      }
+    };
+    // Small delay to let TipTap render the content first
+    const timer = setTimeout(renderMath, 50);
+    return () => clearTimeout(timer);
+  }, [mode, content]);
 
   // ── Auto-save ────────────────────────────────────────────────────────────
 
@@ -489,7 +562,7 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Documentation
+            Notes
           </Typography>
           {saving && (
             <Chip
@@ -534,7 +607,7 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
               <Tooltip title="Preview"><ViewIcon fontSize="small" /></Tooltip>
             </ToggleButton>
           </ToggleButtonGroup>
-          <Tooltip title="Close documentation">
+          <Tooltip title="Close notes">
             <IconButton size="small" onClick={() => dispatch(closePanel())}>
               <CloseIcon fontSize="small" />
             </IconButton>
@@ -557,20 +630,6 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
             alignItems: 'center',
           }}
         >
-          {/* History */}
-          <Tooltip title="Undo">
-            <IconButton size="small" onClick={() => editor.chain().focus().undo().run()}>
-              <Undo fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Redo">
-            <IconButton size="small" onClick={() => editor.chain().focus().redo().run()}>
-              <Redo fontSize="small" />
-            </IconButton>
-          </Tooltip>
-
-          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-
           {/* Headings */}
           <Tooltip title="Heading 1">
             <IconButton
@@ -791,7 +850,9 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
             },
           }}
         >
-          <EditorContent editor={editor} />
+          <div ref={editorWrapperRef}>
+            <EditorContent editor={editor} />
+          </div>
         </Box>
       )}
 

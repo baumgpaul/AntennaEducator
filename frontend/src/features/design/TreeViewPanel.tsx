@@ -39,7 +39,6 @@ import {
   Delete,
   Edit,
   Lock,
-  LockOpen,
   GridOn,
   CheckCircle,
 } from '@mui/icons-material';
@@ -477,25 +476,6 @@ function TreeViewPanel({
                   )}
                 </IconButton>
               </Tooltip>
-              {/* Element lock button - only in designer mode */}
-              {mode === 'designer' && node.type === 'element' && element && (
-                <Tooltip title={element.locked ? 'Unlock' : 'Lock'}>
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLockClick(element.id, element.locked);
-                    }}
-                    sx={{ p: 0.5 }}
-                  >
-                    {element.locked ? (
-                      <Lock fontSize="small" />
-                    ) : (
-                      <LockOpen fontSize="small" />
-                    )}
-                  </IconButton>
-                </Tooltip>
-              )}
               {/* Element context menu - only in designer mode */}
               {mode === 'designer' && node.type === 'element' && (
                 <Tooltip title="More actions">

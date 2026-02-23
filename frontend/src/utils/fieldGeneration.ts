@@ -19,7 +19,7 @@ export function generateObservationPoints(field: FieldDefinition): number[][] {
 }
 
 /**
- * Generate observation points for 2D field (plane or circle)
+ * Generate observation points for 2D field (plane or ellipse)
  */
 function generate2DObservationPoints(field: FieldDefinition2D): number[][] {
   const points: number[][] = [];
@@ -74,50 +74,28 @@ function generate2DObservationPoints(field: FieldDefinition2D): number[][] {
         points.push([x, y, z]);
       }
     }
-  } else if (field.shape === 'circle') {
-    const radius = (field.dimensions?.radius ?? 50.0) / 1000.0;  // mm to m
+  } else if (field.shape === 'ellipse') {
+    const radiusA = (field.radiusA ?? 50.0) / 1000.0;  // mm to m
+    const radiusB = (field.radiusB ?? 50.0) / 1000.0;  // mm to m
 
-    // Determine normal vector (same as plane)
-    let normal: [number, number, number];
-    if (field.normalPreset && field.normalPreset !== 'Custom') {
-      switch (field.normalPreset) {
-        case 'XY':
-          normal = [0, 0, 1];
-          break;
-        case 'YZ':
-          normal = [1, 0, 0];
-          break;
-        case 'XZ':
-          normal = [0, 1, 0];
-          break;
-      }
-    } else if (field.normalVector) {
-      normal = [
-        field.normalVector[0] ?? 0,
-        field.normalVector[1] ?? 0,
-        field.normalVector[2] ?? 1,
-      ];
-    } else {
-      normal = [0, 0, 1];
-    }
+    // Get axis directions from field or default to XY plane axes
+    const a1: [number, number, number] = (field.axis1 ?? [1, 0, 0]) as [number, number, number];
+    const a2: [number, number, number] = (field.axis2 ?? [0, 1, 0]) as [number, number, number];
 
-    const { u, v } = getOrthogonalBasis(normal);
-
-    // Sample in polar coordinates
+    // Sample in polar coordinates: nx = angular, ny = radial
     for (let i = 0; i < nx; i++) {
+      const theta = (i / nx) * 2 * Math.PI;
       for (let j = 0; j < ny; j++) {
-        // Radial and angular coordinates
-        const r = (i / (nx - 1)) * radius;
-        const theta = (j / ny) * 2 * Math.PI;
+        const r = j / (ny - 1); // 0 to 1
 
-        // Point in local coords
-        const s = r * Math.cos(theta);
-        const t = r * Math.sin(theta);
+        // Elliptical radius at this angle
+        const s = r * radiusA * Math.cos(theta);
+        const t = r * radiusB * Math.sin(theta);
 
-        // Point in 3D space
-        const x = cx + s * u[0] + t * v[0];
-        const y = cy + s * u[1] + t * v[1];
-        const z = cz + s * u[2] + t * v[2];
+        // Point in 3D space along axis directions
+        const x = cx + s * a1[0] + t * a2[0];
+        const y = cy + s * a1[1] + t * a2[1];
+        const z = cz + s * a1[2] + t * a2[2];
 
         points.push([x, y, z]);
       }
@@ -128,17 +106,21 @@ function generate2DObservationPoints(field: FieldDefinition2D): number[][] {
 }
 
 /**
- * Generate observation points for 3D field (sphere or cube)
+ * Generate observation points for 3D field (sphere or cuboid)
  */
 function generate3DObservationPoints(field: FieldDefinition3D): number[][] {
   const points: number[][] = [];
   // Convert center point from mm to m
   const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
-  const { radial: nr, angular: ntheta } = field.sampling;
 
   if (field.shape === 'sphere') {
     const radius = (field.sphereRadius ?? 100.0) / 1000.0;  // mm to m
-    const nphi = ntheta; // Use same angular sampling for both angles
+
+    // Extract sphere sampling (theta, phi, radial)
+    const sampling = field.sampling as { theta: number; phi: number; radial: number };
+    const ntheta = sampling.theta ?? 10;
+    const nphi = sampling.phi ?? 20;
+    const nr = sampling.radial ?? 5;
 
     // Sample in spherical coordinates
     for (let i = 0; i < nr; i++) {
@@ -159,17 +141,18 @@ function generate3DObservationPoints(field: FieldDefinition3D): number[][] {
         }
       }
     }
-  } else if (field.shape === 'cube') {
-    // Convert cube dimensions from mm to m
-    const dims = field.cubeDimensions ?? { Lx: 100.0, Ly: 100.0, Lz: 100.0 };
+  } else if (field.shape === 'cuboid') {
+    // Convert cuboid dimensions from mm to m
+    const dims = field.cuboidDimensions ?? { Lx: 100.0, Ly: 100.0, Lz: 100.0 };
     const { Lx, Ly, Lz } = { Lx: dims.Lx / 1000, Ly: dims.Ly / 1000, Lz: dims.Lz / 1000 };
 
-    // Use radial sampling for all 3 dimensions
-    const nx = nr;
-    const ny = nr;
-    const nz = nr;
+    // Extract cuboid sampling (Nx, Ny, Nz)
+    const sampling = field.sampling as { Nx: number; Ny: number; Nz: number };
+    const nx = sampling.Nx ?? 10;
+    const ny = sampling.Ny ?? 10;
+    const nz = sampling.Nz ?? 10;
 
-    // Sample the cube uniformly
+    // Sample the cuboid uniformly
     for (let i = 0; i < nx; i++) {
       for (let j = 0; j < ny; j++) {
         for (let k = 0; k < nz; k++) {

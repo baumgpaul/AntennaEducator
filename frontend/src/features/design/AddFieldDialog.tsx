@@ -25,6 +25,7 @@ import {
   Box,
 } from '@mui/material';
 import { ViewInAr, PanoramaFishEye } from '@mui/icons-material';
+import { getEllipseAxesFromPreset } from '@/types/fieldDefinitions';
 
 const steps = ['Region Type', 'Shape', 'Parameters', 'Field Type'];
 
@@ -39,20 +40,37 @@ interface AddFieldDialogProps {
  *
  * Steps:
  * 1. Select 2D or 3D region
- * 2. Select shape (plane/circle for 2D, sphere/cube for 3D)
+ * 2. Select shape (plane/ellipse for 2D, sphere/cuboid for 3D)
  * 3. Define parameters (center point, dimensions, sampling)
- * 4. Select field type (E, H, or Poynting) - single selection only
- * 5. Choose near or far field
+ * 4. Select field type (E, H, or Poynting)
  */
 export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [regionType, setRegionType] = useState<'2D' | '3D'>('2D');
-  const [shape, setShape] = useState<'plane' | 'circle' | 'sphere' | 'cube'>('plane');
+  const [shape, setShape] = useState<'plane' | 'ellipse' | 'sphere' | 'cuboid'>('plane');
   const [center, setCenter] = useState({ x: 0, y: 0, z: 0 });
-  const [dimensions, setDimensions] = useState({ width: 100, height: 100, radius: 50 });
+  // Plane dimensions
+  const [planeDims, setPlaneDims] = useState({ width: 100, height: 100 });
+  // Ellipse radii
+  const [radiusA, setRadiusA] = useState(50);
+  const [radiusB, setRadiusB] = useState(50);
+  // Custom axis vectors (for ellipse)
+  const [customAxis1, setCustomAxis1] = useState({ x: 1, y: 0, z: 0 });
+  const [customAxis2, setCustomAxis2] = useState({ x: 0, y: 1, z: 0 });
+  // Normal preset / orientation
   const [normalPreset, setNormalPreset] = useState<'XY' | 'YZ' | 'XZ' | 'Custom'>('XY');
   const [customNormal, setCustomNormal] = useState({ x: 0, y: 0, z: 1 });
-  const [sampling, setSampling] = useState({ x: 20, y: 20, radial: 10, angular: 20 });
+  // Sphere radius
+  const [sphereRadius, setSphereRadius] = useState(50);
+  // Cuboid dimensions
+  const [cuboidDims, setCuboidDims] = useState({ Lx: 100, Ly: 100, Lz: 100 });
+  // 2D sampling
+  const [sampling2D, setSampling2D] = useState({ x: 20, y: 20 });
+  // Sphere sampling
+  const [sphereSampling, setSphereSampling] = useState({ theta: 18, phi: 36, radial: 10 });
+  // Cuboid sampling
+  const [cuboidSampling, setCuboidSampling] = useState({ Nx: 10, Ny: 10, Nz: 10 });
+
   const [fieldType, setFieldType] = useState<'E' | 'H' | 'poynting'>('E');
   const nameCounterRef = useRef(1);
   const [fieldName, setFieldName] = useState('E-field 2D plane 1');
@@ -79,6 +97,15 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regionType, shape, fieldType]);
 
+  // Sync ellipse axes when preset changes
+  useEffect(() => {
+    if (normalPreset !== 'Custom') {
+      const axes = getEllipseAxesFromPreset(normalPreset);
+      setCustomAxis1({ x: axes.axis1[0], y: axes.axis1[1], z: axes.axis1[2] });
+      setCustomAxis2({ x: axes.axis2[0], y: axes.axis2[1], z: axes.axis2[2] });
+    }
+  }, [normalPreset]);
+
   const handleNext = () => {
     setActiveStep((prevStep) => prevStep + 1);
   };
@@ -104,22 +131,38 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
         fieldDefinition.normalVector = [customNormal.x, customNormal.y, customNormal.z];
       }
       if (shape === 'plane') {
-        fieldDefinition.dimensions = { width: dimensions.width, height: dimensions.height };
+        fieldDefinition.dimensions = { width: planeDims.width, height: planeDims.height };
+        fieldDefinition.sampling = { x: sampling2D.x, y: sampling2D.y };
       } else {
-        fieldDefinition.dimensions = { radius: dimensions.radius };
+        // Ellipse
+        fieldDefinition.radiusA = radiusA;
+        fieldDefinition.radiusB = radiusB;
+        fieldDefinition.axis1 = [customAxis1.x, customAxis1.y, customAxis1.z];
+        fieldDefinition.axis2 = [customAxis2.x, customAxis2.y, customAxis2.z];
+        // For ellipse, x = angular, y = radial
+        fieldDefinition.sampling = { x: sampling2D.x, y: sampling2D.y };
       }
-      fieldDefinition.sampling = { x: sampling.x, y: sampling.y };
     } else {
       if (shape === 'sphere') {
-        fieldDefinition.sphereRadius = dimensions.radius;
+        fieldDefinition.sphereRadius = sphereRadius;
+        fieldDefinition.sampling = {
+          theta: sphereSampling.theta,
+          phi: sphereSampling.phi,
+          radial: sphereSampling.radial,
+        };
       } else {
-        fieldDefinition.cubeDimensions = {
-          Lx: dimensions.width,
-          Ly: dimensions.height,
-          Lz: dimensions.radius,
+        // Cuboid
+        fieldDefinition.cuboidDimensions = {
+          Lx: cuboidDims.Lx,
+          Ly: cuboidDims.Ly,
+          Lz: cuboidDims.Lz,
+        };
+        fieldDefinition.sampling = {
+          Nx: cuboidSampling.Nx,
+          Ny: cuboidSampling.Ny,
+          Nz: cuboidSampling.Nz,
         };
       }
-      fieldDefinition.sampling = { radial: sampling.radial, angular: sampling.angular };
     }
 
     onCreate(fieldDefinition);
@@ -132,9 +175,18 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
     setRegionType('2D');
     setShape('plane');
     setCenter({ x: 0, y: 0, z: 0 });
-    setDimensions({ width: 100, height: 100, radius: 50 });
+    setPlaneDims({ width: 100, height: 100 });
+    setRadiusA(50);
+    setRadiusB(50);
     setNormalPreset('XY');
-    setSampling({ x: 20, y: 20, radial: 10, angular: 20 });
+    setCustomNormal({ x: 0, y: 0, z: 1 });
+    setCustomAxis1({ x: 1, y: 0, z: 0 });
+    setCustomAxis2({ x: 0, y: 1, z: 0 });
+    setSphereRadius(50);
+    setCuboidDims({ Lx: 100, Ly: 100, Lz: 100 });
+    setSampling2D({ x: 20, y: 20 });
+    setSphereSampling({ theta: 18, phi: 36, radial: 10 });
+    setCuboidSampling({ Nx: 10, Ny: 10, Nz: 10 });
     setFieldType('E');
     nameCounterRef.current += 1;
     setFieldName(`E-field 2D plane ${nameCounterRef.current}`);
@@ -165,7 +217,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                     <PanoramaFishEye sx={{ fontSize: 60, mb: 2 }} />
                     <Typography variant="h6">2D Region</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Plane or Circle
+                      Plane or Ellipse
                     </Typography>
                   </CardContent>
                 </CardActionArea>
@@ -181,7 +233,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                     <ViewInAr sx={{ fontSize: 60, mb: 2 }} />
                     <Typography variant="h6">3D Region</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Sphere or Cube
+                      Sphere or Cuboid
                     </Typography>
                   </CardContent>
                 </CardActionArea>
@@ -212,10 +264,10 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                   Rectangular Plane
                 </MenuItem>
                 <MenuItem
-                  value="circle"
+                  value="ellipse"
                   sx={{ display: regionType === '2D' ? 'block' : 'none' }}
                 >
-                  Circle
+                  Ellipse / Circle
                 </MenuItem>
 
                 {/* 3D options */}
@@ -226,10 +278,10 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                   Sphere
                 </MenuItem>
                 <MenuItem
-                  value="cube"
+                  value="cuboid"
                   sx={{ display: regionType === '3D' ? 'block' : 'none' }}
                 >
-                  Cube
+                  Cuboid
                 </MenuItem>
               </Select>
             </FormControl>
@@ -240,6 +292,7 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
         // Step 3: Parameters
         return (
           <Grid container spacing={2}>
+            {/* Center Point (all shapes) */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" gutterBottom>
                 Center Point
@@ -273,12 +326,14 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
               />
             </Grid>
 
-            {/* Dimensions */}
+            {/* Shape-specific parameters */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
                 Dimensions
               </Typography>
             </Grid>
+
+            {/* ── Plane ── */}
             {shape === 'plane' && (
               <>
                 <Grid item xs={6}>
@@ -286,8 +341,8 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                     fullWidth
                     label="Width (mm)"
                     type="number"
-                    value={dimensions.width}
-                    onChange={(e) => setDimensions({ ...dimensions, width: parseFloat(e.target.value) || 0 })}
+                    value={planeDims.width}
+                    onChange={(e) => setPlaneDims({ ...planeDims, width: parseFloat(e.target.value) || 0 })}
                   />
                 </Grid>
                 <Grid item xs={6}>
@@ -295,16 +350,16 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                     fullWidth
                     label="Height (mm)"
                     type="number"
-                    value={dimensions.height}
-                    onChange={(e) => setDimensions({ ...dimensions, height: parseFloat(e.target.value) || 0 })}
+                    value={planeDims.height}
+                    onChange={(e) => setPlaneDims({ ...planeDims, height: parseFloat(e.target.value) || 0 })}
                   />
                 </Grid>
                 <Grid item xs={12}>
                   <FormControl fullWidth>
-                    <InputLabel>Normal Preset</InputLabel>
+                    <InputLabel>Orientation</InputLabel>
                     <Select
                       value={normalPreset}
-                      label="Normal Preset"
+                      label="Orientation"
                       onChange={(e) => setNormalPreset(e.target.value as any)}
                     >
                       <MenuItem value="XY">XY Plane</MenuItem>
@@ -350,26 +405,109 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 )}
               </>
             )}
-            {(shape === 'circle' || shape === 'sphere') && (
+
+            {/* ── Ellipse / Circle ── */}
+            {shape === 'ellipse' && (
+              <>
+                <Grid item xs={6}>
+                  <TextField
+                    fullWidth
+                    label="Radius A (mm)"
+                    type="number"
+                    value={radiusA}
+                    onChange={(e) => setRadiusA(parseFloat(e.target.value) || 0)}
+                    helperText="Semi-axis along Axis 1"
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    fullWidth
+                    label="Radius B (mm)"
+                    type="number"
+                    value={radiusB}
+                    onChange={(e) => setRadiusB(parseFloat(e.target.value) || 0)}
+                    helperText="Semi-axis along Axis 2"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel>Orientation</InputLabel>
+                    <Select
+                      value={normalPreset}
+                      label="Orientation"
+                      onChange={(e) => setNormalPreset(e.target.value as any)}
+                    >
+                      <MenuItem value="XY">XY Plane</MenuItem>
+                      <MenuItem value="YZ">YZ Plane</MenuItem>
+                      <MenuItem value="XZ">XZ Plane</MenuItem>
+                      <MenuItem value="Custom">Custom</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                {normalPreset === 'Custom' && (
+                  <>
+                    <Grid item xs={12}>
+                      <Typography variant="caption" color="text.secondary">
+                        Axis 1 direction (semi-major):
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="A1 X" type="number" value={customAxis1.x}
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, x: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="A1 Y" type="number" value={customAxis1.y}
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, y: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="A1 Z" type="number" value={customAxis1.z}
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, z: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="caption" color="text.secondary">
+                        Axis 2 direction (semi-minor):
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="A2 X" type="number" value={customAxis2.x}
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, x: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="A2 Y" type="number" value={customAxis2.y}
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, y: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField fullWidth label="A2 Z" type="number" value={customAxis2.z}
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, z: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                    </Grid>
+                  </>
+                )}
+              </>
+            )}
+
+            {/* ── Sphere ── */}
+            {shape === 'sphere' && (
               <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="Radius (mm)"
                   type="number"
-                  value={dimensions.radius}
-                  onChange={(e) => setDimensions({ ...dimensions, radius: parseFloat(e.target.value) || 0 })}
+                  value={sphereRadius}
+                  onChange={(e) => setSphereRadius(parseFloat(e.target.value) || 0)}
                 />
               </Grid>
             )}
-            {shape === 'cube' && (
+
+            {/* ── Cuboid ── */}
+            {shape === 'cuboid' && (
               <>
                 <Grid item xs={4}>
                   <TextField
                     fullWidth
                     label="Lx (mm)"
                     type="number"
-                    value={dimensions.width}
-                    onChange={(e) => setDimensions({ ...dimensions, width: parseFloat(e.target.value) || 0 })}
+                    value={cuboidDims.Lx}
+                    onChange={(e) => setCuboidDims({ ...cuboidDims, Lx: parseFloat(e.target.value) || 0 })}
                   />
                 </Grid>
                 <Grid item xs={4}>
@@ -377,8 +515,8 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                     fullWidth
                     label="Ly (mm)"
                     type="number"
-                    value={dimensions.height}
-                    onChange={(e) => setDimensions({ ...dimensions, height: parseFloat(e.target.value) || 0 })}
+                    value={cuboidDims.Ly}
+                    onChange={(e) => setCuboidDims({ ...cuboidDims, Ly: parseFloat(e.target.value) || 0 })}
                   />
                 </Grid>
                 <Grid item xs={4}>
@@ -386,8 +524,8 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                     fullWidth
                     label="Lz (mm)"
                     type="number"
-                    value={dimensions.radius}
-                    onChange={(e) => setDimensions({ ...dimensions, radius: parseFloat(e.target.value) || 0 })}
+                    value={cuboidDims.Lz}
+                    onChange={(e) => setCuboidDims({ ...cuboidDims, Lz: parseFloat(e.target.value) || 0 })}
                   />
                 </Grid>
               </>
@@ -399,15 +537,17 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                 Sampling Resolution
               </Typography>
             </Grid>
-            {regionType === '2D' ? (
+
+            {/* 2D sampling: plane uses x/y; ellipse uses angle/radius */}
+            {shape === 'plane' && (
               <>
                 <Grid item xs={6}>
                   <TextField
                     fullWidth
                     label="Points in X"
                     type="number"
-                    value={sampling.x}
-                    onChange={(e) => setSampling({ ...sampling, x: parseInt(e.target.value) || 0 })}
+                    value={sampling2D.x}
+                    onChange={(e) => setSampling2D({ ...sampling2D, x: parseInt(e.target.value) || 0 })}
                   />
                 </Grid>
                 <Grid item xs={6}>
@@ -415,29 +555,104 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
                     fullWidth
                     label="Points in Y"
                     type="number"
-                    value={sampling.y}
-                    onChange={(e) => setSampling({ ...sampling, y: parseInt(e.target.value) || 0 })}
+                    value={sampling2D.y}
+                    onChange={(e) => setSampling2D({ ...sampling2D, y: parseInt(e.target.value) || 0 })}
                   />
                 </Grid>
               </>
-            ) : (
+            )}
+            {shape === 'ellipse' && (
               <>
-                <Grid item xs={6}>
-                  <TextField
-                    fullWidth
-                    label="Radial Points"
-                    type="number"
-                    value={sampling.radial}
-                    onChange={(e) => setSampling({ ...sampling, radial: parseInt(e.target.value) || 0 })}
-                  />
-                </Grid>
                 <Grid item xs={6}>
                   <TextField
                     fullWidth
                     label="Angular Points"
                     type="number"
-                    value={sampling.angular}
-                    onChange={(e) => setSampling({ ...sampling, angular: parseInt(e.target.value) || 0 })}
+                    value={sampling2D.x}
+                    onChange={(e) => setSampling2D({ ...sampling2D, x: parseInt(e.target.value) || 0 })}
+                    helperText="Points around circumference"
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    fullWidth
+                    label="Radial Points"
+                    type="number"
+                    value={sampling2D.y}
+                    onChange={(e) => setSampling2D({ ...sampling2D, y: parseInt(e.target.value) || 0 })}
+                    helperText="Points along radius"
+                  />
+                </Grid>
+              </>
+            )}
+
+            {/* Sphere sampling: theta, phi, radial */}
+            {shape === 'sphere' && (
+              <>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    label="Theta Points"
+                    type="number"
+                    value={sphereSampling.theta}
+                    onChange={(e) => setSphereSampling({ ...sphereSampling, theta: parseInt(e.target.value) || 0 })}
+                    helperText="Elevation (0° → 180°)"
+                  />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    label="Phi Points"
+                    type="number"
+                    value={sphereSampling.phi}
+                    onChange={(e) => setSphereSampling({ ...sphereSampling, phi: parseInt(e.target.value) || 0 })}
+                    helperText="Azimuth (0° → 360°)"
+                  />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    label="Radial Points"
+                    type="number"
+                    value={sphereSampling.radial}
+                    onChange={(e) => setSphereSampling({ ...sphereSampling, radial: parseInt(e.target.value) || 0 })}
+                    helperText="Center → surface"
+                  />
+                </Grid>
+              </>
+            )}
+
+            {/* Cuboid sampling: Nx, Ny, Nz */}
+            {shape === 'cuboid' && (
+              <>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    label="Nx"
+                    type="number"
+                    value={cuboidSampling.Nx}
+                    onChange={(e) => setCuboidSampling({ ...cuboidSampling, Nx: parseInt(e.target.value) || 0 })}
+                    helperText="Points along X"
+                  />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    label="Ny"
+                    type="number"
+                    value={cuboidSampling.Ny}
+                    onChange={(e) => setCuboidSampling({ ...cuboidSampling, Ny: parseInt(e.target.value) || 0 })}
+                    helperText="Points along Y"
+                  />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    label="Nz"
+                    type="number"
+                    value={cuboidSampling.Nz}
+                    onChange={(e) => setCuboidSampling({ ...cuboidSampling, Nz: parseInt(e.target.value) || 0 })}
+                    helperText="Points along Z"
                   />
                 </Grid>
               </>
