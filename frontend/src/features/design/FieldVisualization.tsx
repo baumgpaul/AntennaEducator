@@ -5,7 +5,8 @@
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import type { FieldDefinition, FieldDefinition2D, FieldDefinition3D, FieldType } from '@/types/fieldDefinitions';
+import type { FieldDefinition, FieldDefinition1D, FieldDefinition2D, FieldDefinition3D, FieldType } from '@/types/fieldDefinitions';
+import { getEllipseAxesFromPreset } from '@/types/fieldDefinitions';
 import type { ColorMapType } from '@/utils/colorMaps';
 import { createColorArray } from '@/utils/colorMaps';
 
@@ -115,6 +116,8 @@ interface FieldVisualizationProps {
   // Smoothing options
   smoothShading?: boolean;
   interpolationLevel?: 1 | 2 | 4 | 8;
+  // 1D field line width (tube radius in mm, default 5)
+  lineWidth?: number;
 }
 
 /**
@@ -521,6 +524,220 @@ function CuboidField({ field, opacity, colorMap, fieldData, fieldType, valueRang
 }
 
 /**
+ * Render a 1D line field region as a colored tube
+ */
+function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth }: {
+  field: FieldDefinition1D;
+  opacity: number;
+  colorMap: ColorMapType;
+  fieldData?: FieldVisualizationProps['fieldData'];
+  fieldType: FieldType;
+  valueRangeMode?: 'auto' | 'manual';
+  valueRangeMin?: number;
+  valueRangeMax?: number;
+  lineWidth?: number;
+}) {
+  const { geometry, hasColors } = useMemo(() => {
+    // Get start and end points (in mm, convert to meters)
+    const startPt = field.startPoint ?? [0, 0, 0];
+    const endPt = field.endPoint ?? [100, 0, 0];
+    const start = new THREE.Vector3(startPt[0] / 1000, startPt[1] / 1000, startPt[2] / 1000);
+    const end = new THREE.Vector3(endPt[0] / 1000, endPt[1] / 1000, endPt[2] / 1000);
+
+    // Create a path from start to end
+    const path = new THREE.LineCurve3(start, end);
+
+    // Tube radius in meters (lineWidth is in mm, default 5mm)
+    const radius = (lineWidth ?? 5) / 1000;
+
+    // Number of segments along the tube matches the field points
+    const numPoints = field.numPoints ?? 10;
+    const tubularSegments = Math.max(numPoints - 1, 1);
+    const radialSegments = 8;
+
+    const geom = new THREE.TubeGeometry(path, tubularSegments, radius, radialSegments, false);
+
+    // Apply vertex colors if field data is available
+    let hasColors = false;
+    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    if (magnitudes && magnitudes.length > 0) {
+      const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
+      const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
+
+      // Map magnitudes to tube vertices
+      // TubeGeometry has (tubularSegments + 1) rings × (radialSegments + 1) vertices per ring
+      const posAttr = geom.getAttribute('position');
+      const numVertices = posAttr.count;
+      const colors = new Float32Array(numVertices * 3);
+
+      // Create color lookup from magnitudes
+      const minMag = minVal ?? Math.min(...magnitudes);
+      const maxMag = maxVal ?? Math.max(...magnitudes);
+      const range = maxMag - minMag || 1;
+
+      // Get color map function
+      const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
+
+      // Each ring of vertices corresponds to a point along the tube
+      const verticesPerRing = radialSegments + 1;
+      for (let i = 0; i <= tubularSegments; i++) {
+        // Map tube segment index to magnitude index
+        const magIdx = Math.min(i, magnitudes.length - 1);
+        const r = colorArray[magIdx * 3];
+        const g = colorArray[magIdx * 3 + 1];
+        const b = colorArray[magIdx * 3 + 2];
+
+        // Apply same color to all vertices in this ring
+        for (let j = 0; j < verticesPerRing; j++) {
+          const vertIdx = i * verticesPerRing + j;
+          if (vertIdx < numVertices) {
+            colors[vertIdx * 3] = r;
+            colors[vertIdx * 3 + 1] = g;
+            colors[vertIdx * 3 + 2] = b;
+          }
+        }
+      }
+
+      geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      hasColors = true;
+    }
+
+    return { geometry: geom, hasColors };
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth]);
+
+  return (
+    <mesh geometry={geometry}>
+      <meshBasicMaterial
+        color={hasColors ? "#ffffff" : "#44aaff"}
+        transparent
+        opacity={opacity / 100}
+        side={THREE.DoubleSide}
+        wireframe={!hasColors}
+        vertexColors={hasColors}
+      />
+    </mesh>
+  );
+}
+
+/**
+ * Render a 1D arc field region as a colored tube
+ */
+function ArcField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth }: {
+  field: FieldDefinition1D;
+  opacity: number;
+  colorMap: ColorMapType;
+  fieldData?: FieldVisualizationProps['fieldData'];
+  fieldType: FieldType;
+  valueRangeMode?: 'auto' | 'manual';
+  valueRangeMin?: number;
+  valueRangeMax?: number;
+  lineWidth?: number;
+}) {
+  const { geometry, hasColors } = useMemo(() => {
+    // Get center point (in mm, convert to meters)
+    const centerPt = field.centerPoint ?? [0, 0, 0];
+    const center = new THREE.Vector3(centerPt[0] / 1000, centerPt[1] / 1000, centerPt[2] / 1000);
+
+    // Get radii (in mm, convert to meters)
+    const radiusA = (field.radiusA ?? 100) / 1000;
+    const radiusB = (field.radiusB ?? 100) / 1000;
+
+    // Get axis directions (use preset or custom)
+    let axis1: [number, number, number];
+    let axis2: [number, number, number];
+    if (field.normalPreset && field.normalPreset !== 'Custom') {
+      const axes = getEllipseAxesFromPreset(field.normalPreset);
+      axis1 = axes.axis1;
+      axis2 = axes.axis2;
+    } else {
+      axis1 = (field.axis1 ?? [1, 0, 0]) as [number, number, number];
+      axis2 = (field.axis2 ?? [0, 1, 0]) as [number, number, number];
+    }
+
+    // Convert angles from degrees to radians
+    const startAngle = ((field.startAngle ?? 0) * Math.PI) / 180;
+    const endAngle = ((field.endAngle ?? 360) * Math.PI) / 180;
+
+    // Number of segments along the arc
+    const numPoints = field.numPoints ?? 20;
+
+    // Create arc path as a CatmullRomCurve3 through calculated points
+    const curvePoints: THREE.Vector3[] = [];
+    for (let i = 0; i < numPoints; i++) {
+      const t = i / (numPoints - 1);
+      const theta = startAngle + t * (endAngle - startAngle);
+      const x = radiusA * Math.cos(theta) * axis1[0] + radiusB * Math.sin(theta) * axis2[0];
+      const y = radiusA * Math.cos(theta) * axis1[1] + radiusB * Math.sin(theta) * axis2[1];
+      const z = radiusA * Math.cos(theta) * axis1[2] + radiusB * Math.sin(theta) * axis2[2];
+      curvePoints.push(new THREE.Vector3(x + center.x, y + center.y, z + center.z));
+    }
+
+    const path = new THREE.CatmullRomCurve3(curvePoints, false);
+
+    // Tube radius in meters (lineWidth is in mm, default 5mm)
+    const tubeRadius = (lineWidth ?? 5) / 1000;
+    const tubularSegments = Math.max(numPoints - 1, 1);
+    const radialSegments = 8;
+
+    const geom = new THREE.TubeGeometry(path, tubularSegments, tubeRadius, radialSegments, false);
+
+    // Apply vertex colors if field data is available
+    let hasColors = false;
+    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    if (magnitudes && magnitudes.length > 0) {
+      const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
+      const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
+
+      // Map magnitudes to tube vertices
+      const posAttr = geom.getAttribute('position');
+      const numVertices = posAttr.count;
+      const colors = new Float32Array(numVertices * 3);
+
+      // Create color lookup from magnitudes
+      const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
+
+      // Each ring of vertices corresponds to a point along the tube
+      const verticesPerRing = radialSegments + 1;
+      for (let i = 0; i <= tubularSegments; i++) {
+        // Map tube segment index to magnitude index
+        const magIdx = Math.min(i, magnitudes.length - 1);
+        const r = colorArray[magIdx * 3];
+        const g = colorArray[magIdx * 3 + 1];
+        const b = colorArray[magIdx * 3 + 2];
+
+        // Apply same color to all vertices in this ring
+        for (let j = 0; j < verticesPerRing; j++) {
+          const vertIdx = i * verticesPerRing + j;
+          if (vertIdx < numVertices) {
+            colors[vertIdx * 3] = r;
+            colors[vertIdx * 3 + 1] = g;
+            colors[vertIdx * 3 + 2] = b;
+          }
+        }
+      }
+
+      geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      hasColors = true;
+    }
+
+    return { geometry: geom, hasColors };
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth]);
+
+  return (
+    <mesh geometry={geometry}>
+      <meshBasicMaterial
+        color={hasColors ? "#ffffff" : "#44aaff"}
+        transparent
+        opacity={opacity / 100}
+        side={THREE.DoubleSide}
+        wireframe={!hasColors}
+        vertexColors={hasColors}
+      />
+    </mesh>
+  );
+}
+
+/**
  * Main FieldVisualization component
  * Routes to the appropriate shape renderer based on field definition
  */
@@ -534,13 +751,20 @@ function FieldVisualization({
   valueRangeMax,
   smoothShading,
   interpolationLevel,
+  lineWidth,
 }: FieldVisualizationProps) {
   const fieldType = field.fieldType;
   const smooth = smoothShading ?? false;
   const interp = interpolationLevel ?? 2;
   // Route to appropriate renderer based on field shape
   // Type narrowing happens automatically based on shape
-  if (field.type === '2D') {
+  if (field.type === '1D') {
+    if (field.shape === 'line') {
+      return <LineField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} lineWidth={lineWidth} />;
+    } else if (field.shape === 'arc') {
+      return <ArcField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} lineWidth={lineWidth} />;
+    }
+  } else if (field.type === '2D') {
     if (field.shape === 'plane') {
       return <PlaneField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} interpolationLevel={interp} />;
     } else if (field.shape === 'ellipse') {
