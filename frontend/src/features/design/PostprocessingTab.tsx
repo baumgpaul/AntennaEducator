@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -24,9 +24,11 @@ import PostprocessingPropertiesPanel from '../postprocessing/PostprocessingPrope
 import LineViewPanel from '../postprocessing/LineViewPanel';
 import { ViewItemRenderer } from '../postprocessing/ViewItemRenderer';
 import { Colorbar } from '../postprocessing/Colorbar';
+import TimeAnimationOverlay from '../postprocessing/TimeAnimationOverlay';
 import ExportPDFDialog from './dialogs/ExportPDFDialog';
 import { exportToPDF } from '@/utils/exportToPDF';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { useAnimationPhase } from '@/hooks/useAnimationPhase';
 import {
   selectViewConfigurations,
   selectSelectedViewId,
@@ -198,9 +200,41 @@ function PostprocessingTab({
   const [selectedFrequencyIndex] = useState<number>(0);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
+  const [isAnimationPlaying, setIsAnimationPlaying] = useState(false);
+  const [animationSpeed, setAnimationSpeed] = useState(1);
 
   // Ref for the middle panel to capture for PDF export
   const middlePanelRef = useRef<HTMLDivElement>(null);
+
+  // Check if any visible vector item in the selected view has animation enabled
+  const hasAnimatedItems = useMemo(() => {
+    const selected = viewConfigurations.find(v => v.id === selectedViewId);
+    if (!selected || selected.viewType !== '3D') return false;
+    return selected.items.some(
+      item => item.visible &&
+        (item.type === 'field-vector' || item.type === 'field-vector-component') &&
+        item.animationEnabled === true,
+    );
+  }, [viewConfigurations, selectedViewId]);
+
+  // Animation phase hook — only runs when there are animated items
+  const { phase: animationPhase, setPhase: setAnimationPhase, phaseDeg } =
+    useAnimationPhase(isAnimationPlaying && hasAnimatedItems, animationSpeed);
+
+  // Stop playing when no animated items remain
+  useEffect(() => {
+    if (!hasAnimatedItems && isAnimationPlaying) {
+      setIsAnimationPlaying(false);
+    }
+  }, [hasAnimatedItems, isAnimationPlaying]);
+
+  const handlePlayPauseToggle = useCallback(() => {
+    setIsAnimationPlaying(prev => !prev);
+  }, []);
+
+  const handleAnimationSpeedChange = useCallback((speed: number) => {
+    setAnimationSpeed(speed);
+  }, []);
 
   // Debug logging
   console.log('[PostprocessingTab] Props:', {
@@ -386,11 +420,25 @@ function PostprocessingTab({
                     key={item.id}
                     item={item}
                     frequencyHz={displayFrequencyHz || undefined}
+                    animationPhase={hasAnimatedItems ? animationPhase : undefined}
                   />
                 ))}
             </Scene3D>
           );
         })()}
+
+        {/* Time Animation Overlay — shown when any vector item has animation enabled */}
+        {hasAnimatedItems && (
+          <TimeAnimationOverlay
+            phase={animationPhase}
+            phaseDeg={phaseDeg}
+            isPlaying={isAnimationPlaying}
+            speed={animationSpeed}
+            onPhaseChange={setAnimationPhase}
+            onPlayPauseToggle={handlePlayPauseToggle}
+            onSpeedChange={handleAnimationSpeedChange}
+          />
+        )}
 
         {/* Colorbar - shown when any color-mapped items are visible in 3D views */}
         {selectedViewId && (() => {
