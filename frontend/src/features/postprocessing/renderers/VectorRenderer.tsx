@@ -3,6 +3,7 @@ import { ViewItem } from '../../../types/postprocessing';
 import { useAppSelector } from '../../../store/hooks';
 import { ArrowHelper } from 'three';
 import { createColorArray } from '../../../utils/colorMaps';
+import { computeInstantaneousVectors } from '../../../utils/timeAnimation';
 import * as THREE from 'three';
 
 interface ComplexComponent {
@@ -82,6 +83,9 @@ export function computePoyntingVectors(
 interface VectorRendererProps {
   item: ViewItem;
   frequencyHz?: number;
+  /** Current animation phase in radians [0, 2π). When provided and item.animationEnabled,
+   *  renders the instantaneous field at this phase instead of static real/imag/magnitude. */
+  animationPhase?: number;
 }
 
 /**
@@ -92,6 +96,7 @@ interface VectorRendererProps {
 export const VectorRenderer: React.FC<VectorRendererProps> = ({
   item,
   frequencyHz,
+  animationPhase,
 }) => {
   const fieldData = useAppSelector((state) => state.solver.fieldData);
   const requestedFields = useAppSelector((state) => state.solver.requestedFields);
@@ -136,6 +141,9 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   const valueRangeMode = item.valueRangeMode || 'auto';
   const vectorComplexPart = item.vectorComplexPart || 'magnitude';
 
+  // Animation mode: use instantaneous field at the given phase
+  const isAnimating = item.animationEnabled === true && animationPhase !== undefined && !isPoynting;
+
   // Generate random indices for random arrow mode
   const randomIndices = useMemo(() => {
     if (arrowDisplayMode !== 'random' || !dataForFrequency) return null;
@@ -163,11 +171,21 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
     });
   }, [isPoynting, poyntingVectors, magnitudes, complexVectors]);
 
+  // Instantaneous vectors computed at the animation phase
+  const instantaneousVectors = useMemo(() => {
+    if (!isAnimating || !complexVectors) return null;
+    return computeInstantaneousVectors(complexVectors, animationPhase!);
+  }, [isAnimating, complexVectors, animationPhase]);
+
   // Display magnitudes — based on selected complex part (real, imaginary, or peak magnitude)
   const displayMagnitudes = useMemo(() => {
     if (isPoynting && poyntingVectors) {
       // Poynting: always time-averaged, complex part selection doesn't apply
       return poyntingVectors.map(v => v.mag);
+    }
+    // Animation mode: use instantaneous magnitudes
+    if (isAnimating && instantaneousVectors) {
+      return instantaneousVectors.map(v => v.magnitude);
     }
     if (!complexVectors) return magnitudes;
     if (vectorComplexPart === 'real') {
@@ -182,14 +200,16 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
     }
     // 'magnitude': use peak magnitudes
     return peakMagnitudes;
-  }, [isPoynting, poyntingVectors, complexVectors, magnitudes, peakMagnitudes, vectorComplexPart]);
+  }, [isPoynting, poyntingVectors, complexVectors, magnitudes, peakMagnitudes, vectorComplexPart, isAnimating, instantaneousVectors]);
 
-  // Calculate value range from display magnitudes
-  const min = (displayMagnitudes && displayMagnitudes.length > 0)
-    ? (valueRangeMode === 'manual' ? (item.valueRangeMin ?? 0) : Math.min(...displayMagnitudes))
+  // Calculate value range
+  // During animation, use peak magnitudes for a stable color range across all phases
+  const rangeMagnitudes = isAnimating ? peakMagnitudes : displayMagnitudes;
+  const min = (rangeMagnitudes && rangeMagnitudes.length > 0)
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMin ?? 0) : Math.min(...rangeMagnitudes))
     : 0;
-  const max = (displayMagnitudes && displayMagnitudes.length > 0)
-    ? (valueRangeMode === 'manual' ? (item.valueRangeMax ?? 1) : Math.max(...displayMagnitudes))
+  const max = (rangeMagnitudes && rangeMagnitudes.length > 0)
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMax ?? 1) : Math.max(...rangeMagnitudes))
     : 1;
 
   // Create colors from display magnitudes
@@ -264,9 +284,13 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
       const vector = complexVectors[index];
       const dispMag = displayMagnitudes[index];
 
-      // Compute direction based on selected complex part
+      // Compute direction based on animation mode or selected complex part
       let direction: THREE.Vector3;
-      if (vectorComplexPart === 'real') {
+      if (isAnimating && instantaneousVectors && index < instantaneousVectors.length) {
+        // Animation mode: use instantaneous direction
+        const inst = instantaneousVectors[index];
+        direction = new THREE.Vector3(inst.x, inst.y, inst.z);
+      } else if (vectorComplexPart === 'real') {
         direction = new THREE.Vector3(vector.x.real, vector.y.real, vector.z.real);
       } else if (vectorComplexPart === 'imaginary') {
         direction = new THREE.Vector3(vector.x.imag, vector.y.imag, vector.z.imag);
@@ -303,7 +327,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
         color,
       };
     }).filter(Boolean);
-  }, [dataForFrequency?.points, complexVectors, displayMagnitudes, peakMagnitudes, poyntingVectors, colors, arrowSize, arrowDensity, arrowDisplayMode, arrowScalingMode, randomIndices, min, max, vectorComplexPart, isPoynting]);
+  }, [dataForFrequency?.points, complexVectors, displayMagnitudes, peakMagnitudes, poyntingVectors, colors, arrowSize, arrowDensity, arrowDisplayMode, arrowScalingMode, randomIndices, min, max, vectorComplexPart, isPoynting, isAnimating, instantaneousVectors]);
 
   // Check if we have valid data to render
   const hasData = isPoynting

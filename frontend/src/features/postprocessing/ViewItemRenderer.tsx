@@ -12,6 +12,8 @@ import {
 interface ViewItemRendererProps {
   item: ViewItem;
   frequencyHz?: number;
+  /** Current animation phase in radians, passed through to renderers that support animation */
+  animationPhase?: number;
 }
 
 /**
@@ -27,6 +29,7 @@ interface ViewItemRendererProps {
 export const ViewItemRenderer: React.FC<ViewItemRendererProps> = ({
   item,
   frequencyHz,
+  animationPhase,
 }) => {
   // Don't render if item is not visible
   if (!item.visible) {
@@ -54,7 +57,7 @@ export const ViewItemRenderer: React.FC<ViewItemRendererProps> = ({
 
     case 'field-vector':
     case 'field-vector-component':
-      return <VectorRenderer item={item} frequencyHz={frequencyHz} />;
+      return <VectorRenderer item={item} frequencyHz={frequencyHz} animationPhase={animationPhase} />;
 
     case 'scalar-plot':
       // Scalar plots are only for Line views, not rendered in 3D

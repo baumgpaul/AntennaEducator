@@ -138,6 +138,12 @@ export interface ViewItem {
   /** Which part of the complex vector to visualize */
   vectorComplexPart?: 'real' | 'imaginary' | 'magnitude';
 
+  // Time animation
+  /** Enable time animation for harmonic field visualization */
+  animationEnabled?: boolean;
+  /** Animation speed in cycles per second (0.5–3, default 1) */
+  animationSpeed?: number;
+
   // Saved manual range (persists across auto/manual toggles)
   /** Saved manual min when switching to auto */
   savedManualMin?: number;
