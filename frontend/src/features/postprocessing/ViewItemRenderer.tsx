@@ -43,14 +43,14 @@ export const ViewItemRenderer: React.FC<ViewItemRendererProps> = ({
       return <AntennaRenderer item={item} />;
 
     case 'current':
-      return <CurrentRenderer item={item} frequencyHz={frequencyHz} />;
+      return <CurrentRenderer item={item} frequencyHz={frequencyHz} animationPhase={animationPhase} />;
 
     case 'voltage':
-      return <VoltageRenderer item={item} frequencyHz={frequencyHz} />;
+      return <VoltageRenderer item={item} frequencyHz={frequencyHz} animationPhase={animationPhase} />;
 
     case 'field-magnitude':
     case 'field-magnitude-component':
-      return <FieldRenderer item={item} frequencyHz={frequencyHz} />;
+      return <FieldRenderer item={item} frequencyHz={frequencyHz} animationPhase={animationPhase} />;
 
     case 'directivity':
       return <DirectivityRenderer item={item} frequencyHz={frequencyHz} />;

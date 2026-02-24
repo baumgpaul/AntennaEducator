@@ -17,6 +17,7 @@ import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
 import type { FrequencySweepResult } from '@/types/api';
 import { selectFieldMagnitudes } from './FieldVisualization';
+import { arrayMin, arrayMax } from '@/utils/colorMaps';
 import Scene3D from './Scene3D';
 import RibbonMenu from './RibbonMenu';
 import TreeViewPanel from './TreeViewPanel';
@@ -135,7 +136,7 @@ export function computeAutoRange(
         const ft = resolveFieldType(item, requestedFields);
         const magnitudes = selectFieldMagnitudes(freqData, ft);
         if (magnitudes && magnitudes.length > 0) {
-          return { min: Math.min(...magnitudes), max: Math.max(...magnitudes) };
+          return { min: arrayMin(magnitudes), max: arrayMax(magnitudes) };
         }
       }
       break;
@@ -206,14 +207,12 @@ function PostprocessingTab({
   // Ref for the middle panel to capture for PDF export
   const middlePanelRef = useRef<HTMLDivElement>(null);
 
-  // Check if any visible vector item in the selected view has animation enabled
+  // Check if any visible item in the selected view needs time animation
   const hasAnimatedItems = useMemo(() => {
     const selected = viewConfigurations.find(v => v.id === selectedViewId);
     if (!selected || selected.viewType !== '3D') return false;
     return selected.items.some(
-      item => item.visible &&
-        (item.type === 'field-vector' || item.type === 'field-vector-component') &&
-        item.animationEnabled === true,
+      item => item.visible && item.displayQuantity === 'instantaneous',
     );
   }, [viewConfigurations, selectedViewId]);
 

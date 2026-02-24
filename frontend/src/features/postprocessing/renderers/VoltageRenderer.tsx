@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
-import { ViewItem } from '../../../types/postprocessing';
+import { ViewItem, DisplayQuantity } from '../../../types/postprocessing';
 import { useAppSelector } from '../../../store/hooks';
 import * as THREE from 'three';
-import { createColorArray } from '../../../utils/colorMaps';
+import { createColorArray, arrayMin, arrayMax } from '../../../utils/colorMaps';
 
 interface VoltageRendererProps {
   item: ViewItem;
   frequencyHz?: number;
+  animationPhase?: number;
 }
 
 /**
@@ -16,6 +17,7 @@ interface VoltageRendererProps {
 export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
   item,
   frequencyHz,
+  animationPhase,
 }) => {
   const results = useAppSelector((state) => state.solver.results);
   const elements = useAppSelector((state) => state.design.elements);
@@ -49,31 +51,45 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
     return allNodes;
   }, [elements]);
 
-  // Calculate voltage magnitudes
-  const magnitudes = useMemo(() => {
+  // Calculate display values based on displayQuantity
+  const displayQuantity: DisplayQuantity = item.displayQuantity || 'magnitude';
+  const displayValues = useMemo(() => {
     if (!voltageData) return [];
+    const phase = animationPhase ?? 0;
     return voltageData.map((voltage) => {
-      const real = voltage.real || 0;
-      const imag = voltage.imag || 0;
-      return Math.sqrt(real * real + imag * imag);
+      const re = voltage.real || 0;
+      const im = voltage.imag || 0;
+      switch (displayQuantity) {
+        case 'real':
+          return re;
+        case 'imaginary':
+          return im;
+        case 'phase':
+          return Math.atan2(im, re) * (180 / Math.PI);
+        case 'instantaneous':
+          return re * Math.cos(phase) - im * Math.sin(phase);
+        case 'magnitude':
+        default:
+          return Math.sqrt(re * re + im * im);
+      }
     });
-  }, [voltageData]);
+  }, [voltageData, displayQuantity, animationPhase]);
 
   // Get color map and value range
   const colorMap = item.colorMap || 'jet';
   const valueRangeMode = item.valueRangeMode || 'auto';
-  const min = magnitudes.length > 0
-    ? (valueRangeMode === 'manual' ? (item.valueRangeMin ?? 0) : Math.min(...magnitudes))
+  const min = displayValues.length > 0
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMin ?? 0) : arrayMin(displayValues))
     : 0;
-  const max = magnitudes.length > 0
-    ? (valueRangeMode === 'manual' ? (item.valueRangeMax ?? 1) : Math.max(...magnitudes))
+  const max = displayValues.length > 0
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMax ?? 1) : arrayMax(displayValues))
     : 1;
 
   // Create colors for each node
   const colors = useMemo(() => {
-    if (magnitudes.length === 0) return new Float32Array(0);
-    return createColorArray(magnitudes, colorMap as any, min, max);
-  }, [magnitudes, colorMap, min, max]);
+    if (displayValues.length === 0) return new Float32Array(0);
+    return createColorArray(displayValues, colorMap as any, min, max);
+  }, [displayValues, colorMap, min, max]);
 
   // Get node size and opacity - default smaller for antenna scale
   const nodeSize = item.nodeSize ?? 0.01;

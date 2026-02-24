@@ -8,7 +8,8 @@ import * as THREE from 'three';
 import type { FieldDefinition, FieldDefinition1D, FieldDefinition2D, FieldDefinition3D, FieldType } from '@/types/fieldDefinitions';
 import { getEllipseAxesFromPreset } from '@/types/fieldDefinitions';
 import type { ColorMapType } from '@/utils/colorMaps';
-import { createColorArray } from '@/utils/colorMaps';
+import { createColorArray, arrayMin, arrayMax } from '@/utils/colorMaps';
+import type { DisplayQuantity } from '@/types/postprocessing';
 
 interface ComplexComponent {
   real: number;
@@ -82,6 +83,81 @@ export function selectFieldMagnitudes(
 }
 
 /**
+ * Select the vectors for a given field type.
+ */
+function selectFieldVectors(
+  fieldData: FieldDataInput | undefined,
+  fieldType: FieldType,
+): ComplexVector3D[] | undefined {
+  if (!fieldData) return undefined;
+  if (fieldType === 'H') return fieldData.H_vectors;
+  if (fieldType === 'poynting') return undefined; // Poynting uses both E and H
+  return fieldData.E_vectors;
+}
+
+/**
+ * Compute display values for a scalar field surface based on displayQuantity.
+ * For vector fields, this computes a scalar from the vector at each point.
+ *
+ * @param fieldData The field data with magnitudes and complex vectors
+ * @param fieldType 'E' | 'H' | 'poynting'
+ * @param displayQuantity How to compute the scalar value
+ * @param animationPhase Phase angle in radians (only used when displayQuantity === 'instantaneous')
+ * @returns Array of scalar values for color mapping
+ */
+export function selectFieldDisplayValues(
+  fieldData: FieldDataInput | undefined,
+  fieldType: FieldType,
+  displayQuantity: DisplayQuantity = 'magnitude',
+  animationPhase: number = 0,
+): number[] | undefined {
+  if (!fieldData) return undefined;
+
+  // Poynting is always time-averaged magnitude
+  if (fieldType === 'poynting') {
+    return selectFieldMagnitudes(fieldData, fieldType);
+  }
+
+  const vectors = selectFieldVectors(fieldData, fieldType);
+
+  switch (displayQuantity) {
+    case 'magnitude':
+      return selectFieldMagnitudes(fieldData, fieldType);
+
+    case 'real':
+      if (!vectors) return selectFieldMagnitudes(fieldData, fieldType);
+      return vectors.map((v) =>
+        Math.sqrt(v.x.real * v.x.real + v.y.real * v.y.real + v.z.real * v.z.real)
+      );
+
+    case 'imaginary':
+      if (!vectors) return selectFieldMagnitudes(fieldData, fieldType);
+      return vectors.map((v) =>
+        Math.sqrt(v.x.imag * v.x.imag + v.y.imag * v.y.imag + v.z.imag * v.z.imag)
+      );
+
+    case 'phase':
+      // Phase is not well-defined for total vector fields; fall back to magnitude
+      return selectFieldMagnitudes(fieldData, fieldType);
+
+    case 'instantaneous': {
+      if (!vectors) return selectFieldMagnitudes(fieldData, fieldType);
+      const cosP = Math.cos(animationPhase);
+      const sinP = Math.sin(animationPhase);
+      return vectors.map((v) => {
+        const x = v.x.real * cosP - v.x.imag * sinP;
+        const y = v.y.real * cosP - v.y.imag * sinP;
+        const z = v.z.real * cosP - v.z.imag * sinP;
+        return Math.sqrt(x * x + y * y + z * z);
+      });
+    }
+
+    default:
+      return selectFieldMagnitudes(fieldData, fieldType);
+  }
+}
+
+/**
  * Get normal vector from preset
  */
 function getNormalFromPreset(preset: 'XY' | 'YZ' | 'XZ'): [number, number, number] {
@@ -118,6 +194,10 @@ interface FieldVisualizationProps {
   interpolationLevel?: 1 | 2 | 4 | 8;
   // 1D field line width (tube radius in mm, default 5)
   lineWidth?: number;
+  // Display quantity for complex field data
+  displayQuantity?: DisplayQuantity;
+  // Animation phase in radians [0, 2π) for instantaneous display
+  animationPhase?: number;
 }
 
 /**
@@ -173,7 +253,7 @@ function bilinearInterpolate(values: number[], cols: number, rows: number, facto
 /**
  * Render a 2D plane field region
  */
-function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, interpolationLevel }: {
+function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, interpolationLevel, displayQuantity, animationPhase }: {
   field: FieldDefinition2D;
   opacity: number;
   colorMap: ColorMapType;
@@ -184,6 +264,8 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
   valueRangeMax?: number;
   smoothShading?: boolean;
   interpolationLevel?: 1 | 2 | 4 | 8;
+  displayQuantity?: DisplayQuantity;
+  animationPhase?: number;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     // Calculate segments from sampling (n points → n-1 segments)
@@ -215,7 +297,7 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
 
     // Apply vertex colors if field data is available
     let hasColors = false;
-    let magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    let magnitudes = selectFieldDisplayValues(fieldData, fieldType, displayQuantity, animationPhase);
     if (magnitudes && magnitudes.length > 0) {
       // Apply bilinear interpolation if requested
       if (factor > 1) {
@@ -237,7 +319,7 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, interpolationLevel]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, interpolationLevel, displayQuantity, animationPhase]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -275,7 +357,7 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
 /**
  * Render a 2D elliptical field region
  */
-function EllipseField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading }: {
+function EllipseField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, displayQuantity, animationPhase }: {
   field: FieldDefinition2D;
   opacity: number;
   colorMap: ColorMapType;
@@ -285,6 +367,8 @@ function EllipseField({ field, opacity, colorMap, fieldData, fieldType, valueRan
   valueRangeMin?: number;
   valueRangeMax?: number;
   smoothShading?: boolean;
+  displayQuantity?: DisplayQuantity;
+  animationPhase?: number;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const radiusA = (field.radiusA || 50) / 1000; // mm to meters
@@ -326,7 +410,7 @@ function EllipseField({ field, opacity, colorMap, fieldData, fieldType, valueRan
 
     // Apply vertex colors if field data is available
     let hasColors = false;
-    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    const magnitudes = selectFieldDisplayValues(fieldData, fieldType, displayQuantity, animationPhase);
     if (magnitudes && magnitudes.length > 0) {
       const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
       const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
@@ -337,7 +421,7 @@ function EllipseField({ field, opacity, colorMap, fieldData, fieldType, valueRan
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, displayQuantity, animationPhase]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -375,7 +459,7 @@ function EllipseField({ field, opacity, colorMap, fieldData, fieldType, valueRan
 /**
  * Render a 3D spherical field region
  */
-function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading }: {
+function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, displayQuantity, animationPhase }: {
   field: FieldDefinition3D;
   opacity: number;
   colorMap: ColorMapType;
@@ -385,6 +469,8 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
   valueRangeMin?: number;
   valueRangeMax?: number;
   smoothShading?: boolean;
+  displayQuantity?: DisplayQuantity;
+  animationPhase?: number;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const radius = field.sphereRadius || 50;
@@ -400,7 +486,7 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
 
     // Apply vertex colors if field data is available
     let hasColors = false;
-    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    const magnitudes = selectFieldDisplayValues(fieldData, fieldType, displayQuantity, animationPhase);
     if (magnitudes && magnitudes.length > 0) {
       // Use manual range if specified, otherwise auto
       const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
@@ -412,7 +498,7 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, displayQuantity, animationPhase]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -448,7 +534,7 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
 /**
  * Render a 3D cuboid field region
  */
-function CuboidField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading }: {
+function CuboidField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, displayQuantity, animationPhase }: {
   field: FieldDefinition3D;
   opacity: number;
   colorMap: ColorMapType;
@@ -458,6 +544,8 @@ function CuboidField({ field, opacity, colorMap, fieldData, fieldType, valueRang
   valueRangeMin?: number;
   valueRangeMax?: number;
   smoothShading?: boolean;
+  displayQuantity?: DisplayQuantity;
+  animationPhase?: number;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     const dims = field.cuboidDimensions || { Lx: 100, Ly: 100, Lz: 100 };
@@ -478,7 +566,7 @@ function CuboidField({ field, opacity, colorMap, fieldData, fieldType, valueRang
 
     // Apply vertex colors if field data is available
     let hasColors = false;
-    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    const magnitudes = selectFieldDisplayValues(fieldData, fieldType, displayQuantity, animationPhase);
     if (magnitudes && magnitudes.length > 0) {
       // Use manual range if specified, otherwise auto
       const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
@@ -490,7 +578,7 @@ function CuboidField({ field, opacity, colorMap, fieldData, fieldType, valueRang
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, displayQuantity, animationPhase]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -526,7 +614,7 @@ function CuboidField({ field, opacity, colorMap, fieldData, fieldType, valueRang
 /**
  * Render a 1D line field region as a colored tube
  */
-function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth }: {
+function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth, displayQuantity, animationPhase }: {
   field: FieldDefinition1D;
   opacity: number;
   colorMap: ColorMapType;
@@ -536,6 +624,8 @@ function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
   valueRangeMin?: number;
   valueRangeMax?: number;
   lineWidth?: number;
+  displayQuantity?: DisplayQuantity;
+  animationPhase?: number;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     // Get start and end points (in mm, convert to meters)
@@ -559,7 +649,7 @@ function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
 
     // Apply vertex colors if field data is available
     let hasColors = false;
-    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    const magnitudes = selectFieldDisplayValues(fieldData, fieldType, displayQuantity, animationPhase);
     if (magnitudes && magnitudes.length > 0) {
       const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
       const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
@@ -571,8 +661,8 @@ function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
       const colors = new Float32Array(numVertices * 3);
 
       // Create color lookup from magnitudes
-      const minMag = minVal ?? Math.min(...magnitudes);
-      const maxMag = maxVal ?? Math.max(...magnitudes);
+      const minMag = minVal ?? arrayMin(magnitudes);
+      const maxMag = maxVal ?? arrayMax(magnitudes);
       const range = maxMag - minMag || 1;
 
       // Get color map function
@@ -603,7 +693,7 @@ function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth, displayQuantity, animationPhase]);
 
   return (
     <mesh geometry={geometry}>
@@ -622,7 +712,7 @@ function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
 /**
  * Render a 1D arc field region as a colored tube
  */
-function ArcField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth }: {
+function ArcField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth, displayQuantity, animationPhase }: {
   field: FieldDefinition1D;
   opacity: number;
   colorMap: ColorMapType;
@@ -632,6 +722,8 @@ function ArcField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMo
   valueRangeMin?: number;
   valueRangeMax?: number;
   lineWidth?: number;
+  displayQuantity?: DisplayQuantity;
+  animationPhase?: number;
 }) {
   const { geometry, hasColors } = useMemo(() => {
     // Get center point (in mm, convert to meters)
@@ -683,7 +775,7 @@ function ArcField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMo
 
     // Apply vertex colors if field data is available
     let hasColors = false;
-    const magnitudes = selectFieldMagnitudes(fieldData, fieldType);
+    const magnitudes = selectFieldDisplayValues(fieldData, fieldType, displayQuantity, animationPhase);
     if (magnitudes && magnitudes.length > 0) {
       const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
       const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
@@ -721,7 +813,7 @@ function ArcField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMo
     }
 
     return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth]);
+  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, lineWidth, displayQuantity, animationPhase]);
 
   return (
     <mesh geometry={geometry}>
@@ -752,29 +844,33 @@ function FieldVisualization({
   smoothShading,
   interpolationLevel,
   lineWidth,
+  displayQuantity,
+  animationPhase,
 }: FieldVisualizationProps) {
   const fieldType = field.fieldType;
   const smooth = smoothShading ?? false;
   const interp = interpolationLevel ?? 2;
+  const dq = displayQuantity ?? 'magnitude';
+  const ap = animationPhase ?? 0;
   // Route to appropriate renderer based on field shape
   // Type narrowing happens automatically based on shape
   if (field.type === '1D') {
     if (field.shape === 'line') {
-      return <LineField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} lineWidth={lineWidth} />;
+      return <LineField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} lineWidth={lineWidth} displayQuantity={dq} animationPhase={ap} />;
     } else if (field.shape === 'arc') {
-      return <ArcField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} lineWidth={lineWidth} />;
+      return <ArcField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} lineWidth={lineWidth} displayQuantity={dq} animationPhase={ap} />;
     }
   } else if (field.type === '2D') {
     if (field.shape === 'plane') {
-      return <PlaneField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} interpolationLevel={interp} />;
+      return <PlaneField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} interpolationLevel={interp} displayQuantity={dq} animationPhase={ap} />;
     } else if (field.shape === 'ellipse') {
-      return <EllipseField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} />;
+      return <EllipseField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} displayQuantity={dq} animationPhase={ap} />;
     }
   } else if (field.type === '3D') {
     if (field.shape === 'sphere') {
-      return <SphereField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} />;
+      return <SphereField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} displayQuantity={dq} animationPhase={ap} />;
     } else if (field.shape === 'cuboid') {
-      return <CuboidField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} />;
+      return <CuboidField field={field} opacity={opacity} colorMap={colorMap} fieldData={fieldData} fieldType={fieldType} valueRangeMode={valueRangeMode} valueRangeMin={valueRangeMin} valueRangeMax={valueRangeMax} smoothShading={smooth} displayQuantity={dq} animationPhase={ap} />;
     }
   }
 
