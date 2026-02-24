@@ -602,26 +602,47 @@ const PostprocessingPropertiesPanel: React.FC = () => {
         );
 
       case 'field-vector':
-      case 'field-vector-component':
+      case 'field-vector-component': {
+        // Check if this is a Poynting vector (time-averaged — not animatable)
+        const vectorFieldDef = requestedFields?.find(f => f.id === selectedItem?.fieldId);
+        const isPoyntingVector = vectorFieldDef?.fieldType === 'poynting';
+        const isAnimationEnabled = selectedItem?.animationEnabled === true;
+
         return (
           <>
-            {/* Complex Part Selector */}
+            {/* Complex Part Selector — disabled during animation */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
                 Rendered Quantity
               </Typography>
               <ToggleButtonGroup
-                value={selectedItem?.vectorComplexPart || 'magnitude'}
+                value={isAnimationEnabled ? 'animated' : (selectedItem?.vectorComplexPart || 'magnitude')}
                 exclusive
                 onChange={(_, value) => value && handleItemPropertyChange('vectorComplexPart', value)}
                 size="small"
                 fullWidth
+                disabled={isAnimationEnabled}
               >
                 <ToggleButton value="real">Real</ToggleButton>
                 <ToggleButton value="imaginary">Imag</ToggleButton>
                 <ToggleButton value="magnitude">Magnitude</ToggleButton>
               </ToggleButtonGroup>
             </Box>
+
+            {/* Time Animation Toggle — not shown for Poynting vectors */}
+            {!isPoyntingVector && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={isAnimationEnabled}
+                    onChange={(e) => handleItemPropertyChange('animationEnabled', e.target.checked)}
+                    size="small"
+                  />
+                }
+                label="Time Animation"
+                sx={{ mb: 1 }}
+              />
+            )}
 
             {/* Opacity */}
             <Box sx={{ mb: 2 }}>
@@ -766,6 +787,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             )}
           </>
         );
+      }
 
       case 'scalar-plot':
         return (
