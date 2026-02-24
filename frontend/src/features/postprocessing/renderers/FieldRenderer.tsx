@@ -7,6 +7,8 @@ import FieldVisualization from '../../design/FieldVisualization';
 interface FieldRendererProps {
   item: ViewItem;
   frequencyHz?: number;
+  /** Current animation phase in radians [0, 2π) for instantaneous display */
+  animationPhase?: number;
 }
 
 /**
@@ -16,6 +18,7 @@ interface FieldRendererProps {
 export const FieldRenderer: React.FC<FieldRendererProps> = ({
   item,
   frequencyHz,
+  animationPhase,
 }) => {
   const fieldData = useAppSelector((state) => state.solver.fieldData);
   const requestedFields = useAppSelector((state) => state.solver.requestedFields) as FieldDefinition[];
@@ -45,6 +48,10 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
   const smoothShading = item.smoothShading ?? false;
   const interpolationLevel = item.interpolationLevel ?? 2;
   const lineWidth = item.lineWidth ?? 5; // Default 5mm for 1D fields
+  const displayQuantity = item.displayQuantity ?? 'magnitude';
+
+  // For instantaneous display, pass animation phase
+  const effectivePhase = displayQuantity === 'instantaneous' ? animationPhase : undefined;
 
   // Prepare field data object for FieldVisualization
   const visualizationData = {
@@ -70,6 +77,8 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
       smoothShading={smoothShading}
       interpolationLevel={interpolationLevel}
       lineWidth={lineWidth}
+      displayQuantity={displayQuantity}
+      animationPhase={effectivePhase}
     />
   );
 };

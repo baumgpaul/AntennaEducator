@@ -267,6 +267,26 @@ const PostprocessingPropertiesPanel: React.FC = () => {
       case 'current':
         return (
           <>
+            {/* Display Quantity */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Display Quantity
+              </Typography>
+              <ToggleButtonGroup
+                value={selectedItem?.displayQuantity || 'magnitude'}
+                exclusive
+                onChange={(_, value) => value && handleItemPropertyChange('displayQuantity', value)}
+                size="small"
+                fullWidth
+              >
+                <ToggleButton value="magnitude">|I|</ToggleButton>
+                <ToggleButton value="real">Re</ToggleButton>
+                <ToggleButton value="imaginary">Im</ToggleButton>
+                <ToggleButton value="phase">Phase</ToggleButton>
+                <ToggleButton value="instantaneous">I(t)</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
             {/* Opacity */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
@@ -336,6 +356,26 @@ const PostprocessingPropertiesPanel: React.FC = () => {
       case 'voltage':
         return (
           <>
+            {/* Display Quantity */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Display Quantity
+              </Typography>
+              <ToggleButtonGroup
+                value={selectedItem?.displayQuantity || 'magnitude'}
+                exclusive
+                onChange={(_, value) => value && handleItemPropertyChange('displayQuantity', value)}
+                size="small"
+                fullWidth
+              >
+                <ToggleButton value="magnitude">|V|</ToggleButton>
+                <ToggleButton value="real">Re</ToggleButton>
+                <ToggleButton value="imaginary">Im</ToggleButton>
+                <ToggleButton value="phase">Phase</ToggleButton>
+                <ToggleButton value="instantaneous">V(t)</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
             {/* Opacity */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
@@ -407,6 +447,25 @@ const PostprocessingPropertiesPanel: React.FC = () => {
       case 'field-magnitude-component':
         return (
           <>
+            {/* Display Quantity */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Display Quantity
+              </Typography>
+              <ToggleButtonGroup
+                value={selectedItem?.displayQuantity || 'magnitude'}
+                exclusive
+                onChange={(_, value) => value && handleItemPropertyChange('displayQuantity', value)}
+                size="small"
+                fullWidth
+              >
+                <ToggleButton value="magnitude">|F|</ToggleButton>
+                <ToggleButton value="real">Re</ToggleButton>
+                <ToggleButton value="imaginary">Im</ToggleButton>
+                <ToggleButton value="instantaneous">F(t)</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
             {/* Opacity */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
@@ -606,43 +665,29 @@ const PostprocessingPropertiesPanel: React.FC = () => {
         // Check if this is a Poynting vector (time-averaged — not animatable)
         const vectorFieldDef = requestedFields?.find(f => f.id === selectedItem?.fieldId);
         const isPoyntingVector = vectorFieldDef?.fieldType === 'poynting';
-        const isAnimationEnabled = selectedItem?.animationEnabled === true;
 
         return (
           <>
-            {/* Complex Part Selector — disabled during animation */}
+            {/* Display Quantity — unified toggle replacing vectorComplexPart + animationEnabled */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
-                Rendered Quantity
+                Display Quantity
               </Typography>
               <ToggleButtonGroup
-                value={isAnimationEnabled ? 'animated' : (selectedItem?.vectorComplexPart || 'magnitude')}
+                value={selectedItem?.displayQuantity || 'magnitude'}
                 exclusive
-                onChange={(_, value) => value && handleItemPropertyChange('vectorComplexPart', value)}
+                onChange={(_, value) => value && handleItemPropertyChange('displayQuantity', value)}
                 size="small"
                 fullWidth
-                disabled={isAnimationEnabled}
               >
-                <ToggleButton value="real">Real</ToggleButton>
-                <ToggleButton value="imaginary">Imag</ToggleButton>
-                <ToggleButton value="magnitude">Magnitude</ToggleButton>
+                <ToggleButton value="magnitude">|F|</ToggleButton>
+                <ToggleButton value="real">Re</ToggleButton>
+                <ToggleButton value="imaginary">Im</ToggleButton>
+                {!isPoyntingVector && (
+                  <ToggleButton value="instantaneous">F(t)</ToggleButton>
+                )}
               </ToggleButtonGroup>
             </Box>
-
-            {/* Time Animation Toggle — not shown for Poynting vectors */}
-            {!isPoyntingVector && (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={isAnimationEnabled}
-                    onChange={(e) => handleItemPropertyChange('animationEnabled', e.target.checked)}
-                    size="small"
-                  />
-                }
-                label="Time Animation"
-                sx={{ mb: 1 }}
-              />
-            )}
 
             {/* Opacity */}
             <Box sx={{ mb: 2 }}>

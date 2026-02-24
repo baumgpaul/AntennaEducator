@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { ViewItem } from '../../../types/postprocessing';
+import { ViewItem, DisplayQuantity } from '../../../types/postprocessing';
 import { useAppSelector } from '../../../store/hooks';
 import { ArrowHelper } from 'three';
-import { createColorArray } from '../../../utils/colorMaps';
+import { createColorArray, arrayMin, arrayMax } from '../../../utils/colorMaps';
 import { computeInstantaneousVectors } from '../../../utils/timeAnimation';
 import * as THREE from 'three';
 
@@ -139,10 +139,15 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   const randomArrowCount = item.randomArrowCount || 50;
   const arrowScalingMode = item.arrowScalingMode || 'magnitude';
   const valueRangeMode = item.valueRangeMode || 'auto';
-  const vectorComplexPart = item.vectorComplexPart || 'magnitude';
+
+  // Derive vectorComplexPart and animation flag from unified displayQuantity
+  const displayQuantity: DisplayQuantity = item.displayQuantity || 'magnitude';
+  const vectorComplexPart = displayQuantity === 'real' ? 'real'
+    : displayQuantity === 'imaginary' ? 'imaginary'
+    : 'magnitude';
 
   // Animation mode: use instantaneous field at the given phase
-  const isAnimating = item.animationEnabled === true && animationPhase !== undefined && !isPoynting;
+  const isAnimating = displayQuantity === 'instantaneous' && animationPhase !== undefined && !isPoynting;
 
   // Generate random indices for random arrow mode
   const randomIndices = useMemo(() => {
@@ -206,10 +211,10 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   // During animation, use peak magnitudes for a stable color range across all phases
   const rangeMagnitudes = isAnimating ? peakMagnitudes : displayMagnitudes;
   const min = (rangeMagnitudes && rangeMagnitudes.length > 0)
-    ? (valueRangeMode === 'manual' ? (item.valueRangeMin ?? 0) : Math.min(...rangeMagnitudes))
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMin ?? 0) : arrayMin(rangeMagnitudes))
     : 0;
   const max = (rangeMagnitudes && rangeMagnitudes.length > 0)
-    ? (valueRangeMode === 'manual' ? (item.valueRangeMax ?? 1) : Math.max(...rangeMagnitudes))
+    ? (valueRangeMode === 'manual' ? (item.valueRangeMax ?? 1) : arrayMax(rangeMagnitudes))
     : 1;
 
   // Create colors from display magnitudes
@@ -262,7 +267,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
           arrowLength = arrowSize;
         } else {
           const normalizedMagnitude = max > min ? (magnitude - min) / (max - min) : 0.5;
-          arrowLength = arrowSize * (0.2 + 0.8 * normalizedMagnitude);
+          arrowLength = arrowSize * normalizedMagnitude;
         }
 
         return {
@@ -317,7 +322,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
         arrowLength = arrowSize;
       } else {
         const normalizedMagnitude = max > min ? (dispMag - min) / (max - min) : 0.5;
-        arrowLength = arrowSize * (0.2 + 0.8 * Math.max(0, normalizedMagnitude));
+        arrowLength = arrowSize * Math.max(0, normalizedMagnitude);
       }
 
       return {
