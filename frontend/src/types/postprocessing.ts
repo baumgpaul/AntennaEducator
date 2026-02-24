@@ -15,6 +15,19 @@
 export type ViewType = '3D' | 'Line';
 
 /**
+ * Display quantity for complex-valued results.
+ * Controls how complex phasor data is mapped to a scalar value for color mapping.
+ *
+ * - 'magnitude': |F| = sqrt(Re² + Im²) — peak/envelope (default)
+ * - 'real': Re(F)
+ * - 'imaginary': Im(F)
+ * - 'phase': arg(F) in degrees [−180, 180] — only meaningful for scalar complex
+ *            quantities (current, voltage, individual field components)
+ * - 'instantaneous': F(t) = Re(F)·cos(φ) − Im(F)·sin(φ), animated over phase φ
+ */
+export type DisplayQuantity = 'magnitude' | 'real' | 'imaginary' | 'phase' | 'instantaneous';
+
+/**
  * Type of item that can be added to a view
  *
  * 3D View Items:
@@ -137,6 +150,10 @@ export interface ViewItem {
   // Vector complex part selection
   /** Which part of the complex vector to visualize */
   vectorComplexPart?: 'real' | 'imaginary' | 'magnitude';
+
+  // Display quantity for color mapping (applies to all complex-valued item types)
+  /** How to map complex phasor data to scalar for color mapping */
+  displayQuantity?: DisplayQuantity;
 
   // Time animation
   /** Enable time animation for harmonic field visualization */

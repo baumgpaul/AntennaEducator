@@ -8,6 +8,27 @@ import * as THREE from 'three';
 export type ColorMapType = 'jet' | 'turbo' | 'viridis' | 'plasma' | 'twilight';
 
 /**
+ * Iterative min/max for large arrays.
+ * Math.min(...arr) / Math.max(...arr) throws "Maximum call stack size exceeded"
+ * when arr.length exceeds the JS engine's argument limit (~65k–125k elements).
+ */
+export function arrayMin(arr: number[]): number {
+  let min = Infinity;
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] < min) min = arr[i];
+  }
+  return min;
+}
+
+export function arrayMax(arr: number[]): number {
+  let max = -Infinity;
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] > max) max = arr[i];
+  }
+  return max;
+}
+
+/**
  * Jet color map (blue -> cyan -> green -> yellow -> red)
  */
 function jetColorMap(t: number): THREE.Color {
@@ -175,8 +196,20 @@ export function createColorArray(
   maxValue?: number
 ): Float32Array {
   // Auto-compute min/max if not provided
-  const min = minValue !== undefined ? minValue : Math.min(...values);
-  const max = maxValue !== undefined ? maxValue : Math.max(...values);
+  // Use iterative loop instead of Math.min/max(...values) to avoid
+  // "Maximum call stack size exceeded" on large arrays (e.g., 100×100 grid with 8× interp)
+  let min: number;
+  let max: number;
+  if (minValue !== undefined) {
+    min = minValue;
+  } else {
+    min = arrayMin(values);
+  }
+  if (maxValue !== undefined) {
+    max = maxValue;
+  } else {
+    max = arrayMax(values);
+  }
   const range = max - min || 1; // Avoid division by zero
 
   const colors = new Float32Array(values.length * 3);

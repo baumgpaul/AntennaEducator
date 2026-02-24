@@ -1,13 +1,16 @@
 import React, { useMemo } from 'react';
 import { ViewItem } from '../../../types/postprocessing';
+import type { DisplayQuantity } from '../../../types/postprocessing';
 import { useAppSelector } from '../../../store/hooks';
 import { Line } from '@react-three/drei';
 import * as THREE from 'three';
-import { createColorArray } from '../../../utils/colorMaps';
+import { createColorArray, arrayMin, arrayMax } from '../../../utils/colorMaps';
 
 interface CurrentRendererProps {
   item: ViewItem;
   frequencyHz?: number;
+  /** Current animation phase in radians [0, 2π) for instantaneous display */
+  animationPhase?: number;
 }
 
 // Safe toFixed helper: returns formatted string for numbers or numeric strings, otherwise 'N/A'
@@ -24,6 +27,7 @@ function safeToFixed(value: any, digits: number): string {
 export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
   item,
   frequencyHz,
+  animationPhase,
 }) => {
   const results = useAppSelector((state) => state.solver.results);
   const elements = useAppSelector((state) => state.design.elements);
@@ -131,26 +135,48 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
     return allEdges;
   }, [elements]);
 
-  // Calculate current magnitudes
+  // Calculate current display values based on displayQuantity
+  const displayQuantity: DisplayQuantity = item.displayQuantity ?? 'magnitude';
   const magnitudes = useMemo(() => {
     if (!currentData) return [];
     console.log('[CurrentRenderer] === MAGNITUDE CALCULATION ===');
+    console.log('[CurrentRenderer] Display quantity:', displayQuantity);
     const mags = currentData.map((current, idx) => {
       const real = current.real || 0;
       const imag = current.imag || 0;
-      const mag = Math.sqrt(real * real + imag * imag);
 
-      if (idx < 5 || idx >= currentData.length - 2) {
-        console.log(`[CurrentRenderer] Current ${idx}: real=${safeToFixed(real, 6)}, imag=${safeToFixed(imag, 6)}, magnitude=${safeToFixed(mag, 6)} A`);
+      let val: number;
+      switch (displayQuantity) {
+        case 'real':
+          val = real;
+          break;
+        case 'imaginary':
+          val = imag;
+          break;
+        case 'phase':
+          val = Math.atan2(imag, real) * (180 / Math.PI); // degrees [-180, 180]
+          break;
+        case 'instantaneous': {
+          const phase = animationPhase ?? 0;
+          val = real * Math.cos(phase) - imag * Math.sin(phase);
+          break;
+        }
+        case 'magnitude':
+        default:
+          val = Math.sqrt(real * real + imag * imag);
       }
 
-      return mag;
+      if (idx < 5 || idx >= currentData.length - 2) {
+        console.log(`[CurrentRenderer] Current ${idx}: real=${safeToFixed(real, 6)}, imag=${safeToFixed(imag, 6)}, value=${safeToFixed(val, 6)} A`);
+      }
+
+      return val;
     });
 
     console.log('[CurrentRenderer] Total magnitudes:', mags.length);
-    console.log(`[CurrentRenderer] Magnitude range: [${safeToFixed(Math.min(...mags), 6)}, ${safeToFixed(Math.max(...mags), 6)}] A`);
+    console.log(`[CurrentRenderer] Magnitude range: [${safeToFixed(arrayMin(mags), 6)}, ${safeToFixed(arrayMax(mags), 6)}] A`);
     return mags;
-  }, [currentData]);
+  }, [currentData, displayQuantity, animationPhase]);
 
   // Get color map and value range
   const colorMap = item.colorMap || 'jet';
