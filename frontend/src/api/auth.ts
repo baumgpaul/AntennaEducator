@@ -33,6 +33,7 @@ export interface RegisterResponse {
   username: string
   is_approved: boolean
   is_admin: boolean
+  role?: string
   cognito_sub?: string
   created_at: string
 }

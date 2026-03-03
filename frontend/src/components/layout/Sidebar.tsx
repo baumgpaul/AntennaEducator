@@ -17,6 +17,8 @@ import {
   ExpandLess,
   ExpandMore,
   ChevronLeft,
+  School,
+  AdminPanelSettings,
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -32,8 +34,11 @@ function Sidebar() {
   const location = useLocation();
   const sidebarOpen = useAppSelector((state) => state.ui.layout.sidebarOpen);
   const projects = useAppSelector((state) => state.projects.items);
+  const user = useAppSelector((state) => state.auth.user);
 
   const [projectsExpanded, setProjectsExpanded] = useState(true);
+
+  const isAdmin = user?.role === 'admin';
 
   const handleSidebarClose = () => {
     dispatch(toggleSidebar());
@@ -100,6 +105,32 @@ function Sidebar() {
               <ListItemText primary="Projects" />
             </ListItemButton>
           </ListItem>
+
+          <ListItem disablePadding>
+            <ListItemButton
+              selected={location.pathname === '/courses'}
+              onClick={() => handleNavigation('/courses')}
+            >
+              <ListItemIcon>
+                <School />
+              </ListItemIcon>
+              <ListItemText primary="Courses" />
+            </ListItemButton>
+          </ListItem>
+
+          {isAdmin && (
+            <ListItem disablePadding>
+              <ListItemButton
+                selected={location.pathname === '/admin'}
+                onClick={() => handleNavigation('/admin')}
+              >
+                <ListItemIcon>
+                  <AdminPanelSettings />
+                </ListItemIcon>
+                <ListItemText primary="Admin" />
+              </ListItemButton>
+            </ListItem>
+          )}
         </List>
 
         <Divider />
