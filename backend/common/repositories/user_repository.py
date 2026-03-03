@@ -117,6 +117,7 @@ class UserRepository:
         is_admin: bool = False,
         is_locked: bool = False,
         cognito_sub: Optional[str] = None,
+        role: Optional[str] = None,
     ) -> Dict:
         """
         Create a new user in DynamoDB.
@@ -156,6 +157,7 @@ class UserRepository:
             "PasswordHash": password_hash,
             "IsAdmin": is_admin,
             "IsLocked": is_locked,
+            "Role": role or ("admin" if is_admin else "user"),
             "CreatedAt": now,
         }
 
@@ -232,7 +234,7 @@ class UserRepository:
 
     def update_user_approval(self, user_id: str, is_approved: bool, is_admin: bool = False):
         """
-        Update user approval and admin status (deprecated — prefer update_user_lock_status).
+        Update user approval and admin status (deprecated — prefer update_user_role).
 
         Args:
             user_id: User ID
@@ -242,13 +244,45 @@ class UserRepository:
         try:
             self.table.update_item(
                 Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
-                UpdateExpression="SET IsAdmin = :admin",
-                ExpressionAttributeValues={":admin": is_admin},
+                UpdateExpression="SET IsAdmin = :admin, #r = :role",
+                ExpressionAttributeValues={
+                    ":admin": is_admin,
+                    ":role": "admin" if is_admin else "user",
+                },
+                ExpressionAttributeNames={"#r": "Role"},
             )
             logger.info(f"Updated user {user_id}: admin={is_admin}")
         except ClientError as e:
             logger.error(f"Error updating user approval: {e}")
             raise RuntimeError(f"Failed to update user: {e}")
+
+    def update_user_role(self, user_id: str, role: str):
+        """Update user role.
+
+        Args:
+            user_id: User ID
+            role: New role ('user', 'maintainer', or 'admin')
+
+        Raises:
+            ValueError: If role is invalid
+            RuntimeError: If DynamoDB update fails
+        """
+        valid_roles = ("user", "maintainer", "admin")
+        if role not in valid_roles:
+            raise ValueError(f"Invalid role '{role}'. Must be one of: {valid_roles}")
+
+        is_admin = role == "admin"
+        try:
+            self.table.update_item(
+                Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
+                UpdateExpression="SET #r = :role, IsAdmin = :admin",
+                ExpressionAttributeValues={":role": role, ":admin": is_admin},
+                ExpressionAttributeNames={"#r": "Role"},
+            )
+            logger.info(f"Updated user {user_id}: role={role}")
+        except ClientError as e:
+            logger.error(f"Error updating user role: {e}")
+            raise RuntimeError(f"Failed to update user role: {e}")
 
     def update_user_lock_status(self, user_id: str, is_locked: bool):
         """
@@ -281,5 +315,6 @@ class UserRepository:
             "password_hash": item.get("PasswordHash", ""),
             "is_admin": item.get("IsAdmin", False),
             "is_locked": item.get("IsLocked", False),
+            "role": item.get("Role", "admin" if item.get("IsAdmin", False) else "user"),
             "created_at": item.get("CreatedAt"),
         }

@@ -82,6 +82,7 @@ class DynamoDBProjectRepository(ProjectRepository):
         user_id: str,
         name: str,
         description: Optional[str] = None,
+        folder_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         project_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
@@ -96,6 +97,7 @@ class DynamoDBProjectRepository(ProjectRepository):
             "UserId": user_id,
             "Name": name,
             "Description": description or "",
+            "FolderId": folder_id or "",
             "DesignState": {},
             "SimulationConfig": {},
             "SimulationResults": {},
@@ -131,6 +133,17 @@ class DynamoDBProjectRepository(ProjectRepository):
         )
         return [self._to_dict(i) for i in resp.get("Items", [])]
 
+    async def list_projects_in_folder(
+        self, user_id: str, folder_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """List projects owned by *user_id* that are in *folder_id*.
+
+        ``folder_id=None`` returns projects at root level (no folder).
+        """
+        all_projects = await self.list_projects(user_id)
+        target = folder_id or ""
+        return [p for p in all_projects if (p.get("folder_id") or "") == target]
+
     # ── update ────────────────────────────────────────────────────────────
 
     async def update_project(
@@ -143,6 +156,7 @@ class DynamoDBProjectRepository(ProjectRepository):
         simulation_results: Optional[Dict] = None,
         ui_state: Optional[Dict] = None,
         documentation: Optional[Dict] = None,
+        folder_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         project = await self.get_project(project_id)
         if not project:
@@ -183,6 +197,10 @@ class DynamoDBProjectRepository(ProjectRepository):
         if documentation is not None:
             parts.append("Documentation = :doc")
             values[":doc"] = documentation
+
+        if folder_id is not None:
+            parts.append("FolderId = :fid")
+            values[":fid"] = folder_id
 
         params: Dict[str, Any] = {
             "Key": {
@@ -241,6 +259,7 @@ class DynamoDBProjectRepository(ProjectRepository):
             ),
             "ui_state": _from_dynamodb(pick("UiState", "ui_state", default={})),
             "documentation": _from_dynamodb(pick("Documentation", "documentation", default={})),
+            "folder_id": pick("FolderId", "folder_id", default="") or None,
             "created_at": pick("CreatedAt", "created_at"),
             "updated_at": pick("UpdatedAt", "updated_at"),
         }

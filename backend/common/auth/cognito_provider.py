@@ -18,7 +18,7 @@ import requests
 from botocore.exceptions import ClientError
 from jose import JWTError, jwt
 
-from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity
+from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity, UserRole
 from backend.common.auth.provider import AuthProvider
 
 logger = logging.getLogger(__name__)
@@ -167,6 +167,7 @@ class CognitoAuthProvider(AuthProvider):
                 "Username": username,
                 "IsAdmin": False,
                 "IsLocked": False,
+                "Role": UserRole.USER.value,
                 "CreatedAt": now,
             }
         )
@@ -177,9 +178,7 @@ class CognitoAuthProvider(AuthProvider):
             id=user_sub,
             email=email,
             username=username,
-            is_admin=False,
-            is_locked=False,
-            created_at=now,
+            role=UserRole.USER,
         )
 
     # ── Login ─────────────────────────────────────────────────────────────
@@ -239,11 +238,22 @@ class CognitoAuthProvider(AuthProvider):
         stored_email = item.get("Email", "unknown")
         email = stored_email if stored_email != "unknown" else (email_hint or stored_email)
 
+        # Derive role: prefer explicit Role attribute, fall back to IsAdmin
+        role = UserRole.USER
+        role_str = item.get("Role")
+        if role_str:
+            try:
+                role = UserRole(role_str)
+            except ValueError:
+                pass
+        elif item.get("IsAdmin", False):
+            role = UserRole.ADMIN
+
         return UserIdentity(
             id=item["UserId"],
             email=email,
             username=item.get("Username", email.split("@")[0]),
-            is_admin=item.get("IsAdmin", False),
+            role=role,
             is_locked=item.get("IsLocked", False),
             created_at=item.get("CreatedAt"),
         )
@@ -268,6 +278,7 @@ class CognitoAuthProvider(AuthProvider):
             "Username": username,
             "IsAdmin": False,
             "IsLocked": False,
+            "Role": UserRole.USER.value,
             "CreatedAt": now,
         }
         self._table.put_item(Item=item)
@@ -276,7 +287,7 @@ class CognitoAuthProvider(AuthProvider):
             id=user_id,
             email=email,
             username=username,
-            is_admin=False,
+            role=UserRole.USER,
             is_locked=False,
             created_at=now,
         )

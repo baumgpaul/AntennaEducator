@@ -72,6 +72,90 @@ class DocumentationMeta(BaseModel):
     last_edited_by: Optional[str] = None
 
 
+# ── Folder Schemas ────────────────────────────────────────────────────────────
+
+
+class FolderCreate(BaseModel):
+    """Schema for creating a folder."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    parent_folder_id: Optional[str] = Field(
+        None,
+        description="Parent folder ID. None = root level.",
+    )
+
+
+class FolderUpdate(BaseModel):
+    """Schema for updating a folder — all fields optional."""
+
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    parent_folder_id: Optional[str] = Field(
+        None,
+        description="Move folder under a new parent (empty string = root).",
+    )
+
+
+class FolderResponse(BaseModel):
+    """Full folder response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    owner_id: str
+    name: str
+    parent_folder_id: Optional[str] = None
+    is_course: bool = False
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class CourseCreate(BaseModel):
+    """Schema for creating a public course folder (maintainer/admin only)."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    parent_folder_id: Optional[str] = Field(
+        None,
+        description="Parent course folder ID. None = top-level course.",
+    )
+
+
+class CourseOwnerUpdate(BaseModel):
+    """Schema for reassigning a course owner (admin only)."""
+
+    new_owner_id: str = Field(..., description="New owner user ID.")
+
+
+class DeepCopyRequest(BaseModel):
+    """Schema for deep-copying a course (or project) into the user's space."""
+
+    target_folder_id: Optional[str] = Field(
+        None,
+        description="Destination folder in the user's space. None = root.",
+    )
+
+
+class UserRoleUpdate(BaseModel):
+    """Schema for admin role management."""
+
+    role: str = Field(
+        ...,
+        description="New role: 'user', 'maintainer', or 'admin'.",
+    )
+
+
+class UserListResponse(BaseModel):
+    """Schema for listing users (admin only)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: str
+    email: str
+    username: str
+    role: str = "user"
+    is_locked: bool = False
+    created_at: Optional[str] = None
+
+
 # ── Project Schemas ───────────────────────────────────────────────────────────
 
 
@@ -120,7 +204,9 @@ class ProjectBase(BaseModel):
 class ProjectCreate(ProjectBase):
     """Schema for creating a project."""
 
-    pass
+    folder_id: Optional[str] = Field(
+        None, description="Folder to place the project in. None = root."
+    )
 
 
 class ProjectUpdate(BaseModel):
@@ -133,6 +219,7 @@ class ProjectUpdate(BaseModel):
     simulation_results: Optional[Dict[str, Any]] = None
     ui_state: Optional[Dict[str, Any]] = None
     documentation: Optional[Dict[str, Any]] = None
+    folder_id: Optional[str] = Field(None, description="Move project to a different folder.")
 
 
 class ProjectResponse(ProjectBase):
@@ -142,6 +229,7 @@ class ProjectResponse(ProjectBase):
 
     id: str
     user_id: str
+    folder_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -155,6 +243,7 @@ class ProjectListResponse(BaseModel):
     user_id: str
     name: str
     description: Optional[str] = None
+    folder_id: Optional[str] = None
     has_documentation: bool = False
     documentation_preview: str = ""
     created_at: datetime

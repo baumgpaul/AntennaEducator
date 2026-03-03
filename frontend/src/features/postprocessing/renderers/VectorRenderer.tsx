@@ -1,10 +1,20 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { ViewItem, DisplayQuantity } from '../../../types/postprocessing';
 import { useAppSelector } from '../../../store/hooks';
 import { ArrowHelper } from 'three';
 import { createColorArray, arrayMin, arrayMax } from '../../../utils/colorMaps';
 import { computeInstantaneousVectors } from '../../../utils/timeAnimation';
 import * as THREE from 'three';
+
+/** Dispose an ArrowHelper's internal GPU resources (geometries + materials). */
+function disposeArrowHelper(obj: THREE.Object3D) {
+  if (obj instanceof ArrowHelper) {
+    obj.line.geometry.dispose();
+    (obj.line.material as THREE.Material).dispose();
+    obj.cone.geometry.dispose();
+    (obj.cone.material as THREE.Material).dispose();
+  }
+}
 
 interface ComplexComponent {
   real: number;
@@ -339,40 +349,51 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
     ? (poyntingVectors && poyntingVectors.length > 0)
     : (complexVectors && peakMagnitudes && peakMagnitudes.length > 0);
 
-  if (!field || !fieldData || !frequencyHz || !dataForFrequency || !hasData) {
-    return null;
-  }
+  // Imperative arrow management — create ArrowHelpers in a group and dispose old
+  // ones on every update to prevent GPU memory leaks during animation.
+  const groupRef = useRef<THREE.Group>(null);
 
-  return (
-    <group>
-      {arrows.map((arrow, index) => {
-        if (!arrow) return null;
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
 
-        return (
-          <primitive
-            key={`${vectorComplexPart}-${arrowScalingMode}-${index}`}
-            object={new ArrowHelper(
-              arrow.direction,
-              arrow.origin,
-              arrow.length,
-              arrow.color,
-              arrow.length * 0.2, // Head length (20% of total)
-              arrow.length * 0.1  // Head width (10% of total)
-            )}
-            // Set opacity through material properties
-            onUpdate={(self: any) => {
-              if (self.cone && self.cone.material) {
-                self.cone.material.transparent = opacity < 1.0;
-                self.cone.material.opacity = opacity;
-              }
-              if (self.line && self.line.material) {
-                self.line.material.transparent = opacity < 1.0;
-                self.line.material.opacity = opacity;
-              }
-            }}
-          />
-        );
-      })}
-    </group>
-  );
+    // Clear and dispose old arrows
+    while (group.children.length > 0) {
+      const child = group.children[0];
+      group.remove(child);
+      disposeArrowHelper(child);
+    }
+
+    // Only create new arrows when we have valid data
+    if (!field || !fieldData || !frequencyHz || !dataForFrequency || !hasData) return;
+
+    for (const arrow of arrows) {
+      if (!arrow) continue;
+      const helper = new ArrowHelper(
+        arrow.direction,
+        arrow.origin,
+        arrow.length,
+        arrow.color,
+        arrow.length * 0.2, // Head length (20% of total)
+        arrow.length * 0.1  // Head width (10% of total)
+      );
+      if (opacity < 1.0) {
+        (helper.cone.material as THREE.MeshBasicMaterial).transparent = true;
+        (helper.cone.material as THREE.MeshBasicMaterial).opacity = opacity;
+        (helper.line.material as THREE.LineBasicMaterial).transparent = true;
+        (helper.line.material as THREE.LineBasicMaterial).opacity = opacity;
+      }
+      group.add(helper);
+    }
+
+    return () => {
+      while (group.children.length > 0) {
+        const child = group.children[0];
+        group.remove(child);
+        disposeArrowHelper(child);
+      }
+    };
+  }, [arrows, opacity, hasData, field, fieldData, frequencyHz, dataForFrequency]);
+
+  return <group ref={groupRef} />;
 };
