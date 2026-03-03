@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserCreate(BaseModel):
@@ -31,14 +31,14 @@ class Token(BaseModel):
 class UserResponse(BaseModel):
     """Schema for user information response."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int | str  # Can be int (SQL) or str (DynamoDB UUID)
     email: str
     username: str
+    role: str = "user"
     is_approved: bool = True
     is_admin: bool = False
     is_locked: bool = False
     cognito_sub: Optional[str] = None
     created_at: Optional[str] = None
-
-    class Config:
-        from_attributes = True

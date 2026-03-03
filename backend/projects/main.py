@@ -32,6 +32,9 @@ from backend.common.auth import UserIdentity, get_current_user
 from backend.common.repositories.base import ProjectRepository
 from backend.common.repositories.factory import get_project_repository
 from backend.projects.documentation_service import DocumentationService, get_documentation_service
+
+# Folder & course management routes
+from backend.projects.folder_routes import router as folder_router
 from backend.projects.results_service import ResultsService, get_results_service
 from backend.projects.schemas import (
     DocumentationContentRequest,
@@ -64,6 +67,9 @@ if not os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
     logger.info("CORS middleware enabled (non-Lambda environment)")
 else:
     logger.info("CORS handled by Lambda Function URL — middleware disabled")
+
+# Include folder/course management routes
+app.include_router(folder_router)
 
 
 def get_repository() -> ProjectRepository:
@@ -123,6 +129,7 @@ async def create_project(
         user_id=user.id,
         name=data.name,
         description=data.description,
+        folder_id=getattr(data, "folder_id", None),
     )
 
     # Set optional JSON blobs if provided on create
@@ -215,6 +222,7 @@ async def update_project(
         simulation_results=slim_results,
         ui_state=data.ui_state,
         documentation=data.documentation,
+        folder_id=data.folder_id,
     )
 
     # Hydrate results from S3 before returning (so frontend gets full data)

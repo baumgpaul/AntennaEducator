@@ -11,9 +11,23 @@ from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity
+from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity, UserRole
 from backend.common.auth.provider import AuthProvider
 from backend.common.repositories.user_repository import UserRepository
+
+
+def _role_from_db(user: dict) -> UserRole:
+    """Derive UserRole from DynamoDB user record (backward-compatible)."""
+    role_str = user.get("role")
+    if role_str:
+        try:
+            return UserRole(role_str)
+        except ValueError:
+            pass
+    if user.get("is_admin", False):
+        return UserRole.ADMIN
+    return UserRole.USER
+
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +99,7 @@ class LocalAuthProvider(AuthProvider):
             id=db_user["user_id"],
             email=db_user["email"],
             username=db_user["username"],
-            is_admin=db_user.get("is_admin", False),
+            role=_role_from_db(db_user),
             is_locked=False,
             created_at=db_user.get("created_at"),
         )
@@ -127,7 +141,7 @@ class LocalAuthProvider(AuthProvider):
             id=db_user["user_id"],
             email=db_user["email"],
             username=db_user["username"],
-            is_admin=db_user.get("is_admin", False),
+            role=_role_from_db(db_user),
             is_locked=db_user.get("is_locked", False),
             created_at=db_user.get("created_at"),
         )

@@ -5,9 +5,23 @@ Every service that needs the current user receives this, not a SQLAlchemy model.
 """
 
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
+
+
+class UserRole(str, Enum):
+    """User authorization level.
+
+    - ``user``:       Can only edit own projects. Cannot modify public courses.
+    - ``maintainer``: Can also create/edit public courses.
+    - ``admin``:      Can elevate user roles and assign course owners.
+    """
+
+    USER = "user"
+    MAINTAINER = "maintainer"
+    ADMIN = "admin"
 
 
 class UserIdentity(BaseModel):
@@ -22,9 +36,21 @@ class UserIdentity(BaseModel):
     id: str
     email: str
     username: str
-    is_admin: bool = False
+    role: UserRole = UserRole.USER
     is_locked: bool = False
     created_at: Optional[datetime] = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_admin(self) -> bool:
+        """Backward-compatible admin check."""
+        return self.role == UserRole.ADMIN
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_maintainer(self) -> bool:
+        """Check if user has maintainer or admin privileges."""
+        return self.role in (UserRole.MAINTAINER, UserRole.ADMIN)
 
 
 class TokenResponse(BaseModel):
