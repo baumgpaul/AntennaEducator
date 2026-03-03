@@ -167,12 +167,12 @@ output "api_gateway_custom_domain" {
 }
 
 # CI/CD outputs
-output "pipeline_name" {
-  description = "CodePipeline name"
-  value       = module.cicd.pipeline_name
+output "github_actions_role_arn" {
+  description = "IAM role ARN for GitHub Actions (set as AWS_DEPLOY_ROLE_ARN secret)"
+  value       = module.cicd.github_actions_role_arn
 }
 
-output "codestar_connection_status" {
-  description = "CodeStar connection status (PENDING until manually completed in AWS Console)"
-  value       = module.cicd.codestar_connection_status
+output "artifacts_bucket" {
+  description = "S3 bucket for pipeline artifacts (set as AWS_ARTIFACTS_BUCKET secret)"
+  value       = module.cicd.artifacts_bucket
 }

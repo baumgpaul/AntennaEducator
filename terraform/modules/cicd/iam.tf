@@ -173,66 +173,81 @@ resource "aws_iam_role_policy" "codebuild_reports" {
   })
 }
 
-# ─── CodePipeline Service Role ────────────────────────────────────────
-resource "aws_iam_role" "codepipeline" {
-  name = "antenna-simulator-codepipeline-${var.environment}"
+# ─── GitHub OIDC Provider ─────────────────────────────────────────────
+# Allows GitHub Actions to assume IAM roles via OpenID Connect (no long-lived keys).
+# Only ONE provider per URL per AWS account — if another project already created
+# this, import it: terraform import aws_iam_openid_connect_provider.github <arn>
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["ffffffffffffffffffffffffffffffffffffffff"] # AWS does not verify GitHub OIDC thumbprints
+  tags            = var.tags
+}
+
+# ─── IAM Role for GitHub Actions ──────────────────────────────────────
+# Assumed by the aws-build-and-merge.yml workflow via OIDC.
+resource "aws_iam_role" "github_actions" {
+  name = "antenna-simulator-github-actions-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { Service = "codepipeline.amazonaws.com" }
-      Action    = "sts:AssumeRole"
+      Principal = { Federated = aws_iam_openid_connect_provider.github.arn }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+        }
+        StringLike = {
+          "token.actions.githubusercontent.com:sub" = "repo:${var.github_owner}/${var.github_repository}:*"
+        }
+      }
     }]
   })
 
   tags = var.tags
 }
 
-resource "aws_iam_role_policy" "codepipeline" {
-  name = "codepipeline-policy"
-  role = aws_iam_role.codepipeline.id
+# GitHub Actions → start and monitor CodeBuild builds
+resource "aws_iam_role_policy" "github_actions_codebuild" {
+  name = "github-actions-codebuild"
+  role = aws_iam_role.github_actions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "codebuild:StartBuild",
+        "codebuild:BatchGetBuilds",
+        "codebuild:StopBuild"
+      ]
+      Resource = [
+        aws_codebuild_project.test.arn,
+        aws_codebuild_project.deploy.arn
+      ]
+    }]
+  })
+}
+
+# GitHub Actions → upload/delete source artifacts in S3
+resource "aws_iam_role_policy" "github_actions_s3" {
+  name = "github-actions-s3"
+  role = aws_iam_role.github_actions.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        # S3 artifacts
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:ListBucket",
-          "s3:GetBucketVersioning"
-        ]
-        Resource = [
-          aws_s3_bucket.artifacts.arn,
-          "${aws_s3_bucket.artifacts.arn}/*"
-        ]
-      },
-      {
-        # CodeStar connection (GitHub source)
         Effect   = "Allow"
-        Action   = ["codestar-connections:UseConnection"]
-        Resource = [aws_codestarconnections_connection.github.arn]
+        Action   = ["s3:PutObject", "s3:DeleteObject"]
+        Resource = ["${aws_s3_bucket.artifacts.arn}/github-actions/*"]
       },
       {
-        # CodeBuild
-        Effect = "Allow"
-        Action = [
-          "codebuild:BatchGetBuilds",
-          "codebuild:StartBuild"
-        ]
-        Resource = [
-          aws_codebuild_project.test.arn,
-          aws_codebuild_project.deploy.arn
-        ]
-      },
-      {
-        # SNS — manual approval notifications
         Effect   = "Allow"
-        Action   = ["sns:Publish"]
-        Resource = [aws_sns_topic.approval.arn]
+        Action   = ["s3:ListBucket"]
+        Resource = [aws_s3_bucket.artifacts.arn]
       }
     ]
   })
