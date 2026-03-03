@@ -5,10 +5,10 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
-import boto3
 from botocore.exceptions import ClientError
 
 from backend.common.storage.provider import ResultsStorageProvider, ResultType
+from backend.common.storage.s3_client import create_s3_client, default_bucket_name
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +34,7 @@ class S3ResultsProvider(ResultsStorageProvider):
             region_name: AWS region. Defaults to env AWS_REGION or 'eu-west-1'.
             s3_client: Optional pre-configured boto3 S3 client (for testing).
         """
-        self.bucket_name = bucket_name or os.getenv(
-            "RESULTS_BUCKET_NAME",
-            f"antenna-simulator-results-{os.getenv('ENVIRONMENT', 'dev')}",
-        )
+        self.bucket_name = bucket_name or default_bucket_name()
         self.endpoint_url = endpoint_url or os.getenv("S3_ENDPOINT_URL")
         self.region_name = region_name or os.getenv("AWS_REGION", "eu-west-1")
         self._client = s3_client
@@ -47,19 +44,10 @@ class S3ResultsProvider(ResultsStorageProvider):
     def client(self):
         """Lazy-initialize S3 client."""
         if self._client is None:
-            client_kwargs = {"region_name": self.region_name}
-            if self.endpoint_url:
-                # MinIO or localstack
-                client_kwargs["endpoint_url"] = self.endpoint_url
-                # MinIO typically needs these for local dev
-                if "localhost" in self.endpoint_url or "minio" in self.endpoint_url:
-                    client_kwargs["aws_access_key_id"] = os.getenv(
-                        "AWS_ACCESS_KEY_ID", "minioadmin"
-                    )
-                    client_kwargs["aws_secret_access_key"] = os.getenv(
-                        "AWS_SECRET_ACCESS_KEY", "minioadmin"
-                    )
-            self._client = boto3.client("s3", **client_kwargs)
+            self._client = create_s3_client(
+                endpoint_url=self.endpoint_url,
+                region_name=self.region_name,
+            )
         return self._client
 
     async def _ensure_bucket(self) -> None:
