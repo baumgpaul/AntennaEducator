@@ -1,0 +1,175 @@
+# AWS Build & Deploy to Staging
+#
+# Flow:
+#   1. Reviewer approves PR targeting main
+#   2. Source is uploaded to S3, CodeBuild Test runs (lint + unit tests)
+#   3. CodeBuild Deploy runs (Docker → ECR → Lambda, frontend → S3)
+#   4. Success → PR comment "Staging deployed, ready to merge"
+#      Failure → PR comment with build failure details
+#   5. Reviewer verifies staging manually, then merges the PR
+#
+# Setup (one-time):
+#   In GitHub repo Settings → Secrets and variables → Actions:
+#     - AWS_DEPLOY_ROLE_ARN  = (terraform output github_actions_role_arn)
+#     - AWS_ARTIFACTS_BUCKET = (terraform output artifacts_bucket)
+#
+# Note: This workflow triggers on pull_request_review which reads the
+# workflow file from the DEFAULT branch (main). It will only work for PRs
+# opened AFTER this file has been merged to main.
+
+name: AWS Build & Deploy
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+concurrency:
+  group: aws-deploy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ── AWS CodeBuild: Test + Deploy ────────────────────────────────────
+  aws-build-deploy:
+    name: AWS Build & Deploy to Staging
+    if: >-
+      github.event.review.state == 'approved' &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    permissions:
+      id-token: write        # OIDC authentication to AWS
+      contents: read
+      pull-requests: write   # Post PR comments
+    env:
+      AWS_REGION: eu-west-1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload source to S3
+        env:
+          BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          zip -r /tmp/source.zip . -x '.git/*'
+          aws s3 cp /tmp/source.zip "s3://${BUCKET}/github-actions/pr-${PR_NUM}/source.zip"
+
+      # ── Test stage ──────────────────────────────────────────────────
+      - name: Start CodeBuild — Test
+        id: test
+        env:
+          BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name antenna-simulator-test-staging \
+            --source-type-override S3 \
+            --source-location-override "${BUCKET}/github-actions/pr-${PR_NUM}/source.zip" \
+            --buildspec-override buildspec-test.yml \
+            --query 'build.id' --output text)
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "::notice::CodeBuild Test started: $BUILD_ID"
+
+      - name: Wait for Test build
+        timeout-minutes: 15
+        env:
+          BUILD_ID: ${{ steps.test.outputs.build_id }}
+        run: |
+          echo "Polling build ${BUILD_ID}..."
+          while true; do
+            STATUS=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
+              --query 'builds[0].buildStatus' --output text)
+            case "$STATUS" in
+              SUCCEEDED)
+                echo "✅ Test build passed"
+                exit 0
+                ;;
+              IN_PROGRESS)
+                sleep 15
+                ;;
+              *)
+                LOG_URL=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
+                  --query 'builds[0].logs.deepLink' --output text)
+                echo "::error::Test build ${STATUS}. Logs: ${LOG_URL}"
+                exit 1
+                ;;
+            esac
+          done
+
+      # ── Deploy stage ────────────────────────────────────────────────
+      - name: Start CodeBuild — Deploy
+        id: deploy
+        env:
+          BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name antenna-simulator-deploy-staging \
+            --source-type-override S3 \
+            --source-location-override "${BUCKET}/github-actions/pr-${PR_NUM}/source.zip" \
+            --buildspec-override buildspec-deploy.yml \
+            --query 'build.id' --output text)
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "::notice::CodeBuild Deploy started: $BUILD_ID"
+
+      - name: Wait for Deploy build
+        timeout-minutes: 35
+        env:
+          BUILD_ID: ${{ steps.deploy.outputs.build_id }}
+        run: |
+          echo "Polling build ${BUILD_ID}..."
+          while true; do
+            STATUS=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
+              --query 'builds[0].buildStatus' --output text)
+            case "$STATUS" in
+              SUCCEEDED)
+                echo "✅ Deploy build passed"
+                exit 0
+                ;;
+              IN_PROGRESS)
+                sleep 15
+                ;;
+              *)
+                LOG_URL=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
+                  --query 'builds[0].logs.deepLink' --output text)
+                echo "::error::Deploy build ${STATUS}. Logs: ${LOG_URL}"
+                exit 1
+                ;;
+            esac
+          done
+
+      # ── Report result ──────────────────────────────────────────────
+      - name: Comment — staging deployed
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body \
+            "✅ **AWS Build & Deploy succeeded**
+
+          Staging has been updated. Please verify at https://antennaeducator.nyakyagyawa.com then merge this PR."
+
+      - name: Comment — build failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body \
+            "❌ **AWS Build & Deploy failed**
+
+          Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details. Fix the issue and re-approve the PR to retry."
+
+      # ── Cleanup ─────────────────────────────────────────────────────
+      - name: Clean up S3 source
+        if: always()
+        env:
+          BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          aws s3 rm "s3://${BUCKET}/github-actions/pr-${PR_NUM}/" --recursive || true

@@ -1,17 +1,20 @@
-# CI/CD Module — CodePipeline + CodeBuild
+# CI/CD Module — GitHub Actions orchestrated CodeBuild
 #
-# Pipeline stages:
-#   1. Source   — GitHub (via CodeStar Connection)
-#   2. Test     — CodeBuild: lint + pytest + frontend tests
-#   3. Deploy   — CodeBuild: Docker build → ECR → Lambda + S3 frontend
-#   4. Approval — Manual approval with SNS email notification
+# The CI/CD flow is driven by GitHub Actions (.github/workflows/):
+#   1. pr-checks.yml          — lint + tests on every PR (GitHub-hosted)
+#   2. aws-build-and-merge.yml — on PR approval: CodeBuild test → deploy →
+#                                 manual staging verification → auto-merge
 #
-# Cost: ~$3-5/month (CodePipeline $1 + CodeBuild build minutes)
+# This module provisions:
+#   - CodeBuild projects (test + deploy)
+#   - S3 bucket for build artifacts / source uploads
+#   - GitHub OIDC provider + IAM role for GH Actions → AWS authentication
+#
+# Cost: ~$2-4/month (CodeBuild build minutes only)
 
 # ─── CodeStar Connection to GitHub ─────────────────────────────────────
-# After terraform apply, you MUST complete the connection in the AWS Console:
-#   Developer Tools → Settings → Connections → click "Update pending connection"
-#   → Authorize AWS to access your GitHub account → Install the AWS Connector app
+# Retained for potential future use (e.g. CodePipeline, CodeBuild GitHub triggers).
+# If you completed the connection in the AWS Console, it stays valid.
 resource "aws_codestarconnections_connection" "github" {
   name          = "antenna-simulator-github-${var.environment}"
   provider_type = "GitHub"
@@ -50,18 +53,6 @@ resource "aws_s3_bucket_public_access_block" "artifacts" {
   restrict_public_buckets = true
 }
 
-# ─── SNS Topic for Manual Approval ────────────────────────────────────
-resource "aws_sns_topic" "approval" {
-  name = "antenna-simulator-deploy-approval-${var.environment}"
-  tags = var.tags
-}
-
-resource "aws_sns_topic_subscription" "approval_email" {
-  topic_arn = aws_sns_topic.approval.arn
-  protocol  = "email"
-  endpoint  = var.approval_email
-}
-
 # ─── CodeBuild — Test Stage ───────────────────────────────────────────
 resource "aws_codebuild_project" "test" {
   name         = "antenna-simulator-test-${var.environment}"
@@ -69,12 +60,14 @@ resource "aws_codebuild_project" "test" {
   service_role = aws_iam_role.codebuild.arn
 
   source {
-    type      = "CODEPIPELINE"
+    type      = "S3"
+    location  = "${aws_s3_bucket.artifacts.bucket}/codebuild/placeholder.zip"
     buildspec = "buildspec-test.yml"
   }
 
   artifacts {
-    type = "CODEPIPELINE"
+    type = "NO_ARTIFACTS"
+    name = ""
   }
 
   environment {
@@ -106,12 +99,14 @@ resource "aws_codebuild_project" "deploy" {
   service_role = aws_iam_role.codebuild.arn
 
   source {
-    type      = "CODEPIPELINE"
+    type      = "S3"
+    location  = "${aws_s3_bucket.artifacts.bucket}/codebuild/placeholder.zip"
     buildspec = "buildspec-deploy.yml"
   }
 
   artifacts {
-    type = "CODEPIPELINE"
+    type = "NO_ARTIFACTS"
+    name = ""
   }
 
   environment {
@@ -158,88 +153,6 @@ resource "aws_codebuild_project" "deploy" {
   build_timeout = 30 # minutes
 
   tags = merge(var.tags, { Stage = "deploy" })
-}
-
-# ─── CodePipeline ─────────────────────────────────────────────────────
-resource "aws_codepipeline" "main" {
-  name          = "antenna-simulator-${var.environment}"
-  role_arn      = aws_iam_role.codepipeline.arn
-  pipeline_type = "V2"
-
-  artifact_store {
-    type     = "S3"
-    location = aws_s3_bucket.artifacts.bucket
-  }
-
-  # Stage 1: Source — pull from GitHub on push to main
-  stage {
-    name = "Source"
-    action {
-      name             = "GitHub"
-      category         = "Source"
-      owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
-      version          = "1"
-      output_artifacts = ["source_output"]
-      configuration = {
-        ConnectionArn    = aws_codestarconnections_connection.github.arn
-        FullRepositoryId = "${var.github_owner}/${var.github_repository}"
-        BranchName       = var.branch_name
-      }
-    }
-  }
-
-  # Stage 2: Test — lint + unit tests
-  stage {
-    name = "Test"
-    action {
-      name             = "LintAndTest"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      version          = "1"
-      input_artifacts  = ["source_output"]
-      output_artifacts = ["test_output"]
-      configuration = {
-        ProjectName = aws_codebuild_project.test.name
-      }
-    }
-  }
-
-  # Stage 3: Deploy — build images + deploy to staging
-  stage {
-    name = "Deploy"
-    action {
-      name            = "BuildAndDeploy"
-      category        = "Build"
-      owner           = "AWS"
-      provider        = "CodeBuild"
-      version         = "1"
-      input_artifacts = ["source_output"]
-      configuration = {
-        ProjectName = aws_codebuild_project.deploy.name
-      }
-    }
-  }
-
-  # Stage 4: Manual Approval — test staging, then approve
-  stage {
-    name = "Approval"
-    action {
-      name     = "ManualApproval"
-      category = "Approval"
-      owner    = "AWS"
-      provider = "Manual"
-      version  = "1"
-      configuration = {
-        NotificationArn    = aws_sns_topic.approval.arn
-        CustomData         = "Staging deployed. Please verify at https://${var.domain_name} then approve."
-        ExternalEntityLink = "https://${var.domain_name}"
-      }
-    }
-  }
-
-  tags = var.tags
 }
 
 # ─── CloudWatch Log Groups ────────────────────────────────────────────
