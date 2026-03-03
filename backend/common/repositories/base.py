@@ -36,6 +36,7 @@ class ProjectRepository(ABC):
         user_id: str,
         name: str,
         description: Optional[str] = None,
+        folder_id: Optional[str] = None,
     ) -> Dict[str, Any]: ...
 
     @abstractmethod
@@ -43,6 +44,11 @@ class ProjectRepository(ABC):
 
     @abstractmethod
     async def list_projects(self, user_id: str) -> List[Dict[str, Any]]: ...
+
+    @abstractmethod
+    async def list_projects_in_folder(
+        self, user_id: str, folder_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]: ...
 
     @abstractmethod
     async def update_project(
@@ -55,6 +61,7 @@ class ProjectRepository(ABC):
         simulation_results: Optional[Dict] = None,
         ui_state: Optional[Dict] = None,
         documentation: Optional[Dict] = None,
+        folder_id: Optional[str] = None,
     ) -> Dict[str, Any]: ...
 
     @abstractmethod
