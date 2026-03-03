@@ -5,7 +5,7 @@ How to deploy the Antenna Simulator to AWS (staging environment).
 ## Architecture Overview
 
 ```
-Browser → CloudFront (d1wh11n6foy85c) → S3 (frontend bundle)
+Browser → CloudFront → S3 (frontend bundle)
               ↓ API calls (Lambda Function URLs)
          ┌──────────────────────────────────────────┐
          │  Preprocessor Lambda  (512 MB, 30s)      │
@@ -22,7 +22,7 @@ Browser → CloudFront (d1wh11n6foy85c) → S3 (frontend bundle)
 
 **Custom domain:** `https://antennaeducator.nyakyagyawa.com`
 **Region:** `eu-west-1` (Ireland) — ACM certificate in `us-east-1` for CloudFront.
-**Account:** `767397882329`, profile `antenna-staging`.
+**Profile:** `antenna-staging`.
 
 ## Prerequisites
 
@@ -74,7 +74,7 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-State stored in S3 (`antenna-simulator-terraform-state-767397882329`) with DynamoDB locking (`antenna-terraform-locks`).
+State stored in S3 (`antenna-simulator-terraform-state-<ACCOUNT_ID>`) with DynamoDB locking (`antenna-terraform-locks`).
 
 ## Deploy Backend (Lambda Services)
 
@@ -197,7 +197,7 @@ Simulation Lambdas (especially solver at 2 GB) have cold starts of 5–15 second
 ECR login tokens expire after 12 hours:
 
 ```powershell
-aws ecr get-login-password --profile antenna-staging | docker login --username AWS --password-stdin 767397882329.dkr.ecr.eu-west-1.amazonaws.com
+aws ecr get-login-password --profile antenna-staging | docker login --username AWS --password-stdin $(aws sts get-caller-identity --profile antenna-staging --query Account --output text).dkr.ecr.eu-west-1.amazonaws.com
 ```
 
 ### CloudFront serving stale content
@@ -205,7 +205,7 @@ aws ecr get-login-password --profile antenna-staging | docker login --username A
 After deploying frontend, ensure invalidation completed:
 
 ```bash
-aws cloudfront list-invalidations --distribution-id E2WUND9P0FX4NA --profile antenna-staging
+aws cloudfront list-invalidations --distribution-id <DISTRIBUTION_ID> --profile antenna-staging
 ```
 
 ### Lambda Function URL returns 5xx

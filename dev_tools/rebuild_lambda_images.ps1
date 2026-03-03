@@ -4,14 +4,25 @@
 param(
     [string]$Profile = "antenna-staging",
     [string]$Region = "eu-west-1",
-    [string]$AccountId = "767397882329"
+    [string]$AccountId
 )
 
 $ErrorActionPreference = "Stop"
 
+# Fetch account ID from AWS if not provided
+if (-not $AccountId) {
+    Write-Host "Fetching AWS account ID..." -ForegroundColor Yellow
+    $AccountId = (aws sts get-caller-identity --profile $Profile --query Account --output text).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $AccountId) {
+        Write-Host "Failed to get AWS account ID. Pass -AccountId or configure AWS CLI." -ForegroundColor Red
+        exit 1
+    }
+}
+
 Write-Host "=== Rebuilding Lambda Container Images ===" -ForegroundColor Cyan
 Write-Host "Profile: $Profile"
 Write-Host "Region: $Region"
+Write-Host "Account: $AccountId"
 Write-Host ""
 
 # Get ECR login

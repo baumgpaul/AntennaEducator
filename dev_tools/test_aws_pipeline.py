@@ -1,13 +1,35 @@
-"""Quick end-to-end smoke test against AWS Lambda services."""
+"""Quick end-to-end smoke test against AWS Lambda services.
 
+Reads service URLs from environment variables or falls back to
+frontend/.env.production when run locally.
+"""
+
+import os
 import sys
+from pathlib import Path
 
 import requests
 
-PREPROCESSOR = "https://xfwks3en2lvlj5iepkgh7x2ioy0gpbpz.lambda-url.eu-west-1.on.aws"
-SOLVER = "https://znawgmfq7tzgavilfvrxw2mqqe0rgpnx.lambda-url.eu-west-1.on.aws"
-POSTPROCESSOR = "https://3jkkorrflkuoquakxmphsy26u40horni.lambda-url.eu-west-1.on.aws"
-PROJECTS = "https://lizbey4kcxsjtqdidcwebk6fte0hgwja.lambda-url.eu-west-1.on.aws"
+
+def _load_env_production() -> dict[str, str]:
+    """Parse frontend/.env.production for VITE_* URLs."""
+    env_file = Path(__file__).resolve().parent.parent / "frontend" / ".env.production"
+    vals: dict[str, str] = {}
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                vals[k.strip()] = v.strip().strip('"')
+    return vals
+
+
+_env = _load_env_production()
+
+PREPROCESSOR = os.getenv("PREPROCESSOR_URL", _env.get("VITE_PREPROCESSOR_URL", ""))
+SOLVER = os.getenv("SOLVER_URL", _env.get("VITE_SOLVER_URL", ""))
+POSTPROCESSOR = os.getenv("POSTPROCESSOR_URL", _env.get("VITE_POSTPROCESSOR_URL", ""))
+PROJECTS = os.getenv("PROJECTS_URL", _env.get("VITE_PROJECTS_URL", ""))
 
 
 def main():
