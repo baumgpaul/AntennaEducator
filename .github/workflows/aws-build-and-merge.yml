@@ -4,14 +4,18 @@
 #   1. Reviewer approves PR targeting main
 #   2. Source is uploaded to S3, CodeBuild Test runs (lint + unit tests)
 #   3. CodeBuild Deploy runs (Docker → ECR → Lambda, frontend → S3)
-#   4. Success → PR comment "Staging deployed, ready to merge"
+#   4. Success → PR comment "Staging deployed, review environment"
 #      Failure → PR comment with build failure details
-#   5. Reviewer verifies staging manually, then merges the PR
+#   5. Reviewer verifies staging, approves the "staging" environment gate
+#   6. Auto-merge squash-merges the PR
 #
 # Setup (one-time):
 #   In GitHub repo Settings → Secrets and variables → Actions:
 #     - AWS_DEPLOY_ROLE_ARN  = (terraform output github_actions_role_arn)
 #     - AWS_ARTIFACTS_BUCKET = (terraform output artifacts_bucket)
+#   In Settings → Environments → staging:
+#     - Required reviewers: repo owner(s)
+#     - Deployment branches: protected branches only
 #
 # Note: This workflow triggers on pull_request_review which reads the
 # workflow file from the DEFAULT branch (main). It will only work for PRs
@@ -153,7 +157,9 @@ jobs:
           gh pr comment ${{ github.event.pull_request.number }} --body \
             "✅ **AWS Build & Deploy succeeded**
 
-          Staging has been updated. Please verify at https://antennaeducator.nyakyagyawa.com then merge this PR."
+          Staging has been updated at https://antennaeducator.nyakyagyawa.com
+
+          👉 **Approve the \`staging\` environment** in this [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) to auto-merge."
 
       - name: Comment — build failed
         if: failure()
@@ -173,3 +179,31 @@ jobs:
           PR_NUM: ${{ github.event.pull_request.number }}
         run: |
           aws s3 rm "s3://${BUCKET}/github-actions/pr-${PR_NUM}/" --recursive || true
+
+  # ── Verify Staging (Environment Gate) ─────────────────────────────
+  verify-staging:
+    name: Verify Staging
+    needs: aws-build-deploy
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Staging verified
+        run: echo "Staging environment approved by reviewer."
+
+  # ── Auto-merge ────────────────────────────────────────────────────
+  auto-merge:
+    name: Auto-merge PR
+    needs: verify-staging
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --squash --auto
+          echo "✅ Auto-merge enabled — PR will merge once all required checks pass."
