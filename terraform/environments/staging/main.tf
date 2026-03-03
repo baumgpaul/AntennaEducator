@@ -443,15 +443,10 @@ module "cicd" {
   # GitHub
   github_owner      = "baumgpaul"
   github_repository = "AntennaEducator"
-  branch_name       = "main"
 
   # Deployment targets
   s3_frontend_bucket         = module.s3_frontend.bucket_name
   cloudfront_distribution_id = module.cloudfront.distribution_id
-  domain_name                = var.domain_name
-
-  # Notifications
-  approval_email = "baumg.paul@gmail.com"
 
   tags = { Component = "cicd" }
 }
