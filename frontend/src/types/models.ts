@@ -283,6 +283,7 @@ export interface Project {
   has_documentation?: boolean              // Whether project has documentation content
   documentation_preview?: string           // Plain-text preview of documentation content
   user_id?: string | number
+  folder_id?: string | null               // Folder this project belongs to (null = root)
   created_at: string
   updated_at: string
 }
@@ -336,12 +337,15 @@ export interface PaginatedResponse<T> {
 // Authentication Types
 // ============================================================================
 
+export type UserRole = 'user' | 'maintainer' | 'admin'
+
 export interface User {
   id: string
   email: string
   username: string
   is_approved: boolean
   is_admin: boolean
+  role?: UserRole
   cognito_sub?: string
   created_at: string
 }

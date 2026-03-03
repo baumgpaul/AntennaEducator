@@ -6,6 +6,8 @@ import ProjectsPage from './features/projects/ProjectsPage';
 import DesignPage from './features/design/DesignPage';
 import ResultsPage from './features/results/ResultsPage';
 import { LoginPage, RegisterPage, ProtectedRoute } from './features/auth';
+import { CoursesPage } from './features/courses';
+import { AdminPage } from './features/admin';
 import NotFoundPage from './features/common/NotFoundPage';
 import { NotificationManager, SessionManager } from './components/common';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -32,6 +34,8 @@ function App() {
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route path="/" element={<HomePage />} />
           <Route path="/projects" element={<ErrorBoundary><ProjectsPage /></ErrorBoundary>} />
+          <Route path="/courses" element={<ErrorBoundary><CoursesPage /></ErrorBoundary>} />
+          <Route path="/admin" element={<ErrorBoundary><AdminPage /></ErrorBoundary>} />
           <Route path="/design" element={<ErrorBoundary><DesignPage /></ErrorBoundary>} />
           <Route path="/project/:projectId/design" element={<ErrorBoundary><DesignPage /></ErrorBoundary>} />
           <Route path="/project/:projectId/results" element={<ErrorBoundary><ResultsPage /></ErrorBoundary>} />

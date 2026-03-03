@@ -11,6 +11,7 @@ import uiReducer from './uiSlice'
 import solverReducer from './solverSlice'
 import postprocessingReducer from './postprocessingSlice'
 import documentationReducer from './documentationSlice'
+import foldersReducer from './foldersSlice'
 
 export const store = configureStore({
   reducer: {
@@ -21,6 +22,7 @@ export const store = configureStore({
     solver: solverReducer,
     postprocessing: postprocessingReducer,
     documentation: documentationReducer,
+    folders: foldersReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
