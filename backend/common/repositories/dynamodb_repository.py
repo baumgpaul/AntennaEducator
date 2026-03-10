@@ -262,4 +262,5 @@ class DynamoDBProjectRepository(ProjectRepository):
             "folder_id": pick("FolderId", "folder_id", default="") or None,
             "created_at": pick("CreatedAt", "created_at"),
             "updated_at": pick("UpdatedAt", "updated_at"),
+            "last_opened_at": pick("LastOpenedAt", "last_opened_at", default=None),
         }
