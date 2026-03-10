@@ -54,9 +54,7 @@ def create_s3_client(
     if endpoint_url:
         client_kwargs["endpoint_url"] = endpoint_url
         if any(kw in endpoint_url for kw in _LOCAL_KEYWORDS):
-            client_kwargs["aws_access_key_id"] = os.getenv(
-                "AWS_ACCESS_KEY_ID", "minioadmin"
-            )
+            client_kwargs["aws_access_key_id"] = os.getenv("AWS_ACCESS_KEY_ID", "minioadmin")
             client_kwargs["aws_secret_access_key"] = os.getenv(
                 "AWS_SECRET_ACCESS_KEY", "minioadmin"
             )
