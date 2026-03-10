@@ -16,12 +16,19 @@ import {
   Paper,
   Breadcrumbs,
   Link,
+  ToggleButtonGroup,
+  ToggleButton,
+  Divider,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
   Refresh as RefreshIcon,
   Home as HomeIcon,
+  GridView as GridViewIcon,
+  ViewList as ListViewIcon,
+  School as SchoolIcon,
 } from '@mui/icons-material';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
@@ -35,10 +42,16 @@ import {
   selectFolders,
   setCurrentFolderId,
   selectCurrentFolderId,
+  fetchCourses,
+  fetchCourseProjects,
+  copyCourseProjectToUser,
+  selectCourses,
+  selectCourseProjects,
 } from '@/store/foldersSlice';
 import type { FolderTreeNode } from '@/store/foldersSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
 import ProjectCard from './ProjectCard';
+import ProjectTreeView from './ProjectTreeView';
 import NewProjectDialog from './NewProjectDialog';
 import EditProjectDialog from './EditProjectDialog';
 import { FolderTree, FolderDialog } from '@/components/common';
@@ -55,6 +68,12 @@ function ProjectsPage() {
   const folderTree = useAppSelector(selectFolderTree);
   const allFolders = useAppSelector(selectFolders);
   const currentFolderId = useAppSelector(selectCurrentFolderId);
+  const courses = useAppSelector(selectCourses);
+  const courseProjects = useAppSelector(selectCourseProjects);
+  const [viewMode, setViewMode] = useState<'grid' | 'tree'>(
+    () => (localStorage.getItem('projectViewMode') as 'grid' | 'tree') || 'grid',
+  );
+  const [browsingCourseId, setBrowsingCourseId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'updated' | 'created' | 'name'>('updated');
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
@@ -69,11 +88,19 @@ function ProjectsPage() {
   const [folderDialogParentId, setFolderDialogParentId] = useState<string | null>(null);
   const [renamingFolder, setRenamingFolder] = useState<FolderTreeNode | null>(null);
 
-  // Fetch projects and folders on mount
+  // Fetch projects, folders, and courses on mount
   useEffect(() => {
     dispatch(fetchProjects());
     dispatch(fetchFolders());
+    dispatch(fetchCourses());
   }, [dispatch]);
+
+  // Fetch course projects when browsing a course
+  useEffect(() => {
+    if (browsingCourseId) {
+      dispatch(fetchCourseProjects(browsingCourseId));
+    }
+  }, [dispatch, browsingCourseId]);
 
   // Infinite scroll setup
   const loadMore = useCallback(() => {
@@ -112,7 +139,17 @@ function ProjectsPage() {
   const handleRetry = () => {
     dispatch(fetchProjects());
     dispatch(fetchFolders());
+    dispatch(fetchCourses());
   };
+
+  const handleViewModeChange = (_: React.MouseEvent<HTMLElement>, newMode: 'grid' | 'tree' | null) => {
+    if (newMode) {
+      setViewMode(newMode);
+      localStorage.setItem('projectViewMode', newMode);
+    }
+  };
+
+  const isBrowsingCourse = browsingCourseId !== null;
 
   // Filter projects by current folder and search query, then sort
   const filteredProjects = useMemo(() => {
@@ -194,10 +231,6 @@ function ProjectsPage() {
 
   // ── Folder handlers ──────────────────────────────────────────────────────
 
-  const handleSelectFolder = (folderId: string | null) => {
-    dispatch(setCurrentFolderId(folderId));
-  };
-
   const handleCreateFolder = (parentFolderId: string | null) => {
     setFolderDialogParentId(parentFolderId);
     setRenamingFolder(null);
@@ -254,6 +287,40 @@ function ProjectsPage() {
     </Grid>
   );
 
+  // ── Course handlers ──────────────────────────────────────────────────────
+
+  const handleSelectCourse = (courseId: string | null) => {
+    if (courseId) {
+      setBrowsingCourseId(courseId);
+      dispatch(setCurrentFolderId(null));
+    } else {
+      setBrowsingCourseId(null);
+    }
+  };
+
+  const handleSelectFolder = (folderId: string | null) => {
+    setBrowsingCourseId(null);
+    dispatch(setCurrentFolderId(folderId));
+  };
+
+  const handleCopyProject = async (project: Project) => {
+    try {
+      await dispatch(copyCourseProjectToUser({ projectId: String(project.id) })).unwrap();
+      dispatch(showSuccess(`Project "${project.name}" copied to your projects!`));
+      dispatch(fetchProjects());
+    } catch (error) {
+      dispatch(showError(`Failed to copy project: ${formatErrorMessage(error)}`));
+    }
+  };
+
+  // Items to display: either course projects or user projects
+  const displayProjects = isBrowsingCourse ? courseProjects as unknown as Project[] : filteredProjects;
+  const displayTitle = isBrowsingCourse
+    ? courses.find((c) => c.id === browsingCourseId)?.name ?? 'Course'
+    : currentFolderId
+      ? breadcrumbs[breadcrumbs.length - 1]?.name
+      : 'My Projects';
+
   return (
     <Box sx={{ display: 'flex', mt: 2, mb: 4, px: 2, gap: 2, height: 'calc(100vh - 120px)' }}>
       {/* Left: Folder Tree Panel */}
@@ -269,47 +336,96 @@ function ProjectsPage() {
       >
         <FolderTree
           tree={folderTree}
-          selectedFolderId={currentFolderId}
+          selectedFolderId={isBrowsingCourse ? null : currentFolderId}
           onSelectFolder={handleSelectFolder}
           onCreateFolder={handleCreateFolder}
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolder}
         />
+        <Divider sx={{ my: 1 }} />
+        {/* Courses section */}
+        <Box sx={{ px: 1, pb: 1 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ px: 1, py: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}
+          >
+            <SchoolIcon sx={{ fontSize: 14 }} />
+            Courses (copy only)
+          </Typography>
+          {courses.map((course) => (
+            <Box
+              key={course.id}
+              onClick={() => handleSelectCourse(course.id)}
+              sx={{
+                px: 1.5,
+                py: 0.75,
+                cursor: 'pointer',
+                borderRadius: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                bgcolor: browsingCourseId === course.id ? 'action.selected' : 'transparent',
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <SchoolIcon fontSize="small" color="warning" />
+              <Typography variant="body2" noWrap>
+                {course.name}
+              </Typography>
+            </Box>
+          ))}
+          {courses.length === 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ px: 1.5 }}>
+              No courses available
+            </Typography>
+          )}
+        </Box>
       </Paper>
 
       {/* Right: Projects Content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {/* Header */}
         <Box sx={{ mb: 3 }}>
-          <Breadcrumbs sx={{ mb: 1 }}>
-            {breadcrumbs.map((crumb, index) => {
-              const isLast = index === breadcrumbs.length - 1;
-              return isLast ? (
-                <Typography key={crumb.id ?? 'root'} variant="body2" color="text.primary">
-                  {crumb.name}
-                </Typography>
-              ) : (
-                <Link
-                  key={crumb.id ?? 'root'}
-                  component="button"
-                  variant="body2"
-                  underline="hover"
-                  onClick={() => handleSelectFolder(crumb.id)}
-                  sx={{ cursor: 'pointer' }}
-                >
-                  {index === 0 ? <HomeIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} /> : null}
-                  {crumb.name}
-                </Link>
-              );
-            })}
-          </Breadcrumbs>
-          <Typography variant="h5" gutterBottom>
-            {currentFolderId ? breadcrumbs[breadcrumbs.length - 1]?.name : 'My Projects'}
-          </Typography>
+          {!isBrowsingCourse && (
+            <Breadcrumbs sx={{ mb: 1 }}>
+              {breadcrumbs.map((crumb, index) => {
+                const isLast = index === breadcrumbs.length - 1;
+                return isLast ? (
+                  <Typography key={crumb.id ?? 'root'} variant="body2" color="text.primary">
+                    {crumb.name}
+                  </Typography>
+                ) : (
+                  <Link
+                    key={crumb.id ?? 'root'}
+                    component="button"
+                    variant="body2"
+                    underline="hover"
+                    onClick={() => handleSelectFolder(crumb.id)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    {index === 0 ? <HomeIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} /> : null}
+                    {crumb.name}
+                  </Link>
+                );
+              })}
+            </Breadcrumbs>
+          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {isBrowsingCourse && <SchoolIcon color="warning" />}
+            <Typography variant="h5" gutterBottom>
+              {displayTitle}
+            </Typography>
+            {isBrowsingCourse && (
+              <Typography variant="body2" color="text.secondary" sx={{ ml: 1, mt: 0.3 }}>
+                — Copy only
+              </Typography>
+            )}
+          </Box>
         </Box>
 
         {/* Toolbar */}
-        <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
             placeholder="Search projects..."
@@ -338,14 +454,34 @@ function ProjectsPage() {
             </Select>
           </FormControl>
 
-          <Button
-            variant="contained"
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewModeChange}
             size="small"
-            startIcon={<AddIcon />}
-            onClick={handleNewProject}
           >
-            New Project
-          </Button>
+            <ToggleButton value="grid">
+              <Tooltip title="Grid view">
+                <GridViewIcon fontSize="small" />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="tree">
+              <Tooltip title="Tree view">
+                <ListViewIcon fontSize="small" />
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
+
+          {!isBrowsingCourse && (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={handleNewProject}
+            >
+              New Project
+            </Button>
+          )}
         </Box>
 
       {/* Error Alert */}
@@ -369,14 +505,14 @@ function ProjectsPage() {
         </Alert>
       )}
 
-      {/* Projects Grid */}
+      {/* Projects Content — Grid or Tree view */}
       {loading && projects.length === 0 ? (
         <Grid container spacing={3}>
           {[...Array(6)].map((_, i) => (
             <ProjectSkeleton key={i} />
           ))}
         </Grid>
-      ) : filteredProjects.length === 0 ? (
+      ) : displayProjects.length === 0 ? (
         <Box
           sx={{
             textAlign: 'center',
@@ -385,14 +521,16 @@ function ProjectsPage() {
           }}
         >
           <Typography variant="h6" gutterBottom>
-            {searchQuery ? 'No projects found' : 'No projects yet'}
+            {searchQuery ? 'No projects found' : isBrowsingCourse ? 'No projects in this course' : 'No projects yet'}
           </Typography>
           <Typography variant="body2" color="text.secondary" paragraph>
             {searchQuery
               ? 'Try adjusting your search query'
-              : 'Create your first antenna simulation project to get started'}
+              : isBrowsingCourse
+                ? 'This course does not have any projects yet'
+                : 'Create your first antenna simulation project to get started'}
           </Typography>
-          {!searchQuery && (
+          {!searchQuery && !isBrowsingCourse && (
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -403,15 +541,29 @@ function ProjectsPage() {
             </Button>
           )}
         </Box>
+      ) : viewMode === 'tree' ? (
+        <ProjectTreeView
+          folderTree={isBrowsingCourse ? [] : folderTree}
+          projects={displayProjects}
+          currentFolderId={currentFolderId}
+          onSelectFolder={handleSelectFolder}
+          onEditProject={isBrowsingCourse ? undefined : handleEditProject}
+          onDeleteProject={isBrowsingCourse ? undefined : handleDeleteProject}
+          onDuplicateProject={isBrowsingCourse ? undefined : handleDuplicateProject}
+          onCopyProject={isBrowsingCourse ? handleCopyProject : undefined}
+          copyOnly={isBrowsingCourse}
+        />
       ) : (
         <Grid container spacing={3}>
-          {filteredProjects.map((project) => (
+          {displayProjects.map((project) => (
             <Grid item xs={12} sm={6} md={4} key={project.id}>
               <ProjectCard
                 project={project}
-                onEdit={handleEditProject}
-                onDelete={handleDeleteProject}
-                onDuplicate={handleDuplicateProject}
+                onEdit={isBrowsingCourse ? undefined : handleEditProject}
+                onDelete={isBrowsingCourse ? undefined : handleDeleteProject}
+                onDuplicate={isBrowsingCourse ? undefined : handleDuplicateProject}
+                onCopy={isBrowsingCourse ? handleCopyProject : undefined}
+                copyOnly={isBrowsingCourse}
               />
             </Grid>
           ))}
