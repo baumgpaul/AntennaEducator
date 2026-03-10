@@ -7,6 +7,9 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Chip,
+  Tooltip,
+  Button,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -15,6 +18,8 @@ import {
   FileCopy as CopyIcon,
   OpenInNew as OpenIcon,
   Description as DescriptionIcon,
+  ContentCopy,
+  Lock as LockIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -25,12 +30,14 @@ interface ProjectCardProps {
   onEdit?: (project: Project) => void;
   onDelete?: (project: Project) => void;
   onDuplicate?: (project: Project) => void;
+  onCopy?: (project: Project) => void;
+  copyOnly?: boolean;
 }
 
 /**
  * ProjectCard - Display project information with actions
  */
-function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProps) {
+function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, copyOnly = false }: ProjectCardProps) {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(anchorEl);
@@ -45,7 +52,14 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProp
   };
 
   const handleOpen = () => {
+    if (copyOnly) return;
     navigate(`/project/${project.id}/design`);
+  };
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleMenuClose();
+    onCopy?.(project);
   };
 
   const handleEdit = (e: React.MouseEvent) => {
@@ -80,20 +94,34 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProp
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        cursor: 'pointer',
+        cursor: copyOnly ? 'default' : 'pointer',
         transition: 'transform 0.2s, box-shadow 0.2s',
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: 4,
+          transform: copyOnly ? 'none' : 'translateY(-4px)',
+          boxShadow: copyOnly ? undefined : 4,
         },
+        borderLeft: copyOnly ? '4px solid' : 'none',
+        borderColor: copyOnly ? 'warning.main' : 'transparent',
       }}
       onClick={handleOpen}
     >
       <CardContent sx={{ flexGrow: 1, pb: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-          <Typography variant="h6" component="h3" noWrap sx={{ flex: 1, pr: 1 }}>
-            {project.name}
-          </Typography>
+          <Box sx={{ flex: 1, pr: 1 }}>
+            <Typography variant="h6" component="h3" noWrap>
+              {project.name}
+            </Typography>
+            {copyOnly && (
+              <Chip
+                icon={<LockIcon sx={{ fontSize: '0.8rem !important' }} />}
+                label="Copy only"
+                size="small"
+                color="warning"
+                variant="outlined"
+                sx={{ mt: 0.5, height: 22, fontSize: '0.7rem' }}
+              />
+            )}
+          </Box>
           <IconButton
             size="small"
             onClick={handleMenuOpen}
@@ -161,9 +189,21 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProp
         <Typography variant="caption" color="text.secondary">
           Updated {formatDate(project.updated_at)}
         </Typography>
-        <IconButton size="small" onClick={handleOpen}>
-          <OpenIcon fontSize="small" />
-        </IconButton>
+        {copyOnly ? (
+          <Tooltip title="Copy to My Projects">
+            <Button
+              size="small"
+              startIcon={<ContentCopy />}
+              onClick={(e) => { e.stopPropagation(); onCopy?.(project); }}
+            >
+              Copy
+            </Button>
+          </Tooltip>
+        ) : (
+          <IconButton size="small" onClick={handleOpen}>
+            <OpenIcon fontSize="small" />
+          </IconButton>
+        )}
       </CardActions>
 
       <Menu
@@ -172,18 +212,27 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate }: ProjectCardProp
         onClose={handleMenuClose}
         onClick={(e) => e.stopPropagation()}
       >
-        <MenuItem onClick={handleEdit}>
-          <EditIcon fontSize="small" sx={{ mr: 1 }} />
-          Edit
-        </MenuItem>
-        <MenuItem onClick={handleDuplicate}>
-          <CopyIcon fontSize="small" sx={{ mr: 1 }} />
-          Duplicate
-        </MenuItem>
-        <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
-          <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-          Delete
-        </MenuItem>
+        {copyOnly ? (
+          <MenuItem onClick={handleCopy}>
+            <ContentCopy fontSize="small" sx={{ mr: 1 }} />
+            Copy to My Projects
+          </MenuItem>
+        ) : (
+          [
+            <MenuItem key="edit" onClick={handleEdit}>
+              <EditIcon fontSize="small" sx={{ mr: 1 }} />
+              Edit
+            </MenuItem>,
+            <MenuItem key="duplicate" onClick={handleDuplicate}>
+              <CopyIcon fontSize="small" sx={{ mr: 1 }} />
+              Duplicate
+            </MenuItem>,
+            <MenuItem key="delete" onClick={handleDelete} sx={{ color: 'error.main' }}>
+              <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+              Delete
+            </MenuItem>,
+          ]
+        )}
       </Menu>
     </Card>
   );
