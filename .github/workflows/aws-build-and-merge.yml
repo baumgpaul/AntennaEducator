@@ -2,6 +2,7 @@
 #
 # Flow:
 #   1. Add the "deploy-to-staging" label to a PR targeting main
+#      (subsequent pushes auto-retrigger while the label is present)
 #   2. Source is uploaded to S3, CodeBuild Test runs (lint + unit tests)
 #   3. CodeBuild Deploy runs (Docker → ECR → Lambda, frontend → S3)
 #   4. Success → PR comment confirming staging deploy, then auto-merge
@@ -19,7 +20,7 @@ name: AWS Build & Deploy
 
 on:
   pull_request:
-    types: [labeled]
+    types: [labeled, synchronize]
     branches: [main]
   workflow_dispatch:
 
@@ -33,8 +34,9 @@ jobs:
     name: AWS Build & Deploy to Staging
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event.label.name == 'deploy-to-staging' &&
-       github.event.pull_request.base.ref == 'main')
+      (github.event.pull_request.base.ref == 'main' &&
+       (github.event.action == 'labeled' && github.event.label.name == 'deploy-to-staging' ||
+        github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'deploy-to-staging')))
     runs-on: ubuntu-latest
     timeout-minutes: 50
     permissions:
