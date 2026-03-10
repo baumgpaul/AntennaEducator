@@ -1,34 +1,30 @@
 # AWS Build & Deploy to Staging
 #
 # Flow:
-#   1. Reviewer approves PR targeting main
+#   1. Add the "deploy-to-staging" label to a PR targeting main
 #   2. Source is uploaded to S3, CodeBuild Test runs (lint + unit tests)
 #   3. CodeBuild Deploy runs (Docker → ECR → Lambda, frontend → S3)
-#   4. Success → PR comment "Staging deployed, review environment"
+#   4. Success → PR comment confirming staging deploy, then auto-merge
 #      Failure → PR comment with build failure details
-#   5. Reviewer verifies staging, approves the "staging" environment gate
-#   6. Auto-merge squash-merges the PR
 #
 # Setup (one-time):
 #   In GitHub repo Settings → Secrets and variables → Actions:
 #     - AWS_DEPLOY_ROLE_ARN  = (terraform output github_actions_role_arn)
 #     - AWS_ARTIFACTS_BUCKET = (terraform output artifacts_bucket)
-#   In Settings → Environments → staging:
-#     - Required reviewers: repo owner(s)
-#     - Deployment branches: protected branches only
+#   Create a "deploy-to-staging" label in the repo (Settings → Labels).
 #
-# Note: This workflow triggers on pull_request_review which reads the
-# workflow file from the DEFAULT branch (main). It will only work for PRs
-# opened AFTER this file has been merged to main.
+# Also supports manual trigger via workflow_dispatch (deploys current main).
 
 name: AWS Build & Deploy
 
 on:
-  pull_request_review:
-    types: [submitted]
+  pull_request:
+    types: [labeled]
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: aws-deploy-${{ github.event.pull_request.number }}
+  group: aws-deploy-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -36,8 +32,9 @@ jobs:
   aws-build-deploy:
     name: AWS Build & Deploy to Staging
     if: >-
-      github.event.review.state == 'approved' &&
-      github.event.pull_request.base.ref == 'main'
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label.name == 'deploy-to-staging' &&
+       github.event.pull_request.base.ref == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 50
     permissions:
@@ -59,22 +56,22 @@ jobs:
       - name: Upload source to S3
         env:
           BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
-          PR_NUM: ${{ github.event.pull_request.number }}
+          BUILD_KEY: ${{ github.event.pull_request.number || github.sha }}
         run: |
           zip -r /tmp/source.zip . -x '.git/*'
-          aws s3 cp /tmp/source.zip "s3://${BUCKET}/github-actions/pr-${PR_NUM}/source.zip"
+          aws s3 cp /tmp/source.zip "s3://${BUCKET}/github-actions/${BUILD_KEY}/source.zip"
 
       # ── Test stage ──────────────────────────────────────────────────
       - name: Start CodeBuild — Test
         id: test
         env:
           BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
-          PR_NUM: ${{ github.event.pull_request.number }}
+          BUILD_KEY: ${{ github.event.pull_request.number || github.sha }}
         run: |
           BUILD_ID=$(aws codebuild start-build \
             --project-name antenna-simulator-test-staging \
             --source-type-override S3 \
-            --source-location-override "${BUCKET}/github-actions/pr-${PR_NUM}/source.zip" \
+            --source-location-override "${BUCKET}/github-actions/${BUILD_KEY}/source.zip" \
             --buildspec-override buildspec-test.yml \
             --query 'build.id' --output text)
           echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
@@ -111,12 +108,12 @@ jobs:
         id: deploy
         env:
           BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
-          PR_NUM: ${{ github.event.pull_request.number }}
+          BUILD_KEY: ${{ github.event.pull_request.number || github.sha }}
         run: |
           BUILD_ID=$(aws codebuild start-build \
             --project-name antenna-simulator-deploy-staging \
             --source-type-override S3 \
-            --source-location-override "${BUCKET}/github-actions/pr-${PR_NUM}/source.zip" \
+            --source-location-override "${BUCKET}/github-actions/${BUILD_KEY}/source.zip" \
             --buildspec-override buildspec-deploy.yml \
             --query 'build.id' --output text)
           echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
@@ -148,58 +145,47 @@ jobs:
             esac
           done
 
-      # ── Report result ──────────────────────────────────────────────
+      # ── Report result (PR only) ────────────────────────────────────
       - name: Comment — staging deployed
-        if: success()
+        if: success() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr comment ${{ github.event.pull_request.number }} --body \
             "✅ **AWS Build & Deploy succeeded**
 
-          Staging has been updated at https://antennaeducator.nyakyagyawa.com
-
-          👉 **Approve the \`staging\` environment** in this [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) to auto-merge."
+          Staging has been updated at https://antennaeducator.nyakyagyawa.com"
 
       - name: Comment — build failed
-        if: failure()
+        if: failure() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr comment ${{ github.event.pull_request.number }} --body \
             "❌ **AWS Build & Deploy failed**
 
-          Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details. Fix the issue and re-approve the PR to retry."
+          Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details. Remove and re-add the \`deploy-to-staging\` label to retry."
 
       # ── Cleanup ─────────────────────────────────────────────────────
       - name: Clean up S3 source
         if: always()
         env:
           BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
-          PR_NUM: ${{ github.event.pull_request.number }}
+          BUILD_KEY: ${{ github.event.pull_request.number || github.sha }}
         run: |
-          aws s3 rm "s3://${BUCKET}/github-actions/pr-${PR_NUM}/" --recursive || true
+          aws s3 rm "s3://${BUCKET}/github-actions/${BUILD_KEY}/" --recursive || true
 
-  # ── Verify Staging (Environment Gate) ─────────────────────────────
-  verify-staging:
-    name: Verify Staging
-    needs: aws-build-deploy
-    runs-on: ubuntu-latest
-    environment: staging
-    steps:
-      - name: Staging verified
-        run: echo "Staging environment approved by reviewer."
-
-  # ── Auto-merge ────────────────────────────────────────────────────
+  # ── Auto-merge after successful deploy ────────────────────────────
   auto-merge:
     name: Auto-merge PR
-    needs: verify-staging
+    needs: aws-build-deploy
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     steps:
-      - name: Enable auto-merge
+      - name: Squash-merge PR
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
