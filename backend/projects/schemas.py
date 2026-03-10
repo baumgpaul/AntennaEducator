@@ -232,6 +232,7 @@ class ProjectResponse(ProjectBase):
     folder_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    last_opened_at: Optional[datetime] = None
 
 
 class ProjectListResponse(BaseModel):
@@ -248,6 +249,7 @@ class ProjectListResponse(BaseModel):
     documentation_preview: str = ""
     created_at: datetime
     updated_at: datetime
+    last_opened_at: Optional[datetime] = None
 
 
 # ── Documentation API Schemas ─────────────────────────────────────────────────

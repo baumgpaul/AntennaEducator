@@ -13,13 +13,12 @@ import {
   Skeleton,
   Alert,
   AlertTitle,
-  Paper,
   Breadcrumbs,
   Link,
   ToggleButtonGroup,
   ToggleButton,
-  Divider,
   Tooltip,
+  Chip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -29,8 +28,9 @@ import {
   GridView as GridViewIcon,
   ViewList as ListViewIcon,
   School as SchoolIcon,
+  CreateNewFolder as CreateNewFolderIcon,
 } from '@mui/icons-material';
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { fetchProjects, deleteProject, duplicateProject } from '@/store/projectsSlice';
 import {
@@ -54,13 +54,16 @@ import ProjectCard from './ProjectCard';
 import ProjectTreeView from './ProjectTreeView';
 import NewProjectDialog from './NewProjectDialog';
 import EditProjectDialog from './EditProjectDialog';
-import { FolderTree, FolderDialog } from '@/components/common';
+import FolderCard from './FolderCard';
+import ProjectNavRail from './ProjectNavRail';
+import type { NavSection } from './ProjectNavRail';
+import { FolderDialog } from '@/components/common';
 import { formatErrorMessage } from '@/utils/errors';
 import type { Project } from '@/types/models';
 
 /**
  * ProjectsPage - Main projects management page
- * Displays user's projects organized in folders with search and sort
+ * Nav rail (Home / Recent / Courses) + main content area with folders & projects
  */
 function ProjectsPage() {
   const dispatch = useAppDispatch();
@@ -70,18 +73,16 @@ function ProjectsPage() {
   const currentFolderId = useAppSelector(selectCurrentFolderId);
   const courses = useAppSelector(selectCourses);
   const courseProjects = useAppSelector(selectCourseProjects);
+
+  const [navSection, setNavSection] = useState<NavSection>('home');
+  const [browsingCourseId, setBrowsingCourseId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'tree'>(
     () => (localStorage.getItem('projectViewMode') as 'grid' | 'tree') || 'grid',
   );
-  const [browsingCourseId, setBrowsingCourseId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'updated' | 'created' | 'name'>('updated');
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   // Folder dialog state
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
@@ -102,40 +103,6 @@ function ProjectsPage() {
     }
   }, [dispatch, browsingCourseId]);
 
-  // Infinite scroll setup
-  const loadMore = useCallback(() => {
-    if (!loading && hasMore) {
-      setPage((prev) => prev + 1);
-      // In future: dispatch(fetchProjects({ page: page + 1 }));
-      // For now, we load all at once, so disable infinite scroll
-      setHasMore(false);
-    }
-  }, [loading, hasMore]);
-
-  useEffect(() => {
-    const options = {
-      root: null,
-      rootMargin: '100px',
-      threshold: 0.1,
-    };
-
-    observerRef.current = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) {
-        loadMore();
-      }
-    }, options);
-
-    if (loadMoreRef.current) {
-      observerRef.current.observe(loadMoreRef.current);
-    }
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [loadMore]);
-
   const handleRetry = () => {
     dispatch(fetchProjects());
     dispatch(fetchFolders());
@@ -149,19 +116,38 @@ function ProjectsPage() {
     }
   };
 
-  const isBrowsingCourse = browsingCourseId !== null;
+  // ── Navigation ───────────────────────────────────────────────────────────
 
-  // Filter projects by current folder and search query, then sort
+  const handleSectionChange = (section: NavSection) => {
+    setNavSection(section);
+    setBrowsingCourseId(null);
+    if (section !== 'home') {
+      dispatch(setCurrentFolderId(null));
+    }
+  };
+
+  const handleSelectFolder = (folderId: string | null) => {
+    setNavSection('home');
+    setBrowsingCourseId(null);
+    dispatch(setCurrentFolderId(folderId));
+  };
+
+  const handleSelectCourse = (courseId: string) => {
+    setBrowsingCourseId(courseId);
+  };
+
+  const isBrowsingCourse = navSection === 'courses' && browsingCourseId !== null;
+
+  // ── Filtered & sorted projects ───────────────────────────────────────────
+
   const filteredProjects = useMemo(() => {
     return projects
       .filter((project) => {
-        // Folder filter: null = root (projects with no folder_id)
         const matchesFolder = currentFolderId === null
           ? !project.folder_id
           : project.folder_id === currentFolderId;
         if (!matchesFolder) return false;
 
-        // Text search
         const query = searchQuery.toLowerCase();
         if (!query) return true;
         const nameMatch = project.name.toLowerCase().includes(query);
@@ -183,9 +169,45 @@ function ProjectsPage() {
       });
   }, [projects, currentFolderId, searchQuery, sortBy]);
 
-  // Build breadcrumb path from root to current folder
+  // ── Recent projects (top 5 by last_opened_at) ───────────────────────────
+
+  const recentProjects = useMemo(() => {
+    return [...projects]
+      .filter((p) => p.last_opened_at)
+      .sort((a, b) => new Date(b.last_opened_at!).getTime() - new Date(a.last_opened_at!).getTime())
+      .slice(0, 5);
+  }, [projects]);
+
+  // ── Child folders for current folder ─────────────────────────────────────
+
+  const childFolders = useMemo(() => {
+    if (currentFolderId === null) return folderTree;
+    const findNode = (nodes: FolderTreeNode[]): FolderTreeNode[] => {
+      for (const node of nodes) {
+        if (node.id === currentFolderId) return node.children;
+        const found = findNode(node.children);
+        if (found.length > 0 || node.children.some((c) => c.id === currentFolderId)) {
+          return node.id === currentFolderId ? node.children : findNode(node.children);
+        }
+      }
+      return [];
+    };
+    return findNode(folderTree);
+  }, [folderTree, currentFolderId]);
+
+  // Count projects per folder
+  const projectCountByFolder = useMemo(() => {
+    const counts = new Map<string, number>();
+    projects.forEach((p) => {
+      if (p.folder_id) counts.set(p.folder_id, (counts.get(p.folder_id) ?? 0) + 1);
+    });
+    return counts;
+  }, [projects]);
+
+  // ── Breadcrumbs ──────────────────────────────────────────────────────────
+
   const breadcrumbs = useMemo(() => {
-    const path: { id: string | null; name: string }[] = [{ id: null, name: 'Root' }];
+    const path: { id: string | null; name: string }[] = [{ id: null, name: 'My Projects' }];
     if (currentFolderId) {
       const buildPath = (folderId: string) => {
         const folder = allFolders.find((f) => f.id === folderId);
@@ -199,22 +221,19 @@ function ProjectsPage() {
     return path;
   }, [currentFolderId, allFolders]);
 
-  const handleNewProject = () => {
-    setShowNewProjectDialog(true);
-  };
+  // ── Project handlers ─────────────────────────────────────────────────────
 
-  const handleEditProject = (project: Project) => {
-    setEditingProject(project);
-  };
+  const handleNewProject = () => setShowNewProjectDialog(true);
+
+  const handleEditProject = (project: Project) => setEditingProject(project);
 
   const handleDeleteProject = async (project: Project) => {
     if (window.confirm(`Are you sure you want to delete "${project.name}"? This action cannot be undone.`)) {
       try {
         await dispatch(deleteProject(project.id)).unwrap();
         dispatch(showSuccess('Project deleted successfully'));
-      } catch (error) {
-        const message = formatErrorMessage(error);
-        dispatch(showError(`Failed to delete project: ${message}`));
+      } catch (err) {
+        dispatch(showError(`Failed to delete project: ${formatErrorMessage(err)}`));
       }
     }
   };
@@ -223,9 +242,18 @@ function ProjectsPage() {
     try {
       await dispatch(duplicateProject(project.id)).unwrap();
       dispatch(showSuccess(`Project "${project.name}" duplicated successfully`));
-    } catch (error) {
-      const message = formatErrorMessage(error);
-      dispatch(showError(`Failed to duplicate project: ${message}`));
+    } catch (err) {
+      dispatch(showError(`Failed to duplicate project: ${formatErrorMessage(err)}`));
+    }
+  };
+
+  const handleCopyProject = async (project: Project) => {
+    try {
+      await dispatch(copyCourseProjectToUser({ projectId: String(project.id) })).unwrap();
+      dispatch(showSuccess(`Project "${project.name}" copied to your projects!`));
+      dispatch(fetchProjects());
+    } catch (err) {
+      dispatch(showError(`Failed to copy project: ${formatErrorMessage(err)}`));
     }
   };
 
@@ -247,13 +275,11 @@ function ProjectsPage() {
     if (window.confirm(`Delete folder "${folder.name}"? Projects inside will be moved to root.`)) {
       try {
         await dispatch(deleteFolderAction(folder.id)).unwrap();
-        if (currentFolderId === folder.id) {
-          dispatch(setCurrentFolderId(null));
-        }
-        dispatch(fetchProjects()); // Refresh since projects are re-parented
+        if (currentFolderId === folder.id) dispatch(setCurrentFolderId(null));
+        dispatch(fetchProjects());
         dispatch(showSuccess('Folder deleted'));
-      } catch (error) {
-        dispatch(showError(`Failed to delete folder: ${formatErrorMessage(error)}`));
+      } catch (err) {
+        dispatch(showError(`Failed to delete folder: ${formatErrorMessage(err)}`));
       }
     }
   };
@@ -270,12 +296,13 @@ function ProjectsPage() {
         })).unwrap();
         dispatch(showSuccess('Folder created'));
       }
-    } catch (error) {
-      dispatch(showError(`Failed: ${formatErrorMessage(error)}`));
+    } catch (err) {
+      dispatch(showError(`Failed: ${formatErrorMessage(err)}`));
     }
   };
 
-  // Skeleton loader component
+  // ── Skeleton loader ──────────────────────────────────────────────────────
+
   const ProjectSkeleton = () => (
     <Grid item xs={12} sm={6} md={4} data-testid="skeleton-project-card">
       <Box sx={{ p: 2 }}>
@@ -287,107 +314,283 @@ function ProjectsPage() {
     </Grid>
   );
 
-  // ── Course handlers ──────────────────────────────────────────────────────
+  // ── Determine what to display in main content ────────────────────────────
 
-  const handleSelectCourse = (courseId: string | null) => {
-    if (courseId) {
-      setBrowsingCourseId(courseId);
-      dispatch(setCurrentFolderId(null));
-    } else {
-      setBrowsingCourseId(null);
-    }
-  };
+  const displayProjects = isBrowsingCourse
+    ? (courseProjects as unknown as Project[])
+    : navSection === 'recent'
+      ? recentProjects
+      : filteredProjects;
 
-  const handleSelectFolder = (folderId: string | null) => {
-    setBrowsingCourseId(null);
-    dispatch(setCurrentFolderId(folderId));
-  };
-
-  const handleCopyProject = async (project: Project) => {
-    try {
-      await dispatch(copyCourseProjectToUser({ projectId: String(project.id) })).unwrap();
-      dispatch(showSuccess(`Project "${project.name}" copied to your projects!`));
-      dispatch(fetchProjects());
-    } catch (error) {
-      dispatch(showError(`Failed to copy project: ${formatErrorMessage(error)}`));
-    }
-  };
-
-  // Items to display: either course projects or user projects
-  const displayProjects = isBrowsingCourse ? courseProjects as unknown as Project[] : filteredProjects;
   const displayTitle = isBrowsingCourse
     ? courses.find((c) => c.id === browsingCourseId)?.name ?? 'Course'
-    : currentFolderId
-      ? breadcrumbs[breadcrumbs.length - 1]?.name
-      : 'My Projects';
+    : navSection === 'recent'
+      ? 'Recent Projects'
+      : navSection === 'courses'
+        ? 'Courses'
+        : currentFolderId
+          ? breadcrumbs[breadcrumbs.length - 1]?.name
+          : 'My Projects';
+
+  // ── Render helpers ───────────────────────────────────────────────────────
+
+  const renderToolbar = () => (
+    <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+      <TextField
+        size="small"
+        placeholder="Search projects..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon />
+            </InputAdornment>
+          ),
+        }}
+        sx={{ flex: 1, minWidth: 200 }}
+      />
+
+      <FormControl size="small" sx={{ minWidth: 150 }}>
+        <InputLabel>Sort by</InputLabel>
+        <Select
+          value={sortBy}
+          label="Sort by"
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+        >
+          <MenuItem value="updated">Last Updated</MenuItem>
+          <MenuItem value="created">Date Created</MenuItem>
+          <MenuItem value="name">Name</MenuItem>
+        </Select>
+      </FormControl>
+
+      <ToggleButtonGroup value={viewMode} exclusive onChange={handleViewModeChange} size="small">
+        <ToggleButton value="grid">
+          <Tooltip title="Grid view"><GridViewIcon fontSize="small" /></Tooltip>
+        </ToggleButton>
+        <ToggleButton value="tree">
+          <Tooltip title="Tree view"><ListViewIcon fontSize="small" /></Tooltip>
+        </ToggleButton>
+      </ToggleButtonGroup>
+
+      {navSection === 'home' && !isBrowsingCourse && (
+        <>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<CreateNewFolderIcon />}
+            onClick={() => handleCreateFolder(currentFolderId)}
+          >
+            New Folder
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={handleNewProject}
+          >
+            New Project
+          </Button>
+        </>
+      )}
+    </Box>
+  );
+
+  const renderProjectGrid = (items: Project[], copyOnly: boolean) => (
+    <Grid container spacing={3}>
+      {items.map((project) => (
+        <Grid item xs={12} sm={6} md={4} key={project.id}>
+          <ProjectCard
+            project={project}
+            onEdit={copyOnly ? undefined : handleEditProject}
+            onDelete={copyOnly ? undefined : handleDeleteProject}
+            onDuplicate={copyOnly ? undefined : handleDuplicateProject}
+            onCopy={copyOnly ? handleCopyProject : undefined}
+            copyOnly={copyOnly}
+          />
+        </Grid>
+      ))}
+    </Grid>
+  );
+
+  const renderEmptyState = () => (
+    <Box sx={{ textAlign: 'center', py: 8, px: 2 }}>
+      <Typography variant="h6" gutterBottom>
+        {searchQuery
+          ? 'No projects found'
+          : isBrowsingCourse
+            ? 'No projects in this course'
+            : navSection === 'recent'
+              ? 'No recently opened projects'
+              : 'No projects yet'}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" paragraph>
+        {searchQuery
+          ? 'Try adjusting your search query'
+          : isBrowsingCourse
+            ? 'This course does not have any projects yet'
+            : navSection === 'recent'
+              ? 'Open a project to see it here'
+              : 'Create your first antenna simulation project to get started'}
+      </Typography>
+      {!searchQuery && navSection === 'home' && !isBrowsingCourse && (
+        <Button variant="contained" startIcon={<AddIcon />} onClick={handleNewProject} sx={{ mt: 2 }}>
+          Create Project
+        </Button>
+      )}
+    </Box>
+  );
+
+  // ── Home section: folders + projects with breadcrumb drill-down ──────────
+
+  const renderHomeContent = () => {
+    const showFolders = viewMode === 'grid' && childFolders.length > 0;
+    const hasContent = showFolders || displayProjects.length > 0;
+
+    if (loading && projects.length === 0) {
+      return (
+        <Grid container spacing={3}>
+          {[...Array(6)].map((_, i) => <ProjectSkeleton key={i} />)}
+        </Grid>
+      );
+    }
+
+    if (!hasContent) return renderEmptyState();
+
+    if (viewMode === 'tree') {
+      return (
+        <ProjectTreeView
+          folderTree={folderTree}
+          projects={displayProjects}
+          currentFolderId={currentFolderId}
+          onSelectFolder={handleSelectFolder}
+          onEditProject={handleEditProject}
+          onDeleteProject={handleDeleteProject}
+          onDuplicateProject={handleDuplicateProject}
+        />
+      );
+    }
+
+    return (
+      <Grid container spacing={3}>
+        {childFolders.map((folder) => (
+          <Grid item xs={12} sm={6} md={4} key={`folder-${folder.id}`}>
+            <FolderCard
+              folder={folder}
+              projectCount={projectCountByFolder.get(folder.id) ?? 0}
+              subfolderCount={folder.children.length}
+              onOpen={handleSelectFolder}
+              onRename={handleRenameFolder}
+              onDelete={handleDeleteFolder}
+              onCreateSubfolder={handleCreateFolder}
+            />
+          </Grid>
+        ))}
+        {displayProjects.map((project) => (
+          <Grid item xs={12} sm={6} md={4} key={project.id}>
+            <ProjectCard
+              project={project}
+              onEdit={handleEditProject}
+              onDelete={handleDeleteProject}
+              onDuplicate={handleDuplicateProject}
+            />
+          </Grid>
+        ))}
+      </Grid>
+    );
+  };
+
+  // ── Recent section ───────────────────────────────────────────────────────
+
+  const renderRecentContent = () => {
+    if (loading && projects.length === 0) {
+      return (
+        <Grid container spacing={3}>
+          {[...Array(3)].map((_, i) => <ProjectSkeleton key={i} />)}
+        </Grid>
+      );
+    }
+    if (recentProjects.length === 0) return renderEmptyState();
+    return renderProjectGrid(recentProjects, false);
+  };
+
+  // ── Courses section: course list or course projects ──────────────────────
+
+  const renderCoursesContent = () => {
+    if (!browsingCourseId) {
+      // Show course list as cards
+      if (courses.length === 0) {
+        return (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography variant="h6" gutterBottom>No courses available</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Courses will appear here when instructors publish them
+            </Typography>
+          </Box>
+        );
+      }
+      return (
+        <Grid container spacing={3}>
+          {courses.map((course) => (
+            <Grid item xs={12} sm={6} md={4} key={course.id}>
+              <Box
+                onClick={() => handleSelectCourse(course.id)}
+                sx={{
+                  p: 3,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderLeft: '4px solid',
+                  borderLeftColor: 'warning.main',
+                  borderRadius: 1,
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <SchoolIcon color="warning" />
+                  <Typography variant="h6" noWrap>{course.name}</Typography>
+                </Box>
+                <Chip label="Copy only" size="small" color="warning" variant="outlined" />
+              </Box>
+            </Grid>
+          ))}
+        </Grid>
+      );
+    }
+
+    // Browsing a specific course - show its projects
+    const courseProjectsList = courseProjects as unknown as Project[];
+    if (courseProjectsList.length === 0) return renderEmptyState();
+
+    if (viewMode === 'tree') {
+      return (
+        <ProjectTreeView
+          folderTree={[]}
+          projects={courseProjectsList}
+          currentFolderId={null}
+          onSelectFolder={() => {}}
+          onCopyProject={handleCopyProject}
+          copyOnly
+        />
+      );
+    }
+
+    return renderProjectGrid(courseProjectsList, true);
+  };
+
+  // ── Main render ──────────────────────────────────────────────────────────
 
   return (
     <Box sx={{ display: 'flex', mt: 2, mb: 4, px: 2, gap: 2, height: 'calc(100vh - 120px)' }}>
-      {/* Left: Folder Tree Panel */}
-      <Paper
-        elevation={1}
-        sx={{
-          width: 260,
-          minWidth: 220,
-          overflow: 'auto',
-          flexShrink: 0,
-          display: { xs: 'none', md: 'block' },
-        }}
-      >
-        <FolderTree
-          tree={folderTree}
-          selectedFolderId={isBrowsingCourse ? null : currentFolderId}
-          onSelectFolder={handleSelectFolder}
-          onCreateFolder={handleCreateFolder}
-          onRenameFolder={handleRenameFolder}
-          onDeleteFolder={handleDeleteFolder}
-        />
-        <Divider sx={{ my: 1 }} />
-        {/* Courses section */}
-        <Box sx={{ px: 1, pb: 1 }}>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ px: 1, py: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}
-          >
-            <SchoolIcon sx={{ fontSize: 14 }} />
-            Courses (copy only)
-          </Typography>
-          {courses.map((course) => (
-            <Box
-              key={course.id}
-              onClick={() => handleSelectCourse(course.id)}
-              sx={{
-                px: 1.5,
-                py: 0.75,
-                cursor: 'pointer',
-                borderRadius: 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                bgcolor: browsingCourseId === course.id ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <SchoolIcon fontSize="small" color="warning" />
-              <Typography variant="body2" noWrap>
-                {course.name}
-              </Typography>
-            </Box>
-          ))}
-          {courses.length === 0 && (
-            <Typography variant="caption" color="text.secondary" sx={{ px: 1.5 }}>
-              No courses available
-            </Typography>
-          )}
-        </Box>
-      </Paper>
+      {/* Left: Navigation Rail */}
+      <ProjectNavRail activeSection={navSection} onSectionChange={handleSectionChange} />
 
-      {/* Right: Projects Content */}
+      {/* Main content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {/* Header */}
         <Box sx={{ mb: 3 }}>
-          {!isBrowsingCourse && (
+          {navSection === 'home' && (
             <Breadcrumbs sx={{ mb: 1 }}>
               {breadcrumbs.map((crumb, index) => {
                 const isLast = index === breadcrumbs.length - 1;
@@ -404,11 +607,27 @@ function ProjectsPage() {
                     onClick={() => handleSelectFolder(crumb.id)}
                     sx={{ cursor: 'pointer' }}
                   >
-                    {index === 0 ? <HomeIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} /> : null}
+                    {index === 0 && <HomeIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />}
                     {crumb.name}
                   </Link>
                 );
               })}
+            </Breadcrumbs>
+          )}
+          {navSection === 'courses' && browsingCourseId && (
+            <Breadcrumbs sx={{ mb: 1 }}>
+              <Link
+                component="button"
+                variant="body2"
+                underline="hover"
+                onClick={() => setBrowsingCourseId(null)}
+                sx={{ cursor: 'pointer' }}
+              >
+                Courses
+              </Link>
+              <Typography variant="body2" color="text.primary">
+                {courses.find((c) => c.id === browsingCourseId)?.name ?? 'Course'}
+              </Typography>
             </Breadcrumbs>
           )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -425,172 +644,46 @@ function ProjectsPage() {
         </Box>
 
         {/* Toolbar */}
-        <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <TextField
-            size="small"
-            placeholder="Search projects..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ flex: 1, minWidth: 200 }}
-          />
+        {navSection !== 'courses' || browsingCourseId ? renderToolbar() : null}
 
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Sort by</InputLabel>
-            <Select
-              value={sortBy}
-              label="Sort by"
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            >
-              <MenuItem value="updated">Last Updated</MenuItem>
-              <MenuItem value="created">Date Created</MenuItem>
-              <MenuItem value="name">Name</MenuItem>
-            </Select>
-          </FormControl>
-
-          <ToggleButtonGroup
-            value={viewMode}
-            exclusive
-            onChange={handleViewModeChange}
-            size="small"
+        {/* Error Alert */}
+        {error && (
+          <Alert
+            severity="error"
+            sx={{ mb: 3 }}
+            action={
+              <Button color="inherit" size="small" startIcon={<RefreshIcon />} onClick={handleRetry}>
+                Retry
+              </Button>
+            }
           >
-            <ToggleButton value="grid">
-              <Tooltip title="Grid view">
-                <GridViewIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="tree">
-              <Tooltip title="Tree view">
-                <ListViewIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-          </ToggleButtonGroup>
+            <AlertTitle>Failed to load projects</AlertTitle>
+            {formatErrorMessage(error)}
+          </Alert>
+        )}
 
-          {!isBrowsingCourse && (
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={handleNewProject}
-            >
-              New Project
-            </Button>
-          )}
-        </Box>
-
-      {/* Error Alert */}
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 3 }}
-          action={
-            <Button
-              color="inherit"
-              size="small"
-              startIcon={<RefreshIcon />}
-              onClick={handleRetry}
-            >
-              Retry
-            </Button>
-          }
-        >
-          <AlertTitle>Failed to load projects</AlertTitle>
-          {formatErrorMessage(error)}
-        </Alert>
-      )}
-
-      {/* Projects Content — Grid or Tree view */}
-      {loading && projects.length === 0 ? (
-        <Grid container spacing={3}>
-          {[...Array(6)].map((_, i) => (
-            <ProjectSkeleton key={i} />
-          ))}
-        </Grid>
-      ) : displayProjects.length === 0 ? (
-        <Box
-          sx={{
-            textAlign: 'center',
-            py: 8,
-            px: 2,
-          }}
-        >
-          <Typography variant="h6" gutterBottom>
-            {searchQuery ? 'No projects found' : isBrowsingCourse ? 'No projects in this course' : 'No projects yet'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" paragraph>
-            {searchQuery
-              ? 'Try adjusting your search query'
-              : isBrowsingCourse
-                ? 'This course does not have any projects yet'
-                : 'Create your first antenna simulation project to get started'}
-          </Typography>
-          {!searchQuery && !isBrowsingCourse && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleNewProject}
-              sx={{ mt: 2 }}
-            >
-              Create Project
-            </Button>
-          )}
-        </Box>
-      ) : viewMode === 'tree' ? (
-        <ProjectTreeView
-          folderTree={isBrowsingCourse ? [] : folderTree}
-          projects={displayProjects}
-          currentFolderId={currentFolderId}
-          onSelectFolder={handleSelectFolder}
-          onEditProject={isBrowsingCourse ? undefined : handleEditProject}
-          onDeleteProject={isBrowsingCourse ? undefined : handleDeleteProject}
-          onDuplicateProject={isBrowsingCourse ? undefined : handleDuplicateProject}
-          onCopyProject={isBrowsingCourse ? handleCopyProject : undefined}
-          copyOnly={isBrowsingCourse}
-        />
-      ) : (
-        <Grid container spacing={3}>
-          {displayProjects.map((project) => (
-            <Grid item xs={12} sm={6} md={4} key={project.id}>
-              <ProjectCard
-                project={project}
-                onEdit={isBrowsingCourse ? undefined : handleEditProject}
-                onDelete={isBrowsingCourse ? undefined : handleDeleteProject}
-                onDuplicate={isBrowsingCourse ? undefined : handleDuplicateProject}
-                onCopy={isBrowsingCourse ? handleCopyProject : undefined}
-                copyOnly={isBrowsingCourse}
-              />
-            </Grid>
-          ))}
-        </Grid>
-      )}
-
-      {/* Infinite scroll trigger */}
-      {filteredProjects.length > 0 && hasMore && (
-        <Box ref={loadMoreRef} sx={{ py: 4, textAlign: 'center' }}>
-          {loading && <Skeleton variant="text" width={200} sx={{ mx: 'auto' }} />}
-        </Box>
-      )}
+        {/* Section content */}
+        {navSection === 'home' && renderHomeContent()}
+        {navSection === 'recent' && renderRecentContent()}
+        {navSection === 'courses' && renderCoursesContent()}
+      </Box>
 
       {/* Floating Action Button for mobile */}
-      <Fab
-        color="primary"
-        aria-label="add project"
-        onClick={handleNewProject}
-        sx={{
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          display: { xs: 'flex', sm: 'none' },
-        }}
-      >
-        <AddIcon />
-      </Fab>
+      {navSection === 'home' && (
+        <Fab
+          color="primary"
+          aria-label="add project"
+          onClick={handleNewProject}
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            display: { xs: 'flex', sm: 'none' },
+          }}
+        >
+          <AddIcon />
+        </Fab>
+      )}
 
       {/* New Project Dialog */}
       <NewProjectDialog
@@ -614,7 +707,6 @@ function ProjectsPage() {
         initialName={renamingFolder?.name ?? ''}
         submitLabel={renamingFolder ? 'Rename' : 'Create'}
       />
-      </Box>
     </Box>
   );
 }
