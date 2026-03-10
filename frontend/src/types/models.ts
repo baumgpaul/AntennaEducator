@@ -286,6 +286,7 @@ export interface Project {
   folder_id?: string | null               // Folder this project belongs to (null = root)
   created_at: string
   updated_at: string
+  last_opened_at?: string | null          // When the project was last opened
 }
 
 export type SimulationStatus = 'pending' | 'running' | 'completed' | 'failed'

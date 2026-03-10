@@ -187,6 +187,18 @@ async def get_project(
     if not project or project["user_id"] != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
 
+    # Record when the project was last opened (for "Recent" list)
+    now = datetime.now(timezone.utc).isoformat()
+    repo.table.update_item(
+        Key={
+            "PK": f"USER#{user.id}",
+            "SK": f"PROJECT#{project_id}",
+        },
+        UpdateExpression="SET LastOpenedAt = :ts",
+        ExpressionAttributeValues={":ts": now},
+    )
+    project["last_opened_at"] = now
+
     # Hydrate simulation_results from S3
     if project.get("simulation_results"):
         project["simulation_results"] = await results_svc.hydrate_results(
