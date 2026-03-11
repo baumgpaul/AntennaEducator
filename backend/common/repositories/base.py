@@ -37,6 +37,7 @@ class ProjectRepository(ABC):
         name: str,
         description: Optional[str] = None,
         folder_id: Optional[str] = None,
+        project_type: str = "peec",
     ) -> Dict[str, Any]: ...
 
     @abstractmethod
@@ -62,6 +63,7 @@ class ProjectRepository(ABC):
         ui_state: Optional[Dict] = None,
         documentation: Optional[Dict] = None,
         folder_id: Optional[str] = None,
+        project_type: Optional[str] = None,
     ) -> Dict[str, Any]: ...
 
     @abstractmethod
