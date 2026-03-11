@@ -130,6 +130,7 @@ async def create_project(
         name=data.name,
         description=data.description,
         folder_id=getattr(data, "folder_id", None),
+        project_type=getattr(data, "project_type", "peec"),
     )
 
     # Set optional JSON blobs if provided on create
