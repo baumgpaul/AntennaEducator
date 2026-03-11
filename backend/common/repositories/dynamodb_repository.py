@@ -83,6 +83,7 @@ class DynamoDBProjectRepository(ProjectRepository):
         name: str,
         description: Optional[str] = None,
         folder_id: Optional[str] = None,
+        project_type: str = "peec",
     ) -> Dict[str, Any]:
         project_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
@@ -98,6 +99,7 @@ class DynamoDBProjectRepository(ProjectRepository):
             "Name": name,
             "Description": description or "",
             "FolderId": folder_id or "",
+            "ProjectType": project_type,
             "DesignState": {},
             "SimulationConfig": {},
             "SimulationResults": {},
@@ -157,6 +159,7 @@ class DynamoDBProjectRepository(ProjectRepository):
         ui_state: Optional[Dict] = None,
         documentation: Optional[Dict] = None,
         folder_id: Optional[str] = None,
+        project_type: Optional[str] = None,
     ) -> Dict[str, Any]:
         project = await self.get_project(project_id)
         if not project:
@@ -201,6 +204,10 @@ class DynamoDBProjectRepository(ProjectRepository):
         if folder_id is not None:
             parts.append("FolderId = :fid")
             values[":fid"] = folder_id
+
+        if project_type is not None:
+            parts.append("ProjectType = :pt")
+            values[":pt"] = project_type
 
         params: Dict[str, Any] = {
             "Key": {
@@ -259,6 +266,7 @@ class DynamoDBProjectRepository(ProjectRepository):
             ),
             "ui_state": _from_dynamodb(pick("UiState", "ui_state", default={})),
             "documentation": _from_dynamodb(pick("Documentation", "documentation", default={})),
+            "project_type": pick("ProjectType", "project_type", default="peec"),
             "folder_id": pick("FolderId", "folder_id", default="") or None,
             "created_at": pick("CreatedAt", "created_at"),
             "updated_at": pick("UpdatedAt", "updated_at"),
