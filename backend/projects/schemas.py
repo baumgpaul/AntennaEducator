@@ -163,6 +163,11 @@ class ProjectBase(BaseModel):
     """Fields shared by create / update / response."""
 
     name: str = Field(..., min_length=3, max_length=100)
+    project_type: str = Field(
+        "peec",
+        description="Simulation method: 'peec' (default) or 'fdtd'.",
+        pattern=r"^(peec|fdtd)$",
+    )
     description: Optional[str] = Field(
         None,
         description="Human-readable project description (also accepts legacy JSON-encoded elements)",
@@ -213,6 +218,11 @@ class ProjectUpdate(BaseModel):
     """Schema for updating a project — all fields optional."""
 
     name: Optional[str] = Field(None, min_length=3, max_length=100)
+    project_type: Optional[str] = Field(
+        None,
+        description="Simulation method: 'peec' or 'fdtd'.",
+        pattern=r"^(peec|fdtd)$",
+    )
     description: Optional[str] = Field(None)
     design_state: Optional[Dict[str, Any]] = None
     simulation_config: Optional[Dict[str, Any]] = None
@@ -243,6 +253,7 @@ class ProjectListResponse(BaseModel):
     id: str
     user_id: str
     name: str
+    project_type: str = "peec"
     description: Optional[str] = None
     folder_id: Optional[str] = None
     has_documentation: bool = False

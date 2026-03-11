@@ -20,6 +20,8 @@ import {
   Description as DescriptionIcon,
   ContentCopy,
   Lock as LockIcon,
+  Sensors as PeecIcon,
+  GridOn as FdtdIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -53,7 +55,8 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, copyOnly 
 
   const handleOpen = () => {
     if (copyOnly) return;
-    navigate(`/project/${project.id}/design`);
+    const basePath = project.project_type === 'fdtd' ? '/fdtd' : '/project';
+    navigate(`${basePath}/${project.id}/design`);
   };
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -117,6 +120,25 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, copyOnly 
                 label="Copy only"
                 size="small"
                 color="warning"
+                variant="outlined"
+                sx={{ mt: 0.5, height: 22, fontSize: '0.7rem' }}
+              />
+            )}
+            {project.project_type === 'fdtd' ? (
+              <Chip
+                icon={<FdtdIcon sx={{ fontSize: '0.85rem !important' }} />}
+                label="FDTD"
+                size="small"
+                color="secondary"
+                variant="outlined"
+                sx={{ mt: 0.5, height: 22, fontSize: '0.7rem' }}
+              />
+            ) : (
+              <Chip
+                icon={<PeecIcon sx={{ fontSize: '0.85rem !important' }} />}
+                label="PEEC"
+                size="small"
+                color="primary"
                 variant="outlined"
                 sx={{ mt: 0.5, height: 22, fontSize: '0.7rem' }}
               />

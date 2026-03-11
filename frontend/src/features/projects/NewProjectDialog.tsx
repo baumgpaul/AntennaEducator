@@ -6,7 +6,16 @@ import {
   Button,
   TextField,
   CircularProgress,
+  Box,
+  Card,
+  CardActionArea,
+  CardContent,
+  Typography,
 } from '@mui/material';
+import {
+  Sensors as PeecIcon,
+  GridOn as FdtdIcon,
+} from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,6 +29,7 @@ import { formatErrorMessage } from '@/utils/errors';
 const projectSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters').max(100, 'Name must be less than 100 characters'),
   description: z.string().max(500, 'Description must be less than 500 characters').optional(),
+  project_type: z.enum(['peec', 'fdtd']),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -28,6 +38,21 @@ interface NewProjectDialogProps {
   open: boolean;
   onClose: () => void;
 }
+
+const PROJECT_TYPE_OPTIONS = [
+  {
+    value: 'peec' as const,
+    label: 'PEEC',
+    description: 'Partial Element Equivalent Circuit — wire antennas',
+    icon: PeecIcon,
+  },
+  {
+    value: 'fdtd' as const,
+    label: 'FDTD',
+    description: 'Finite-Difference Time-Domain — broadband analysis',
+    icon: FdtdIcon,
+  },
+];
 
 /**
  * NewProjectDialog - Dialog for creating new projects
@@ -40,14 +65,19 @@ function NewProjectDialog({ open, onClose }: NewProjectDialogProps) {
     control,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
       name: '',
       description: '',
+      project_type: 'peec',
     },
   });
+
+  const selectedType = watch('project_type');
 
   const handleClose = () => {
     if (!loading) {
@@ -83,6 +113,45 @@ function NewProjectDialog({ open, onClose }: NewProjectDialogProps) {
     >
       <DialogTitle>Create New Project</DialogTitle>
       <DialogContent>
+        {/* Project type selector */}
+        <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>
+          Simulation Method
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          {PROJECT_TYPE_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            const selected = selectedType === opt.value;
+            return (
+              <Card
+                key={opt.value}
+                variant="outlined"
+                sx={{
+                  flex: 1,
+                  border: 2,
+                  borderColor: selected ? 'primary.main' : 'divider',
+                  bgcolor: selected ? 'action.selected' : 'background.paper',
+                }}
+              >
+                <CardActionArea
+                  onClick={() => setValue('project_type', opt.value)}
+                  disabled={loading}
+                  sx={{ p: 1.5, textAlign: 'center' }}
+                >
+                  <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+                    <Icon sx={{ fontSize: 32, color: selected ? 'primary.main' : 'text.secondary' }} />
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      {opt.label}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {opt.description}
+                    </Typography>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            );
+          })}
+        </Box>
+
         <Controller
           name="name"
           control={control}

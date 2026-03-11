@@ -11,6 +11,7 @@ const USE_MOCK_API = false; // Real Projects API is now working!
 
 export interface CreateProjectRequest {
   name: string;
+  project_type?: 'peec' | 'fdtd';
   description?: string;
   design_state?: Record<string, any>;
   simulation_config?: Record<string, any>;
@@ -21,6 +22,7 @@ export interface CreateProjectRequest {
 
 export interface UpdateProjectRequest {
   name?: string;
+  project_type?: 'peec' | 'fdtd';
   description?: string;
   design_state?: Record<string, any>;
   simulation_config?: Record<string, any>;
