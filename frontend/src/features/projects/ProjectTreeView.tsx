@@ -143,10 +143,8 @@ function ProjectTreeView({
     return (
       <Box key={node.id}>
         <ListItemButton
-          selected={currentFolderId === node.id}
           onClick={() => {
-            onSelectFolder(node.id);
-            if (hasChildren) toggleExpand(node.id);
+            toggleExpand(node.id);
           }}
           sx={{ pl: 2 + depth * 2 }}
         >
@@ -158,15 +156,7 @@ function ProjectTreeView({
             primaryTypographyProps={{ variant: 'body2', noWrap: true }}
           />
           {hasChildren && (
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleExpand(node.id);
-              }}
-            >
-              {isExpanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
-            </IconButton>
+            isExpanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />
           )}
         </ListItemButton>
         {hasChildren && (

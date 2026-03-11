@@ -18,7 +18,6 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Tooltip,
-  Chip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -27,7 +26,6 @@ import {
   Home as HomeIcon,
   GridView as GridViewIcon,
   ViewList as ListViewIcon,
-  School as SchoolIcon,
   CreateNewFolder as CreateNewFolderIcon,
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo } from 'react';
@@ -42,11 +40,6 @@ import {
   selectFolders,
   setCurrentFolderId,
   selectCurrentFolderId,
-  fetchCourses,
-  fetchCourseProjects,
-  copyCourseProjectToUser,
-  selectCourses,
-  selectCourseProjects,
 } from '@/store/foldersSlice';
 import type { FolderTreeNode } from '@/store/foldersSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
@@ -55,15 +48,14 @@ import ProjectTreeView from './ProjectTreeView';
 import NewProjectDialog from './NewProjectDialog';
 import EditProjectDialog from './EditProjectDialog';
 import FolderCard from './FolderCard';
-import ProjectNavRail from './ProjectNavRail';
-import type { NavSection } from './ProjectNavRail';
+
 import { FolderDialog } from '@/components/common';
 import { formatErrorMessage } from '@/utils/errors';
 import type { Project } from '@/types/models';
 
 /**
  * ProjectsPage - Main projects management page
- * Nav rail (Home / Recent / Courses) + main content area with folders & projects
+ * Folders & projects with breadcrumb drill-down, grid/tree view
  */
 function ProjectsPage() {
   const dispatch = useAppDispatch();
@@ -71,11 +63,8 @@ function ProjectsPage() {
   const folderTree = useAppSelector(selectFolderTree);
   const allFolders = useAppSelector(selectFolders);
   const currentFolderId = useAppSelector(selectCurrentFolderId);
-  const courses = useAppSelector(selectCourses);
-  const courseProjects = useAppSelector(selectCourseProjects);
 
-  const [navSection, setNavSection] = useState<NavSection>('home');
-  const [browsingCourseId, setBrowsingCourseId] = useState<string | null>(null);
+
   const [viewMode, setViewMode] = useState<'grid' | 'tree'>(
     () => (localStorage.getItem('projectViewMode') as 'grid' | 'tree') || 'grid',
   );
@@ -89,24 +78,15 @@ function ProjectsPage() {
   const [folderDialogParentId, setFolderDialogParentId] = useState<string | null>(null);
   const [renamingFolder, setRenamingFolder] = useState<FolderTreeNode | null>(null);
 
-  // Fetch projects, folders, and courses on mount
+  // Fetch projects and folders on mount
   useEffect(() => {
     dispatch(fetchProjects());
     dispatch(fetchFolders());
-    dispatch(fetchCourses());
   }, [dispatch]);
-
-  // Fetch course projects when browsing a course
-  useEffect(() => {
-    if (browsingCourseId) {
-      dispatch(fetchCourseProjects(browsingCourseId));
-    }
-  }, [dispatch, browsingCourseId]);
 
   const handleRetry = () => {
     dispatch(fetchProjects());
     dispatch(fetchFolders());
-    dispatch(fetchCourses());
   };
 
   const handleViewModeChange = (_: React.MouseEvent<HTMLElement>, newMode: 'grid' | 'tree' | null) => {
@@ -118,25 +98,9 @@ function ProjectsPage() {
 
   // ── Navigation ───────────────────────────────────────────────────────────
 
-  const handleSectionChange = (section: NavSection) => {
-    setNavSection(section);
-    setBrowsingCourseId(null);
-    if (section !== 'home') {
-      dispatch(setCurrentFolderId(null));
-    }
-  };
-
   const handleSelectFolder = (folderId: string | null) => {
-    setNavSection('home');
-    setBrowsingCourseId(null);
     dispatch(setCurrentFolderId(folderId));
   };
-
-  const handleSelectCourse = (courseId: string) => {
-    setBrowsingCourseId(courseId);
-  };
-
-  const isBrowsingCourse = navSection === 'courses' && browsingCourseId !== null;
 
   // ── Filtered & sorted projects ───────────────────────────────────────────
 
@@ -168,15 +132,6 @@ function ProjectsPage() {
         }
       });
   }, [projects, currentFolderId, searchQuery, sortBy]);
-
-  // ── Recent projects (top 5 by last_opened_at) ───────────────────────────
-
-  const recentProjects = useMemo(() => {
-    return [...projects]
-      .filter((p) => p.last_opened_at)
-      .sort((a, b) => new Date(b.last_opened_at!).getTime() - new Date(a.last_opened_at!).getTime())
-      .slice(0, 5);
-  }, [projects]);
 
   // ── Child folders for current folder ─────────────────────────────────────
 
@@ -247,16 +202,6 @@ function ProjectsPage() {
     }
   };
 
-  const handleCopyProject = async (project: Project) => {
-    try {
-      await dispatch(copyCourseProjectToUser({ projectId: String(project.id) })).unwrap();
-      dispatch(showSuccess(`Project "${project.name}" copied to your projects!`));
-      dispatch(fetchProjects());
-    } catch (err) {
-      dispatch(showError(`Failed to copy project: ${formatErrorMessage(err)}`));
-    }
-  };
-
   // ── Folder handlers ──────────────────────────────────────────────────────
 
   const handleCreateFolder = (parentFolderId: string | null) => {
@@ -316,21 +261,11 @@ function ProjectsPage() {
 
   // ── Determine what to display in main content ────────────────────────────
 
-  const displayProjects = isBrowsingCourse
-    ? (courseProjects as unknown as Project[])
-    : navSection === 'recent'
-      ? recentProjects
-      : filteredProjects;
+  const displayProjects = filteredProjects;
 
-  const displayTitle = isBrowsingCourse
-    ? courses.find((c) => c.id === browsingCourseId)?.name ?? 'Course'
-    : navSection === 'recent'
-      ? 'Recent Projects'
-      : navSection === 'courses'
-        ? 'Courses'
-        : currentFolderId
-          ? breadcrumbs[breadcrumbs.length - 1]?.name
-          : 'My Projects';
+  const displayTitle = currentFolderId
+    ? breadcrumbs[breadcrumbs.length - 1]?.name
+    : 'My Projects';
 
   // ── Render helpers ───────────────────────────────────────────────────────
 
@@ -373,67 +308,36 @@ function ProjectsPage() {
         </ToggleButton>
       </ToggleButtonGroup>
 
-      {navSection === 'home' && !isBrowsingCourse && (
-        <>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<CreateNewFolderIcon />}
-            onClick={() => handleCreateFolder(currentFolderId)}
-          >
-            New Folder
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={handleNewProject}
-          >
-            New Project
-          </Button>
-        </>
-      )}
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<CreateNewFolderIcon />}
+        onClick={() => handleCreateFolder(currentFolderId)}
+      >
+        New Folder
+      </Button>
+      <Button
+        variant="contained"
+        size="small"
+        startIcon={<AddIcon />}
+        onClick={handleNewProject}
+      >
+        New Project
+      </Button>
     </Box>
-  );
-
-  const renderProjectGrid = (items: Project[], copyOnly: boolean) => (
-    <Grid container spacing={3}>
-      {items.map((project) => (
-        <Grid item xs={12} sm={6} md={4} key={project.id}>
-          <ProjectCard
-            project={project}
-            onEdit={copyOnly ? undefined : handleEditProject}
-            onDelete={copyOnly ? undefined : handleDeleteProject}
-            onDuplicate={copyOnly ? undefined : handleDuplicateProject}
-            onCopy={copyOnly ? handleCopyProject : undefined}
-            copyOnly={copyOnly}
-          />
-        </Grid>
-      ))}
-    </Grid>
   );
 
   const renderEmptyState = () => (
     <Box sx={{ textAlign: 'center', py: 8, px: 2 }}>
       <Typography variant="h6" gutterBottom>
-        {searchQuery
-          ? 'No projects found'
-          : isBrowsingCourse
-            ? 'No projects in this course'
-            : navSection === 'recent'
-              ? 'No recently opened projects'
-              : 'No projects yet'}
+        {searchQuery ? 'No projects found' : 'No projects yet'}
       </Typography>
       <Typography variant="body2" color="text.secondary" paragraph>
         {searchQuery
           ? 'Try adjusting your search query'
-          : isBrowsingCourse
-            ? 'This course does not have any projects yet'
-            : navSection === 'recent'
-              ? 'Open a project to see it here'
-              : 'Create your first antenna simulation project to get started'}
+          : 'Create your first antenna simulation project to get started'}
       </Typography>
-      {!searchQuery && navSection === 'home' && !isBrowsingCourse && (
+      {!searchQuery && (
         <Button variant="contained" startIcon={<AddIcon />} onClick={handleNewProject} sx={{ mt: 2 }}>
           Create Project
         </Button>
@@ -445,7 +349,9 @@ function ProjectsPage() {
 
   const renderHomeContent = () => {
     const showFolders = viewMode === 'grid' && childFolders.length > 0;
-    const hasContent = showFolders || displayProjects.length > 0;
+    const hasContent = viewMode === 'tree'
+      ? (folderTree.length > 0 || projects.length > 0)
+      : (showFolders || displayProjects.length > 0);
 
     if (loading && projects.length === 0) {
       return (
@@ -461,7 +367,7 @@ function ProjectsPage() {
       return (
         <ProjectTreeView
           folderTree={folderTree}
-          projects={displayProjects}
+          projects={projects}
           currentFolderId={currentFolderId}
           onSelectFolder={handleSelectFolder}
           onEditProject={handleEditProject}
@@ -500,151 +406,43 @@ function ProjectsPage() {
     );
   };
 
-  // ── Recent section ───────────────────────────────────────────────────────
-
-  const renderRecentContent = () => {
-    if (loading && projects.length === 0) {
-      return (
-        <Grid container spacing={3}>
-          {[...Array(3)].map((_, i) => <ProjectSkeleton key={i} />)}
-        </Grid>
-      );
-    }
-    if (recentProjects.length === 0) return renderEmptyState();
-    return renderProjectGrid(recentProjects, false);
-  };
-
-  // ── Courses section: course list or course projects ──────────────────────
-
-  const renderCoursesContent = () => {
-    if (!browsingCourseId) {
-      // Show course list as cards
-      if (courses.length === 0) {
-        return (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <Typography variant="h6" gutterBottom>No courses available</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Courses will appear here when instructors publish them
-            </Typography>
-          </Box>
-        );
-      }
-      return (
-        <Grid container spacing={3}>
-          {courses.map((course) => (
-            <Grid item xs={12} sm={6} md={4} key={course.id}>
-              <Box
-                onClick={() => handleSelectCourse(course.id)}
-                sx={{
-                  p: 3,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderLeft: '4px solid',
-                  borderLeftColor: 'warning.main',
-                  borderRadius: 1,
-                  cursor: 'pointer',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 },
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <SchoolIcon color="warning" />
-                  <Typography variant="h6" noWrap>{course.name}</Typography>
-                </Box>
-                <Chip label="Copy only" size="small" color="warning" variant="outlined" />
-              </Box>
-            </Grid>
-          ))}
-        </Grid>
-      );
-    }
-
-    // Browsing a specific course - show its projects
-    const courseProjectsList = courseProjects as unknown as Project[];
-    if (courseProjectsList.length === 0) return renderEmptyState();
-
-    if (viewMode === 'tree') {
-      return (
-        <ProjectTreeView
-          folderTree={[]}
-          projects={courseProjectsList}
-          currentFolderId={null}
-          onSelectFolder={() => {}}
-          onCopyProject={handleCopyProject}
-          copyOnly
-        />
-      );
-    }
-
-    return renderProjectGrid(courseProjectsList, true);
-  };
-
   // ── Main render ──────────────────────────────────────────────────────────
 
   return (
     <Box sx={{ display: 'flex', mt: 2, mb: 4, px: 2, gap: 2, height: 'calc(100vh - 120px)' }}>
-      {/* Left: Navigation Rail */}
-      <ProjectNavRail activeSection={navSection} onSectionChange={handleSectionChange} />
-
       {/* Main content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {/* Header */}
         <Box sx={{ mb: 3 }}>
-          {navSection === 'home' && (
-            <Breadcrumbs sx={{ mb: 1 }}>
-              {breadcrumbs.map((crumb, index) => {
-                const isLast = index === breadcrumbs.length - 1;
-                return isLast ? (
-                  <Typography key={crumb.id ?? 'root'} variant="body2" color="text.primary">
-                    {crumb.name}
-                  </Typography>
-                ) : (
-                  <Link
-                    key={crumb.id ?? 'root'}
-                    component="button"
-                    variant="body2"
-                    underline="hover"
-                    onClick={() => handleSelectFolder(crumb.id)}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    {index === 0 && <HomeIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />}
-                    {crumb.name}
-                  </Link>
-                );
-              })}
-            </Breadcrumbs>
-          )}
-          {navSection === 'courses' && browsingCourseId && (
-            <Breadcrumbs sx={{ mb: 1 }}>
-              <Link
-                component="button"
-                variant="body2"
-                underline="hover"
-                onClick={() => setBrowsingCourseId(null)}
-                sx={{ cursor: 'pointer' }}
-              >
-                Courses
-              </Link>
-              <Typography variant="body2" color="text.primary">
-                {courses.find((c) => c.id === browsingCourseId)?.name ?? 'Course'}
-              </Typography>
-            </Breadcrumbs>
-          )}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {isBrowsingCourse && <SchoolIcon color="warning" />}
-            <Typography variant="h5" gutterBottom>
-              {displayTitle}
-            </Typography>
-            {isBrowsingCourse && (
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 1, mt: 0.3 }}>
-                — Copy only
-              </Typography>
-            )}
-          </Box>
+          <Breadcrumbs sx={{ mb: 1 }}>
+            {breadcrumbs.map((crumb, index) => {
+              const isLast = index === breadcrumbs.length - 1;
+              return isLast ? (
+                <Typography key={crumb.id ?? 'root'} variant="body2" color="text.primary">
+                  {crumb.name}
+                </Typography>
+              ) : (
+                <Link
+                  key={crumb.id ?? 'root'}
+                  component="button"
+                  variant="body2"
+                  underline="hover"
+                  onClick={() => handleSelectFolder(crumb.id)}
+                  sx={{ cursor: 'pointer' }}
+                >
+                  {index === 0 && <HomeIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />}
+                  {crumb.name}
+                </Link>
+              );
+            })}
+          </Breadcrumbs>
+          <Typography variant="h5" gutterBottom>
+            {displayTitle}
+          </Typography>
         </Box>
 
         {/* Toolbar */}
-        {navSection !== 'courses' || browsingCourseId ? renderToolbar() : null}
+        {renderToolbar()}
 
         {/* Error Alert */}
         {error && (
@@ -663,14 +461,11 @@ function ProjectsPage() {
         )}
 
         {/* Section content */}
-        {navSection === 'home' && renderHomeContent()}
-        {navSection === 'recent' && renderRecentContent()}
-        {navSection === 'courses' && renderCoursesContent()}
+        {renderHomeContent()}
       </Box>
 
       {/* Floating Action Button for mobile */}
-      {navSection === 'home' && (
-        <Fab
+      <Fab
           color="primary"
           aria-label="add project"
           onClick={handleNewProject}
@@ -683,7 +478,6 @@ function ProjectsPage() {
         >
           <AddIcon />
         </Fab>
-      )}
 
       {/* New Project Dialog */}
       <NewProjectDialog
