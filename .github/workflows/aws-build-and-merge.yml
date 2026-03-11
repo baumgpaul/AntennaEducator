@@ -5,7 +5,9 @@
 #      (subsequent pushes auto-retrigger while the label is present)
 #   2. Source is uploaded to S3, CodeBuild Test runs (lint + unit tests)
 #   3. CodeBuild Deploy runs (Docker → ECR → Lambda, frontend → S3)
-#   4. Success → PR comment confirming staging deploy, then auto-merge
+#   4. Success → PR comment confirming staging deploy
+#   5. Manual approval via GitHub "staging" environment gate
+#   6. Approved → auto-merge (squash)
 #      Failure → PR comment with build failure details
 #
 # Setup (one-time):
@@ -177,10 +179,21 @@ jobs:
         run: |
           aws s3 rm "s3://${BUCKET}/github-actions/${BUILD_KEY}/" --recursive || true
 
-  # ── Auto-merge after successful deploy ────────────────────────────
+  # ── Manual approval gate — test staging before merge ──────────────
+  verify-staging:
+    name: Verify Staging
+    needs: aws-build-deploy
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: staging          # Requires approval in GitHub Environment settings
+    steps:
+      - name: Staging approved
+        run: echo "✅ Staging verified — proceeding to merge."
+
+  # ── Auto-merge after approval ───────────────────────────────────
   auto-merge:
     name: Auto-merge PR
-    needs: aws-build-deploy
+    needs: verify-staging
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
