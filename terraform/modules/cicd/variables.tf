@@ -42,6 +42,12 @@ variable "cloudfront_distribution_id" {
 
 # ── Tags ───────────────────────────────────────────────────────────────
 
+variable "create_oidc_provider" {
+  description = "Whether to create the GitHub OIDC provider. Set to false if another stack already manages it."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

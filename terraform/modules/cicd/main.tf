@@ -16,7 +16,7 @@
 # Retained for potential future use (e.g. CodePipeline, CodeBuild GitHub triggers).
 # If you completed the connection in the AWS Console, it stays valid.
 resource "aws_codestarconnections_connection" "github" {
-  name          = "antenna-simulator-github-${var.environment}"
+  name          = substr("antenna-sim-gh-${var.environment}", 0, 32)
   provider_type = "GitHub"
   tags          = var.tags
 }

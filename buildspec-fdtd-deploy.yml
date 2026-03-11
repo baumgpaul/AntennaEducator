@@ -1,0 +1,71 @@
+# CodeBuild buildspec — FDTD Deploy stage
+# Builds FDTD solver Docker image, pushes to ECR, updates Lambda,
+# deploys frontend to the FDTD S3 bucket, and invalidates CloudFront.
+#
+# Environment variables (set by Terraform via CodeBuild project):
+#   AWS_ACCOUNT_ID, AWS_DEFAULT_REGION, ENVIRONMENT,
+#   S3_FRONTEND_BUCKET, CLOUDFRONT_DISTRIBUTION_ID
+
+version: 0.2
+
+env:
+  variables:
+    SERVICES: "solver_fdtd"
+
+phases:
+  pre_build:
+    commands:
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION |
+        docker login --username AWS --password-stdin
+        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+
+  build:
+    commands:
+      # ── Build & push FDTD solver Lambda container image ──
+      - echo "=== Building FDTD Lambda container images ==="
+      - |
+        for SERVICE in $SERVICES; do
+          # Map underscore names to hyphen names for AWS resources
+          AWS_SERVICE_NAME=$(echo "$SERVICE" | tr '_' '-')
+          REPO="antenna-simulator-${AWS_SERVICE_NAME}-${ENVIRONMENT}"
+          IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/${REPO}:latest"
+
+          echo "--- Building ${SERVICE} ---"
+          docker build \
+            -f backend/${SERVICE}/Dockerfile.lambda \
+            -t ${REPO}:latest \
+            --platform linux/amd64 .
+
+          docker tag ${REPO}:latest $IMAGE_URI
+          docker push $IMAGE_URI
+
+          echo "Updating Lambda function ${REPO}..."
+          aws lambda update-function-code \
+            --function-name "${REPO}" \
+            --image-uri "$IMAGE_URI" \
+            --region "$AWS_DEFAULT_REGION"
+
+          echo "Waiting for ${SERVICE} Lambda to be ready..."
+          aws lambda wait function-updated \
+            --function-name "${REPO}" \
+            --region "$AWS_DEFAULT_REGION"
+
+          echo "${SERVICE} deployed successfully."
+        done
+
+      # ── Build & deploy frontend ──
+      - echo "=== Building frontend ==="
+      - cd frontend && npm ci && NODE_OPTIONS="--max-old-space-size=4096" npm run build && cd ..
+
+      - echo "=== Deploying frontend to FDTD S3 ==="
+      - aws s3 sync frontend/dist/ s3://$S3_FRONTEND_BUCKET/ --delete
+
+      - echo "=== Invalidating CloudFront cache ==="
+      - aws cloudfront create-invalidation
+          --distribution-id $CLOUDFRONT_DISTRIBUTION_ID
+          --paths "/*"
+
+  post_build:
+    commands:
+      - echo "FDTD deployment complete!"

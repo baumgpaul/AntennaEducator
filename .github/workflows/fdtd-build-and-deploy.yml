@@ -1,0 +1,203 @@
+# FDTD Build & Deploy to fdtd-staging
+#
+# Flow:
+#   1. Add the "deploy-to-fdtd-staging" label to a PR targeting fdtd-integration
+#   2. Source is uploaded to S3, CodeBuild Test runs (lint + unit tests)
+#   3. CodeBuild Deploy runs (Docker → ECR → Lambda, frontend → S3)
+#   4. Success → PR comment confirming fdtd-staging deploy
+#   5. Manual approval via GitHub "fdtd-staging" environment gate
+#   6. Approved → auto-merge (squash)
+#
+# GitHub Secrets required:
+#   - AWS_FDTD_DEPLOY_ROLE_ARN   (from terraform output github_actions_role_arn)
+#   - AWS_FDTD_ARTIFACTS_BUCKET  (from terraform output artifacts_bucket)
+
+name: FDTD Build & Deploy
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+    branches: [fdtd-integration]
+  workflow_dispatch:
+
+concurrency:
+  group: fdtd-deploy-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  fdtd-build-deploy:
+    name: FDTD Build & Deploy to Staging
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.base.ref == 'fdtd-integration' &&
+       (github.event.action == 'labeled' && github.event.label.name == 'deploy-to-fdtd-staging' ||
+        github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'deploy-to-fdtd-staging')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    env:
+      AWS_REGION: eu-west-1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_FDTD_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload source to S3
+        env:
+          BUCKET: ${{ secrets.AWS_FDTD_ARTIFACTS_BUCKET }}
+          BUILD_KEY: fdtd-${{ github.event.pull_request.number || github.sha }}
+        run: |
+          zip -r /tmp/source.zip . -x '.git/*'
+          aws s3 cp /tmp/source.zip "s3://${BUCKET}/github-actions/${BUILD_KEY}/source.zip"
+
+      # ── Test stage ──────────────────────────────────────────────────
+      - name: Start CodeBuild — Test
+        id: test
+        env:
+          BUCKET: ${{ secrets.AWS_FDTD_ARTIFACTS_BUCKET }}
+          BUILD_KEY: fdtd-${{ github.event.pull_request.number || github.sha }}
+        run: |
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name antenna-simulator-test-fdtd-staging \
+            --source-type-override S3 \
+            --source-location-override "${BUCKET}/github-actions/${BUILD_KEY}/source.zip" \
+            --buildspec-override buildspec-fdtd-test.yml \
+            --query 'build.id' --output text)
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "::notice::CodeBuild FDTD Test started: $BUILD_ID"
+
+      - name: Wait for Test build
+        timeout-minutes: 15
+        env:
+          BUILD_ID: ${{ steps.test.outputs.build_id }}
+        run: |
+          echo "Polling build ${BUILD_ID}..."
+          while true; do
+            STATUS=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
+              --query 'builds[0].buildStatus' --output text)
+            case "$STATUS" in
+              SUCCEEDED)
+                echo "✅ FDTD Test build passed"
+                exit 0
+                ;;
+              IN_PROGRESS)
+                sleep 15
+                ;;
+              *)
+                LOG_URL=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
+                  --query 'builds[0].logs.deepLink' --output text)
+                echo "::error::FDTD Test build ${STATUS}. Logs: ${LOG_URL}"
+                exit 1
+                ;;
+            esac
+          done
+
+      # ── Deploy stage ────────────────────────────────────────────────
+      - name: Start CodeBuild — Deploy
+        id: deploy
+        env:
+          BUCKET: ${{ secrets.AWS_FDTD_ARTIFACTS_BUCKET }}
+          BUILD_KEY: fdtd-${{ github.event.pull_request.number || github.sha }}
+        run: |
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name antenna-simulator-deploy-fdtd-staging \
+            --source-type-override S3 \
+            --source-location-override "${BUCKET}/github-actions/${BUILD_KEY}/source.zip" \
+            --buildspec-override buildspec-fdtd-deploy.yml \
+            --query 'build.id' --output text)
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "::notice::CodeBuild FDTD Deploy started: $BUILD_ID"
+
+      - name: Wait for Deploy build
+        timeout-minutes: 35
+        env:
+          BUILD_ID: ${{ steps.deploy.outputs.build_id }}
+        run: |
+          echo "Polling build ${BUILD_ID}..."
+          while true; do
+            STATUS=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
+              --query 'builds[0].buildStatus' --output text)
+            case "$STATUS" in
+              SUCCEEDED)
+                echo "✅ FDTD Deploy build passed"
+                exit 0
+                ;;
+              IN_PROGRESS)
+                sleep 15
+                ;;
+              *)
+                LOG_URL=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
+                  --query 'builds[0].logs.deepLink' --output text)
+                echo "::error::FDTD Deploy build ${STATUS}. Logs: ${LOG_URL}"
+                exit 1
+                ;;
+            esac
+          done
+
+      # ── Report result ───────────────────────────────────────────────
+      - name: Comment — fdtd-staging deployed
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body \
+            "✅ **FDTD Build & Deploy succeeded**
+
+          FDTD staging has been updated at https://fdtd-stage.nyakyagyawa.com"
+
+      - name: Comment — build failed
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body \
+            "❌ **FDTD Build & Deploy failed**
+
+          Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details. Remove and re-add the \`deploy-to-fdtd-staging\` label to retry."
+
+      # ── Cleanup ─────────────────────────────────────────────────────
+      - name: Clean up S3 source
+        if: always()
+        env:
+          BUCKET: ${{ secrets.AWS_FDTD_ARTIFACTS_BUCKET }}
+          BUILD_KEY: fdtd-${{ github.event.pull_request.number || github.sha }}
+        run: |
+          aws s3 rm "s3://${BUCKET}/github-actions/${BUILD_KEY}/" --recursive || true
+
+  # ── Manual approval gate ────────────────────────────────────────────
+  verify-fdtd-staging:
+    name: Verify FDTD Staging
+    needs: fdtd-build-deploy
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: fdtd-staging
+    steps:
+      - name: FDTD staging approved
+        run: echo "✅ FDTD staging verified — proceeding to merge."
+
+  # ── Auto-merge after approval ───────────────────────────────────────
+  auto-merge:
+    name: Auto-merge PR
+    needs: verify-fdtd-staging
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Squash-merge PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --squash --auto
+          echo "✅ Auto-merge enabled — PR will merge once all required checks pass."

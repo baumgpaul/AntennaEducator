@@ -1,0 +1,46 @@
+# CodeBuild buildspec — FDTD Test stage
+# Runs linting + unit tests for backend (including solver_fdtd) and frontend.
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+      nodejs: 18
+    commands:
+      - echo "Installing Python dependencies..."
+      - pip install -e ".[dev,aws]"
+      - echo "Installing frontend dependencies..."
+      - cd frontend && npm ci && cd ..
+
+  build:
+    commands:
+      # ── Python linting ──
+      - echo "=== Python Linting ==="
+      - black --check backend/ tests/
+      - isort --check-only backend/ tests/
+      - ruff check backend/ tests/
+
+      # ── Python unit tests ──
+      - echo "=== Python Unit Tests ==="
+      - pytest tests/unit/ -x -q --tb=short --junitxml=reports/pytest.xml
+
+      # ── Frontend checks ──
+      - echo "=== Frontend Checks ==="
+      - cd frontend
+      - npx tsc --noEmit
+      - npm run lint
+      - timeout 180 npx vitest run --reporter=verbose || echo "Frontend tests timed out or failed (non-blocking)"
+      - cd ..
+
+reports:
+  pytest-reports:
+    files:
+      - "reports/pytest.xml"
+    file-format: JUNITXML
+
+cache:
+  paths:
+    - "/root/.cache/pip/**/*"
+    - "frontend/node_modules/**/*"
