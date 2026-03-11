@@ -275,6 +275,7 @@ export interface RadiationPatternResult {
 export interface Project {
   id: string | number  // Backend uses integer IDs, mock API uses string IDs
   name: string
+  project_type?: 'peec' | 'fdtd'
   description?: string
   design_state?: Record<string, any>       // Elements, sources, positions — versioned snapshot
   simulation_config?: Record<string, any>  // Method, frequency config, requested fields, postprocessing

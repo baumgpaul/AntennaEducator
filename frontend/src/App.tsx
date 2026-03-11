@@ -8,6 +8,7 @@ import ResultsPage from './features/results/ResultsPage';
 import { LoginPage, RegisterPage, ProtectedRoute } from './features/auth';
 import { CoursesPage } from './features/courses';
 import { AdminPage } from './features/admin';
+import { FdtdDesignPage } from './features/fdtd';
 import NotFoundPage from './features/common/NotFoundPage';
 import { NotificationManager, SessionManager } from './components/common';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -39,6 +40,7 @@ function App() {
           <Route path="/design" element={<ErrorBoundary><DesignPage /></ErrorBoundary>} />
           <Route path="/project/:projectId/design" element={<ErrorBoundary><DesignPage /></ErrorBoundary>} />
           <Route path="/project/:projectId/results" element={<ErrorBoundary><ResultsPage /></ErrorBoundary>} />
+          <Route path="/fdtd/:projectId/design" element={<ErrorBoundary><FdtdDesignPage /></ErrorBoundary>} />
         </Route>
 
         {/* 404 catch-all */}
