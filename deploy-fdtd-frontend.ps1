@@ -87,8 +87,7 @@ if ($cfDistId) {
         aws cloudfront create-invalidation `
             --distribution-id $cfDistId `
             --paths "/*" `
-            --profile $Profile `
-            --no-cli-pager
+            --profile $Profile
     }
     Write-Host "CloudFront invalidation started." -ForegroundColor Green
 } else {

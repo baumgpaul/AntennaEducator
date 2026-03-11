@@ -203,6 +203,8 @@ module "cicd" {
   s3_frontend_bucket         = module.s3_frontend.bucket_name
   cloudfront_distribution_id = module.cloudfront.distribution_id
 
+  create_oidc_provider = false  # OIDC provider already exists from main staging stack
+
   tags = { Component = "cicd", Solver = "fdtd" }
 }
 

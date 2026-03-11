@@ -175,13 +175,24 @@ resource "aws_iam_role_policy" "codebuild_reports" {
 
 # ─── GitHub OIDC Provider ─────────────────────────────────────────────
 # Allows GitHub Actions to assume IAM roles via OpenID Connect (no long-lived keys).
-# Only ONE provider per URL per AWS account — if another project already created
-# this, import it: terraform import aws_iam_openid_connect_provider.github <arn>
+# Only ONE provider per URL per AWS account — set create_oidc_provider = false
+# if another stack already manages this resource.
 resource "aws_iam_openid_connect_provider" "github" {
+  count = var.create_oidc_provider ? 1 : 0
+
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = ["ffffffffffffffffffffffffffffffffffffffff"] # AWS does not verify GitHub OIDC thumbprints
   tags            = var.tags
+}
+
+data "aws_iam_openid_connect_provider" "github_existing" {
+  count = var.create_oidc_provider ? 0 : 1
+  url   = "https://token.actions.githubusercontent.com"
+}
+
+locals {
+  oidc_provider_arn = var.create_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github_existing[0].arn
 }
 
 # ─── IAM Role for GitHub Actions ──────────────────────────────────────
@@ -193,7 +204,7 @@ resource "aws_iam_role" "github_actions" {
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { Federated = aws_iam_openid_connect_provider.github.arn }
+      Principal = { Federated = local.oidc_provider_arn }
       Action    = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
