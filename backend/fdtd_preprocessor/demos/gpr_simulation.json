@@ -1,0 +1,226 @@
+{
+  "name": "Ground Penetrating Radar (GPR)",
+  "description": "Ground Penetrating Radar sends a short electromagnetic pulse into the ground and detects reflections from subsurface layers and buried objects. This 2D demo models a layered soil profile (dry soil on top, wet soil beneath) with a buried metallic target. A Gaussian pulse source at the surface generates a broadband signal that propagates downward, reflects off material interfaces and the target, and returns to surface probes for B-scan analysis.",
+  "presets": {
+    "small": {
+      "design_state": {
+        "dimensionality": "2d",
+        "domainSize": [0.5, 0.5, 0.01],
+        "cellSize": [0.005, 0.005, 0.01],
+        "structures": [
+          {
+            "id": "gpr-air",
+            "name": "Air Layer",
+            "type": "box",
+            "position": [0.25, 0.425, 0.005],
+            "dimensions": {"lx": 0.5, "ly": 0.15, "lz": 0.01},
+            "material": "air"
+          },
+          {
+            "id": "gpr-dry-soil",
+            "name": "Dry Soil Layer",
+            "type": "box",
+            "position": [0.25, 0.25, 0.005],
+            "dimensions": {"lx": 0.5, "ly": 0.2, "lz": 0.01},
+            "material": "dry_soil"
+          },
+          {
+            "id": "gpr-wet-soil",
+            "name": "Wet Soil Layer",
+            "type": "box",
+            "position": [0.25, 0.075, 0.005],
+            "dimensions": {"lx": 0.5, "ly": 0.15, "lz": 0.01},
+            "material": "wet_soil"
+          },
+          {
+            "id": "gpr-target",
+            "name": "Buried Metal Target",
+            "type": "box",
+            "position": [0.25, 0.2, 0.005],
+            "dimensions": {"lx": 0.04, "ly": 0.04, "lz": 0.01},
+            "material": "pec"
+          }
+        ],
+        "sources": [
+          {
+            "id": "gpr-src",
+            "name": "GPR Transmitter",
+            "type": "gaussian_pulse",
+            "position": [0.25, 0.4, 0.005],
+            "parameters": {"frequency": 1000000000, "bandwidth": 500000000},
+            "polarization": "z"
+          }
+        ],
+        "boundaries": {
+          "x_min": {"type": "mur_abc"},
+          "x_max": {"type": "mur_abc"},
+          "y_min": {"type": "mur_abc"},
+          "y_max": {"type": "mur_abc"},
+          "z_min": {"type": "mur_abc"},
+          "z_max": {"type": "mur_abc"}
+        },
+        "probes": [
+          {
+            "id": "gpr-probe-rx1",
+            "name": "Receiver Probe (center)",
+            "type": "point",
+            "position": [0.25, 0.4, 0.005],
+            "fields": ["Ez"]
+          },
+          {
+            "id": "gpr-probe-rx2",
+            "name": "Receiver Probe (offset)",
+            "type": "point",
+            "position": [0.3, 0.4, 0.005],
+            "fields": ["Ez"]
+          },
+          {
+            "id": "gpr-probe-sub",
+            "name": "Subsurface Probe",
+            "type": "point",
+            "position": [0.25, 0.25, 0.005],
+            "fields": ["Ez"]
+          }
+        ],
+        "config": {
+          "num_time_steps": 1500,
+          "courant_number": 0.99,
+          "output_every_n_steps": 10,
+          "dft_frequencies": [500000000, 750000000, 1000000000, 1250000000, 1500000000],
+          "auto_shutoff_threshold": 1e-6
+        }
+      },
+      "simulation_config": {
+        "method": "fdtd",
+        "dimensionality": "2d",
+        "mode": "tm",
+        "requested_fields": ["Ez", "Hx", "Hy"]
+      }
+    },
+    "large": {
+      "design_state": {
+        "dimensionality": "2d",
+        "domainSize": [1.5, 0.75, 0.005],
+        "cellSize": [0.005, 0.005, 0.005],
+        "structures": [
+          {
+            "id": "gpr-air",
+            "name": "Air Layer",
+            "type": "box",
+            "position": [0.75, 0.65, 0.0025],
+            "dimensions": {"lx": 1.5, "ly": 0.2, "lz": 0.005},
+            "material": "air"
+          },
+          {
+            "id": "gpr-topsoil",
+            "name": "Dry Topsoil",
+            "type": "box",
+            "position": [0.75, 0.45, 0.0025],
+            "dimensions": {"lx": 1.5, "ly": 0.2, "lz": 0.005},
+            "material": "dry_soil"
+          },
+          {
+            "id": "gpr-clay",
+            "name": "Wet Clay Layer",
+            "type": "box",
+            "position": [0.75, 0.25, 0.0025],
+            "dimensions": {"lx": 1.5, "ly": 0.2, "lz": 0.005},
+            "material": "wet_soil"
+          },
+          {
+            "id": "gpr-bedrock",
+            "name": "Bedrock",
+            "type": "box",
+            "position": [0.75, 0.075, 0.0025],
+            "dimensions": {"lx": 1.5, "ly": 0.15, "lz": 0.005},
+            "material": "dry_soil",
+            "custom_material": {
+              "name": "bedrock",
+              "epsilon_r": 7.0,
+              "mu_r": 1.0,
+              "sigma": 0.005,
+              "color": "#696969"
+            }
+          },
+          {
+            "id": "gpr-target1",
+            "name": "Buried Pipe",
+            "type": "box",
+            "position": [0.5, 0.35, 0.0025],
+            "dimensions": {"lx": 0.03, "ly": 0.03, "lz": 0.005},
+            "material": "pec"
+          },
+          {
+            "id": "gpr-target2",
+            "name": "Buried Object",
+            "type": "box",
+            "position": [1.0, 0.4, 0.0025],
+            "dimensions": {"lx": 0.06, "ly": 0.04, "lz": 0.005},
+            "material": "pec"
+          }
+        ],
+        "sources": [
+          {
+            "id": "gpr-src",
+            "name": "GPR Transmitter",
+            "type": "gaussian_pulse",
+            "position": [0.75, 0.6, 0.0025],
+            "parameters": {"frequency": 1000000000, "bandwidth": 500000000},
+            "polarization": "z"
+          }
+        ],
+        "boundaries": {
+          "x_min": {"type": "mur_abc"},
+          "x_max": {"type": "mur_abc"},
+          "y_min": {"type": "pec"},
+          "y_max": {"type": "mur_abc"},
+          "z_min": {"type": "mur_abc"},
+          "z_max": {"type": "mur_abc"}
+        },
+        "probes": [
+          {
+            "id": "gpr-probe-rx1",
+            "name": "Receiver Center",
+            "type": "point",
+            "position": [0.75, 0.6, 0.0025],
+            "fields": ["Ez"]
+          },
+          {
+            "id": "gpr-probe-rx2",
+            "name": "Receiver Left",
+            "type": "point",
+            "position": [0.5, 0.6, 0.0025],
+            "fields": ["Ez"]
+          },
+          {
+            "id": "gpr-probe-rx3",
+            "name": "Receiver Right",
+            "type": "point",
+            "position": [1.0, 0.6, 0.0025],
+            "fields": ["Ez"]
+          },
+          {
+            "id": "gpr-probe-deep",
+            "name": "Deep Probe",
+            "type": "point",
+            "position": [0.75, 0.25, 0.0025],
+            "fields": ["Ez"]
+          }
+        ],
+        "config": {
+          "num_time_steps": 5000,
+          "courant_number": 0.99,
+          "output_every_n_steps": 25,
+          "dft_frequencies": [250000000, 500000000, 750000000, 1000000000, 1250000000, 1500000000, 1750000000, 2000000000],
+          "auto_shutoff_threshold": 1e-7
+        }
+      },
+      "simulation_config": {
+        "method": "fdtd",
+        "dimensionality": "2d",
+        "mode": "tm",
+        "requested_fields": ["Ez", "Hx", "Hy"]
+      }
+    }
+  }
+}

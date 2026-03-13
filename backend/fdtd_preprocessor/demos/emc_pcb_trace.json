@@ -1,0 +1,242 @@
+{
+  "name": "EMC/EMI PCB Trace Analysis",
+  "description": "Electromagnetic Compatibility (EMC) analysis of a PCB microstrip trace with a 90-degree bend on an FR-4 substrate. A Gaussian pulse excites one end of the trace and propagates along it. The bend creates impedance discontinuities that cause reflections and radiation. Probes at both ends of the trace measure incident and transmitted signals for S-parameter extraction (return loss S11, insertion loss S21), while a near-field probe above the trace monitors radiated emissions.",
+  "presets": {
+    "small": {
+      "design_state": {
+        "dimensionality": "2d",
+        "domainSize": [0.3, 0.15, 0.01],
+        "cellSize": [0.005, 0.005, 0.01],
+        "structures": [
+          {
+            "id": "emc-substrate",
+            "name": "FR-4 Substrate",
+            "type": "substrate",
+            "position": [0.15, 0.04, 0.005],
+            "dimensions": {"lx": 0.28, "ly": 0.03, "lz": 0.01},
+            "material": "fr4"
+          },
+          {
+            "id": "emc-ground",
+            "name": "Ground Plane",
+            "type": "box",
+            "position": [0.15, 0.025, 0.005],
+            "dimensions": {"lx": 0.28, "ly": 0.005, "lz": 0.01},
+            "material": "copper"
+          },
+          {
+            "id": "emc-trace-h",
+            "name": "Horizontal Trace",
+            "type": "trace",
+            "position": [0.1, 0.06, 0.005],
+            "dimensions": {"lx": 0.12, "ly": 0.005, "lz": 0.01},
+            "material": "copper"
+          },
+          {
+            "id": "emc-trace-bend",
+            "name": "Trace Bend",
+            "type": "box",
+            "position": [0.16, 0.06, 0.005],
+            "dimensions": {"lx": 0.005, "ly": 0.005, "lz": 0.01},
+            "material": "copper"
+          },
+          {
+            "id": "emc-trace-v",
+            "name": "Vertical Trace",
+            "type": "trace",
+            "position": [0.16, 0.09, 0.005],
+            "dimensions": {"lx": 0.005, "ly": 0.06, "lz": 0.01},
+            "material": "copper"
+          }
+        ],
+        "sources": [
+          {
+            "id": "emc-src",
+            "name": "Port 1 Excitation",
+            "type": "gaussian_pulse",
+            "position": [0.04, 0.06, 0.005],
+            "parameters": {"frequency": 1000000000, "bandwidth": 500000000},
+            "polarization": "y"
+          }
+        ],
+        "boundaries": {
+          "x_min": {"type": "mur_abc"},
+          "x_max": {"type": "mur_abc"},
+          "y_min": {"type": "pec"},
+          "y_max": {"type": "mur_abc"},
+          "z_min": {"type": "mur_abc"},
+          "z_max": {"type": "mur_abc"}
+        },
+        "probes": [
+          {
+            "id": "emc-probe-port1",
+            "name": "Port 1 (Input)",
+            "type": "point",
+            "position": [0.04, 0.06, 0.005],
+            "fields": ["Ey", "Hz"]
+          },
+          {
+            "id": "emc-probe-port2",
+            "name": "Port 2 (Output)",
+            "type": "point",
+            "position": [0.16, 0.12, 0.005],
+            "fields": ["Ey", "Hz"]
+          },
+          {
+            "id": "emc-probe-nf",
+            "name": "Near-field Above Bend",
+            "type": "point",
+            "position": [0.16, 0.1, 0.005],
+            "fields": ["Ez", "Ey"]
+          }
+        ],
+        "config": {
+          "num_time_steps": 1000,
+          "courant_number": 0.99,
+          "output_every_n_steps": 10,
+          "dft_frequencies": [500000000, 750000000, 1000000000, 1500000000, 2000000000],
+          "auto_shutoff_threshold": 1e-6
+        }
+      },
+      "simulation_config": {
+        "method": "fdtd",
+        "dimensionality": "2d",
+        "mode": "te",
+        "requested_fields": ["Ey", "Ex", "Hz"]
+      }
+    },
+    "large": {
+      "design_state": {
+        "dimensionality": "2d",
+        "domainSize": [0.5, 0.25, 0.005],
+        "cellSize": [0.0025, 0.0025, 0.005],
+        "structures": [
+          {
+            "id": "emc-substrate",
+            "name": "FR-4 Substrate",
+            "type": "substrate",
+            "position": [0.25, 0.06, 0.0025],
+            "dimensions": {"lx": 0.46, "ly": 0.05, "lz": 0.005},
+            "material": "fr4"
+          },
+          {
+            "id": "emc-ground",
+            "name": "Ground Plane",
+            "type": "box",
+            "position": [0.25, 0.035, 0.0025],
+            "dimensions": {"lx": 0.46, "ly": 0.005, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "emc-trace1-h",
+            "name": "Trace 1 - Horizontal",
+            "type": "trace",
+            "position": [0.12, 0.09, 0.0025],
+            "dimensions": {"lx": 0.14, "ly": 0.0025, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "emc-trace1-bend",
+            "name": "Trace 1 - Bend",
+            "type": "box",
+            "position": [0.19, 0.09, 0.0025],
+            "dimensions": {"lx": 0.0025, "ly": 0.0025, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "emc-trace1-v",
+            "name": "Trace 1 - Vertical",
+            "type": "trace",
+            "position": [0.19, 0.125, 0.0025],
+            "dimensions": {"lx": 0.0025, "ly": 0.07, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "emc-trace2-h",
+            "name": "Trace 2 - Parallel (Aggressor)",
+            "type": "trace",
+            "position": [0.12, 0.095, 0.0025],
+            "dimensions": {"lx": 0.14, "ly": 0.0025, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "emc-trace2-term",
+            "name": "Trace 2 - Termination",
+            "type": "box",
+            "position": [0.19, 0.095, 0.0025],
+            "dimensions": {"lx": 0.0025, "ly": 0.0025, "lz": 0.005},
+            "material": "copper"
+          }
+        ],
+        "sources": [
+          {
+            "id": "emc-src",
+            "name": "Port 1 Excitation",
+            "type": "gaussian_pulse",
+            "position": [0.05, 0.09, 0.0025],
+            "parameters": {"frequency": 1000000000, "bandwidth": 500000000},
+            "polarization": "y"
+          }
+        ],
+        "boundaries": {
+          "x_min": {"type": "mur_abc"},
+          "x_max": {"type": "mur_abc"},
+          "y_min": {"type": "pec"},
+          "y_max": {"type": "mur_abc"},
+          "z_min": {"type": "mur_abc"},
+          "z_max": {"type": "mur_abc"}
+        },
+        "probes": [
+          {
+            "id": "emc-probe-port1",
+            "name": "Port 1 (Input)",
+            "type": "point",
+            "position": [0.05, 0.09, 0.0025],
+            "fields": ["Ey", "Hz"]
+          },
+          {
+            "id": "emc-probe-port2",
+            "name": "Port 2 (Trace 1 Output)",
+            "type": "point",
+            "position": [0.19, 0.16, 0.0025],
+            "fields": ["Ey", "Hz"]
+          },
+          {
+            "id": "emc-probe-coupled",
+            "name": "Coupled Port (Trace 2 End)",
+            "type": "point",
+            "position": [0.19, 0.095, 0.0025],
+            "fields": ["Ey", "Hz"]
+          },
+          {
+            "id": "emc-probe-nf-bend",
+            "name": "Near-field Above Bend",
+            "type": "point",
+            "position": [0.19, 0.15, 0.0025],
+            "fields": ["Ez", "Ey"]
+          },
+          {
+            "id": "emc-probe-nf-far",
+            "name": "Far Near-field",
+            "type": "point",
+            "position": [0.25, 0.2, 0.0025],
+            "fields": ["Ez"]
+          }
+        ],
+        "config": {
+          "num_time_steps": 5000,
+          "courant_number": 0.99,
+          "output_every_n_steps": 25,
+          "dft_frequencies": [250000000, 500000000, 750000000, 1000000000, 1500000000, 2000000000, 2500000000, 3000000000],
+          "auto_shutoff_threshold": 1e-7
+        }
+      },
+      "simulation_config": {
+        "method": "fdtd",
+        "dimensionality": "2d",
+        "mode": "te",
+        "requested_fields": ["Ey", "Ex", "Hz"]
+      }
+    }
+  }
+}

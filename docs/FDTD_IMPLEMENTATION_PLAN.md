@@ -481,9 +481,9 @@ Update `deployment/nginx/nginx.conf` to proxy `/api/fdtd/*` routes to FDTD servi
 
 ---
 
-## Phase 5: Demo Examples
+## Phase 5: Demo Examples ✅
 
-### Project Data Files
+### Project Data Files ✅
 
 **Directory**: `backend/fdtd_preprocessor/demos/`
 
@@ -513,15 +513,37 @@ Each JSON file contains a complete project `design_state` + `simulation_config`:
 - **Large preset**: 200×100×50 grid, multi-trace coupling, via transitions, ground plane slots
 - **Key outputs**: Near-field emission map, S-parameters (S11, S21), coupling coefficient between traces
 
-### Course Integration
+### API Endpoints ✅
+
+Added to FDTD Preprocessor service (`backend/fdtd_preprocessor/main.py`):
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/fdtd/demos` | GET | List all available demo examples (slug, name, description, preset keys) |
+| `/api/fdtd/demos/{slug}` | GET | Get a specific demo with design_state + simulation_config. Query: `?preset=small\|large` |
+
+### Course Integration ✅
 
 **Seed script**: `dev_tools/seed_fdtd_demo_projects.py`
 
 Creates:
 1. Course folder "FDTD Demonstrations" (admin-owned, `is_course=true`)
 2. Four sub-folders: "Broadband Antenna", "GPR Simulation", "Bio EM SAR", "EMC/EMI"
-3. Pre-populated projects in each sub-folder with `design_state`, `simulation_config`, and optionally pre-computed `simulation_results`
+3. Pre-populated projects in each sub-folder with `design_state`, `simulation_config`
 4. Users can browse in Courses tab and copy to their workspace
+
+Usage:
+```bash
+python dev_tools/seed_fdtd_demo_projects.py --user-id <admin-id>          # AWS
+python dev_tools/seed_fdtd_demo_projects.py --user-id <id> --dry-run       # Preview
+python dev_tools/seed_fdtd_demo_projects.py --user-id <id> --endpoint http://localhost:8000  # Local
+```
+
+### Tests ✅
+
+51 tests in `tests/integration/fdtd/test_fdtd_demos.py`:
+- Data validation: required keys, valid geometry, valid config, sources, probes, method per preset per demo
+- API: list demos, detail endpoint, default/small/large presets, 404/400 error handling
 
 ---
 
@@ -606,7 +628,12 @@ Phase 4 ─── ✅ COMPLETE
   4.3 ✅ 42 integration tests (5 files)
   4.4 ✅ 29 frontend tests (3 files)
 
-Phase 5 ─── ⬜ pending (demos)
+Phase 5 ─── ✅ COMPLETE
+  4 demo JSON files (broadband_antenna, gpr_simulation, bio_em_sar, emc_pcb_trace)
+  Each with small + large presets (8 projects total)
+  API endpoints: GET /api/fdtd/demos, GET /api/fdtd/demos/{slug}
+  Seed script: dev_tools/seed_fdtd_demo_projects.py
+  51 tests in test_fdtd_demos.py
 
 Phase 6 ─── ⬜ pending (GPU/Fargate Spot)
 ```

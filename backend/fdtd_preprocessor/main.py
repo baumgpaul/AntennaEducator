@@ -1,12 +1,17 @@
 """FastAPI application for the FDTD Preprocessor service.
 
 Endpoints:
-- GET  /health           — service health check
-- POST /api/fdtd/mesh    — generate Yee grid from geometry
-- POST /api/fdtd/validate — validate FDTD setup
+- GET  /health                — service health check
+- POST /api/fdtd/mesh         — generate Yee grid from geometry
+- POST /api/fdtd/validate     — validate FDTD setup
+- GET  /api/fdtd/demos        — list available demo examples
+- GET  /api/fdtd/demos/{slug} — get a specific demo with presets
 """
 
+import json
+import logging
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +31,10 @@ from .schemas import (
     FdtdValidationRequest,
     FdtdValidationResponse,
 )
+
+logger = logging.getLogger(__name__)
+
+DEMOS_DIR = Path(__file__).parent / "demos"
 
 app = FastAPI(
     title="Antenna Simulator — FDTD Preprocessor",
@@ -112,6 +121,63 @@ async def validate(request: FdtdValidationRequest):
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# Demo examples
+# ---------------------------------------------------------------------------
+
+def _load_demo(slug: str) -> dict:
+    """Load a demo JSON file by slug (filename without extension)."""
+    path = DEMOS_DIR / f"{slug}.json"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"Demo '{slug}' not found")
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/api/fdtd/demos")
+async def list_demos():
+    """List available FDTD demo examples."""
+    demos = []
+    if DEMOS_DIR.is_dir():
+        for path in sorted(DEMOS_DIR.glob("*.json")):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+                demos.append({
+                    "slug": path.stem,
+                    "name": data.get("name", path.stem),
+                    "description": data.get("description", ""),
+                    "presets": list(data.get("presets", {}).keys()),
+                })
+            except (json.JSONDecodeError, KeyError):
+                logger.warning("Skipping invalid demo file: %s", path.name)
+    return {"demos": demos}
+
+
+@app.get("/api/fdtd/demos/{slug}")
+async def get_demo(slug: str, preset: str = "small"):
+    """Get a specific demo example with the requested preset.
+
+    Query params:
+        preset — "small" (default) or "large"
+    """
+    data = _load_demo(slug)
+    presets = data.get("presets", {})
+    if preset not in presets:
+        available = list(presets.keys())
+        raise HTTPException(
+            status_code=400,
+            detail=f"Preset '{preset}' not available. Choose from: {available}",
+        )
+    return {
+        "slug": slug,
+        "name": data["name"],
+        "description": data["description"],
+        "preset": preset,
+        **presets[preset],
+    }
 
 
 if __name__ == "__main__":
