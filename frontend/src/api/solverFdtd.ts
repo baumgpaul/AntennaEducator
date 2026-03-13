@@ -1,20 +1,23 @@
 /**
- * FDTD Solver API client — stub.
+ * FDTD Solver API client.
  *
  * Backend: http://localhost:8005  (VITE_SOLVER_FDTD_URL)
  */
 
-import axios from 'axios';
-
-const getSolverFdtdURL = () =>
-  (import.meta.env.VITE_SOLVER_FDTD_URL as string) || 'http://localhost:8005';
-
-export const solverFdtdClient = axios.create({
-  baseURL: getSolverFdtdURL(),
-  headers: { 'Content-Type': 'application/json' },
-});
+import { fdtdSolverClient, handleApiResponse } from './client'
+import type { FdtdSolveRequest, FdtdSolveResponse } from '@/types/fdtd'
 
 export const checkHealth = async () => {
-  const { data } = await solverFdtdClient.get('/health');
-  return data as { status: string; solver_type: string };
-};
+  const response = await fdtdSolverClient.get('/health')
+  return handleApiResponse<{ status: string; solver_type: string }>(response)
+}
+
+export const solve = async (request: FdtdSolveRequest): Promise<FdtdSolveResponse> => {
+  const response = await fdtdSolverClient.post('/api/fdtd/solve', request)
+  return handleApiResponse(response)
+}
+
+export const getSolverConfig = async () => {
+  const response = await fdtdSolverClient.get('/api/fdtd/solve/config')
+  return handleApiResponse(response)
+}

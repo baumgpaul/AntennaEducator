@@ -226,6 +226,45 @@ module "lambda_preprocessor_fdtd" {
 }
 
 # ============================================================================
+# ECR — FDTD Postprocessor Container Registry
+# ============================================================================
+
+module "ecr_postprocessor_fdtd" {
+  source = "../../modules/ecr"
+
+  repository_name = "antenna-simulator-postprocessor-fdtd-${var.environment}"
+  environment     = var.environment
+
+  tags = { Component = "backend", Service = "postprocessor-fdtd" }
+}
+
+# ============================================================================
+# Lambda — FDTD Postprocessor Function
+# ============================================================================
+
+module "lambda_postprocessor_fdtd" {
+  source = "../../modules/lambda"
+
+  function_name = "antenna-simulator-postprocessor-fdtd-${var.environment}"
+  image_uri     = "${module.ecr_postprocessor_fdtd.repository_url}:latest"
+  environment   = var.environment
+  region        = var.aws_region
+
+  memory_size = 2048
+  timeout     = 300
+
+  environment_variables = {
+    FDTD_POSTPROCESSOR_LOG_LEVEL = "INFO"
+  }
+
+  create_function_url    = true
+  function_url_auth_type = "NONE"
+  cors_allowed_origins   = ["*"]
+
+  tags = { Component = "backend", Service = "postprocessor-fdtd" }
+}
+
+# ============================================================================
 # CI/CD — CodeBuild for FDTD pipeline
 # ============================================================================
 
@@ -277,6 +316,14 @@ output "preprocessor_fdtd_function_url" {
 
 output "ecr_preprocessor_fdtd_url" {
   value = module.ecr_preprocessor_fdtd.repository_url
+}
+
+output "postprocessor_fdtd_function_url" {
+  value = module.lambda_postprocessor_fdtd.function_url
+}
+
+output "ecr_postprocessor_fdtd_url" {
+  value = module.ecr_postprocessor_fdtd.repository_url
 }
 
 output "github_actions_role_arn" {
