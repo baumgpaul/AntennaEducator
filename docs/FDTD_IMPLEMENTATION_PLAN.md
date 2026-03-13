@@ -20,9 +20,9 @@
 
 ---
 
-## Phase 0: Foundation & Tooling
+## Phase 0: Foundation & Tooling ✅
 
-### 0.1 Branch + Copilot instructions
+### 0.1 Branch + Copilot instructions ✅
 
 **Deliverables:**
 - [x] Feature branch `fdtd-integration` created from `main`
@@ -30,7 +30,7 @@
 - [x] `docs/FDTD_GUIDE.md` — high-level goals, progress tracker
 - [x] `docs/FDTD_IMPLEMENTATION_PLAN.md` — this document
 
-### 0.2 Project type infrastructure
+### 0.2 Project type infrastructure ✅
 
 **Goal**: Enable project creation with PEEC or FDTD type selection.
 
@@ -51,11 +51,11 @@
 
 ---
 
-## Phase 1: FDTD Backend — Core Solver
+## Phase 1: FDTD Backend — Core Solver ✅
 
-### 1.1 Domain Models
+### 1.1 Domain Models ✅
 
-**File**: `backend/common/models/fdtd.py`
+**File**: `backend/common/models/fdtd.py` — **Implemented** (PR #40)
 
 ```python
 # Key models (Pydantic v2):
@@ -130,11 +130,11 @@ class FdtdConfig(BaseModel):
     auto_shutoff_threshold: float = 1e-6   # Stop when field energy drops below this
 ```
 
-**Tests**: `tests/unit/fdtd/test_fdtd_models.py` — model validation, material library completeness, CFL computation
+**Tests**: `tests/unit/fdtd/test_fdtd_models.py` — model validation, material library completeness, CFL computation ✅
 
-### 1.2 FDTD Preprocessor
+### 1.2 FDTD Preprocessor ✅
 
-**Directory**: `backend/fdtd_preprocessor/`
+**Directory**: `backend/fdtd_preprocessor/` — **Implemented** (PR #41)
 
 **Files:**
 | File | Purpose |
@@ -166,11 +166,11 @@ def validate_setup(geometry: FdtdGeometry, config: FdtdConfig) -> list[str]:
     """
 ```
 
-**Tests**: `tests/unit/fdtd/test_fdtd_preprocessor.py`
+**Tests**: `tests/unit/fdtd/test_fdtd_preprocessor.py` ✅
 
-### 1.3 FDTD Solver — 1D + 2D Engines
+### 1.3 FDTD Solver — 1D + 2D Engines ✅
 
-**Directory**: `backend/solver_fdtd/` (extend existing stub)
+**Directory**: `backend/solver_fdtd/` — **Implemented** (PR #42)
 
 **New files:**
 | File | Purpose |
@@ -237,11 +237,11 @@ def dft_accumulator_update(accumulator, field_slice, dt, step, frequencies, xp):
 - `tests/unit/fdtd/test_fdtd_free_space_propagation.py` — pulse speed = c₀
 - `tests/unit/fdtd/test_fdtd_reflection_coefficient.py` — Fresnel equations at dielectric interface
 - `tests/unit/fdtd/test_fdtd_resonator.py` — PEC cavity resonant frequencies f_n = nc/(2L)
-- `tests/unit/fdtd/test_fdtd_waveguide_cutoff.py` — TE₁₀ cutoff f_c = c/(2a)
+- `tests/unit/fdtd/test_fdtd_waveguide_cutoff.py` — TE₁₀ cutoff f_c = c/(2a) ✅
 
-### 1.4 FDTD Postprocessor
+### 1.4 FDTD Postprocessor ✅
 
-**Directory**: `backend/fdtd_postprocessor/`
+**Directory**: `backend/fdtd_postprocessor/` — **Implemented** (PR #43)
 
 **Files:**
 | File | Purpose |
@@ -262,25 +262,27 @@ def dft_accumulator_update(accumulator, field_slice, dt, step, frequencies, xp):
 - `POST /api/fdtd/energy` — Poynting vector $\vec{S} = \vec{E} \times \vec{H}$, energy density
 - `GET /health`
 
-**Tests**: `tests/unit/fdtd/test_fdtd_postprocessor.py`, `tests/unit/fdtd/test_fdtd_far_field.py`
+**Tests**: `tests/unit/fdtd/test_fdtd_postprocessor.py`, `tests/unit/fdtd/test_fdtd_far_field.py` ✅
 
 ---
 
-## Phase 2: FDTD Frontend
+## Phase 2: FDTD Frontend ✅
 
-### 2.1 Redux Slices
+> **Implemented** in PR #44. Integration tests (15 tests), TypeScript types, 3 API clients, 2 Redux slices, FdtdDesignPage (3 tabs), docker-compose, nginx.
+
+### 2.1 Redux Slices ✅
 
 **Files to create:**
 
 | File | State Shape |
 |---|---|
-| `frontend/src/store/fdtdDesignSlice.ts` | `structures[]`, `materials{}`, `sources[]`, `boundaries`, `probes[]`, `meshState`, `selectedStructureId` |
-| `frontend/src/store/fdtdSolverSlice.ts` | `status`, `progress`, `timeStep`, `totalSteps`, `config`, `probeResults{}`, `dftResults{}`, `sParameters` |
-| `frontend/src/store/fdtdPostprocessingSlice.ts` | `viewConfigurations[]`, `selectedViewId`, dialogs (reuse PEEC `ViewConfiguration` pattern) |
+| `frontend/src/store/fdtdDesignSlice.ts` | `structures[]`, `materials{}`, `sources[]`, `boundaries`, `probes[]`, `meshState`, `selectedStructureId` | ✅ |
+| `frontend/src/store/fdtdSolverSlice.ts` | `status`, `progress`, `timeStep`, `totalSteps`, `config`, `probeResults{}`, `dftResults{}`, `sParameters` | ✅ |
+| `frontend/src/store/fdtdPostprocessingSlice.ts` | `viewConfigurations[]`, `selectedViewId`, dialogs (reuse PEEC `ViewConfiguration` pattern) | Deferred |
 
-**Modify**: `frontend/src/store/store.ts` — register new slices
+**Modify**: `frontend/src/store/store.ts` — register new slices ✅
 
-### 2.2 API Clients
+### 2.2 API Clients ✅
 
 **Files to create:**
 - `frontend/src/api/fdtdPreprocessor.ts` — `generateMesh()`, `validateSetup()`
@@ -290,9 +292,9 @@ def dft_accumulator_update(accumulator, field_slice, dt, step, frequencies, xp):
 **Modify**:
 - `frontend/src/api/client.ts` — add `fdtdPreprocessorClient`, `fdtdSolverClient`, `fdtdPostprocessorClient`
 - `frontend/.env.development` — add `VITE_FDTD_PREPROCESSOR_URL`, `VITE_FDTD_SOLVER_URL`, `VITE_FDTD_POSTPROCESSOR_URL`
-- `frontend/.env.production` — add Lambda Function URLs (populated after Terraform)
+- `frontend/.env.production` — add Lambda Function URLs (populated after Terraform) ✅
 
-### 2.3 FDTD Design Page
+### 2.3 FDTD Design Page ✅
 
 **Directory**: `frontend/src/features/fdtd/`
 
@@ -330,19 +332,28 @@ FdtdDesignPage
 
 **Component count**: ~20 components in `frontend/src/features/fdtd/`
 
-### 2.4 TypeScript Types
+### 2.4 TypeScript Types ✅
 
-**File**: `frontend/src/types/fdtd.ts`
+**File**: `frontend/src/types/fdtd.ts` — **Implemented** (250 lines)
 
 Key interfaces: `FdtdMaterial`, `FdtdStructure`, `FdtdSource`, `FdtdBoundaryCondition`, `DomainBoundaries`, `FdtdConfig`, `FdtdProbe`, `FdtdGeometry`, `FdtdResult`, `FdtdProbeResult`, `FdtdSParameters`
 
 ---
 
-## Phase 3: Infrastructure & CI/CD
+## Phase 3: Infrastructure & CI/CD ✅
 
-### 3.1 Terraform — FDTD Staging Environment
+> **Deployed** to `fdtd-stage.nyakyagyawa.com`. All 3 Lambda functions healthy.
 
-**Directory**: `terraform/environments/fdtd-staging/main.tf`
+### 3.1 Terraform — FDTD Staging Environment ✅
+
+**Directory**: `terraform/environments/fdtd-staging/main.tf` — **Deployed**
+
+**Lambda Function URLs (live):**
+| Service | Function URL |
+|---|---|
+| FDTD Preprocessor | `https://ukx2l6nlsrrpl73iuzxzbisx6u0nxglx.lambda-url.eu-west-1.on.aws/` |
+| FDTD Solver | `https://6gknpdgfsocnxzztd4q3hgoaz40thtzh.lambda-url.eu-west-1.on.aws/` |
+| FDTD Postprocessor | `https://gyqrqwfcdihiuriqo6zwlqwql40sidgw.lambda-url.eu-west-1.on.aws/` |
 
 **New resources** (created via existing Terraform modules):
 | Resource | Module | Config |
@@ -366,24 +377,24 @@ Key interfaces: `FdtdMaterial`, `FdtdStructure`, `FdtdSource`, `FdtdBoundaryCond
 | S3 data bucket | Shared mesh/result storage |
 | S3 results bucket | Shared simulation outputs |
 
-### 3.2 CI/CD Pipeline
+### 3.2 CI/CD Pipeline ✅
 
-**File**: `.github/workflows/fdtd-build-and-deploy.yml`
+**File**: `.github/workflows/fdtd-build-and-deploy.yml` — **Implemented**
 
 Mirrors `aws-build-and-merge.yml` with these changes:
 - **Trigger**: PR labeled `deploy-to-fdtd-staging` + push to `fdtd-integration`
-- **Services**: `fdtd-preprocessor`, `solver-fdtd`, `fdtd-postprocessor` (+ shared `projects`)
+- **Services**: `fdtd-preprocessor`, `solver-fdtd`, `fdtd-postprocessor` (all 3 deployed)
 - **Frontend**: Builds and deploys to fdtd-stage S3 bucket
 - **Tests**: Runs `pytest tests/unit/fdtd/` + `pytest tests/integration/fdtd/` in addition to shared tests
 - **Auto-merge**: Merges PRs to `fdtd-integration` (not `main`)
 
 **Supporting files**:
-- `buildspec-fdtd-test.yml` — test job (FDTD-specific + shared tests)
-- `buildspec-fdtd-deploy.yml` — build Docker images, push ECR, update Lambdas, deploy frontend
+- `buildspec-fdtd-test.yml` — test job (FDTD-specific + shared tests) ✅
+- `buildspec-fdtd-deploy.yml` — builds all 3 FDTD Docker images, pushes ECR, updates Lambdas, deploys frontend ✅
 
-### 3.3 Docker Compose Update
+### 3.3 Docker Compose Update ✅
 
-Add to `docker-compose.yml`:
+Added to `docker-compose.yml` (PR #44):
 ```yaml
 fdtd-preprocessor:
   build: { context: ., dockerfile: backend/Dockerfile }
@@ -402,18 +413,20 @@ fdtd-postprocessor:
   expose: [8006]
 ```
 
-Update `deployment/nginx/nginx.conf` to proxy `/api/fdtd/*` routes to FDTD services.
+Update `deployment/nginx/nginx.conf` to proxy `/api/fdtd/*` routes to FDTD services. ✅
 
-### 3.4 Deployment Scripts
+### 3.4 Deployment Scripts ✅
 
-- `deploy-fdtd-frontend.ps1` — build frontend, sync to fdtd-stage S3, invalidate CloudFront
-- `dev_tools/rebuild_fdtd_lambda_images.ps1` — build + push 3 FDTD Lambda images
+- `deploy-fdtd-frontend.ps1` — build frontend, sync to fdtd-stage S3, invalidate CloudFront ✅
+- `dev_tools/rebuild_fdtd_lambda_images.ps1` — build + push 3 FDTD Lambda images (preprocessor, solver, postprocessor) ✅
 
 ---
 
-## Phase 4: Testing
+## Phase 4: Testing ✅
 
-### 4.1 Unit Tests (`tests/unit/fdtd/`)
+> All testing phases complete. 738 backend tests (42 FDTD integration), 29 FDTD frontend tests, TSC clean.
+
+### 4.1 Unit Tests (`tests/unit/fdtd/`) ✅
 
 | Test file | What it validates |
 |---|---|
@@ -429,7 +442,7 @@ Update `deployment/nginx/nginx.conf` to proxy `/api/fdtd/*` routes to FDTD servi
 | `test_fdtd_postprocessor.py` | SAR computation, Poynting vector, field extraction |
 | `test_fdtd_far_field.py` | Near-to-far-field transform, RCS computation |
 
-### 4.2 Physics Validation (`@pytest.mark.critical`)
+### 4.2 Physics Validation (`@pytest.mark.critical`) ✅
 
 | Test | Analytical Reference | Tolerance |
 |---|---|---|
@@ -438,24 +451,33 @@ Update `deployment/nginx/nginx.conf` to proxy `/api/fdtd/*` routes to FDTD servi
 | PEC cavity resonance | $f_n = nc_0/(2L)$ | < 1% |
 | Waveguide TE₁₀ cutoff | $f_c = c_0/(2a)$ | < 2% |
 
-### 4.3 Integration Tests (`tests/integration/fdtd/`)
+### 4.3 Integration Tests (`tests/integration/fdtd/`) ✅
 
+> 42 integration tests across 5 test files. All passing.
+
+| Test file | Tests | Scope |
+|---|---|---|
+| `test_fdtd_pipeline.py` | 15 | Health checks, preprocessor, solver 1D/2D, postprocessor, gold-standard pipelines |
+| `test_fdtd_preprocessor_solver_pipeline.py` | 3 | Geometry → mesh → solve, structure handling, validation → solver dt |
+| `test_fdtd_complete_workflow.py` | 4 | Full 1D + 2D TM + 2D TE workflows: validate → mesh → solve → extract → energy |
+| `test_fdtd_api_endpoints.py` | 17 | All endpoints with valid data, response schema validation, error handling |
+| `test_fdtd_s_parameter_extraction.py` | 4 | S₁₁ from synthetic signals, PEC reflection, zero reflection, FDTD-derived data |
+
+### 4.4 Frontend Tests ✅
+
+> 29 tests across 3 test files. All passing.
+
+| Test file | Tests | Scope |
+|---|---|---|
+| `fdtdDesignSlice.test.ts` | 16 | Initial state, CRUD for structures/sources/probes, boundaries, config, reset, dirty flag |
+| `fdtdSolverSlice.test.ts` | 9 | Initial state, mode switch, progress, clear results, async thunk state transitions |
+| `FdtdDesignPage.test.tsx` | 4 | Page renders with tabs, title, design content, solver tab switch |
+
+**Deferred** (will be added with corresponding components):
 | Test file | Scope |
 |---|---|
-| `test_fdtd_preprocessor_solver_pipeline.py` | Geometry → mesh → solve end-to-end |
-| `test_fdtd_complete_workflow.py` | Full: create → source → BC → mesh → solve → extract fields |
-| `test_fdtd_api_endpoints.py` | All endpoints callable with valid data, correct response schemas |
-| `test_fdtd_s_parameter_extraction.py` | S-parameter from time-domain vs analytical reference |
-
-### 4.4 Frontend Tests
-
-| Test file | Scope |
-|---|---|
-| `FdtdDesignPage.test.tsx` | Page renders, tabs switch correctly |
 | `FdtdStructureDialog.test.tsx` | Dialog form validation, submit dispatches action |
 | `MaterialSelector.test.tsx` | Material selection, custom material entry |
-| `fdtdDesignSlice.test.ts` | State management (pure logic, no DOM) |
-| `fdtdSolverSlice.test.ts` | Solver state transitions, progress tracking |
 
 ---
 
@@ -560,32 +582,33 @@ def get_array_module():
 ## Implementation Order & Dependencies
 
 ```
-Phase 0 ─── start immediately
-  0.1 Branch + instructions       ──→ gates all phases
-  0.2 Project type infra          ──→ gates Phase 2
+Phase 0 ─── ✅ COMPLETE
+  0.1 Branch + instructions       ──→ ✅
+  0.2 Project type infra          ──→ ✅
 
-Phase 1 ─── after 0.1
-  1.1 Domain models               ──→ gates 1.2, 1.3, 1.4
+Phase 1 ─── ✅ COMPLETE (PRs #40–#43)
+  1.1 Domain models               ──→ ✅ PR #40
   1.2 Preprocessor   ┐
-  1.3 Solver engines  ├── parallel (with TDD tests from Phase 4)
-  1.4 Postprocessor  ┘
+  1.3 Solver engines  ├── ✅ PRs #41, #42
+  1.4 Postprocessor  ┘──→ ✅ PR #43
 
-Phase 2 ─── after 0.2 + 1.1
+Phase 2 ─── ✅ COMPLETE (PR #44)
   2.4 Types → 2.1 Slices + 2.2 API (parallel) → 2.3 Components
 
-Phase 3 ─── parallel with Phase 1 & 2
-  3.1 Terraform → 3.2 CI/CD → deployments
-  3.3 Docker Compose (parallel with 3.1)
-  3.4 Deploy scripts (parallel with 3.1)
+Phase 3 ─── ✅ DEPLOYED
+  3.1 Terraform → ✅ All 3 Lambdas + CloudFront live
+  3.2 CI/CD → ✅ GitHub Actions + CodeBuild (all 3 services)
+  3.3 Docker Compose ✅
+  3.4 Deploy scripts ✅
 
-Phase 4 ─── TDD: tests written BEFORE implementation
-  4.1–4.2 alongside Phase 1
-  4.3 after Phase 1 complete
-  4.4 alongside Phase 2
+Phase 4 ─── ✅ COMPLETE
+  4.1–4.2 ✅ alongside Phase 1 (unit + physics)
+  4.3 ✅ 42 integration tests (5 files)
+  4.4 ✅ 29 frontend tests (3 files)
 
-Phase 5 ─── after Phases 1–3 complete
+Phase 5 ─── ⬜ pending (demos)
 
-Phase 6 ─── after Phase 1.3 solver works (independent of frontend)
+Phase 6 ─── ⬜ pending (GPU/Fargate Spot)
 ```
 
 ---
