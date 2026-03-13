@@ -25,6 +25,9 @@ services:
       - preprocessor
       - solver
       - postprocessor
+      - fdtd-preprocessor
+      - solver-fdtd
+      - fdtd-postprocessor
       - projects
     networks:
       - antenna-network
@@ -73,6 +76,52 @@ services:
       - "8003"
     environment:
       - SERVICE_NAME=postprocessor
+    networks:
+      - antenna-network
+    restart: unless-stopped
+
+  # FDTD Preprocessor Service
+  fdtd-preprocessor:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    command: uvicorn backend.fdtd_preprocessor.main:app --host 0.0.0.0 --port 8004
+    expose:
+      - "8004"
+    environment:
+      - SERVICE_NAME=fdtd-preprocessor
+    networks:
+      - antenna-network
+    restart: unless-stopped
+
+  # FDTD Solver Service
+  solver-fdtd:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    command: uvicorn backend.solver_fdtd.main:app --host 0.0.0.0 --port 8005
+    expose:
+      - "8005"
+    environment:
+      - SERVICE_NAME=solver-fdtd
+    networks:
+      - antenna-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  # FDTD Postprocessor Service
+  fdtd-postprocessor:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    command: uvicorn backend.fdtd_postprocessor.main:app --host 0.0.0.0 --port 8006
+    expose:
+      - "8006"
+    environment:
+      - SERVICE_NAME=fdtd-postprocessor
     networks:
       - antenna-network
     restart: unless-stopped
