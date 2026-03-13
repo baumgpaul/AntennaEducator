@@ -10,7 +10,7 @@ version: 0.2
 
 env:
   variables:
-    SERVICES: "solver_fdtd"
+    SERVICES: "fdtd_preprocessor solver_fdtd fdtd_postprocessor"
 
 phases:
   pre_build:
