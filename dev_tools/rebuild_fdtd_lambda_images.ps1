@@ -33,7 +33,9 @@ aws ecr get-login-password --region $Region --profile $Profile | docker login --
 
 # FDTD services to rebuild
 $services = @(
-    @{ Name = "solver_fdtd"; AwsName = "solver-fdtd" }
+    @{ Name = "fdtd_preprocessor"; AwsName = "preprocessor-fdtd" },
+    @{ Name = "solver_fdtd"; AwsName = "solver-fdtd" },
+    @{ Name = "fdtd_postprocessor"; AwsName = "postprocessor-fdtd" }
 )
 
 foreach ($svc in $services) {
