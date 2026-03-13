@@ -33,6 +33,18 @@ const getAuthURL = () => {
   return (import.meta.env.VITE_AUTH_URL as string) || getProjectsURL()
 }
 
+const getFdtdPreprocessorURL = () => {
+  return (import.meta.env.VITE_FDTD_PREPROCESSOR_URL as string) || 'http://localhost:8004'
+}
+
+const getFdtdSolverURL = () => {
+  return (import.meta.env.VITE_SOLVER_FDTD_URL as string) || 'http://localhost:8005'
+}
+
+const getFdtdPostprocessorURL = () => {
+  return (import.meta.env.VITE_FDTD_POSTPROCESSOR_URL as string) || 'http://localhost:8006'
+}
+
 // Token refresh state management
 let isRefreshing = false
 let failedQueue: Array<{
@@ -239,9 +251,12 @@ export const solverClient = createApiClient(getSolverURL())
 export const postprocessorClient = createApiClient(getPostprocessorURL())
 export const projectsClient = createApiClient(getProjectsURL())
 export const authClient = createApiClient(getAuthURL())
+export const fdtdPreprocessorClient = createApiClient(getFdtdPreprocessorURL())
+export const fdtdSolverClient = createApiClient(getFdtdSolverURL())
+export const fdtdPostprocessorClient = createApiClient(getFdtdPostprocessorURL())
 
 // Export URL getters for reference
-export { getBaseURL, getPreprocessorURL, getSolverURL, getPostprocessorURL, getProjectsURL, getAuthURL }
+export { getBaseURL, getPreprocessorURL, getSolverURL, getPostprocessorURL, getProjectsURL, getAuthURL, getFdtdPreprocessorURL, getFdtdSolverURL, getFdtdPostprocessorURL }
 
 // Helper function for handling API responses
 export const handleApiResponse = <T>(response: { data: T }): T => {
