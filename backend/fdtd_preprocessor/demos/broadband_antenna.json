@@ -1,0 +1,253 @@
+{
+  "name": "Broadband Antenna (Bow-Tie)",
+  "description": "A bow-tie antenna is a wideband dipole variant whose triangular arms create a broadband impedance match. This demo excites it with a Gaussian pulse (200-800 MHz) and observes the reflected signal at a probe to compute S11 (return loss) across frequency. The bow-tie geometry is approximated by stacked copper boxes of increasing width.",
+  "presets": {
+    "small": {
+      "design_state": {
+        "dimensionality": "2d",
+        "domainSize": [0.4, 0.4, 0.01],
+        "cellSize": [0.01, 0.01, 0.01],
+        "structures": [
+          {
+            "id": "bt-arm-upper-1",
+            "name": "Upper Arm - Base",
+            "type": "box",
+            "position": [0.2, 0.205, 0.005],
+            "dimensions": {"lx": 0.01, "ly": 0.01, "lz": 0.01},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-upper-2",
+            "name": "Upper Arm - Mid",
+            "type": "box",
+            "position": [0.2, 0.225, 0.005],
+            "dimensions": {"lx": 0.04, "ly": 0.03, "lz": 0.01},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-upper-3",
+            "name": "Upper Arm - Tip",
+            "type": "box",
+            "position": [0.2, 0.265, 0.005],
+            "dimensions": {"lx": 0.08, "ly": 0.05, "lz": 0.01},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-lower-1",
+            "name": "Lower Arm - Base",
+            "type": "box",
+            "position": [0.2, 0.195, 0.005],
+            "dimensions": {"lx": 0.01, "ly": 0.01, "lz": 0.01},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-lower-2",
+            "name": "Lower Arm - Mid",
+            "type": "box",
+            "position": [0.2, 0.175, 0.005],
+            "dimensions": {"lx": 0.04, "ly": 0.03, "lz": 0.01},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-lower-3",
+            "name": "Lower Arm - Tip",
+            "type": "box",
+            "position": [0.2, 0.135, 0.005],
+            "dimensions": {"lx": 0.08, "ly": 0.05, "lz": 0.01},
+            "material": "copper"
+          }
+        ],
+        "sources": [
+          {
+            "id": "bt-src",
+            "name": "Feed Point",
+            "type": "gaussian_pulse",
+            "position": [0.2, 0.2, 0.005],
+            "parameters": {"frequency": 500000000, "bandwidth": 300000000},
+            "polarization": "y"
+          }
+        ],
+        "boundaries": {
+          "x_min": {"type": "mur_abc"},
+          "x_max": {"type": "mur_abc"},
+          "y_min": {"type": "mur_abc"},
+          "y_max": {"type": "mur_abc"},
+          "z_min": {"type": "mur_abc"},
+          "z_max": {"type": "mur_abc"}
+        },
+        "probes": [
+          {
+            "id": "bt-probe-feed",
+            "name": "Feed Point Probe",
+            "type": "point",
+            "position": [0.2, 0.2, 0.005],
+            "fields": ["Ey", "Hz"]
+          },
+          {
+            "id": "bt-probe-ff",
+            "name": "Far-field Probe",
+            "type": "point",
+            "position": [0.35, 0.2, 0.005],
+            "fields": ["Ey"]
+          }
+        ],
+        "config": {
+          "num_time_steps": 1000,
+          "courant_number": 0.99,
+          "output_every_n_steps": 10,
+          "dft_frequencies": [200000000, 300000000, 400000000, 500000000, 600000000, 700000000, 800000000],
+          "auto_shutoff_threshold": 1e-6
+        }
+      },
+      "simulation_config": {
+        "method": "fdtd",
+        "dimensionality": "2d",
+        "mode": "tm",
+        "requested_fields": ["Ey", "Hz"]
+      }
+    },
+    "large": {
+      "design_state": {
+        "dimensionality": "2d",
+        "domainSize": [1.0, 1.0, 0.005],
+        "cellSize": [0.005, 0.005, 0.005],
+        "structures": [
+          {
+            "id": "bt-arm-upper-1",
+            "name": "Upper Arm - Base",
+            "type": "box",
+            "position": [0.5, 0.505, 0.0025],
+            "dimensions": {"lx": 0.01, "ly": 0.01, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-upper-2",
+            "name": "Upper Arm - Narrow",
+            "type": "box",
+            "position": [0.5, 0.52, 0.0025],
+            "dimensions": {"lx": 0.03, "ly": 0.02, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-upper-3",
+            "name": "Upper Arm - Mid",
+            "type": "box",
+            "position": [0.5, 0.55, 0.0025],
+            "dimensions": {"lx": 0.06, "ly": 0.04, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-upper-4",
+            "name": "Upper Arm - Wide",
+            "type": "box",
+            "position": [0.5, 0.6, 0.0025],
+            "dimensions": {"lx": 0.10, "ly": 0.06, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-upper-5",
+            "name": "Upper Arm - Tip",
+            "type": "box",
+            "position": [0.5, 0.67, 0.0025],
+            "dimensions": {"lx": 0.15, "ly": 0.08, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-lower-1",
+            "name": "Lower Arm - Base",
+            "type": "box",
+            "position": [0.5, 0.495, 0.0025],
+            "dimensions": {"lx": 0.01, "ly": 0.01, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-lower-2",
+            "name": "Lower Arm - Narrow",
+            "type": "box",
+            "position": [0.5, 0.48, 0.0025],
+            "dimensions": {"lx": 0.03, "ly": 0.02, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-lower-3",
+            "name": "Lower Arm - Mid",
+            "type": "box",
+            "position": [0.5, 0.45, 0.0025],
+            "dimensions": {"lx": 0.06, "ly": 0.04, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-lower-4",
+            "name": "Lower Arm - Wide",
+            "type": "box",
+            "position": [0.5, 0.4, 0.0025],
+            "dimensions": {"lx": 0.10, "ly": 0.06, "lz": 0.005},
+            "material": "copper"
+          },
+          {
+            "id": "bt-arm-lower-5",
+            "name": "Lower Arm - Tip",
+            "type": "box",
+            "position": [0.5, 0.33, 0.0025],
+            "dimensions": {"lx": 0.15, "ly": 0.08, "lz": 0.005},
+            "material": "copper"
+          }
+        ],
+        "sources": [
+          {
+            "id": "bt-src",
+            "name": "Feed Point",
+            "type": "gaussian_pulse",
+            "position": [0.5, 0.5, 0.0025],
+            "parameters": {"frequency": 500000000, "bandwidth": 300000000},
+            "polarization": "y"
+          }
+        ],
+        "boundaries": {
+          "x_min": {"type": "mur_abc"},
+          "x_max": {"type": "mur_abc"},
+          "y_min": {"type": "mur_abc"},
+          "y_max": {"type": "mur_abc"},
+          "z_min": {"type": "mur_abc"},
+          "z_max": {"type": "mur_abc"}
+        },
+        "probes": [
+          {
+            "id": "bt-probe-feed",
+            "name": "Feed Point Probe",
+            "type": "point",
+            "position": [0.5, 0.5, 0.0025],
+            "fields": ["Ey", "Hz"]
+          },
+          {
+            "id": "bt-probe-ff1",
+            "name": "Far-field Probe +x",
+            "type": "point",
+            "position": [0.8, 0.5, 0.0025],
+            "fields": ["Ey"]
+          },
+          {
+            "id": "bt-probe-ff2",
+            "name": "Far-field Probe +y",
+            "type": "point",
+            "position": [0.5, 0.8, 0.0025],
+            "fields": ["Ey"]
+          }
+        ],
+        "config": {
+          "num_time_steps": 10000,
+          "courant_number": 0.99,
+          "output_every_n_steps": 50,
+          "dft_frequencies": [100000000, 200000000, 300000000, 400000000, 500000000, 600000000, 700000000, 800000000, 900000000, 1000000000],
+          "auto_shutoff_threshold": 1e-7
+        }
+      },
+      "simulation_config": {
+        "method": "fdtd",
+        "dimensionality": "2d",
+        "mode": "tm",
+        "requested_fields": ["Ey", "Hz"]
+      }
+    }
+  }
+}

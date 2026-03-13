@@ -1,0 +1,225 @@
+{
+  "name": "Bio EM SAR Simulation",
+  "description": "Specific Absorption Rate (SAR) quantifies how much electromagnetic energy from a radio source (e.g., mobile phone antenna) is absorbed by biological tissue. This demo models a simplified layered head phantom (skin, bone, brain) exposed to a 900 MHz sinusoidal source, mimicking a mobile phone held near the head. The simulation computes the E-field distribution inside the tissue layers, from which SAR values are derived.",
+  "presets": {
+    "small": {
+      "design_state": {
+        "dimensionality": "2d",
+        "domainSize": [0.3, 0.3, 0.01],
+        "cellSize": [0.01, 0.01, 0.01],
+        "structures": [
+          {
+            "id": "sar-skin",
+            "name": "Skin Layer",
+            "type": "box",
+            "position": [0.15, 0.15, 0.005],
+            "dimensions": {"lx": 0.12, "ly": 0.12, "lz": 0.01},
+            "material": "skin"
+          },
+          {
+            "id": "sar-bone",
+            "name": "Bone Layer",
+            "type": "box",
+            "position": [0.15, 0.15, 0.005],
+            "dimensions": {"lx": 0.1, "ly": 0.1, "lz": 0.01},
+            "material": "bone"
+          },
+          {
+            "id": "sar-brain",
+            "name": "Brain Tissue",
+            "type": "box",
+            "position": [0.15, 0.15, 0.005],
+            "dimensions": {"lx": 0.06, "ly": 0.06, "lz": 0.01},
+            "material": "brain"
+          }
+        ],
+        "sources": [
+          {
+            "id": "sar-src",
+            "name": "Antenna Source (900 MHz)",
+            "type": "sinusoidal",
+            "position": [0.04, 0.15, 0.005],
+            "parameters": {"frequency": 900000000, "amplitude": 1.0},
+            "polarization": "z"
+          }
+        ],
+        "boundaries": {
+          "x_min": {"type": "mur_abc"},
+          "x_max": {"type": "mur_abc"},
+          "y_min": {"type": "mur_abc"},
+          "y_max": {"type": "mur_abc"},
+          "z_min": {"type": "mur_abc"},
+          "z_max": {"type": "mur_abc"}
+        },
+        "probes": [
+          {
+            "id": "sar-probe-surface",
+            "name": "Skin Surface Probe",
+            "type": "point",
+            "position": [0.09, 0.15, 0.005],
+            "fields": ["Ez"]
+          },
+          {
+            "id": "sar-probe-bone",
+            "name": "Bone Layer Probe",
+            "type": "point",
+            "position": [0.11, 0.15, 0.005],
+            "fields": ["Ez"]
+          },
+          {
+            "id": "sar-probe-brain",
+            "name": "Brain Center Probe",
+            "type": "point",
+            "position": [0.15, 0.15, 0.005],
+            "fields": ["Ez"]
+          }
+        ],
+        "config": {
+          "num_time_steps": 1500,
+          "courant_number": 0.99,
+          "output_every_n_steps": 10,
+          "dft_frequencies": [900000000],
+          "auto_shutoff_threshold": 1e-6
+        }
+      },
+      "simulation_config": {
+        "method": "fdtd",
+        "dimensionality": "2d",
+        "mode": "tm",
+        "requested_fields": ["Ez", "Hx", "Hy"]
+      }
+    },
+    "large": {
+      "design_state": {
+        "dimensionality": "2d",
+        "domainSize": [0.5, 0.5, 0.005],
+        "cellSize": [0.005, 0.005, 0.005],
+        "structures": [
+          {
+            "id": "sar-skin",
+            "name": "Skin Layer",
+            "type": "box",
+            "position": [0.27, 0.25, 0.0025],
+            "dimensions": {"lx": 0.16, "ly": 0.2, "lz": 0.005},
+            "material": "skin"
+          },
+          {
+            "id": "sar-fat",
+            "name": "Fat Layer",
+            "type": "box",
+            "position": [0.27, 0.25, 0.0025],
+            "dimensions": {"lx": 0.14, "ly": 0.18, "lz": 0.005},
+            "material": "fat"
+          },
+          {
+            "id": "sar-bone",
+            "name": "Skull Bone",
+            "type": "box",
+            "position": [0.27, 0.25, 0.0025],
+            "dimensions": {"lx": 0.12, "ly": 0.16, "lz": 0.005},
+            "material": "bone"
+          },
+          {
+            "id": "sar-brain",
+            "name": "Brain Tissue",
+            "type": "box",
+            "position": [0.27, 0.25, 0.0025],
+            "dimensions": {"lx": 0.08, "ly": 0.12, "lz": 0.005},
+            "material": "brain"
+          },
+          {
+            "id": "sar-muscle",
+            "name": "Muscle/Ear Region",
+            "type": "box",
+            "position": [0.18, 0.25, 0.0025],
+            "dimensions": {"lx": 0.02, "ly": 0.06, "lz": 0.005},
+            "material": "muscle"
+          },
+          {
+            "id": "sar-phone",
+            "name": "Phone Case (Plastic)",
+            "type": "box",
+            "position": [0.12, 0.25, 0.0025],
+            "dimensions": {"lx": 0.01, "ly": 0.08, "lz": 0.005},
+            "material": "glass",
+            "custom_material": {
+              "name": "plastic",
+              "epsilon_r": 3.0,
+              "mu_r": 1.0,
+              "sigma": 0.0,
+              "color": "#2C2C2C"
+            }
+          }
+        ],
+        "sources": [
+          {
+            "id": "sar-src",
+            "name": "Phone Antenna (900 MHz)",
+            "type": "sinusoidal",
+            "position": [0.11, 0.25, 0.0025],
+            "parameters": {"frequency": 900000000, "amplitude": 1.0},
+            "polarization": "z"
+          }
+        ],
+        "boundaries": {
+          "x_min": {"type": "mur_abc"},
+          "x_max": {"type": "mur_abc"},
+          "y_min": {"type": "mur_abc"},
+          "y_max": {"type": "mur_abc"},
+          "z_min": {"type": "mur_abc"},
+          "z_max": {"type": "mur_abc"}
+        },
+        "probes": [
+          {
+            "id": "sar-probe-skin",
+            "name": "Skin Surface",
+            "type": "point",
+            "position": [0.19, 0.25, 0.0025],
+            "fields": ["Ez"]
+          },
+          {
+            "id": "sar-probe-bone",
+            "name": "Bone Layer",
+            "type": "point",
+            "position": [0.22, 0.25, 0.0025],
+            "fields": ["Ez"]
+          },
+          {
+            "id": "sar-probe-brain-edge",
+            "name": "Brain Edge",
+            "type": "point",
+            "position": [0.24, 0.25, 0.0025],
+            "fields": ["Ez"]
+          },
+          {
+            "id": "sar-probe-brain-center",
+            "name": "Brain Center",
+            "type": "point",
+            "position": [0.27, 0.25, 0.0025],
+            "fields": ["Ez"]
+          },
+          {
+            "id": "sar-probe-far",
+            "name": "Opposite Side",
+            "type": "point",
+            "position": [0.35, 0.25, 0.0025],
+            "fields": ["Ez"]
+          }
+        ],
+        "config": {
+          "num_time_steps": 5000,
+          "courant_number": 0.99,
+          "output_every_n_steps": 25,
+          "dft_frequencies": [900000000, 1800000000],
+          "auto_shutoff_threshold": 1e-7
+        }
+      },
+      "simulation_config": {
+        "method": "fdtd",
+        "dimensionality": "2d",
+        "mode": "tm",
+        "requested_fields": ["Ez", "Hx", "Hy"]
+      }
+    }
+  }
+}
