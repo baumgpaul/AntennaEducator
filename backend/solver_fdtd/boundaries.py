@@ -103,25 +103,32 @@ class MurABC2D:
         self._prev_ymax_inner = np.zeros(nx)
 
     def apply(self, Ez: np.ndarray) -> None:
-        """Apply Mur ABC to all four edges of a 2-D Ez array (nx, ny)."""
-        # x_min face (i=0)
-        Ez[0, :] = self._prev_xmin_inner + self.coeff_x * (Ez[1, :] - self._prev_xmin)
-        # x_max face (i=nx-1)
-        Ez[-1, :] = self._prev_xmax_inner + self.coeff_x * (Ez[-2, :] - self._prev_xmax)
-        # y_min face (j=0)
-        Ez[:, 0] = self._prev_ymin_inner + self.coeff_y * (Ez[:, 1] - self._prev_ymin)
-        # y_max face (j=ny-1)
-        Ez[:, -1] = self._prev_ymax_inner + self.coeff_y * (Ez[:, -2] - self._prev_ymax)
+        """Apply Mur ABC to all four edges of a 2-D Ez array (nx, ny).
+
+        Skips x/y faces when that dimension has fewer than 2 cells
+        (the Mur stencil needs at least one interior neighbour).
+        """
+        # x faces (need nx >= 2)
+        if self.nx >= 2:
+            Ez[0, :] = self._prev_xmin_inner + self.coeff_x * (Ez[1, :] - self._prev_xmin)
+            Ez[-1, :] = self._prev_xmax_inner + self.coeff_x * (Ez[-2, :] - self._prev_xmax)
+
+        # y faces (need ny >= 2)
+        if self.ny >= 2:
+            Ez[:, 0] = self._prev_ymin_inner + self.coeff_y * (Ez[:, 1] - self._prev_ymin)
+            Ez[:, -1] = self._prev_ymax_inner + self.coeff_y * (Ez[:, -2] - self._prev_ymax)
 
         # Store for next step
         self._prev_xmin = Ez[0, :].copy()
         self._prev_xmax = Ez[-1, :].copy()
         self._prev_ymin = Ez[:, 0].copy()
         self._prev_ymax = Ez[:, -1].copy()
-        self._prev_xmin_inner = Ez[1, :].copy()
-        self._prev_xmax_inner = Ez[-2, :].copy()
-        self._prev_ymin_inner = Ez[:, 1].copy()
-        self._prev_ymax_inner = Ez[:, -2].copy()
+        if self.nx >= 2:
+            self._prev_xmin_inner = Ez[1, :].copy()
+            self._prev_xmax_inner = Ez[-2, :].copy()
+        if self.ny >= 2:
+            self._prev_ymin_inner = Ez[:, 1].copy()
+            self._prev_ymax_inner = Ez[:, -2].copy()
 
 
 def apply_pec_2d(Ez: np.ndarray) -> None:

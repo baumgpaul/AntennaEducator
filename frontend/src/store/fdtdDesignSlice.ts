@@ -118,7 +118,18 @@ const fdtdDesignSlice = createSlice({
   reducers: {
     // Domain settings
     setDimensionality(state, action: PayloadAction<FdtdDimensionality>) {
+      const prev = state.dimensionality
       state.dimensionality = action.payload
+      // Adjust domain/cell defaults so the grid is valid for the new mode
+      if (prev === '1d' && action.payload === '2d') {
+        // Ensure y-dimension has enough cells (at least 3)
+        const domY = state.domainSize[1]
+        const cellY = state.cellSize[1]
+        if (Math.round(domY / cellY) < 3) {
+          state.domainSize = [state.domainSize[0], state.domainSize[0], state.domainSize[2]]
+          state.cellSize = [state.cellSize[0], state.cellSize[0], state.cellSize[2]]
+        }
+      }
       state.isDirty = true
     },
     setDomainSize(state, action: PayloadAction<[number, number, number]>) {
