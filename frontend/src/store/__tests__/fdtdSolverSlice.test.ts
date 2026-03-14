@@ -84,11 +84,11 @@ describe('fdtdSolverSlice', () => {
   // ASYNC THUNK STATES (via direct action dispatch)
   // ============================================================================
 
-  it('runFdtdSimulation.pending should set status to running', () => {
+  it('runFdtdSimulation.pending should set status to solving', () => {
     // Dispatch the pending action directly
     store.dispatch({ type: 'fdtdSolver/run/pending' })
     const state = store.getState().fdtdSolver
-    expect(state.status).toBe('running')
+    expect(state.status).toBe('solving')
     expect(state.progress).toBe(0)
     expect(state.error).toBeNull()
   })

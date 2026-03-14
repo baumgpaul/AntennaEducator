@@ -666,8 +666,17 @@ Phase 8B ── ✅ COMPLETE (PR #47, commit 08ccbe8)
   MaterialLibrary: searchable browser with categories + custom material creator
   FdtdRibbonMenu: all structure items enabled, source/probe picker wired
 
-Phase 9 ─── 🔄 IN PROGRESS — Postprocessor & Visualization
-Phase 10 ── ⬜ Solver UI & Workflow
+Phase 9 ─── ✅ COMPLETE (PR #48, commit 4cc5752 + hotfix 4eb127a)
+  fdtdPostprocessingSlice: multi-view management (create/delete/rename views + items)
+  9 visualizations: FieldHeatmap, TimeAnimation, RadiationPattern, SParameterPlot,
+    SARMap, EnergyFlow, RCSPlot, FrequencyFieldMap, ProbeTimeSeries
+  Shared: Colorbar (5 colormaps), PlotContainer
+  FdtdPostprocessingTab orchestrator: view tree + item renderer
+  Backend: POST /api/fdtd/sparams endpoint
+  API: 4 new functions + TypeScript types
+  Hotfix: hooks before conditional returns in FdtdRibbonMenu
+
+Phase 10 ── 🔄 IN PROGRESS — Solver UI & Workflow
 Phase 11 ── ⬜ 3D FDTD Engine
 Phase 12 ── ⬜ Educational Features (Problem Builder + Tutorials)
 Phase 13 ── ⬜ DEFERRED — GPU Solver (Fargate Spot, replaces old Phase 6)

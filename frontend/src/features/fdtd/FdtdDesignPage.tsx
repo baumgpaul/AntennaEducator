@@ -5,26 +5,19 @@ import {
   Paper,
   Tabs,
   Tab,
-  Button,
   TextField,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
-  Alert,
-  CircularProgress,
   Chip,
   Stack,
-  Divider,
   IconButton,
   Tooltip,
   Dialog,
 } from '@mui/material';
 import {
   GridOn as FdtdIcon,
-  PlayArrow as RunIcon,
-  Add as AddIcon,
-  Delete as DeleteIcon,
   CloudDone as SavedIcon,
   CloudUpload as SavingIcon,
   CloudOff as SaveErrorIcon,
@@ -40,16 +33,15 @@ import {
   setDomainSize,
   setCellSize,
   setBoundaries,
-  setConfig,
   loadFdtdDesign,
   validateFdtdSetup,
   markClean,
 } from '@/store/fdtdDesignSlice';
 import {
   runFdtdSimulation,
-  extractFdtdField,
   clearResults,
   loadFdtdSolverState,
+  autoPostprocess,
 } from '@/store/fdtdSolverSlice';
 import { fetchProject, updateProject } from '@/store/projectsSlice';
 import type { FdtdSolveRequest, FdtdDimensionality, BoundaryType } from '@/types/fdtd';
@@ -68,6 +60,7 @@ import SourcePickerDialog from './dialogs/SourcePickerDialog';
 import ProbePickerDialog from './dialogs/ProbePickerDialog';
 import MaterialLibrary from './MaterialLibrary';
 import FdtdPostprocessingTab from './postprocessing/FdtdPostprocessingTab';
+import FdtdSolverTab from './FdtdSolverTab';
 
 /**
  * FdtdDesignPage — Full FDTD workspace with Design / Solver / Post-processing tabs.
@@ -281,20 +274,19 @@ function FdtdDesignPage() {
       config: design.config,
       mode: solver.mode,
     };
-    const result = await dispatch(runFdtdSimulation(request)).unwrap();
+    await dispatch(runFdtdSimulation(request)).unwrap();
     dispatch(markClean());
 
-    // Auto-extract primary field snapshot
-    const primaryField = design.dimensionality === '1d' ? 'Ez' : 'Ez';
-    if (result.fields_final[primaryField]) {
-      dispatch(
-        extractFdtdField({
-          fieldComponent: primaryField,
-          dx: design.cellSize[0],
-          dy: design.dimensionality === '2d' ? design.cellSize[1] : undefined,
-        }),
-      );
-    }
+    // Auto-postprocessing pipeline: extract fields, compute S-params, create default views
+    dispatch(
+      autoPostprocess({
+        dimensionality: design.dimensionality,
+        cellSize: design.cellSize,
+        mode: solver.mode,
+        probeCount: design.probes.length,
+        dftFrequencies: design.config.dft_frequencies,
+      }),
+    );
   };
 
   const handleSetAllBoundaries = (type: BoundaryType) => {
@@ -446,98 +438,6 @@ function FdtdDesignPage() {
   );
 
   // ------------------------------------------------------------------
-  // Solver Tab
-  // ------------------------------------------------------------------
-  const renderSolverTab = () => (
-    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {/* Config */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Solver Configuration
-        </Typography>
-        <Stack direction="row" spacing={2}>
-          <TextField
-            label="Time Steps"
-            type="number"
-            size="small"
-            value={design.config.num_time_steps}
-            onChange={(e) => dispatch(setConfig({ num_time_steps: +e.target.value }))}
-          />
-          <TextField
-            label="Courant Number"
-            type="number"
-            size="small"
-            value={design.config.courant_number}
-            onChange={(e) => dispatch(setConfig({ courant_number: +e.target.value }))}
-            inputProps={{ step: 0.01, min: 0.01, max: 1.0 }}
-          />
-        </Stack>
-        {design.dimensionality === '2d' && (
-          <FormControl size="small" sx={{ mt: 2, minWidth: 120 }}>
-            <InputLabel>Mode</InputLabel>
-            <Select
-              value={solver.mode}
-              label="Mode"
-              onChange={(e) =>
-                dispatch({ type: 'fdtdSolver/setMode', payload: e.target.value })
-              }
-            >
-              <MenuItem value="tm">TM (Ez, Hx, Hy)</MenuItem>
-              <MenuItem value="te">TE (Hz, Ex, Ey)</MenuItem>
-            </Select>
-          </FormControl>
-        )}
-      </Paper>
-
-      <Divider />
-
-      {/* Run button */}
-      <Button
-        variant="contained"
-        color="primary"
-        size="large"
-        startIcon={solver.status === 'running' ? <CircularProgress size={20} /> : <RunIcon />}
-        disabled={solver.status === 'running' || design.sources.length === 0}
-        onClick={handleRunSimulation}
-      >
-        {solver.status === 'running' ? 'Simulating…' : 'Run FDTD Simulation'}
-      </Button>
-
-      {solver.error && <Alert severity="error">{solver.error}</Alert>}
-
-      {solver.status === 'completed' && solver.results && (
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Results Summary
-          </Typography>
-          <Typography variant="body2">
-            Dimensionality: {solver.results.dimensionality}
-            {solver.results.mode !== 'tm' ? ` (${solver.results.mode.toUpperCase()})` : ''}
-          </Typography>
-          <Typography variant="body2">
-            Time steps: {solver.results.total_time_steps}
-          </Typography>
-          <Typography variant="body2">
-            dt: {solver.results.dt.toExponential(3)} s
-          </Typography>
-          <Typography variant="body2">
-            Solve time: {solver.results.solve_time_s.toFixed(3)} s
-          </Typography>
-          <Typography variant="body2">
-            Probes recorded: {solver.results.probe_data.length}
-          </Typography>
-          {solver.results.probe_data.map((p) => (
-            <Typography key={p.name} variant="body2" sx={{ ml: 2 }}>
-              • {p.name} ({p.field_component}): {p.values.length} samples,
-              peak = {Math.max(...p.values.map(Math.abs)).toExponential(3)}
-            </Typography>
-          ))}
-        </Paper>
-      )}
-    </Box>
-  );
-
-  // ------------------------------------------------------------------
   // Post-processing Tab
   // ------------------------------------------------------------------
   const renderPostprocessingTab = () => <FdtdPostprocessingTab />;
@@ -612,7 +512,9 @@ function FdtdDesignPage() {
         {activeTab === 'designer' && renderDesignTab()}
 
         {activeTab === 'solver' && (
-          <Box sx={{ flex: 1, overflow: 'auto' }}>{renderSolverTab()}</Box>
+          <Box sx={{ flex: 1, overflow: 'auto' }}>
+            <FdtdSolverTab onRunSimulation={handleRunSimulation} />
+          </Box>
         )}
 
         {activeTab === 'postprocessing' && (
