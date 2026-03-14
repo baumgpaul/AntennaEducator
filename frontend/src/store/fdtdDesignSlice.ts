@@ -204,6 +204,32 @@ const fdtdDesignSlice = createSlice({
       state.isDirty = true
     },
 
+    // Load full design from project persistence (auto-load on mount)
+    loadFdtdDesign(
+      state,
+      action: PayloadAction<{
+        dimensionality?: FdtdDimensionality
+        domainSize?: [number, number, number]
+        cellSize?: [number, number, number]
+        structures?: FdtdStructure[]
+        sources?: FdtdSource[]
+        boundaries?: DomainBoundaries
+        probes?: FdtdProbe[]
+        config?: FdtdConfig
+      }>,
+    ) {
+      const d = action.payload
+      if (d.dimensionality) state.dimensionality = d.dimensionality
+      if (d.domainSize) state.domainSize = d.domainSize
+      if (d.cellSize) state.cellSize = d.cellSize
+      if (d.structures) state.structures = d.structures
+      if (d.sources) state.sources = d.sources
+      if (d.boundaries) state.boundaries = d.boundaries
+      if (d.probes) state.probes = d.probes
+      if (d.config) state.config = { ...DEFAULT_CONFIG, ...d.config }
+      state.isDirty = false
+    },
+
     // Reset
     resetDesign() {
       return { ...initialState }
@@ -252,6 +278,7 @@ export const {
   removeProbe,
   updateProbe,
   setConfig,
+  loadFdtdDesign,
   resetDesign,
   markClean,
 } = fdtdDesignSlice.actions
