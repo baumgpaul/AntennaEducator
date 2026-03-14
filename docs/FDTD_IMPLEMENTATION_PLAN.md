@@ -635,6 +635,11 @@ Phase 5 ─── ✅ COMPLETE
   Seed script: dev_tools/seed_fdtd_demo_projects.py
   51 tests in test_fdtd_demos.py
 
+Bugfix ─── ✅ PR #45 (Fix 2D solver crash: MurABC2D IndexError on degenerate grid)
+  boundaries.py: skip Mur stencil on axes with <2 cells
+  main.py: validate 2D grid ≥ 3×3 cells (returns 400)
+  fdtdDesignSlice.ts: auto-adjust domain/cell on 1D→2D switch
+
 Phase 6 ─── ⬜ pending (GPU/Fargate Spot)
 ```
 
