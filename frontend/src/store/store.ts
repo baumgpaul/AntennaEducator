@@ -14,6 +14,7 @@ import documentationReducer from './documentationSlice'
 import foldersReducer from './foldersSlice'
 import fdtdDesignReducer from './fdtdDesignSlice'
 import fdtdSolverReducer from './fdtdSolverSlice'
+import fdtdPostprocessingReducer from './fdtdPostprocessingSlice'
 
 export const store = configureStore({
   reducer: {
@@ -27,6 +28,7 @@ export const store = configureStore({
     folders: foldersReducer,
     fdtdDesign: fdtdDesignReducer,
     fdtdSolver: fdtdSolverReducer,
+    fdtdPostprocessing: fdtdPostprocessingReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -36,7 +38,7 @@ export const store = configureStore({
         // Ignore these field paths in all actions
         ignoredActionPaths: ['payload.mesh', 'payload.results', 'payload.branch_currents', 'meta.arg'],
         // Ignore these paths in the state
-        ignoredPaths: ['design.mesh', 'design.results', 'solver.results', 'solver.currentDistribution', 'fdtdSolver.results', 'fdtdSolver.fieldSnapshot'],
+        ignoredPaths: ['design.mesh', 'design.results', 'solver.results', 'solver.currentDistribution', 'fdtdSolver.results', 'fdtdSolver.fieldSnapshot', 'fdtdPostprocessing.radiationPattern', 'fdtdPostprocessing.sarResult', 'fdtdPostprocessing.frequencyField'],
       },
     }),
 })

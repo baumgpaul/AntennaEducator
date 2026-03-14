@@ -16,6 +16,8 @@ import {
   Menu,
   MenuItem,
   CircularProgress,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -25,9 +27,24 @@ import {
   GpsFixed as ProbeIcon,
   BorderAll as BoundaryIcon,
   Palette as MaterialIcon,
+  Map as HeatmapIcon,
+  Timeline as TimelineIcon,
+  Radar as RadarIcon,
+  ShowChart as ChartIcon,
+  Whatshot as SarIcon,
+  Air as EnergyIcon,
+  TrackChanges as RcsIcon,
+  Waves as FreqIcon,
+  Sensors as ProbeTsIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
-import { useAppSelector } from '@/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+  createView,
+  addItemToView,
+  selectFdtdSelectedViewId,
+} from '@/store/fdtdPostprocessingSlice';
+import type { FdtdViewItemType } from '@/types/fdtd';
 
 type FdtdTab = 'designer' | 'solver' | 'postprocessing';
 
@@ -206,13 +223,83 @@ function FdtdRibbonMenu({
     );
   }
 
-  // Postprocessing — minimal for now
+  // Postprocessing — add views & visualization items
+  const dispatch = useAppDispatch();
+  const selectedViewId = useAppSelector(selectFdtdSelectedViewId);
+  const [addMenuAnchor, setAddMenuAnchor] = useState<null | HTMLElement>(null);
+
+  const ADD_ITEMS: { type: FdtdViewItemType; label: string; icon: React.ReactNode }[] = [
+    { type: 'field_heatmap', label: 'Field Heatmap', icon: <HeatmapIcon fontSize="small" /> },
+    { type: 'time_animation', label: 'Time Animation', icon: <TimelineIcon fontSize="small" /> },
+    { type: 'radiation_pattern', label: 'Radiation Pattern', icon: <RadarIcon fontSize="small" /> },
+    { type: 's_parameters', label: 'S-Parameters', icon: <ChartIcon fontSize="small" /> },
+    { type: 'sar_map', label: 'SAR Map', icon: <SarIcon fontSize="small" /> },
+    { type: 'energy_flow', label: 'Energy Flow', icon: <EnergyIcon fontSize="small" /> },
+    { type: 'rcs_plot', label: 'RCS', icon: <RcsIcon fontSize="small" /> },
+    { type: 'frequency_field', label: 'Frequency Field', icon: <FreqIcon fontSize="small" /> },
+    { type: 'probe_time_series', label: 'Probe Time Series', icon: <ProbeTsIcon fontSize="small" /> },
+  ];
+
+  const handleAddViz = (type: FdtdViewItemType) => {
+    let viewId = selectedViewId;
+    if (!viewId) {
+      // auto-create a view if none exists
+      dispatch(createView({}));
+    }
+    viewId = selectedViewId; // may still be null if dispatch is async
+    if (viewId) {
+      dispatch(addItemToView({ viewId, type }));
+    }
+    setAddMenuAnchor(null);
+  };
+
   return (
     <Paper elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-      <Box sx={{ p: 1, px: 1.5, minHeight: 64, display: 'flex', alignItems: 'center' }}>
-        <Typography variant="caption" color="text.secondary">
-          Post-processing views will be added in Phase 9.
-        </Typography>
+      <Box sx={{ p: 1, px: 1.5, minHeight: 64, display: 'flex', alignItems: 'center', gap: 3 }}>
+        {/* New view */}
+        <Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+            Views
+          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => dispatch(createView({}))}
+          >
+            New View
+          </Button>
+        </Box>
+
+        <Divider orientation="vertical" flexItem />
+
+        {/* Add visualization */}
+        <Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+            Add Visualization
+          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<AddIcon />}
+            disabled={!selectedViewId}
+            onClick={(e) => setAddMenuAnchor(e.currentTarget)}
+          >
+            Add Plot
+          </Button>
+          <Menu
+            anchorEl={addMenuAnchor}
+            open={Boolean(addMenuAnchor)}
+            onClose={() => setAddMenuAnchor(null)}
+          >
+            {ADD_ITEMS.map((item) => (
+              <MenuItem key={item.type} onClick={() => handleAddViz(item.type)}>
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText>{item.label}</ListItemText>
+              </MenuItem>
+            ))}
+          </Menu>
+        </Box>
       </Box>
     </Paper>
   );

@@ -32,6 +32,8 @@ from .schemas import (
     RcsResponse,
     SarRequest,
     SarResponse,
+    SParamRequest,
+    SParamResponse,
 )
 
 logging.basicConfig(
@@ -277,4 +279,29 @@ async def compute_rcs(request: RcsRequest):
         return RcsResponse(**result)
     except Exception as e:
         logger.exception("RCS computation failed")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# S-parameters
+# ---------------------------------------------------------------------------
+@app.post("/api/fdtd/sparams", response_model=SParamResponse)
+async def compute_sparams(request: SParamRequest):
+    """Compute S₁₁ from time-domain incident / reflected probe signals."""
+    try:
+        frequencies = np.linspace(
+            request.freq_start_hz, request.freq_stop_hz, request.num_freqs
+        ).tolist()
+
+        from backend.solver_fdtd.postprocess import s_parameter_from_probes
+
+        result = s_parameter_from_probes(
+            incident_values=request.incident_values,
+            reflected_values=request.reflected_values,
+            times=request.times,
+            frequencies=frequencies,
+        )
+        return SParamResponse(**result)
+    except Exception as e:
+        logger.exception("S-parameter computation failed")
         raise HTTPException(status_code=400, detail=str(e))

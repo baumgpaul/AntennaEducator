@@ -164,3 +164,26 @@ class RcsResponse(BaseModel):
     rcs_db: list[float] = Field(description="2-D RCS [dB·m]")
     max_rcs: float
     max_rcs_angle_deg: float
+
+
+# ---------------------------------------------------------------------------
+# S-parameters
+# ---------------------------------------------------------------------------
+class SParamRequest(BaseModel):
+    """Compute S-parameters from time-domain probe signals."""
+
+    incident_values: list[float] = Field(description="Incident signal time series")
+    reflected_values: list[float] = Field(description="Reflected signal time series")
+    times: list[float] = Field(description="Time stamps [s]")
+    freq_start_hz: float = Field(description="Start frequency [Hz]")
+    freq_stop_hz: float = Field(description="Stop frequency [Hz]")
+    num_freqs: int = Field(default=201, description="Number of frequency points")
+
+
+class SParamResponse(BaseModel):
+    """S-parameter result."""
+
+    frequencies: list[float] = Field(description="Frequency points [Hz]")
+    s11_mag_db: list[float] = Field(description="|S₁₁| [dB]")
+    s11_phase_deg: list[float] = Field(description="Phase of S₁₁ [degrees]")
+    s11_complex: list[dict] = Field(description="S₁₁ as {real, imag} per frequency")

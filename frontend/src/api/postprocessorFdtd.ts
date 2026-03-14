@@ -11,6 +11,14 @@ import type {
   PoyntingRequest,
   PoyntingResponse,
   RadiationPatternResponse,
+  FrequencyFieldRequest,
+  FrequencyFieldResponse,
+  SarRequest,
+  SarResponse,
+  RcsRequest,
+  RcsResponse,
+  SParamRequest,
+  SParamResponse,
 } from '@/types/fdtd'
 
 export const checkHealth = async () => {
@@ -42,5 +50,27 @@ export const computeRadiationPattern = async (request: {
   num_angles?: number
 }): Promise<RadiationPatternResponse> => {
   const response = await fdtdPostprocessorClient.post('/api/fdtd/pattern/radiation', request)
+  return handleApiResponse(response)
+}
+
+export const extractFrequencyField = async (
+  request: FrequencyFieldRequest,
+): Promise<FrequencyFieldResponse> => {
+  const response = await fdtdPostprocessorClient.post('/api/fdtd/fields/frequency', request)
+  return handleApiResponse(response)
+}
+
+export const computeSar = async (request: SarRequest): Promise<SarResponse> => {
+  const response = await fdtdPostprocessorClient.post('/api/fdtd/sar', request)
+  return handleApiResponse(response)
+}
+
+export const computeRcs = async (request: RcsRequest): Promise<RcsResponse> => {
+  const response = await fdtdPostprocessorClient.post('/api/fdtd/rcs', request)
+  return handleApiResponse(response)
+}
+
+export const computeSParams = async (request: SParamRequest): Promise<SParamResponse> => {
+  const response = await fdtdPostprocessorClient.post('/api/fdtd/sparams', request)
   return handleApiResponse(response)
 }
