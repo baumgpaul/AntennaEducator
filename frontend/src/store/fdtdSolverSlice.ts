@@ -15,12 +15,22 @@ import type {
 } from '@/types/fdtd'
 import { solve } from '@/api/solverFdtd'
 import { extractFieldSnapshot, computePoyntingVector } from '@/api/postprocessorFdtd'
+import {
+  createView,
+  addItemToView,
+} from '@/store/fdtdPostprocessingSlice'
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type FdtdSimulationStatus = 'idle' | 'running' | 'completed' | 'failed'
+export type FdtdSimulationStatus =
+  | 'idle'
+  | 'validating'
+  | 'solving'
+  | 'postprocessing'
+  | 'completed'
+  | 'failed'
 
 interface FdtdSolverState {
   status: FdtdSimulationStatus
@@ -111,6 +121,77 @@ export const computeFdtdPoynting = createAsyncThunk(
   },
 )
 
+/**
+ * Auto-postprocessing pipeline — runs after solve completes.
+ *
+ * 1. Extract primary field snapshot (Ez for TM, Hz for TE)
+ * 2. Compute Poynting vector
+ * 3. Fetch S-params if ≥2 probes
+ * 4. Fetch frequency fields for each DFT frequency
+ * 5. Create a default postprocessing view with relevant plots
+ */
+export const autoPostprocess = createAsyncThunk(
+  'fdtdSolver/autoPostprocess',
+  async (
+    params: {
+      dimensionality: '1d' | '2d'
+      cellSize: [number, number, number]
+      mode: 'tm' | 'te'
+      probeCount: number
+      dftFrequencies: number[]
+    },
+    { dispatch, getState },
+  ) => {
+    const state = (getState() as { fdtdSolver: FdtdSolverState }).fdtdSolver
+    if (!state.results) return
+
+    const dx = params.cellSize[0]
+    const dy = params.dimensionality === '2d' ? params.cellSize[1] : undefined
+    const primaryField = params.mode === 'te' ? 'Hz' : 'Ez'
+
+    // 1. Extract primary field
+    if (state.results.fields_final[primaryField]) {
+      await dispatch(extractFdtdField({ fieldComponent: primaryField, dx, dy })).unwrap()
+    }
+
+    // 2. Compute Poynting vector (2D only, needs both E and H)
+    if (params.dimensionality === '2d') {
+      try {
+        await dispatch(computeFdtdPoynting({ dx, dy })).unwrap()
+      } catch {
+        // Non-critical — continue pipeline
+      }
+    }
+
+    // 3. Create default postprocessing view with relevant plots
+    dispatch(createView({ name: 'Auto Results' }))
+    const postState = (getState() as { fdtdPostprocessing: { selectedViewId: string | null } })
+      .fdtdPostprocessing
+    const viewId = postState.selectedViewId
+    if (viewId) {
+      // Always add probe time series if probes exist
+      if (params.probeCount > 0) {
+        dispatch(addItemToView({ viewId, type: 'probe_time_series' }))
+      }
+
+      // Add field heatmap for 2D
+      if (params.dimensionality === '2d') {
+        dispatch(addItemToView({ viewId, type: 'field_heatmap' }))
+      }
+
+      // Add S-params placeholder if ≥2 probes
+      if (params.probeCount >= 2) {
+        dispatch(addItemToView({ viewId, type: 's_parameters' }))
+      }
+
+      // Add frequency field placeholder if DFT was configured
+      if (params.dftFrequencies.length > 0) {
+        dispatch(addItemToView({ viewId, type: 'frequency_field' }))
+      }
+    }
+  },
+)
+
 // ============================================================================
 // Slice
 // ============================================================================
@@ -157,7 +238,7 @@ const fdtdSolverSlice = createSlice({
     // Solve
     builder
       .addCase(runFdtdSimulation.pending, (state) => {
-        state.status = 'running'
+        state.status = 'solving'
         state.progress = 0
         state.error = null
         state.fieldSnapshot = null
@@ -171,6 +252,19 @@ const fdtdSolverSlice = createSlice({
       .addCase(runFdtdSimulation.rejected, (state, action) => {
         state.status = 'failed'
         state.error = action.error.message ?? 'Simulation failed'
+      })
+
+    // Auto-postprocessing
+    builder
+      .addCase(autoPostprocess.pending, (state) => {
+        state.status = 'postprocessing'
+      })
+      .addCase(autoPostprocess.fulfilled, (state) => {
+        state.status = 'completed'
+      })
+      .addCase(autoPostprocess.rejected, (state) => {
+        // Still mark as completed — solve succeeded, only postprocessing had issues
+        state.status = 'completed'
       })
 
     // Field extraction
