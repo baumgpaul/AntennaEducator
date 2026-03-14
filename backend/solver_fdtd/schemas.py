@@ -38,7 +38,7 @@ class FdtdSolveRequest(BaseModel):
         }
     })
 
-    dimensionality: Literal["1d", "2d"] = Field(
+    dimensionality: Literal["1d", "2d", "3d"] = Field(
         description="Simulation dimensionality",
     )
     domain_size: tuple[float, float, float] = Field(
@@ -119,7 +119,7 @@ class FdtdSolverConfigResponse(BaseModel):
 
     max_time_steps: int
     timeout_seconds: int
-    supported_dimensions: list[str] = ["1d", "2d"]
+    supported_dimensions: list[str] = ["1d", "2d", "3d"]
     supported_modes: list[str] = ["tm", "te"]
     supported_boundary_types: list[str] = ["mur_abc", "pec", "pmc"]
     supported_source_types: list[str] = [

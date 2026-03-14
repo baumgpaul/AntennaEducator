@@ -1,4 +1,4 @@
-"""Tests for boundaries.py — Mur ABC, PEC, PMC for 1-D and 2-D."""
+"""Tests for boundaries.py — Mur ABC, PEC, PMC for 1-D, 2-D, and 3-D."""
 
 import numpy as np
 import pytest
@@ -7,12 +7,16 @@ from backend.common.constants import C_0
 from backend.solver_fdtd.boundaries import (
     MurABC1D,
     MurABC2D,
+    MurABC3D,
     apply_pec_1d,
     apply_pec_2d,
+    apply_pec_3d,
     apply_pmc_1d,
     apply_pmc_2d,
+    apply_pmc_3d,
     create_boundary_1d,
     create_boundary_2d,
+    create_boundary_3d,
 )
 
 
@@ -144,3 +148,84 @@ class TestFactories:
 
     def test_create_2d_pec(self):
         assert create_boundary_2d("pec", 50, 50, 0.001, 0.001, 1e-12) == "pec"
+
+
+# ===================================================================
+# PEC / PMC — 3-D
+# ===================================================================
+class TestPEC3D:
+    def test_zeros_all_faces(self):
+        nx, ny, nz = 10, 12, 8
+        Ex = np.ones((nx, ny, nz))
+        Ey = np.ones((nx, ny, nz))
+        Ez = np.ones((nx, ny, nz))
+        apply_pec_3d(Ex, Ey, Ez)
+
+        # All E components zero on x-faces
+        np.testing.assert_allclose(Ex[0, :, :], 0.0)
+        np.testing.assert_allclose(Ex[-1, :, :], 0.0)
+        np.testing.assert_allclose(Ey[0, :, :], 0.0)
+        np.testing.assert_allclose(Ey[-1, :, :], 0.0)
+        np.testing.assert_allclose(Ez[0, :, :], 0.0)
+        np.testing.assert_allclose(Ez[-1, :, :], 0.0)
+
+        # Interior unchanged
+        assert Ex[5, 6, 4] == 1.0
+
+
+class TestPMC3D:
+    def test_zeros_all_faces(self):
+        nx, ny, nz = 10, 12, 8
+        Hx = np.ones((nx, ny, nz))
+        Hy = np.ones((nx, ny, nz))
+        Hz = np.ones((nx, ny, nz))
+        apply_pmc_3d(Hx, Hy, Hz)
+
+        np.testing.assert_allclose(Hx[0, :, :], 0.0)
+        np.testing.assert_allclose(Hx[-1, :, :], 0.0)
+        np.testing.assert_allclose(Hy[0, :, :], 0.0)
+        np.testing.assert_allclose(Hy[-1, :, :], 0.0)
+        np.testing.assert_allclose(Hz[0, :, :], 0.0)
+        np.testing.assert_allclose(Hz[-1, :, :], 0.0)
+
+        assert Hx[5, 6, 4] == 1.0
+
+
+# ===================================================================
+# Mur ABC — 3-D
+# ===================================================================
+class TestMurABC3D:
+    def test_coefficients_valid(self):
+        abc = MurABC3D(20, 20, 20, 0.001, 0.001, 0.001, 1e-12, C_0)
+        assert -1 < abc.coeff_x < 1
+        assert -1 < abc.coeff_y < 1
+        assert -1 < abc.coeff_z < 1
+
+    def test_apply_modifies_boundaries(self):
+        nx = ny = nz = 20
+        abc = MurABC3D(nx, ny, nz, 0.001, 0.001, 0.001, 1e-12, C_0)
+        Ex = np.zeros((nx, ny, nz))
+        Ey = np.zeros((nx, ny, nz))
+        Ez = np.zeros((nx, ny, nz))
+        Ez[10, 10, 10] = 1.0
+        abc.apply(Ex, Ey, Ez)
+        # Should not crash
+
+
+# ===================================================================
+# Factory helpers — 3-D
+# ===================================================================
+class TestFactories3D:
+    def test_create_3d_mur(self):
+        bc = create_boundary_3d("abc", 20, 20, 20, 0.001, 0.001, 0.001, 1e-12)
+        assert isinstance(bc, MurABC3D)
+
+    def test_create_3d_pec(self):
+        assert create_boundary_3d("pec", 20, 20, 20, 0.001, 0.001, 0.001, 1e-12) == "pec"
+
+    def test_create_3d_pmc(self):
+        assert create_boundary_3d("pmc", 20, 20, 20, 0.001, 0.001, 0.001, 1e-12) == "pmc"
+
+    def test_create_3d_invalid(self):
+        with pytest.raises(ValueError):
+            create_boundary_3d("periodic", 20, 20, 20, 0.001, 0.001, 0.001, 1e-12)
