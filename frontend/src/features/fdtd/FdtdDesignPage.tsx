@@ -39,11 +39,7 @@ import {
   setDimensionality,
   setDomainSize,
   setCellSize,
-  addSource,
-  removeSource,
   setBoundaries,
-  addProbe,
-  removeProbe,
   setConfig,
   loadFdtdDesign,
   validateFdtdSetup,
@@ -64,6 +60,13 @@ import FdtdRibbonMenu from './FdtdRibbonMenu';
 import BoundaryPanel from './BoundaryPanel';
 import CustomStructureDialog from './dialogs/CustomStructureDialog';
 import PatchAntennaDialog from './dialogs/PatchAntennaDialog';
+import WaveguideDialog from './dialogs/WaveguideDialog';
+import MicrostripDialog from './dialogs/MicrostripDialog';
+import DipoleFdtdDialog from './dialogs/DipoleFdtdDialog';
+import CavityDialog from './dialogs/CavityDialog';
+import SourcePickerDialog from './dialogs/SourcePickerDialog';
+import ProbePickerDialog from './dialogs/ProbePickerDialog';
+import MaterialLibrary from './MaterialLibrary';
 
 /**
  * FdtdDesignPage — Full FDTD workspace with Design / Solver / Post-processing tabs.
@@ -88,6 +91,13 @@ function FdtdDesignPage() {
   // Dialog state
   const [customStructureOpen, setCustomStructureOpen] = useState(false);
   const [patchAntennaOpen, setPatchAntennaOpen] = useState(false);
+  const [waveguideOpen, setWaveguideOpen] = useState(false);
+  const [microstripOpen, setMicrostripOpen] = useState(false);
+  const [dipoleOpen, setDipoleOpen] = useState(false);
+  const [cavityOpen, setCavityOpen] = useState(false);
+  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
+  const [probePickerOpen, setProbePickerOpen] = useState(false);
+  const [materialLibraryOpen, setMaterialLibraryOpen] = useState(false);
   const [boundaryDialogOpen, setBoundaryDialogOpen] = useState(false);
 
   // Save status UI
@@ -286,37 +296,6 @@ function FdtdDesignPage() {
     }
   };
 
-  const handleAddGaussianSource = () => {
-    const pos: [number, number, number] =
-      design.dimensionality === '1d'
-        ? [design.domainSize[0] / 2, 0, 0]
-        : [design.domainSize[0] / 2, design.domainSize[1] / 2, 0];
-    dispatch(
-      addSource({
-        name: `Source ${design.sources.length + 1}`,
-        type: 'gaussian_pulse',
-        position: pos,
-        parameters: { amplitude: 1.0, width: 30 },
-        polarization: 'z',
-      }),
-    );
-  };
-
-  const handleAddProbe = () => {
-    const pos: [number, number, number] =
-      design.dimensionality === '1d'
-        ? [design.domainSize[0] * 0.75, 0, 0]
-        : [design.domainSize[0] * 0.75, design.domainSize[1] * 0.75, 0];
-    dispatch(
-      addProbe({
-        name: `Probe ${design.probes.length + 1}`,
-        type: 'point',
-        position: pos,
-        fields: ['Ez'],
-      }),
-    );
-  };
-
   const handleSetAllBoundaries = (type: BoundaryType) => {
     const bc = { type };
     dispatch(
@@ -341,6 +320,10 @@ function FdtdDesignPage() {
   const handleAddStructure = (type: 'custom' | 'patch' | 'waveguide' | 'microstrip' | 'dipole' | 'cavity') => {
     if (type === 'custom') setCustomStructureOpen(true);
     else if (type === 'patch') setPatchAntennaOpen(true);
+    else if (type === 'waveguide') setWaveguideOpen(true);
+    else if (type === 'microstrip') setMicrostripOpen(true);
+    else if (type === 'dipole') setDipoleOpen(true);
+    else if (type === 'cavity') setCavityOpen(true);
   };
 
   const tabIndex = activeTab === 'designer' ? 0 : activeTab === 'solver' ? 1 : 2;
@@ -658,10 +641,10 @@ function FdtdDesignPage() {
       <FdtdRibbonMenu
         activeTab={activeTab}
         onAddStructure={handleAddStructure}
-        onAddSource={handleAddGaussianSource}
-        onAddProbe={handleAddProbe}
+        onAddSource={() => setSourcePickerOpen(true)}
+        onAddProbe={() => setProbePickerOpen(true)}
         onOpenBoundaries={() => setBoundaryDialogOpen(true)}
-        onOpenMaterialLibrary={() => {}}
+        onOpenMaterialLibrary={() => setMaterialLibraryOpen(true)}
         onRunSimulation={handleRunSimulation}
         onValidate={() => dispatch(validateFdtdSetup())}
       />
@@ -687,6 +670,34 @@ function FdtdDesignPage() {
       <PatchAntennaDialog
         open={patchAntennaOpen}
         onClose={() => setPatchAntennaOpen(false)}
+      />
+      <WaveguideDialog
+        open={waveguideOpen}
+        onClose={() => setWaveguideOpen(false)}
+      />
+      <MicrostripDialog
+        open={microstripOpen}
+        onClose={() => setMicrostripOpen(false)}
+      />
+      <DipoleFdtdDialog
+        open={dipoleOpen}
+        onClose={() => setDipoleOpen(false)}
+      />
+      <CavityDialog
+        open={cavityOpen}
+        onClose={() => setCavityOpen(false)}
+      />
+      <SourcePickerDialog
+        open={sourcePickerOpen}
+        onClose={() => setSourcePickerOpen(false)}
+      />
+      <ProbePickerDialog
+        open={probePickerOpen}
+        onClose={() => setProbePickerOpen(false)}
+      />
+      <MaterialLibrary
+        open={materialLibraryOpen}
+        onClose={() => setMaterialLibraryOpen(false)}
       />
       <Dialog
         open={boundaryDialogOpen}
