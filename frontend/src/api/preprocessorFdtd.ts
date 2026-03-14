@@ -6,6 +6,7 @@
 
 import { fdtdPreprocessorClient, handleApiResponse } from './client'
 import type {
+  FdtdMaterial,
   FdtdMeshRequest,
   FdtdMeshResponse,
   FdtdValidationRequest,
@@ -27,4 +28,10 @@ export const validateSetup = async (
 ): Promise<FdtdValidationResponse> => {
   const response = await fdtdPreprocessorClient.post('/api/fdtd/validate', request)
   return handleApiResponse(response)
+}
+
+export const fetchMaterials = async (): Promise<Record<string, FdtdMaterial>> => {
+  const response = await fdtdPreprocessorClient.get('/api/fdtd/materials')
+  const data = handleApiResponse<{ materials: Record<string, FdtdMaterial> }>(response)
+  return data.materials
 }
