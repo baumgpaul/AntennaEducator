@@ -235,9 +235,15 @@ function FdtdRibbonMenu({
               <Button
                 variant="contained"
                 startIcon={
-                  solver.status === 'running' ? <CircularProgress size={16} /> : <RunIcon />
+                  solver.status === 'solving' || solver.status === 'postprocessing'
+                    ? <CircularProgress size={16} />
+                    : <RunIcon />
                 }
-                disabled={solver.status === 'running' || design.sources.length === 0}
+                disabled={
+                  solver.status === 'solving' ||
+                  solver.status === 'postprocessing' ||
+                  design.sources.length === 0
+                }
                 onClick={onRunSimulation}
               >
                 Run Simulation
