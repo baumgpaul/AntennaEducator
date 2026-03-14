@@ -67,6 +67,7 @@ import CavityDialog from './dialogs/CavityDialog';
 import SourcePickerDialog from './dialogs/SourcePickerDialog';
 import ProbePickerDialog from './dialogs/ProbePickerDialog';
 import MaterialLibrary from './MaterialLibrary';
+import FdtdPostprocessingTab from './postprocessing/FdtdPostprocessingTab';
 
 /**
  * FdtdDesignPage — Full FDTD workspace with Design / Solver / Post-processing tabs.
@@ -539,50 +540,7 @@ function FdtdDesignPage() {
   // ------------------------------------------------------------------
   // Post-processing Tab
   // ------------------------------------------------------------------
-  const renderPostprocessingTab = () => (
-    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {solver.status !== 'completed' ? (
-        <Alert severity="info">Run a simulation first to view post-processing results.</Alert>
-      ) : (
-        <>
-          {/* Field snapshot */}
-          {solver.fieldSnapshot && (
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Field Snapshot — {solver.fieldSnapshot.field_component}
-              </Typography>
-              <Typography variant="body2">
-                Points: {solver.fieldSnapshot.x_coords.length}
-                {solver.fieldSnapshot.y_coords.length > 0 &&
-                  ` × ${solver.fieldSnapshot.y_coords.length}`}
-              </Typography>
-              <Typography variant="body2">
-                Range: [{solver.fieldSnapshot.min_value.toExponential(3)},{' '}
-                {solver.fieldSnapshot.max_value.toExponential(3)}]
-              </Typography>
-            </Paper>
-          )}
-
-          {/* Probe time series summary */}
-          {solver.results?.probe_data.map((p) => (
-            <Paper key={p.name} variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="subtitle2">
-                Probe: {p.name} ({p.field_component})
-              </Typography>
-              <Typography variant="body2">
-                Samples: {p.values.length} | Peak:{' '}
-                {Math.max(...p.values.map(Math.abs)).toExponential(3)}
-              </Typography>
-            </Paper>
-          ))}
-
-          <Typography variant="caption" color="text.secondary">
-            Visualization plots will be added in a future phase.
-          </Typography>
-        </>
-      )}
-    </Box>
-  );
+  const renderPostprocessingTab = () => <FdtdPostprocessingTab />;
 
   // ------------------------------------------------------------------
   // Render
@@ -658,7 +616,7 @@ function FdtdDesignPage() {
         )}
 
         {activeTab === 'postprocessing' && (
-          <Box sx={{ flex: 1, overflow: 'auto' }}>{renderPostprocessingTab()}</Box>
+          <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex' }}>{renderPostprocessingTab()}</Box>
         )}
       </Box>
 

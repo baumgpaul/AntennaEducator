@@ -228,6 +228,100 @@ export interface RadiationPatternResponse {
   beam_width_deg: number | null
 }
 
+export interface FrequencyFieldRequest {
+  frequency_hz: number
+  dft_real: number[] | number[][]
+  dft_imag: number[] | number[][]
+  dx: number
+  dy?: number
+}
+
+export interface FrequencyFieldResponse {
+  frequency_hz: number
+  magnitude: number[] | number[][]
+  phase_deg: number[] | number[][]
+  x_coords: number[]
+  y_coords: number[]
+}
+
+export interface SarRequest {
+  e_field_magnitude: number[] | number[][]
+  sigma: number[] | number[][]
+  density: number[] | number[][]
+  dx: number
+  dy?: number
+}
+
+export interface SarResponse {
+  sar: number[] | number[][]
+  peak_sar: number
+  average_sar: number
+  x_coords: number[]
+  y_coords: number[]
+}
+
+export interface RcsRequest {
+  scattered_e: number[]
+  scattered_h: number[]
+  incident_e0: number
+  frequency_hz: number
+  contour_radius: number
+  num_angles?: number
+}
+
+export interface RcsResponse {
+  angles_deg: number[]
+  rcs_2d: number[]
+  rcs_db: number[]
+  max_rcs: number
+  max_rcs_angle_deg: number
+}
+
+export interface SParamRequest {
+  incident_values: number[]
+  reflected_values: number[]
+  times: number[]
+  frequencies: number[]
+}
+
+export interface SParamResponse {
+  frequencies: number[]
+  s11_mag_db: number[]
+  s11_phase_deg: number[]
+  s11_complex: { real: number; imag: number }[]
+}
+
+// ============================================================================
+// Postprocessor View Types
+// ============================================================================
+
+export type FdtdViewItemType =
+  | 'field_heatmap'
+  | 'time_animation'
+  | 'radiation_pattern'
+  | 's_parameters'
+  | 'sar_map'
+  | 'energy_flow'
+  | 'rcs_plot'
+  | 'frequency_field'
+  | 'probe_time_series'
+
+export interface FdtdViewItem {
+  id: string
+  type: FdtdViewItemType
+  label: string
+  visible: boolean
+  config: Record<string, unknown>
+}
+
+export interface FdtdViewConfiguration {
+  id: string
+  name: string
+  items: FdtdViewItem[]
+  createdAt: string
+  updatedAt: string
+}
+
 // ============================================================================
 // Default Helpers
 // ============================================================================

@@ -659,14 +659,14 @@ Phase 8A ── ✅ COMPLETE (PR #46, commit f4fd662)
   FdtdDesignPage: restructured to 3-panel layout (tree + scene + properties)
   34 tests (30 new Phase8A + 4 existing updated)
 
-Phase 8B ── 🔄 IN PROGRESS — Remaining Dialogs, Source/Probe Pickers, Material Library
+Phase 8B ── ✅ COMPLETE (PR #47, commit 08ccbe8)
   Structure dialogs: WaveguideDialog, MicrostripDialog, DipoleFdtdDialog, CavityDialog
-  Source picker: Gaussian Pulse, Sinusoidal, Modulated Gaussian, Plane Wave, Waveguide Port
-  Probe picker: Point, Line, Plane, Near-field contour
+  Source picker: Gaussian Pulse, Sinusoidal, Modulated Gaussian (Plane Wave, Waveguide Port → 3D)
+  Probe picker: Point, Line, Plane (Near-field contour → 3D)
   MaterialLibrary: searchable browser with categories + custom material creator
-  Live 3D previews in parametric dialogs
+  FdtdRibbonMenu: all structure items enabled, source/probe picker wired
 
-Phase 9 ─── ⬜ Postprocessor & Visualization
+Phase 9 ─── 🔄 IN PROGRESS — Postprocessor & Visualization
 Phase 10 ── ⬜ Solver UI & Workflow
 Phase 11 ── ⬜ 3D FDTD Engine
 Phase 12 ── ⬜ Educational Features (Problem Builder + Tutorials)
