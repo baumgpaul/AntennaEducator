@@ -16,6 +16,9 @@ import {
   Chip,
   Stack,
   Divider,
+  IconButton,
+  Tooltip,
+  Dialog,
 } from '@mui/material';
 import {
   GridOn as FdtdIcon,
@@ -25,6 +28,8 @@ import {
   CloudDone as SavedIcon,
   CloudUpload as SavingIcon,
   CloudOff as SaveErrorIcon,
+  ChevronLeft,
+  ChevronRight,
 } from '@mui/icons-material';
 import { useState, useEffect, useRef } from 'react';
 import { debounce } from 'lodash';
@@ -52,24 +57,49 @@ import {
 } from '@/store/fdtdSolverSlice';
 import { fetchProject, updateProject } from '@/store/projectsSlice';
 import type { FdtdSolveRequest, FdtdDimensionality, BoundaryType } from '@/types/fdtd';
+import FdtdScene3D from './scene/FdtdScene3D';
+import FdtdTreeView, { type FdtdTreeCategory } from './FdtdTreeView';
+import FdtdPropertiesPanel from './FdtdPropertiesPanel';
+import FdtdRibbonMenu from './FdtdRibbonMenu';
+import BoundaryPanel from './BoundaryPanel';
+import CustomStructureDialog from './dialogs/CustomStructureDialog';
+import PatchAntennaDialog from './dialogs/PatchAntennaDialog';
 
 /**
  * FdtdDesignPage — Full FDTD workspace with Design / Solver / Post-processing tabs.
  */
+type FdtdTab = 'designer' | 'solver' | 'postprocessing';
+
 function FdtdDesignPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState<FdtdTab>('designer');
   const dispatch = useAppDispatch();
 
   const design = useAppSelector((s) => s.fdtdDesign);
   const solver = useAppSelector((s) => s.fdtdSolver);
   const currentProject = useAppSelector((s) => s.projects.currentProject);
 
+  // Panel state
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<FdtdTreeCategory | null>(null);
+
+  // Dialog state
+  const [customStructureOpen, setCustomStructureOpen] = useState(false);
+  const [patchAntennaOpen, setPatchAntennaOpen] = useState(false);
+  const [boundaryDialogOpen, setBoundaryDialogOpen] = useState(false);
+
   // Save status UI
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
   // Track if project is being loaded to skip auto-saves during load
   const projectLoadingRef = useRef<boolean>(true);
+
+  // Auto-open right panel when element is selected
+  useEffect(() => {
+    if (selectedId) setRightPanelOpen(true);
+  }, [selectedId]);
 
   // ---------- Helper: build persistable blobs ----------
   const buildDesignState = () => ({
@@ -301,182 +331,132 @@ function FdtdDesignPage() {
     );
   };
 
+  // Tree view selection handler
+  const handleTreeSelect = (id: string, category: FdtdTreeCategory) => {
+    setSelectedId(id);
+    setSelectedCategory(category);
+  };
+
+  // Ribbon menu handlers
+  const handleAddStructure = (type: 'custom' | 'patch' | 'waveguide' | 'microstrip' | 'dipole' | 'cavity') => {
+    if (type === 'custom') setCustomStructureOpen(true);
+    else if (type === 'patch') setPatchAntennaOpen(true);
+  };
+
+  const tabIndex = activeTab === 'designer' ? 0 : activeTab === 'solver' ? 1 : 2;
+  const handleTabChange = (_: unknown, v: number) => {
+    setActiveTab(v === 0 ? 'designer' : v === 1 ? 'solver' : 'postprocessing');
+  };
+
   // ------------------------------------------------------------------
-  // Design Tab
+  // Design Tab — now rendered as 3-panel layout (tree + scene + properties)
+  // Domain settings are shown in properties panel or as a collapsible section
   // ------------------------------------------------------------------
   const renderDesignTab = () => (
-    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {/* Dimensionality */}
-      <FormControl size="small" sx={{ maxWidth: 200 }}>
-        <InputLabel>Dimensionality</InputLabel>
-        <Select
-          value={design.dimensionality}
-          label="Dimensionality"
-          onChange={(e) => dispatch(setDimensionality(e.target.value as FdtdDimensionality))}
+    <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      {/* Left panel — Tree View */}
+      {leftPanelOpen && (
+        <Box
+          sx={{
+            width: 260,
+            minWidth: 260,
+            borderRight: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
         >
-          <MenuItem value="1d">1-D</MenuItem>
-          <MenuItem value="2d">2-D</MenuItem>
-        </Select>
-      </FormControl>
+          {/* Domain settings compact */}
+          <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+            <FormControl size="small" fullWidth sx={{ mb: 1 }}>
+              <InputLabel>Dimensionality</InputLabel>
+              <Select
+                value={design.dimensionality}
+                label="Dimensionality"
+                onChange={(e) => dispatch(setDimensionality(e.target.value as FdtdDimensionality))}
+              >
+                <MenuItem value="1d">1-D</MenuItem>
+                <MenuItem value="2d">2-D</MenuItem>
+              </Select>
+            </FormControl>
+            <Stack direction="row" spacing={0.5}>
+              <TextField
+                label="Lx"
+                type="number"
+                size="small"
+                value={design.domainSize[0]}
+                onChange={(e) =>
+                  dispatch(setDomainSize([+e.target.value, design.domainSize[1], design.domainSize[2]]))
+                }
+                inputProps={{ step: 0.01 }}
+                sx={{ flex: 1 }}
+              />
+              {design.dimensionality === '2d' && (
+                <TextField
+                  label="Ly"
+                  type="number"
+                  size="small"
+                  value={design.domainSize[1]}
+                  onChange={(e) =>
+                    dispatch(
+                      setDomainSize([design.domainSize[0], +e.target.value, design.domainSize[2]]),
+                    )
+                  }
+                  inputProps={{ step: 0.01 }}
+                  sx={{ flex: 1 }}
+                />
+              )}
+            </Stack>
+          </Box>
 
-      {/* Domain size */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Domain Size [m]
-        </Typography>
-        <Stack direction="row" spacing={1}>
-          <TextField
-            label="Lx"
-            type="number"
-            size="small"
-            value={design.domainSize[0]}
-            onChange={(e) =>
-              dispatch(setDomainSize([+e.target.value, design.domainSize[1], design.domainSize[2]]))
-            }
-            inputProps={{ step: 0.01 }}
-          />
-          {design.dimensionality === '2d' && (
-            <TextField
-              label="Ly"
-              type="number"
-              size="small"
-              value={design.domainSize[1]}
-              onChange={(e) =>
-                dispatch(
-                  setDomainSize([design.domainSize[0], +e.target.value, design.domainSize[2]]),
-                )
-              }
-              inputProps={{ step: 0.01 }}
-            />
-          )}
-        </Stack>
-      </Paper>
+          {/* Tree */}
+          <Box sx={{ flex: 1, overflow: 'auto' }}>
+            <FdtdTreeView onSelect={handleTreeSelect} selectedId={selectedId} />
+          </Box>
+        </Box>
+      )}
 
-      {/* Cell size */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Cell Size [m]
-        </Typography>
-        <Stack direction="row" spacing={1}>
-          <TextField
-            label="dx"
-            type="number"
-            size="small"
-            value={design.cellSize[0]}
-            onChange={(e) =>
-              dispatch(setCellSize([+e.target.value, design.cellSize[1], design.cellSize[2]]))
-            }
-            inputProps={{ step: 0.001 }}
-          />
-          {design.dimensionality === '2d' && (
-            <TextField
-              label="dy"
-              type="number"
-              size="small"
-              value={design.cellSize[1]}
-              onChange={(e) =>
-                dispatch(setCellSize([design.cellSize[0], +e.target.value, design.cellSize[2]]))
-              }
-              inputProps={{ step: 0.001 }}
-            />
-          )}
-        </Stack>
-      </Paper>
+      {/* Left panel toggle */}
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Tooltip title={leftPanelOpen ? 'Hide tree' : 'Show tree'}>
+          <IconButton size="small" onClick={() => setLeftPanelOpen((p) => !p)}>
+            {leftPanelOpen ? <ChevronLeft /> : <ChevronRight />}
+          </IconButton>
+        </Tooltip>
+      </Box>
 
-      {/* Sources */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Typography variant="subtitle2">Sources</Typography>
-          <Button size="small" startIcon={<AddIcon />} onClick={handleAddGaussianSource}>
-            Gaussian Pulse
-          </Button>
-        </Stack>
-        {design.sources.map((s) => (
-          <Stack key={s.id} direction="row" alignItems="center" spacing={1} sx={{ mt: 1 }}>
-            <Chip label={s.type} size="small" variant="outlined" />
-            <Typography variant="body2">
-              {s.name} at ({s.position.map((v) => v.toFixed(3)).join(', ')})
-            </Typography>
-            <Button
-              size="small"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => dispatch(removeSource(s.id))}
-            >
-              Remove
-            </Button>
-          </Stack>
-        ))}
-        {design.sources.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            No sources yet. Add one to run a simulation.
-          </Typography>
-        )}
-      </Paper>
+      {/* Center — 3D Scene */}
+      <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <FdtdScene3D
+          selectedId={selectedId}
+          onSelectStructure={(id) => handleTreeSelect(id, 'structure')}
+          onSelectSource={(id) => handleTreeSelect(id, 'source')}
+          onSelectProbe={(id) => handleTreeSelect(id, 'probe')}
+        />
+      </Box>
 
-      {/* Probes */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Typography variant="subtitle2">Probes</Typography>
-          <Button size="small" startIcon={<AddIcon />} onClick={handleAddProbe}>
-            Point Probe
-          </Button>
-        </Stack>
-        {design.probes.map((p) => (
-          <Stack key={p.id} direction="row" alignItems="center" spacing={1} sx={{ mt: 1 }}>
-            <Chip label={p.type} size="small" variant="outlined" />
-            <Typography variant="body2">
-              {p.name} at ({p.position.map((v) => v.toFixed(3)).join(', ')})
-            </Typography>
-            <Button
-              size="small"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => dispatch(removeProbe(p.id))}
-            >
-              Remove
-            </Button>
-          </Stack>
-        ))}
-      </Paper>
+      {/* Right panel toggle */}
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Tooltip title={rightPanelOpen ? 'Hide properties' : 'Show properties'}>
+          <IconButton size="small" onClick={() => setRightPanelOpen((p) => !p)}>
+            {rightPanelOpen ? <ChevronRight /> : <ChevronLeft />}
+          </IconButton>
+        </Tooltip>
+      </Box>
 
-      {/* Boundary conditions */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Boundary Conditions
-        </Typography>
-        <Stack direction="row" spacing={1}>
-          {(['mur_abc', 'pec', 'pmc'] as BoundaryType[]).map((type) => (
-            <Button
-              key={type}
-              size="small"
-              variant={design.boundaries.x_min.type === type ? 'contained' : 'outlined'}
-              onClick={() => handleSetAllBoundaries(type)}
-            >
-              {type.toUpperCase()}
-            </Button>
-          ))}
-        </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-          Applied to all faces. Current: {design.boundaries.x_min.type.toUpperCase()}
-        </Typography>
-      </Paper>
-
-      {/* Validate button */}
-      <Button
-        variant="outlined"
-        size="small"
-        onClick={() => dispatch(validateFdtdSetup())}
-        sx={{ alignSelf: 'flex-start' }}
-      >
-        Validate Setup
-      </Button>
-      {design.validation && (
-        <Alert severity={design.validation.valid ? 'success' : 'error'} sx={{ mt: 1 }}>
-          {design.validation.valid
-            ? `Valid — ${design.validation.total_cells} cells, dt = ${design.validation.dt.toExponential(3)} s`
-            : design.validation.errors.join('; ')}
-        </Alert>
+      {/* Right panel — Properties */}
+      {rightPanelOpen && (
+        <Box
+          sx={{
+            width: 300,
+            minWidth: 300,
+            borderLeft: 1,
+            borderColor: 'divider',
+            overflow: 'auto',
+          }}
+        >
+          <FdtdPropertiesPanel selectedId={selectedId} selectedCategory={selectedCategory} />
+        </Box>
       )}
     </Box>
   );
@@ -667,19 +647,55 @@ function FdtdDesignPage() {
 
       {/* Tab bar */}
       <Paper elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
+        <Tabs value={tabIndex} onChange={handleTabChange}>
           <Tab label="Design" />
           <Tab label="Solver" />
           <Tab label="Post-processing" />
         </Tabs>
       </Paper>
 
+      {/* Ribbon menu (context-sensitive) */}
+      <FdtdRibbonMenu
+        activeTab={activeTab}
+        onAddStructure={handleAddStructure}
+        onAddSource={handleAddGaussianSource}
+        onAddProbe={handleAddProbe}
+        onOpenBoundaries={() => setBoundaryDialogOpen(true)}
+        onOpenMaterialLibrary={() => {}}
+        onRunSimulation={handleRunSimulation}
+        onValidate={() => dispatch(validateFdtdSetup())}
+      />
+
       {/* Tab content */}
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {activeTab === 0 && renderDesignTab()}
-        {activeTab === 1 && renderSolverTab()}
-        {activeTab === 2 && renderPostprocessingTab()}
+      <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {activeTab === 'designer' && renderDesignTab()}
+
+        {activeTab === 'solver' && (
+          <Box sx={{ flex: 1, overflow: 'auto' }}>{renderSolverTab()}</Box>
+        )}
+
+        {activeTab === 'postprocessing' && (
+          <Box sx={{ flex: 1, overflow: 'auto' }}>{renderPostprocessingTab()}</Box>
+        )}
       </Box>
+
+      {/* ---- Dialogs ---- */}
+      <CustomStructureDialog
+        open={customStructureOpen}
+        onClose={() => setCustomStructureOpen(false)}
+      />
+      <PatchAntennaDialog
+        open={patchAntennaOpen}
+        onClose={() => setPatchAntennaOpen(false)}
+      />
+      <Dialog
+        open={boundaryDialogOpen}
+        onClose={() => setBoundaryDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <BoundaryPanel />
+      </Dialog>
     </Box>
   );
 }
