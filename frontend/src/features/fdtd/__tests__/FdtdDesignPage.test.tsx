@@ -68,8 +68,8 @@ describe('FdtdDesignPage', () => {
 
   it('shows design tab content by default', () => {
     renderPage()
-    // Design tab content shows domain size inputs
-    expect(screen.getByText(/Domain Size/i)).toBeDefined()
+    // Design tab shows the tree view with structure categories
+    expect(screen.getAllByText(/Structures/i).length).toBeGreaterThan(0)
   })
 
   it('switches to solver tab on click', () => {
