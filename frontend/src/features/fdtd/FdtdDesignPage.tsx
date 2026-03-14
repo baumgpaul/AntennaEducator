@@ -22,9 +22,14 @@ import {
   PlayArrow as RunIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  CloudDone as SavedIcon,
+  CloudUpload as SavingIcon,
+  CloudOff as SaveErrorIcon,
 } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { debounce } from 'lodash';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { parseApiError } from '@/utils/errors';
 import {
   setDimensionality,
   setDomainSize,
@@ -35,6 +40,7 @@ import {
   addProbe,
   removeProbe,
   setConfig,
+  loadFdtdDesign,
   validateFdtdSetup,
   markClean,
 } from '@/store/fdtdDesignSlice';
@@ -42,7 +48,9 @@ import {
   runFdtdSimulation,
   extractFdtdField,
   clearResults,
+  loadFdtdSolverState,
 } from '@/store/fdtdSolverSlice';
+import { fetchProject, updateProject } from '@/store/projectsSlice';
 import type { FdtdSolveRequest, FdtdDimensionality, BoundaryType } from '@/types/fdtd';
 
 /**
@@ -55,6 +63,167 @@ function FdtdDesignPage() {
 
   const design = useAppSelector((s) => s.fdtdDesign);
   const solver = useAppSelector((s) => s.fdtdSolver);
+  const currentProject = useAppSelector((s) => s.projects.currentProject);
+
+  // Save status UI
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // Track if project is being loaded to skip auto-saves during load
+  const projectLoadingRef = useRef<boolean>(true);
+
+  // ---------- Helper: build persistable blobs ----------
+  const buildDesignState = () => ({
+    dimensionality: design.dimensionality,
+    domainSize: design.domainSize,
+    cellSize: design.cellSize,
+    structures: design.structures,
+    sources: design.sources,
+    boundaries: design.boundaries,
+    probes: design.probes,
+    version: 1,
+  });
+
+  const buildSimulationConfig = () => ({
+    method: 'fdtd',
+    config: design.config,
+    mode: solver.mode,
+  });
+
+  const buildSimulationResults = () => ({
+    results: solver.results,
+    fieldSnapshot: solver.fieldSnapshot,
+    poynting: solver.poynting,
+    mode: solver.mode,
+    status: solver.status,
+  });
+
+  // ---------- Fetch project on mount ----------
+  useEffect(() => {
+    if (projectId) {
+      projectLoadingRef.current = true;
+      dispatch(fetchProject(projectId));
+    }
+  }, [projectId, dispatch]);
+
+  // ---------- Restore state from project ----------
+  useEffect(() => {
+    if (!currentProject) return;
+
+    const ds = currentProject.design_state;
+    if (ds && Object.keys(ds).length > 0) {
+      dispatch(
+        loadFdtdDesign({
+          dimensionality: ds.dimensionality,
+          domainSize: ds.domainSize,
+          cellSize: ds.cellSize,
+          structures: ds.structures,
+          sources: ds.sources,
+          boundaries: ds.boundaries,
+          probes: ds.probes,
+          config: currentProject.simulation_config?.config,
+        }),
+      );
+    }
+
+    // Restore solver results
+    const sr = currentProject.simulation_results;
+    if (sr && Object.keys(sr).length > 0) {
+      dispatch(
+        loadFdtdSolverState({
+          results: sr.results ?? null,
+          fieldSnapshot: sr.fieldSnapshot ?? null,
+          poynting: sr.poynting ?? null,
+          mode: sr.mode,
+          status: sr.status,
+        }),
+      );
+    } else {
+      dispatch(clearResults());
+    }
+
+    // Allow auto-save after state settles
+    setTimeout(() => {
+      projectLoadingRef.current = false;
+    }, 500);
+  }, [currentProject?.id, dispatch]);
+
+  // Reset loading flag when switching projects
+  useEffect(() => {
+    projectLoadingRef.current = true;
+  }, [projectId]);
+
+  // ---------- Debounced auto-save ----------
+  const saveProjectDebounced = useRef(
+    debounce(async (designState: any, simConfig: any, simResults: any, retryCount = 0) => {
+      if (!projectId) return;
+
+      const MAX_RETRIES = 3;
+      const RETRY_DELAYS = [1000, 2000, 4000];
+
+      try {
+        setSaveStatus('saving');
+        setSaveError(null);
+
+        await dispatch(
+          updateProject({
+            id: projectId,
+            data: {
+              design_state: designState,
+              simulation_config: simConfig,
+              simulation_results: simResults,
+            },
+          }),
+        ).unwrap();
+
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } catch (error) {
+        const parsedError = parseApiError(error);
+
+        if (parsedError.retryable && retryCount < MAX_RETRIES) {
+          const delay = RETRY_DELAYS[retryCount];
+          setSaveError(`Retrying in ${delay / 1000}s...`);
+          setTimeout(() => {
+            saveProjectDebounced(designState, simConfig, simResults, retryCount + 1);
+          }, delay);
+        } else {
+          setSaveStatus('error');
+          setSaveError(parsedError.message || 'Failed to save');
+          setTimeout(() => {
+            setSaveStatus('idle');
+            setSaveError(null);
+          }, 5000);
+        }
+      }
+    }, 1500),
+  ).current;
+
+  // Cleanup debounce on unmount
+  useEffect(() => () => saveProjectDebounced.cancel(), [saveProjectDebounced]);
+
+  // Auto-save when design changes
+  useEffect(() => {
+    if (projectLoadingRef.current) return;
+    if (!projectId) return;
+    saveProjectDebounced(buildDesignState(), buildSimulationConfig(), buildSimulationResults());
+  }, [
+    design.dimensionality,
+    design.domainSize,
+    design.cellSize,
+    design.structures,
+    design.sources,
+    design.boundaries,
+    design.probes,
+    design.config,
+    solver.mode,
+  ]);
+
+  // Auto-save when solver completes
+  useEffect(() => {
+    if (projectLoadingRef.current) return;
+    if (!projectId || !solver.results) return;
+    saveProjectDebounced(buildDesignState(), buildSimulationConfig(), buildSimulationResults());
+  }, [solver.results, solver.fieldSnapshot, solver.poynting]);
 
   // ------------------------------------------------------------------
   // Handlers
@@ -473,7 +642,22 @@ function FdtdDesignPage() {
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           FDTD Workspace
         </Typography>
-        {design.isDirty && (
+        {saveStatus === 'saving' && (
+          <Chip icon={<SavingIcon />} label="Saving…" size="small" color="info" variant="outlined" />
+        )}
+        {saveStatus === 'saved' && (
+          <Chip icon={<SavedIcon />} label="Saved" size="small" color="success" variant="outlined" />
+        )}
+        {saveStatus === 'error' && (
+          <Chip
+            icon={<SaveErrorIcon />}
+            label={saveError || 'Save failed'}
+            size="small"
+            color="error"
+            variant="outlined"
+          />
+        )}
+        {saveStatus === 'idle' && design.isDirty && (
           <Chip label="Unsaved" size="small" color="warning" variant="outlined" />
         )}
         <Typography variant="caption" color="text.secondary">

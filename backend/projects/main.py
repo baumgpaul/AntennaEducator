@@ -9,10 +9,10 @@ The actual physics lives in the preprocessor / solver / postprocessor services.
 import logging
 import os
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
@@ -165,10 +165,16 @@ async def create_project(
 
 @app.get("/api/projects", response_model=List[ProjectListResponse])
 async def list_projects(
+    project_type: Optional[str] = Query(
+        None, pattern=r"^(peec|fdtd)$", description="Filter by solver type"
+    ),
     user: UserIdentity = Depends(get_current_user),
     repo: ProjectRepository = Depends(get_repository),
 ):
     projects = await repo.list_projects(user_id=user.id)
+    # Optional solver-type filter
+    if project_type:
+        projects = [p for p in projects if p.get("project_type") == project_type]
     # Compute has_documentation flag and preview for list response
     for p in projects:
         doc = p.get("documentation", {})

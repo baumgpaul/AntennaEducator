@@ -133,6 +133,25 @@ const fdtdSolverSlice = createSlice({
       state.error = null
       state.progress = 0
     },
+    loadFdtdSolverState(
+      state,
+      action: PayloadAction<{
+        results?: FdtdSolveResponse | null
+        fieldSnapshot?: FieldSnapshotResponse | null
+        poynting?: PoyntingResponse | null
+        mode?: FdtdMode
+        status?: FdtdSimulationStatus
+      }>,
+    ) {
+      const d = action.payload
+      if (d.results !== undefined) state.results = d.results
+      if (d.fieldSnapshot !== undefined) state.fieldSnapshot = d.fieldSnapshot
+      if (d.poynting !== undefined) state.poynting = d.poynting
+      if (d.mode) state.mode = d.mode
+      if (d.status) state.status = d.status
+      state.error = null
+      state.progress = d.results ? 100 : 0
+    },
   },
   extraReducers: (builder) => {
     // Solve
@@ -168,6 +187,6 @@ const fdtdSolverSlice = createSlice({
   },
 })
 
-export const { setMode, setProgress, clearResults } = fdtdSolverSlice.actions
+export const { setMode, setProgress, clearResults, loadFdtdSolverState } = fdtdSolverSlice.actions
 
 export default fdtdSolverSlice.reducer
