@@ -70,8 +70,35 @@ function FdtdRibbonMenu({
   onValidate,
 }: FdtdRibbonMenuProps) {
   const [structureMenuAnchor, setStructureMenuAnchor] = useState<null | HTMLElement>(null);
+  const [addMenuAnchor, setAddMenuAnchor] = useState<null | HTMLElement>(null);
+  const dispatch = useAppDispatch();
   const solver = useAppSelector((s) => s.fdtdSolver);
   const design = useAppSelector((s) => s.fdtdDesign);
+  const selectedViewId = useAppSelector(selectFdtdSelectedViewId);
+
+  const ADD_ITEMS: { type: FdtdViewItemType; label: string; icon: React.ReactNode }[] = [
+    { type: 'field_heatmap', label: 'Field Heatmap', icon: <HeatmapIcon fontSize="small" /> },
+    { type: 'time_animation', label: 'Time Animation', icon: <TimelineIcon fontSize="small" /> },
+    { type: 'radiation_pattern', label: 'Radiation Pattern', icon: <RadarIcon fontSize="small" /> },
+    { type: 's_parameters', label: 'S-Parameters', icon: <ChartIcon fontSize="small" /> },
+    { type: 'sar_map', label: 'SAR Map', icon: <SarIcon fontSize="small" /> },
+    { type: 'energy_flow', label: 'Energy Flow', icon: <EnergyIcon fontSize="small" /> },
+    { type: 'rcs_plot', label: 'RCS', icon: <RcsIcon fontSize="small" /> },
+    { type: 'frequency_field', label: 'Frequency Field', icon: <FreqIcon fontSize="small" /> },
+    { type: 'probe_time_series', label: 'Probe Time Series', icon: <ProbeTsIcon fontSize="small" /> },
+  ];
+
+  const handleAddViz = (type: FdtdViewItemType) => {
+    let viewId = selectedViewId;
+    if (!viewId) {
+      dispatch(createView({}));
+    }
+    viewId = selectedViewId;
+    if (viewId) {
+      dispatch(addItemToView({ viewId, type }));
+    }
+    setAddMenuAnchor(null);
+  };
 
   if (activeTab === 'designer') {
     return (
@@ -224,35 +251,6 @@ function FdtdRibbonMenu({
   }
 
   // Postprocessing — add views & visualization items
-  const dispatch = useAppDispatch();
-  const selectedViewId = useAppSelector(selectFdtdSelectedViewId);
-  const [addMenuAnchor, setAddMenuAnchor] = useState<null | HTMLElement>(null);
-
-  const ADD_ITEMS: { type: FdtdViewItemType; label: string; icon: React.ReactNode }[] = [
-    { type: 'field_heatmap', label: 'Field Heatmap', icon: <HeatmapIcon fontSize="small" /> },
-    { type: 'time_animation', label: 'Time Animation', icon: <TimelineIcon fontSize="small" /> },
-    { type: 'radiation_pattern', label: 'Radiation Pattern', icon: <RadarIcon fontSize="small" /> },
-    { type: 's_parameters', label: 'S-Parameters', icon: <ChartIcon fontSize="small" /> },
-    { type: 'sar_map', label: 'SAR Map', icon: <SarIcon fontSize="small" /> },
-    { type: 'energy_flow', label: 'Energy Flow', icon: <EnergyIcon fontSize="small" /> },
-    { type: 'rcs_plot', label: 'RCS', icon: <RcsIcon fontSize="small" /> },
-    { type: 'frequency_field', label: 'Frequency Field', icon: <FreqIcon fontSize="small" /> },
-    { type: 'probe_time_series', label: 'Probe Time Series', icon: <ProbeTsIcon fontSize="small" /> },
-  ];
-
-  const handleAddViz = (type: FdtdViewItemType) => {
-    let viewId = selectedViewId;
-    if (!viewId) {
-      // auto-create a view if none exists
-      dispatch(createView({}));
-    }
-    viewId = selectedViewId; // may still be null if dispatch is async
-    if (viewId) {
-      dispatch(addItemToView({ viewId, type }));
-    }
-    setAddMenuAnchor(null);
-  };
-
   return (
     <Paper elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
       <Box sx={{ p: 1, px: 1.5, minHeight: 64, display: 'flex', alignItems: 'center', gap: 3 }}>
