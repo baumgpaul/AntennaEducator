@@ -115,6 +115,13 @@ async def solve(request: FdtdSolveRequest):
     )
     nx, ny, nz = geometry.grid_dimensions
 
+    if request.dimensionality == "2d" and (nx < 3 or ny < 3):
+        raise HTTPException(
+            status_code=400,
+            detail=f"2-D grid too small ({nx}×{ny}). Each dimension needs "
+                   f"at least 3 cells. Reduce cell_size or increase domain_size.",
+        )
+
     try:
         if request.dimensionality == "1d":
             result = _solve_1d(request, geometry, nx, dx)

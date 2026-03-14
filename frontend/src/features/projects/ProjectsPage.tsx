@@ -18,6 +18,7 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Tooltip,
+  Chip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -70,6 +71,7 @@ function ProjectsPage() {
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'updated' | 'created' | 'name'>('updated');
+  const [solverTypeFilter, setSolverTypeFilter] = useState<'all' | 'peec' | 'fdtd'>('all');
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
@@ -112,6 +114,12 @@ function ProjectsPage() {
           : project.folder_id === currentFolderId;
         if (!matchesFolder) return false;
 
+        // Solver type filter
+        if (solverTypeFilter !== 'all') {
+          const type = project.project_type || 'peec';
+          if (type !== solverTypeFilter) return false;
+        }
+
         const query = searchQuery.toLowerCase();
         if (!query) return true;
         const nameMatch = project.name.toLowerCase().includes(query);
@@ -131,7 +139,7 @@ function ProjectsPage() {
             return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
         }
       });
-  }, [projects, currentFolderId, searchQuery, sortBy]);
+  }, [projects, currentFolderId, searchQuery, sortBy, solverTypeFilter]);
 
   // ── Child folders for current folder ─────────────────────────────────────
 
@@ -298,6 +306,19 @@ function ProjectsPage() {
           <MenuItem value="name">Name</MenuItem>
         </Select>
       </FormControl>
+
+      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+        {(['all', 'peec', 'fdtd'] as const).map((type) => (
+          <Chip
+            key={type}
+            label={type === 'all' ? 'All' : type.toUpperCase()}
+            size="small"
+            variant={solverTypeFilter === type ? 'filled' : 'outlined'}
+            color={solverTypeFilter === type ? 'primary' : 'default'}
+            onClick={() => setSolverTypeFilter(type)}
+          />
+        ))}
+      </Box>
 
       <ToggleButtonGroup value={viewMode} exclusive onChange={handleViewModeChange} size="small">
         <ToggleButton value="grid">
