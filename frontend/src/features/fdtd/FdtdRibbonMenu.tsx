@@ -95,10 +95,38 @@ function FdtdRibbonMenu({
                 Patch Antenna
               </MenuItem>
               <Divider />
-              <MenuItem disabled>Waveguide (Phase 8B)</MenuItem>
-              <MenuItem disabled>Microstrip (Phase 8B)</MenuItem>
-              <MenuItem disabled>Dipole (Phase 8B)</MenuItem>
-              <MenuItem disabled>Cavity (Phase 8B)</MenuItem>
+              <MenuItem
+                onClick={() => {
+                  onAddStructure('waveguide');
+                  setStructureMenuAnchor(null);
+                }}
+              >
+                Waveguide
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  onAddStructure('microstrip');
+                  setStructureMenuAnchor(null);
+                }}
+              >
+                Microstrip Line
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  onAddStructure('dipole');
+                  setStructureMenuAnchor(null);
+                }}
+              >
+                Dipole Antenna
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  onAddStructure('cavity');
+                  setStructureMenuAnchor(null);
+                }}
+              >
+                Resonant Cavity
+              </MenuItem>
             </Menu>
           </Box>
 

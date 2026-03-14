@@ -31,6 +31,7 @@ from .schemas import (
     FdtdValidationRequest,
     FdtdValidationResponse,
 )
+from backend.common.models.fdtd import MATERIAL_LIBRARY
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,16 @@ async def health_check():
             "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     )
+
+
+@app.get("/api/fdtd/materials")
+async def list_materials():
+    """Return the built-in material library."""
+    return {
+        "materials": {
+            key: mat.model_dump() for key, mat in MATERIAL_LIBRARY.items()
+        }
+    }
 
 
 @app.post("/api/fdtd/mesh", response_model=FdtdMeshResponse)

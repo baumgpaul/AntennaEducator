@@ -642,8 +642,30 @@ Bugfix ─── ✅ PR #45 (Fix 2D solver crash: MurABC2D IndexError on degener
 
 ─── v1 COMPLETE ───────────────────────────────────────────────
 
-Phase 7 ─── ⬜ Multi-Solver Project Architecture
-Phase 8 ─── ⬜ Preprocessor UI & 3D Scene
+Phase 7 ─── ✅ COMPLETE (PR #45, commit ddef68a)
+  project_type field (peec|fdtd) in backend schemas + DynamoDB
+  Solver-type filter: GET /api/projects?project_type=fdtd
+  NewProjectDialog: card-based PEEC/FDTD type selector
+  ProjectCard: solver-type badge + routing (/fdtd vs /project)
+  ProjectsPage: filter tabs (All / PEEC / FDTD)
+  fdtdDesignSlice: loadFdtdDesign + markClean + auto-save (debounced 1.5s)
+  11 tests (7 frontend persistence + 4 backend filter/schema)
+
+Phase 8A ── ✅ COMPLETE (PR #46, commit f4fd662)
+  3D scene: FdtdScene3D, DomainWireframe, StructureMesh, SourceMarker,
+            ProbeMarker, BoundaryFaceOverlay (6 scene components)
+  UI panels: FdtdTreeView, FdtdPropertiesPanel, FdtdRibbonMenu, BoundaryPanel
+  Dialogs: CustomStructureDialog (box/cylinder/sphere), PatchAntennaDialog
+  FdtdDesignPage: restructured to 3-panel layout (tree + scene + properties)
+  34 tests (30 new Phase8A + 4 existing updated)
+
+Phase 8B ── 🔄 IN PROGRESS — Remaining Dialogs, Source/Probe Pickers, Material Library
+  Structure dialogs: WaveguideDialog, MicrostripDialog, DipoleFdtdDialog, CavityDialog
+  Source picker: Gaussian Pulse, Sinusoidal, Modulated Gaussian, Plane Wave, Waveguide Port
+  Probe picker: Point, Line, Plane, Near-field contour
+  MaterialLibrary: searchable browser with categories + custom material creator
+  Live 3D previews in parametric dialogs
+
 Phase 9 ─── ⬜ Postprocessor & Visualization
 Phase 10 ── ⬜ Solver UI & Workflow
 Phase 11 ── ⬜ 3D FDTD Engine
