@@ -640,30 +640,645 @@ Bugfix ─── ✅ PR #45 (Fix 2D solver crash: MurABC2D IndexError on degener
   main.py: validate 2D grid ≥ 3×3 cells (returns 400)
   fdtdDesignSlice.ts: auto-adjust domain/cell on 1D→2D switch
 
-Phase 6 ─── ⬜ pending (GPU/Fargate Spot)
+─── v1 COMPLETE ───────────────────────────────────────────────
+
+Phase 7 ─── ⬜ Multi-Solver Project Architecture
+Phase 8 ─── ⬜ Preprocessor UI & 3D Scene
+Phase 9 ─── ⬜ Postprocessor & Visualization
+Phase 10 ── ⬜ Solver UI & Workflow
+Phase 11 ── ⬜ 3D FDTD Engine
+Phase 12 ── ⬜ Educational Features (Problem Builder + Tutorials)
+Phase 13 ── ⬜ DEFERRED — GPU Solver (Fargate Spot, replaces old Phase 6)
 ```
 
 ---
 
-## Scope Boundaries
+# FDTD v2 — Full UI, 3D Engine & Educational Platform
 
-### Included in v1
-- 1D and 2D FDTD solvers with Mur ABC
-- Architecture supports 3D extension (array dimensions parametric)
-- Parametric structure creation (waveguide, PCB, patch antenna) + basic geometry editing
-- Material library with custom material support
-- Full frontend with own tabs, routes, Redux state
-- 4 demo examples with small/large presets
-- CI/CD to fdtd-stage.nyakyagyawa.com
-- GPU solver via Fargate Spot (CuPy)
-- Project type selection (PEEC vs FDTD)
+> Phases 7–12 bring the FDTD solver to production-quality UI parity with PEEC,
+> add a 3D engine, and build educational tools for field theory, antenna theory
+> and solver theory courses. Phase 13 (GPU) is deferred until 3D grids require it.
 
-### Excluded from v1 (future work)
-- Full 3D FDTD engine (architecture ready, not implemented)
+## Design Principles
+
+| Principle | Detail |
+|---|---|
+| **PEEC-like workflow** | Same 3-tab layout (Design → Solve → Post-process), ribbon menu, tree view, properties panel. Postprocessor is a near-clone. |
+| **Multi-solver extensible** | Project model uses `solver_type` discriminator — same DynamoDB table, same project browser. Adding FEM later = one new type. |
+| **Pre-built + low-level** | Structure dialogs for common geometries (patch antenna, waveguide, PCB) AND raw box/cylinder/sphere placement for arbitrary designs. |
+| **Educational-first** | Theory tooltips on every control, step-by-step guided tutorials, problem builder for instructors, CFL/grid-quality indicators. |
+| **Dual audience** | Default guided mode (undergrads learning "what is FDTD") + advanced toggle (grad students who know Maxwell). |
+| **Zero idle cost** | Everything on Lambda. GPU only via explicit user action (Phase 13). |
+
+---
+
+## Phase 7: Multi-Solver Project Architecture
+
+**Goal**: Integrate FDTD into the existing Projects system so saving, loading, and browsing works identically to PEEC. Design the persistence layer to be solver-agnostic (FEM-ready).
+
+### 7.1 Backend: Solver-Agnostic Project Model
+
+**Files**: `backend/projects/schemas.py`, `backend/common/repositories/dynamodb_repository.py`
+
+- Add `solver_type: Literal["peec", "fdtd", "fem"] = "peec"` to `ProjectBase`
+- `design_state` blob schema varies by solver_type (JSON, not validated by projects service)
+- Add GSI2 (`GSI2PK=USER#{user_id}#TYPE#{solver_type}`, `GSI2SK=PROJECT#{project_id}`) for filtered listing
+- `GET /api/projects?solver_type=fdtd` query parameter for frontend filtering
+- Backward-compatible: existing PEEC projects default to `solver_type="peec"`
+
+### 7.2 Frontend: Project Browser Integration
+
+**Files**: `frontend/src/store/projectsSlice.ts`, `frontend/src/features/projects/`
+
+- `NewProjectDialog` — card-based solver type selector (PEEC / FDTD with icons + one-liner description)
+- `ProjectCard` — solver type chip/badge, colored by type
+- `ProjectsList` — filter tabs or dropdown: All / PEEC / FDTD
+- Route: project type determines navigation target (`/design/:id` vs `/fdtd/:id/design`)
+
+### 7.3 FDTD Auto-Save & Load
+
+**Files**: `frontend/src/features/fdtd/FdtdDesignPage.tsx`, `frontend/src/store/fdtdDesignSlice.ts`
+
+- Debounced auto-save (2s after last change) → `updateProject()` with 4 JSON blobs:
+  - `design_state` — structures, sources, probes, domain, boundaries, materials
+  - `simulation_config` — solver config (time steps, CFL, DFT freqs, mode)
+  - `simulation_results` — solver output, field data (or S3 key for large results)
+  - `ui_state` — active tab, camera position, view configurations
+- `loadFdtdProject` thunk: fetch project → hydrate all 4 slices
+- Dirty flag integration: unsaved indicator in header
+
+### 7.4 Tests
+
+- Backend: project CRUD with `solver_type`, GSI2 filtering, backward compat
+- Frontend: save/load round-trip, project type routing, filter UI
+
+**Estimated scope**: ~15 files changed, ~400 lines backend, ~600 lines frontend
+
+---
+
+## Phase 8: Preprocessor UI & 3D Scene
+
+**Goal**: Build a visual geometry editor matching the PEEC design experience — 3D scene with interactive structure/source/probe placement, pre-built parametric dialogs, material library, and tree-based element management.
+
+### 8.1 3D Scene (React Three Fiber)
+
+**New file**: `frontend/src/features/fdtd/FdtdScene3D.tsx`
+
+- React Three Fiber canvas with OrbitControls (rotate, pan, zoom)
+- Domain bounding box wireframe (semi-transparent edges)
+- Grid overlay toggle (shows Yee cell boundaries on faces)
+- GizmoHelper (axis indicator, corner)
+- Camera auto-fit to domain bounds
+- Coordinate axis labels (x, y, z in meters with SI prefix)
+- Click-to-select structures/sources/probes → highlight + properties panel
+
+**Rendered elements** (components under `features/fdtd/scene/`):
+- `StructureMesh.tsx` — box, cylinder, sphere as Three.js geometries, colored by material
+- `SourceMarker.tsx` — arrow/icon at source position, color-coded by type
+- `ProbeMarker.tsx` — point (dot), line (arrow), plane (translucent quad)
+- `BoundaryFaceOverlay.tsx` — per-face color overlay (green=ABC, red=PEC, blue=PMC)
+- `DomainWireframe.tsx` — outer domain box + optional cell grid lines
+
+### 8.2 Pre-Built Structure Dialogs
+
+**New files**: `frontend/src/features/fdtd/dialogs/`
+
+Each dialog creates one or more `FdtdStructure` entries with the correct material:
+
+| Dialog | Output Structures | Key Parameters |
+|---|---|---|
+| `PatchAntennaDialog.tsx` | Substrate slab + copper patch + ground plane + feed probe | L, W, h, εᵣ, feed offset |
+| `WaveguideDialog.tsx` | Hollow rectangular box (PEC walls) | a, b, length |
+| `MicrostripDialog.tsx` | Substrate + trace + ground plane | width, length, h, εᵣ |
+| `DipoleFdtdDialog.tsx` | Two thin rods + gap (PEC or copper) | length, radius, gap, feed type |
+| `CavityDialog.tsx` | PEC box with aperture (slot in one face) | W, H, D, slot position/size |
+| `CustomStructureDialog.tsx` | Single box / cylinder / sphere | position, size, material picker |
+
+Each dialog includes:
+- Live 3D preview (mini Three.js canvas)
+- Parameter validation with physics hints ("Patch length ≈ λ/2 at {f} GHz")
+- "Add to Design" button → dispatches `addStructure()` for each sub-element
+
+### 8.3 Material Library
+
+**New file**: `frontend/src/features/fdtd/MaterialLibrary.tsx`
+
+- Searchable/filterable material browser (uses backend `FdtdMaterial` presets)
+- Categories: Vacuum, Metals, Dielectrics, PCB Substrates, Soil, Biological Tissue
+- Custom material creator (εᵣ, μᵣ, σ input)
+- Material preview card: name, color swatch, properties, usage hint
+- Reuses existing `FdtdMaterial` Pydantic model (15+ built-in materials)
+
+### 8.4 Source & Probe Placement
+
+**Enhanced source dialogs**:
+- Gaussian pulse: amplitude, width, delay + frequency-domain preview plot (FFT) 
+- Sinusoidal: frequency, amplitude + wavelength indicator on grid
+- Modulated Gaussian: center freq, bandwidth + spectrum preview
+- Plane wave: incidence angle, polarization (2D/3D)
+- Waveguide port: mode selection (TE₁₀, TM₁₁, etc.)
+
+**Probe dialogs**:
+- Point probe: click to place in 3D → records field(t) at that cell
+- Line probe: drag start/end points → records spatial profile vs time
+- Plane probe: select face or interior plane → records 2D snapshot vs time
+- Near-field contour (for radiation pattern): auto-place rectangular contour
+
+### 8.5 Boundary Configuration
+
+**New file**: `frontend/src/features/fdtd/BoundaryPanel.tsx`
+
+- 6-face boundary setup (x_min, x_max, y_min, y_max, z_min, z_max)
+- Visual: exploded cube diagram showing each face with its BC type
+- Types: Mur ABC (absorbing), PEC (perfect conductor), PMC (perfect magnet)
+- Per-face dropdown + visual color feedback in 3D scene
+- "Set all faces" convenience button (default: Mur ABC everywhere)
+
+### 8.6 Tree View & Properties Panel
+
+**New files**: `FdtdTreeView.tsx`, `FdtdPropertiesPanel.tsx`
+
+**Tree View** (left sidebar, like PEEC):
+```
+📦 Domain (100×100 mm², dx=1mm)
+├── 📐 Structures
+│   ├── Substrate (FR-4, 50×50×1.6mm)
+│   ├── Patch (Copper, 30×40mm)
+│   └── Ground Plane (PEC)
+├── ⚡ Sources
+│   └── Gaussian Pulse (center, z-pol)
+├── 📍 Probes
+│   ├── Point: feed (25mm, 25mm)
+│   └── Line: x-axis (y=25mm)
+└── 🔲 Boundaries
+    ├── x: ABC / ABC
+    ├── y: ABC / ABC
+    └── z: PEC / ABC
+```
+
+**Properties Panel** (right sidebar): Edit selected element inline — position sliders, material dropdown, parameter fields. Changes commit on blur/enter.
+
+### 8.7 Ribbon Menu
+
+**New file**: `frontend/src/features/fdtd/FdtdRibbonMenu.tsx`
+
+Context-aware toolbar (changes with active tab):
+
+| Tab | Ribbon Actions |
+|---|---|
+| **Design** | Add Structure ▾ (Patch, Waveguide, Microstrip, Dipole, Cavity, Custom) · Add Source ▾ · Add Probe ▾ · Material Library · Grid Settings |
+| **Solver** | Run Simulation · Configure DFT · Mode (TM/TE) · Stability Check · Reset |
+| **Post-processing** | Add View ▾ · Field Heatmap · Time Animation · Pattern Plot · S-Params · SAR Map · Export PDF |
+
+### 8.8 Tests
+
+- Unit: Structure dialog parameter validation, material library filtering
+- Component: 3D scene renders structures, tree view CRUD, properties panel updates Redux
+- Integration: Create structure via dialog → appears in 3D scene → persisted to project
+
+**Estimated scope**: ~25 new files, ~4000 lines frontend
+
+---
+
+## Phase 9: Postprocessor & Visualization
+
+**Goal**: Full postprocessing suite — every backend endpoint has a matching frontend visualization. Near-clone of PEEC postprocessor structure (view management, renderers, plots, export).
+
+### 9.1 View Management System
+
+**New files**: `frontend/src/store/fdtdPostprocessingSlice.ts`, `features/fdtd/postprocessing/FdtdPostprocessingTab.tsx`
+
+- Mirrors PEEC `postprocessingSlice`: named views, each containing visualization items
+- `ViewConfiguration { name, items: ViewItem[] }`
+- `ViewItem { type, fieldComponent, config }` — one plot or renderer per item
+- Add/remove/reorder views via drag-and-drop or buttons
+- Persisted in `ui_state` blob for session restore
+
+### 9.2 Field Heatmaps (2D)
+
+**New file**: `features/fdtd/postprocessing/FieldHeatmap.tsx`
+
+- Renders Ez, Hx, Hy (or Ex, Ey, Hz for TE) as color-mapped 2D image
+- Uses `POST /api/fdtd/fields/extract` backend endpoint
+- Colorbar component (viridis, jet, coolwarm, RdBu) with min/max controls
+- Overlay: domain outline, structure boundaries as contour lines
+- Field component selector dropdown (Ez, Hx, Hy, |E|, |H|)
+- 1D mode: line plot (field vs position) instead of heatmap
+
+### 9.3 Time Animation
+
+**New file**: `features/fdtd/postprocessing/TimeAnimation.tsx`
+
+- Playback of field evolution using PlaneProbe snapshot data
+- Transport controls: play/pause, step forward/back, speed slider (0.5×–4×), loop
+- Frame scrubber (slider for time step selection)
+- Side-by-side: field heatmap + time-domain probe trace with cursor synced
+- Requires PlaneProbe in solve — auto-add if none exists (with user permission)
+
+### 9.4 Radiation Pattern
+
+**New file**: `features/fdtd/postprocessing/RadiationPattern.tsx`
+
+- 2D polar plot (uses `POST /api/fdtd/pattern/radiation` backend)
+- Auto-configured near-field contour extraction from solve results
+- Display: pattern (dB), directivity (dBi), HPBW annotation
+- Overlay: main lobe, side lobes, nulls highlighted
+- Angular range: full 360° (2D pattern) or selectable cuts
+
+### 9.5 S-Parameter Plot
+
+**New file**: `features/fdtd/postprocessing/SParameterPlot.tsx`
+
+- S₁₁ (return loss) vs frequency from DFT probe data
+- Uses `s_parameter_from_probes()` backend utility via new endpoint
+- Dual axis: |S₁₁| (dB) + phase (deg)
+- Markers: resonance frequency, bandwidth (−10 dB), impedance at marker
+- Requires ≥2 probes (incident + reflected) — UI guides placement
+- Add `POST /api/fdtd/sparams` endpoint to postprocessor
+
+### 9.6 SAR Distribution
+
+**New file**: `features/fdtd/postprocessing/SARMap.tsx`
+
+- SAR heatmap overlaid on tissue structure geometry
+- Uses `POST /api/fdtd/sar` backend endpoint
+- Shows: peak SAR, 1g-averaged SAR, 10g-averaged SAR with regulation limits
+- Tissue outline overlay with labels
+- Colorbar: SAR (W/kg) with safety threshold lines
+
+### 9.7 Poynting Vector & Energy Flow
+
+**New file**: `features/fdtd/postprocessing/EnergyFlow.tsx`
+
+- Poynting vector field as arrow plot (quiver) overlaid on |S| heatmap
+- Uses `POST /api/fdtd/energy` backend endpoint
+- Arrow density control, magnitude-scaled or uniform length
+- Total radiated power readout
+
+### 9.8 RCS Plot
+
+**New file**: `features/fdtd/postprocessing/RCSPlot.tsx`
+
+- Bistatic RCS (2-D) polar or Cartesian plot
+- Uses `POST /api/fdtd/rcs` backend endpoint
+- Display: σ₂D (dB·m), max RCS angle, monostatic RCS value
+
+### 9.9 Frequency-Domain Field Maps
+
+**New file**: `features/fdtd/postprocessing/FrequencyFieldMap.tsx`
+
+- DFT field magnitude + phase at selected frequency
+- Uses `POST /api/fdtd/fields/frequency` backend endpoint  
+- Frequency selector (from `dft_frequencies` list)
+- Magnitude heatmap + phase heatmap (side-by-side or toggle)
+
+### 9.10 Shared Components
+
+- `Colorbar.tsx` — reusable colorbar (colormaps: viridis, jet, coolwarm, RdBu, hot)
+- `PlotContainer.tsx` — responsive chart wrapper with title, axis labels, export button
+- `ExportPDFDialog.tsx` — capture all visible views → multi-page PDF
+- Chart library: Recharts (already in PEEC) for line/polar plots; Canvas for heatmaps
+
+### 9.11 Backend: New Postprocessor Endpoint
+
+**File**: `backend/fdtd_postprocessor/main.py`
+
+- Add `POST /api/fdtd/sparams` — takes incident/reflected probe data + DFT frequencies, returns S₁₁(f) magnitude/phase/complex
+
+### 9.12 Tests
+
+- Unit: Each plot component renders with mock data, colorbar renders correct range
+- Integration: Solve → extract field → render heatmap end-to-end
+- Snapshot tests for plot components with known data
+
+**Estimated scope**: ~20 new files, ~3500 lines frontend, ~100 lines backend
+
+---
+
+## Phase 10: Solver UI & Workflow
+
+**Goal**: Polish the solver tab with progress feedback, CFL indicators, grid quality checks, and a workflow matching PEEC's solve experience.
+
+### 10.1 Solver Tab Redesign
+
+**File**: `FdtdDesignPage.tsx` (solver tab section) → extract to `FdtdSolverTab.tsx`
+
+- **Pre-solve checks** panel:
+  - CFL stability indicator (green/yellow/red based on courant_number × dt_max)
+  - Grid quality: cells per wavelength at highest DFT frequency (≥10 recommended)
+  - Memory estimate (nx × ny × 8 bytes × 6 fields)
+  - Estimated solve time (from grid size heuristic)
+  
+- **DFT Configuration** dialog:
+  - Frequency list builder (start, stop, N points — linear or log)
+  - Or manual entry
+  - Preview: shows which wavelengths relative to grid size
+
+- **Mode Selection** (2D): TM/TE toggle with visual diagram showing field orientation
+
+- **Run button** with progress bar:
+  - Time step counter (n / N)
+  - Elapsed time + ETA
+  - Field energy indicator (for convergence monitoring)
+  - Auto-shutoff status
+
+### 10.2 Solver State Machine
+
+**File**: `frontend/src/store/fdtdSolverSlice.ts`
+
+Expand status: `idle → validating → solving → postprocessing → solved | failed`
+
+- `validating`: pre-solve checks (CFL, grid quality, memory)
+- `solving`: actual FDTD run (progress updates if feasible)
+- `postprocessing`: auto-extract primary field, auto-compute S-params if probes present
+- `solved`: all results available, post-processing tab unlocked
+
+### 10.3 Auto-Postprocessing Pipeline
+
+After solve completes, automatically:
+1. Extract primary field snapshot (Ez for TM, Hz for TE)
+2. If DFT frequencies configured → compute frequency-domain fields
+3. If ≥2 probes configured → compute S-parameters
+4. If near-field contour probes → compute radiation pattern
+5. Populate postprocessing slice with default views
+
+### 10.4 Tests
+
+- Solver pre-check accuracy (CFL computation matches backend)
+- State machine transitions
+- Auto-postprocessing pipeline triggers
+
+**Estimated scope**: ~5 files, ~800 lines frontend
+
+---
+
+## Phase 11: 3D FDTD Engine
+
+**Goal**: Full 3D Yee grid solver with all 6 field components. Limited to Lambda-sized grids (max ~60³ cells). Larger grids deferred to Phase 13 (GPU).
+
+### 11.1 Backend: 3D Engine
+
+**New file**: `backend/solver_fdtd/engine_3d.py`
+
+- Full 3D Yee stencil: Ex, Ey, Ez, Hx, Hy, Hz (6 field arrays)
+- Leapfrog time-stepping (same pattern as 1D/2D)
+- Update equations:
+  ```
+  Hx^{n+½} = Hx^{n-½} + (Δt/μ)[(∂Ez/∂y) − (∂Ey/∂z)]
+  Hy^{n+½} = Hy^{n-½} + (Δt/μ)[(∂Ex/∂z) − (∂Ez/∂x)]
+  Hz^{n+½} = Hz^{n-½} + (Δt/μ)[(∂Ey/∂x) − (∂Ex/∂y)]
+  Ex^{n+1} = Ca·Ex^n + Cb·[(∂Hz/∂y) − (∂Hy/∂z)]
+  Ey^{n+1} = Ca·Ey^n + Cb·[(∂Hx/∂z) − (∂Hz/∂x)]
+  Ez^{n+1} = Ca·Ez^n + Cb·[(∂Hy/∂x) − (∂Hx/∂y)]
+  ```
+- CFL limit: dt_max = 1/(c·√(1/dx² + 1/dy² + 1/dz²))
+- `xp = get_array_module()` pattern for GPU-readiness
+
+### 11.2 3D Boundaries
+
+**File**: `backend/solver_fdtd/boundaries.py`
+
+- `MurABC3D` class: first-order Mur on all 6 faces
+- `apply_pec_3d()`, `apply_pmc_3d()`
+- 3D probes: PointProbe3D, LineProbe3D, PlaneProbe3D (slice through volume)
+
+### 11.3 3D Source Injection
+
+- Point source in 3D: inject at (ix, iy, iz) for selected component
+- Plane wave via total-field/scattered-field (TF/SF) boundary
+- Waveguide port: inject TE₁₀ mode profile at boundary face
+
+### 11.4 Grid Size Limits
+
+- Lambda limit: 2048 MB memory, 300s timeout
+- Max grid: ~60×60×60 (6 fields × 60³ × 8 bytes ≈ 10 GB → too large)
+- Practical limit: ~40×40×40 (6 × 40³ × 8 ≈ 3 GB) or non-cubic (100×100×10)
+- Validate on `POST /api/fdtd/solve` — reject if memory estimate > limit
+- Larger grids → redirect to GPU endpoint (Phase 13)
+
+### 11.5 Solver Integration
+
+**File**: `backend/solver_fdtd/main.py`
+
+- Add `dimensionality: "3d"` handling in `solve()` endpoint
+- `_solve_3d()` function: builds 3D grid, extracts 3D slices, runs engine
+- Response: `fields_final` contains 6 field components
+- Update `FdtdSolverConfigResponse` to include `"3d"` in supported_dimensions
+
+### 11.6 Frontend: 3D Visualization
+
+**Files**: update `FdtdScene3D.tsx`, new `VolumeSliceViewer.tsx`
+
+- 3D field visualization via axis-aligned slice planes (x, y, or z fixed)
+- Slice scrubber: drag plane through volume
+- Heatmap on slice plane with structure outlines
+- Optional: volume rendering via opacity transfer function (lightweight)
+- Isosurface rendering for |E| = constant (Three.js MarchingCubes)
+
+### 11.7 Frontend: Design Updates
+
+- `setDimensionality` now supports `"1d" | "2d" | "3d"`
+- Domain size: 3D inputs (Lx, Ly, Lz) always shown when 3D selected
+- Structure dialogs: z-dimension unlocked for 3D
+- Boundary panel: all 6 faces active
+
+### 11.8 3D Postprocessor Extensions
+
+**Backend**: `backend/fdtd_postprocessor/`
+
+- Extend `extract_field_snapshot` for 3D (return slice or full volume)
+- 3D Poynting vector: **S** = **E** × **H** (full vector cross product)
+- 3D far-field: surface equivalence on 6-face enclosing box → 3D radiation pattern
+- 3D SAR: volume SAR distribution
+
+### 11.9 Tests
+
+- Physics validation: 3D plane wave propagation in free space (compare analytical)
+- 3D cavity resonance (known eigenfrequency: f = c/(2)·√((m/a)²+(n/b)²+(p/d)²))
+- 3D PEC reflection coefficient = −1
+- Grid size rejection test (exceeds memory limit → 400)
+- Frontend: slice viewer renders, dimensionality toggle works
+
+**Estimated scope**: ~10 new files, ~1500 lines backend, ~1000 lines frontend
+
+---
+
+## Phase 12: Educational Features
+
+**Goal**: Transform the simulator from a tool into a teaching platform — problem builder for instructors, guided tutorials for students, and embedded theory context.
+
+### 12.1 Problem / Exercise Builder (Instructor Mode)
+
+**New files**: `features/fdtd/education/ProblemBuilder.tsx`, `backend/projects/schemas.py` (extend)
+
+**Concept**: Instructor creates a "problem project" with:
+- Pre-configured geometry (partially or fully)
+- Task description (Markdown)
+- Expected results (target S₁₁, target directivity, target SAR limit, etc.)
+- Hints (progressive — reveal on click)
+- Locked elements (student can't modify certain structures)
+- Assessment criteria (auto-checkable where possible)
+
+**Data model** (extends project):
+```
+problem_config: {
+  task_description: "Design a patch antenna resonant at 2.4 GHz with ≥6 dBi gain",
+  target_metrics: [
+    { name: "resonance_freq_ghz", target: 2.4, tolerance: 0.05, unit: "GHz" },
+    { name: "directivity_dbi", target: 6.0, comparator: ">=", unit: "dBi" },
+  ],
+  hints: ["Patch length ≈ λ/(2√εᵣ)", "Try FR-4 substrate with h=1.6mm"],
+  locked_elements: ["ground_plane", "substrate"],  // student can't delete these
+  starter_design: { ... },  // initial design_state
+  solution_design: { ... },  // instructor's reference solution (hidden)
+}
+```
+
+**Student workflow**:
+1. Browse problems in Course folders → "Start Problem"
+2. Opens design page with pre-loaded geometry + task panel
+3. Student modifies design, runs solver, checks results
+4. "Check Solution" button → compares student results vs target metrics
+5. Shows pass/fail per metric + optional hint reveal + instructor solution comparison
+
+### 12.2 Guided Tutorial System
+
+**New files**: `features/fdtd/education/TutorialOverlay.tsx`, `features/fdtd/education/tutorials/`
+
+**Tutorial format** (JSON/Markdown):
+```json
+{
+  "title": "FDTD 101: Wave Propagation in 1D",
+  "steps": [
+    {
+      "target": "#domain-size-input",
+      "content": "Set the domain to 1 meter. This is the space where we'll simulate wave propagation.",
+      "action": "set_domain_size",
+      "expected_value": [1.0, 0.01, 0.01]
+    },
+    {
+      "target": "#add-source-button",
+      "content": "Add a Gaussian pulse source. This creates a broadband excitation — the Fourier transform reveals all frequencies at once.",
+      "theory": "A Gaussian pulse g(t) = exp(−(t−t₀)²/2σ²) has spectrum G(f) = σ√(2π)·exp(−2π²σ²f²)"
+    }
+  ]
+}
+```
+
+**Built-in tutorials** (4 core, more addable):
+1. **FDTD 101**: 1D wave propagation — Gaussian pulse, observe E/H, Mur ABC vs PEC reflection
+2. **Materials & Loss**: 1D wave through dielectric slab — observe reflection/transmission, σ causes attenuation
+3. **2D TM Mode**: Point source radiation — circular wavefronts, Mur ABC absorption
+4. **Patch Antenna Design**: Guided build → simulate → check S₁₁ → view radiation pattern
+
+**UI**: Spotlight overlay (dim everything except target element), step counter, skip/back, theory popup (rendered LaTeX: Ez, Hy, Maxwell).
+
+### 12.3 Theory Context & Documentation Panel
+
+**New file**: `features/fdtd/education/TheoryPanel.tsx`
+
+- Collapsible right-side panel (toggle via ribbon or keyboard shortcut)
+- Context-aware: shows relevant theory for the currently active control
+  - Domain setup → explains Yee grid, cell size vs wavelength
+  - Source config → Gaussian pulse spectrum, sampling theorem
+  - Boundary config → Mur ABC derivation, reflection coefficient
+  - Solver → CFL condition derivation, numerical dispersion
+  - Postprocessing → near-to-far-field transform, Poynting theorem
+- Rendered with KaTeX (LaTeX math) + diagrams (SVG/Mermaid)
+- Links to textbook references (Taflove, Sullivan)
+
+### 12.4 Grid Quality & Physics Indicators
+
+Integrated into the design tab:
+
+| Indicator | Location | Purpose |
+|---|---|---|
+| Cells/wavelength | Domain panel | λ/(dx) at highest freq — green ≥ 20, yellow ≥ 10, red < 10 |
+| CFL number | Solver panel | Courant number × stability margin — shows dt |
+| Numerical dispersion | Solver panel | Phase velocity error estimate at highest freq |
+| Memory estimate | Solver panel | nx × ny (× nz) × fields × 8 bytes |
+| Solve time estimate | Solver panel | Based on grid size heuristic (calibrated) |
+
+### 12.5 Course Folder Integration
+
+Extend the existing course folder system for educational content:
+
+- Problem sets grouped in course folders (e.g., "Antenna Theory — Problem Set 3")
+- Tutorials linked to course folders
+- Student progress tracking: which tutorials completed, which problems passed
+- Instructor dashboard (future): class-wide completion statistics
+
+### 12.6 Tests
+
+- Problem builder: create problem → student loads → modify → check results → pass/fail
+- Tutorial system: step progression, spotlight targeting, theory panel content
+- Physics indicators: cells/wavelength calculation correct for known setups
+- Course folder: problem listed correctly, student can copy and start
+
+**Estimated scope**: ~15 new files, ~3000 lines frontend, ~200 lines backend
+
+---
+
+## Phase 13: GPU Solver via Fargate Spot (DEFERRED)
+
+> **Trigger**: Activate when 3D grids frequently exceed Lambda limits (Phase 11 deployed
+> and users request grids > 40³). Zero cost until activated — no Fargate resources provisioned.
+
+### Architecture (same as original Phase 6)
+
+**Workflow**:
+1. User explicitly clicks "Run on GPU" (never auto-selected)
+2. Lambda writes grid to S3, submits job to SQS, returns `job_id`
+3. Fargate Spot task (g4dn, CuPy) picks up job, solves, writes results to S3
+4. Frontend polls `GET /api/fdtd/solve/status/{job_id}` until complete
+5. Fargate auto-scales to 0 after 5 min idle
+
+**Cost model**:
+- Idle: **$0** (no ECS tasks, no instances)
+- Per solve: ~$0.20–0.50 (Spot g4dn.xlarge for 1–3 min)
+- SQS + S3: fractions of a cent
+
+**Terraform module**: `terraform/modules/fargate-gpu/`
+- ECS Cluster + Fargate Spot capacity provider
+- Task Definition: g4dn, 4 vCPU, 16 GB, 1 GPU
+- Auto-scaling: scale to 1 on SQS depth > 0, to 0 after idle
+- SQS queue: `fdtd-gpu-jobs`
+- S3 bucket: `fdtd-gpu-data`
+
+**Endpoints**:
+- `POST /api/fdtd/solve/gpu` → returns `{job_id, status: "queued"}`
+- `GET /api/fdtd/solve/status/{job_id}` → `{status, progress_pct, result_url}`
+
+**Frontend**:
+- "Run on GPU" button (only shown when grid exceeds CPU limit)
+- Job queue panel: status, estimated wait (cold start ~2 min)
+- Result download when complete
+
+**Prerequisites**: Phase 11 (3D engine) deployed and validated on CPU first.
+
+---
+
+## Updated Scope Boundaries
+
+### Included in v2
+- Everything from v1 (Phases 0–5) ✅
+- Multi-solver project model (PEEC/FDTD/FEM-ready)
+- Full preprocessor UI with 3D scene, structure dialogs, material library
+- Complete postprocessor: heatmaps, time animation, radiation patterns, S-params, SAR, RCS, energy flow
+- Polished solver UI with CFL/grid indicators and progress
+- Full 3D FDTD engine (Lambda-sized grids ≤ ~40³)
+- Educational features: problem builder, guided tutorials, theory panel
+- Course folder integration for exercises
+
+### Included when activated (Phase 13)
+- GPU solver via Fargate Spot (pay-per-use, $0 idle)
+
+### Excluded (future work)
 - PML boundary conditions (Mur first, PML as extension)
 - Dispersive materials (Drude, Lorentz, Debye models)
 - Subgridding / non-uniform meshing
 - MPI parallel domain decomposition
-- Import of CAD geometry (STEP, STL files)
-- FDTD-PEEC coupling / hybrid solver
+- CAD import (STEP, STL)
+- FDTD-PEEC hybrid coupling
 - Thin-wire / sub-cell models
+- FEM solver integration (architecture ready, not implemented)
