@@ -676,8 +676,12 @@ Phase 9 ─── ✅ COMPLETE (PR #48, commit 4cc5752 + hotfix 4eb127a)
   API: 4 new functions + TypeScript types
   Hotfix: hooks before conditional returns in FdtdRibbonMenu
 
-Phase 10 ── 🔄 IN PROGRESS — Solver UI & Workflow
-Phase 11 ── ⬜ 3D FDTD Engine
+Phase 10 ── ✅ COMPLETE (PR #49, commit 1792dbd)
+  FdtdSolverTab: extracted from FdtdDesignPage with pre-solve checks, DFT config, mode selector
+  Solver state machine: idle → solving → postprocessing → completed | failed
+  Auto-postprocessing pipeline: field extraction, Poynting vector, default view creation
+
+Phase 11 ── 🔄 IN PROGRESS — 3D FDTD Engine
 Phase 12 ── ⬜ Educational Features (Problem Builder + Tutorials)
 Phase 13 ── ⬜ DEFERRED — GPU Solver (Fargate Spot, replaces old Phase 6)
 ```

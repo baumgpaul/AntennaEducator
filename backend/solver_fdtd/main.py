@@ -1,6 +1,6 @@
 """FastAPI application for the FDTD Solver service.
 
-Provides 1-D and 2-D FDTD electromagnetic simulation endpoints.
+Provides 1-D, 2-D, and 3-D FDTD electromagnetic simulation endpoints.
 Port: 8005
 """
 
@@ -22,6 +22,7 @@ from backend.fdtd_preprocessor.builders import (
 from .config import settings
 from .engine_1d import run_fdtd_1d
 from .engine_2d import run_fdtd_2d
+from .engine_3d import run_fdtd_3d
 from .probes import LineProbe, PlaneProbe, PointProbe
 from .schemas import FdtdSolveRequest, FdtdSolveResponse, FdtdSolverConfigResponse
 
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Antenna Simulator — FDTD Solver",
-    description="Finite-Difference Time-Domain electromagnetic solver (1-D + 2-D)",
+    description="Finite-Difference Time-Domain electromagnetic solver (1-D + 2-D + 3-D)",
     version=settings.version,
     docs_url=f"{settings.api_prefix}/docs",
     redoc_url=f"{settings.api_prefix}/redoc",
@@ -88,7 +89,7 @@ async def get_solver_config():
 # ---------------------------------------------------------------------------
 @app.post(f"{settings.api_prefix}/fdtd/solve", response_model=FdtdSolveResponse)
 async def solve(request: FdtdSolveRequest):
-    """Run an FDTD simulation (1-D or 2-D)."""
+    """Run an FDTD simulation (1-D, 2-D, or 3-D)."""
     # --- Validation ---
     if request.config.num_time_steps > settings.max_time_steps:
         raise HTTPException(
@@ -122,11 +123,30 @@ async def solve(request: FdtdSolveRequest):
                    f"at least 3 cells. Reduce cell_size or increase domain_size.",
         )
 
+    if request.dimensionality == "3d":
+        if nx < 3 or ny < 3 or nz < 3:
+            raise HTTPException(
+                status_code=400,
+                detail=f"3-D grid too small ({nx}\u00d7{ny}\u00d7{nz}). "
+                       f"Each dimension needs at least 3 cells.",
+            )
+        # Memory estimate: 6 field arrays + ~4 coefficient arrays
+        mem_bytes = 10 * nx * ny * nz * 8  # float64
+        max_mem = 1_500_000_000  # ~1.5 GB safety limit for Lambda
+        if mem_bytes > max_mem:
+            raise HTTPException(
+                status_code=400,
+                detail=f"3-D grid {nx}\u00d7{ny}\u00d7{nz} requires ~{mem_bytes // 1_000_000} MB. "
+                       f"Maximum is ~{max_mem // 1_000_000} MB. Reduce grid size.",
+            )
+
     try:
         if request.dimensionality == "1d":
             result = _solve_1d(request, geometry, nx, dx)
-        else:
+        elif request.dimensionality == "2d":
             result = _solve_2d(request, geometry, nx, ny, dx, dy)
+        else:
+            result = _solve_3d(request, geometry, nx, ny, nz, dx, dy, dz)
     except Exception as e:
         logger.exception("FDTD solve failed")
         raise HTTPException(status_code=500, detail=str(e))
@@ -267,6 +287,80 @@ def _build_probes_2d(request: FdtdSolveRequest, grid: dict) -> list:
             probes.append(LineProbe(name=p.name, index=iy, field_component=p.fields[0]))
         elif p.type == "plane":
             probes.append(PlaneProbe(name=p.name, field_component=p.fields[0]))
+    return probes
+
+
+# ---------------------------------------------------------------------------
+# Internal: 3-D solve
+# ---------------------------------------------------------------------------
+def _solve_3d(
+    request: FdtdSolveRequest,
+    geometry: FdtdGeometry,
+    nx: int, ny: int, nz: int,
+    dx: float, dy: float, dz: float,
+) -> dict:
+    grid = build_yee_grid(geometry)
+
+    for s in request.structures:
+        apply_structure(grid, s)
+    epsilon_r_3d = grid["epsilon_r"]
+    mu_r_3d = grid["mu_r"]
+    sigma_3d = grid["sigma"]
+
+    sources = []
+    for src in request.sources:
+        placed = apply_source(grid, src)
+        sources.append({
+            "ix": placed["cell_indices"][0],
+            "iy": placed["cell_indices"][1],
+            "iz": placed["cell_indices"][2],
+            "type": placed["type"],
+            "parameters": placed["parameters"],
+            "soft": True,
+        })
+
+    probes = _build_probes_3d(request, grid)
+    bc = request.boundaries.x_min.type
+
+    result = run_fdtd_3d(
+        nx=nx,
+        ny=ny,
+        nz=nz,
+        dx=dx,
+        dy=dy,
+        dz=dz,
+        config=request.config,
+        sources=sources,
+        boundary_type=bc,
+        epsilon_r=epsilon_r_3d,
+        mu_r=mu_r_3d,
+        sigma=sigma_3d,
+        probes=probes,
+    )
+    result["mode"] = "3d"
+    return result
+
+
+def _build_probes_3d(request: FdtdSolveRequest, grid: dict) -> list:
+    probes = []
+    dx, dy, dz = grid["dx"], grid["dy"], grid["dz"]
+    nx, ny, nz = grid["nx"], grid["ny"], grid["nz"]
+    for p in request.probes:
+        ix = min(max(round(p.position[0] / dx), 0), nx - 1)
+        iy = min(max(round(p.position[1] / dy), 0), ny - 1)
+        iz = min(max(round(p.position[2] / dz), 0), nz - 1)
+        if p.type == "point":
+            probes.append(PointProbe(
+                name=p.name, ix=ix, iy=iy, iz=iz,
+                field_component=p.fields[0],
+            ))
+        elif p.type == "plane":
+            probes.append(PlaneProbe(
+                name=p.name,
+                field_component=p.fields[0],
+                slice_axis="z",
+                slice_index=nz // 2,  # Default: mid-plane
+            ))
     return probes
 
 
