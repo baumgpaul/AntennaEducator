@@ -17,6 +17,22 @@ import { generateObservationPoints } from '@/utils/fieldGeneration';
 // ============================================================================
 
 /**
+ * Extract a user-friendly error message from Axios errors.
+ * Handles both string detail and structured detail objects (e.g. 402 token errors).
+ */
+function extractErrorMessage(error: any, fallback: string): string {
+  const detail = error.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (detail && typeof detail === 'object' && detail.message) {
+    if (detail.required !== undefined && detail.balance !== undefined) {
+      return `${detail.message} (need ${detail.required}, have ${detail.balance})`;
+    }
+    return detail.message;
+  }
+  return error.message || fallback;
+}
+
+/**
  * Parse complex number from various formats:
  * - String: "a+bj" or "a-bj" (Python format)
  * - Object: {real: a, imag: b}
@@ -193,7 +209,7 @@ export const runMultiAntennaSimulation = createAsyncThunk<
     const result = await solveMultiAntenna(request);
     return result;
   } catch (error: any) {
-    const errorMessage = error.response?.data?.detail || error.message || 'Multi-antenna simulation failed';
+    const errorMessage = extractErrorMessage(error, 'Multi-antenna simulation failed');
     return rejectWithValue(errorMessage);
   }
 });
@@ -282,7 +298,7 @@ export const runFrequencySweep = createAsyncThunk<
 
     return sweepResult;
   } catch (error: any) {
-    return rejectWithValue(error.message || 'Frequency sweep failed');
+    return rejectWithValue(extractErrorMessage(error, 'Frequency sweep failed'));
   }
 });
 
@@ -395,7 +411,7 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
 
     throw new Error('No antenna solutions returned');
   } catch (error: any) {
-    return rejectWithValue(error.message || 'Solve failed');
+    return rejectWithValue(extractErrorMessage(error, 'Solve failed'));
   }
 });
 
@@ -677,7 +693,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 
     return { ...response, totalFieldDataSizeMB };
   } catch (error: any) {
-    return rejectWithValue(error.message || 'Postprocessing failed');
+    return rejectWithValue(extractErrorMessage(error, 'Postprocessing failed'));
   }
 });
 
@@ -803,7 +819,7 @@ export const computeRadiationPattern = createAsyncThunk<
 
     return pattern;
   } catch (error: any) {
-    const errorMessage = error.response?.data?.detail || error.message || 'Far-field computation failed';
+    const errorMessage = extractErrorMessage(error, 'Far-field computation failed');
     return rejectWithValue(errorMessage);
   }
 });

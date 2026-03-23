@@ -48,6 +48,36 @@ export interface UserListItem {
   role: string;
   is_locked: boolean;
   created_at: string | null;
+  simulation_tokens: number;
+  flatrate_until: string | null;
+}
+
+export interface UserTokenUpdateRequest {
+  action: 'set' | 'add';
+  amount: number;
+}
+
+export interface UserFlatrateUpdateRequest {
+  until: string | null;
+}
+
+export interface UsageLogItem {
+  service: string;
+  endpoint: string;
+  cost: number;
+  balance_after: number;
+  was_flatrate: boolean;
+  timestamp: string;
+}
+
+export interface EnrollRequest {
+  user_id: string;
+}
+
+export interface EnrollmentItem {
+  user_id: string;
+  course_id: string;
+  enrolled_at: string;
 }
 
 export interface ProjectListItem {
@@ -174,5 +204,77 @@ export async function assignCourseOwner(
   data: CourseOwnerUpdateRequest,
 ): Promise<Folder> {
   const response = await projectsClient.put<Folder>(`/api/admin/courses/${folderId}/owner`, data);
+  return response.data;
+}
+
+export async function updateUserTokens(
+  userId: string,
+  data: UserTokenUpdateRequest,
+): Promise<UserListItem> {
+  const response = await projectsClient.put<UserListItem>(
+    `/api/admin/users/${userId}/tokens`,
+    data,
+  );
+  return response.data;
+}
+
+export async function updateUserFlatrate(
+  userId: string,
+  data: UserFlatrateUpdateRequest,
+): Promise<UserListItem> {
+  const response = await projectsClient.put<UserListItem>(
+    `/api/admin/users/${userId}/flatrate`,
+    data,
+  );
+  return response.data;
+}
+
+export async function getUserUsage(
+  userId: string,
+  limit?: number,
+): Promise<UsageLogItem[]> {
+  const params: Record<string, string> = {};
+  if (limit) params.limit = String(limit);
+  const response = await projectsClient.get<UsageLogItem[]>(
+    `/api/admin/users/${userId}/usage`,
+    { params },
+  );
+  return response.data;
+}
+
+export async function getOwnUsage(limit?: number): Promise<UsageLogItem[]> {
+  const params: Record<string, string> = {};
+  if (limit) params.limit = String(limit);
+  const response = await projectsClient.get<UsageLogItem[]>('/api/usage', { params });
+  return response.data;
+}
+
+export async function enrollUser(
+  courseId: string,
+  data: EnrollRequest,
+): Promise<void> {
+  await projectsClient.post(`/api/admin/courses/${courseId}/enrollments`, data);
+}
+
+export async function unenrollUser(
+  courseId: string,
+  userId: string,
+): Promise<void> {
+  await projectsClient.delete(
+    `/api/admin/courses/${courseId}/enrollments/${userId}`,
+  );
+}
+
+export async function listCourseEnrollments(
+  courseId: string,
+): Promise<EnrollmentItem[]> {
+  const response = await projectsClient.get<EnrollmentItem[]>(
+    `/api/admin/courses/${courseId}/enrollments`,
+  );
+  return response.data;
+}
+
+export async function getMyCourses(): Promise<EnrollmentItem[]> {
+  const response = await projectsClient.get<EnrollmentItem[]>('/api/my-courses');
   return response.data;
 }

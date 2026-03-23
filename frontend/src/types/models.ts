@@ -349,6 +349,8 @@ export interface User {
   role?: UserRole
   cognito_sub?: string
   created_at: string
+  simulation_tokens?: number
+  flatrate_until?: string | null
 }
 
 export interface AuthTokens {

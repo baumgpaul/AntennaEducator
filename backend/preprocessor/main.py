@@ -2,9 +2,13 @@
 
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+from backend.common.auth.dependencies import get_current_user
+from backend.common.auth.identity import UserIdentity
+from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
 
 from .builders import (
     create_dipole,
@@ -109,7 +113,11 @@ async def health_check():
     response_model=GeometryResponse,
     tags=["Antenna Builders"],
 )
-async def create_dipole_antenna(request: DipoleRequest):
+async def create_dipole_antenna(
+    request: DipoleRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
+):
     """Create a dipole antenna element and generate its mesh."""
     try:
         element = create_dipole(
@@ -140,7 +148,11 @@ async def create_dipole_antenna(request: DipoleRequest):
     response_model=GeometryResponse,
     tags=["Antenna Builders"],
 )
-async def create_loop_antenna(request: LoopRequest):
+async def create_loop_antenna(
+    request: LoopRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
+):
     """Create a circular loop antenna element and generate its mesh."""
     try:
         element = create_loop(
@@ -171,7 +183,11 @@ async def create_loop_antenna(request: LoopRequest):
     response_model=GeometryResponse,
     tags=["Antenna Builders"],
 )
-async def create_rod_antenna(request: RodRequest):
+async def create_rod_antenna(
+    request: RodRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
+):
     """Create a rod (monopole) antenna element and generate its mesh."""
     try:
         element = create_rod(
@@ -201,7 +217,11 @@ async def create_rod_antenna(request: RodRequest):
     response_model=GeometryResponse,
     tags=["Antenna Builders"],
 )
-async def create_helix_antenna(request: HelixRequest):
+async def create_helix_antenna(
+    request: HelixRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
+):
     """Create a helix antenna element and generate its mesh."""
     try:
         element = create_helix(

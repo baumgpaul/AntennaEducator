@@ -144,6 +144,8 @@ class LocalAuthProvider(AuthProvider):
             role=_role_from_db(db_user),
             is_locked=db_user.get("is_locked", False),
             created_at=db_user.get("created_at"),
+            simulation_tokens=db_user.get("simulation_tokens", 0),
+            flatrate_until=db_user.get("flatrate_until"),
         )
 
     # ── Helpers ───────────────────────────────────────────────────────────

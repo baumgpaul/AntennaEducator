@@ -132,6 +132,8 @@ async def get_current_user_info(
         is_admin=user.is_admin,
         is_locked=user.is_locked,
         created_at=str(user.created_at) if user.created_at else None,
+        simulation_tokens=user.simulation_tokens,
+        flatrate_until=str(user.flatrate_until) if user.flatrate_until else None,
     )
 
 

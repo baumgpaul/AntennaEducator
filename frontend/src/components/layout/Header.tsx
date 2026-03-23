@@ -7,6 +7,7 @@ import {
   Menu,
   MenuItem,
   Tooltip,
+  Chip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -14,6 +15,8 @@ import {
   Brightness7,
   AccountCircle,
   Logout,
+  Token as TokenIcon,
+  AllInclusive,
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -33,6 +36,9 @@ function Header() {
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(anchorEl);
+
+  const hasActiveFlatrate =
+    !!user?.flatrate_until && new Date(user.flatrate_until) > new Date();
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -87,6 +93,26 @@ function Header() {
 
         {/* Right side controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Token balance */}
+          {user && (
+            <Tooltip
+              title={
+                hasActiveFlatrate
+                  ? `Flatrate active until ${new Date(user.flatrate_until!).toLocaleDateString()}`
+                  : `${user.simulation_tokens ?? 0} simulation tokens remaining`
+              }
+            >
+              <Chip
+                icon={hasActiveFlatrate ? <AllInclusive /> : <TokenIcon />}
+                label={hasActiveFlatrate ? 'Flatrate' : String(user.simulation_tokens ?? 0)}
+                size="small"
+                color={hasActiveFlatrate ? 'success' : (user.simulation_tokens ?? 0) > 0 ? 'default' : 'error'}
+                variant="outlined"
+                sx={{ color: 'inherit', borderColor: 'rgba(255,255,255,0.5)' }}
+              />
+            </Tooltip>
+          )}
+
           {/* Theme toggle */}
           <Tooltip title={`Switch to ${mode === 'light' ? 'dark' : 'light'} mode`}>
             <IconButton color="inherit" onClick={handleThemeToggle}>

@@ -15,6 +15,8 @@ import type {
   DeepCopyRequest,
   UserRoleUpdateRequest,
   CourseOwnerUpdateRequest,
+  UserTokenUpdateRequest,
+  UserFlatrateUpdateRequest,
 } from '@/api/folders';
 
 // Re-export types for consumers
@@ -183,6 +185,20 @@ export const assignCourseOwner = createAsyncThunk(
   },
 );
 
+export const updateUserTokens = createAsyncThunk(
+  'folders/updateUserTokens',
+  async ({ userId, data }: { userId: string; data: UserTokenUpdateRequest }) => {
+    return await foldersApi.updateUserTokens(userId, data);
+  },
+);
+
+export const updateUserFlatrate = createAsyncThunk(
+  'folders/updateUserFlatrate',
+  async ({ userId, data }: { userId: string; data: UserFlatrateUpdateRequest }) => {
+    return await foldersApi.updateUserFlatrate(userId, data);
+  },
+);
+
 // ============================================================================
 // Slice
 // ============================================================================
@@ -340,6 +356,16 @@ const foldersSlice = createSlice({
     builder.addCase(assignCourseOwner.fulfilled, (state, action) => {
       const idx = state.courses.findIndex((c) => c.id === action.payload.id);
       if (idx !== -1) state.courses[idx] = action.payload;
+    });
+
+    builder.addCase(updateUserTokens.fulfilled, (state, action) => {
+      const idx = state.users.findIndex((u) => u.user_id === action.payload.user_id);
+      if (idx !== -1) state.users[idx] = action.payload;
+    });
+
+    builder.addCase(updateUserFlatrate.fulfilled, (state, action) => {
+      const idx = state.users.findIndex((u) => u.user_id === action.payload.user_id);
+      if (idx !== -1) state.users[idx] = action.payload;
     });
   },
 });

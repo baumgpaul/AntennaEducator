@@ -8,6 +8,7 @@ Mounted on the main Projects FastAPI app. Provides:
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -15,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from backend.common.auth import UserIdentity, get_current_user
 from backend.common.auth.identity import UserRole
 from backend.common.repositories.base import ProjectRepository
+from backend.common.repositories.enrollment_repository import EnrollmentRepository
 from backend.common.repositories.factory import get_project_repository
 from backend.common.repositories.folder_repository import FolderRepository
 from backend.common.repositories.user_repository import UserRepository
@@ -23,13 +25,18 @@ from backend.projects.schemas import (
     CourseCreate,
     CourseOwnerUpdate,
     DeepCopyRequest,
+    EnrollmentResponse,
+    EnrollRequest,
     FolderCreate,
     FolderResponse,
     FolderUpdate,
     ProjectListResponse,
     ProjectResponse,
+    UsageLogResponse,
+    UserFlatrateUpdate,
     UserListResponse,
     UserRoleUpdate,
+    UserTokenUpdate,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +61,16 @@ def get_repo() -> ProjectRepository:
 
 def _get_user_repo() -> UserRepository:
     return UserRepository()
+
+
+_enrollment_repo: Optional[EnrollmentRepository] = None
+
+
+def _get_enrollment_repo() -> EnrollmentRepository:
+    global _enrollment_repo
+    if _enrollment_repo is None:
+        _enrollment_repo = EnrollmentRepository()
+    return _enrollment_repo
 
 
 def _require_maintainer(user: UserIdentity) -> None:
@@ -601,3 +618,203 @@ async def assign_course_owner(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     return updated
+
+
+# ── ADMIN — token & flatrate management ───────────────────────────────────────
+
+
+@router.put(
+    "/admin/users/{user_id}/tokens",
+    response_model=UserListResponse,
+)
+async def update_user_tokens(
+    user_id: str,
+    data: UserTokenUpdate,
+    user: UserIdentity = Depends(get_current_user),
+):
+    """Admin-only: set or adjust a user's simulation token balance."""
+    _require_admin(user)
+
+    user_repo = _get_user_repo()
+
+    target = user_repo.get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    current_tokens = target.get("simulation_tokens", 0)
+
+    if data.action == "set":
+        new_balance = data.amount
+    elif data.action == "add":
+        new_balance = current_tokens + data.amount
+    else:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid action '{data.action}'. Use 'set' or 'add'.",
+        )
+
+    user_repo.set_user_tokens(user_id, new_balance)
+
+    from backend.common.auth import invalidate_profile_cache
+
+    invalidate_profile_cache(user_id)
+
+    updated = user_repo.get_user_by_id(user_id)
+    return updated
+
+
+@router.put(
+    "/admin/users/{user_id}/flatrate",
+    response_model=UserListResponse,
+)
+async def update_user_flatrate(
+    user_id: str,
+    data: UserFlatrateUpdate,
+    user: UserIdentity = Depends(get_current_user),
+):
+    """Admin-only: grant or revoke a user's simulation flatrate."""
+    _require_admin(user)
+
+    user_repo = _get_user_repo()
+
+    target = user_repo.get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    from datetime import datetime, timezone
+
+    until_dt = None
+    if data.until is not None:
+        until_dt = datetime.fromisoformat(data.until)
+        if until_dt.tzinfo is None:
+            until_dt = until_dt.replace(tzinfo=timezone.utc)
+
+    user_repo.set_user_flatrate(user_id, until_dt)
+
+    from backend.common.auth import invalidate_profile_cache
+
+    invalidate_profile_cache(user_id)
+
+    updated = user_repo.get_user_by_id(user_id)
+    return updated
+
+
+# ── USAGE HISTORY ─────────────────────────────────────────────────────────────
+
+
+@router.get("/usage", response_model=List[UsageLogResponse])
+async def get_own_usage(
+    limit: int = Query(50, ge=1, le=500),
+    user: UserIdentity = Depends(get_current_user),
+):
+    """Get the current user's token usage history (newest first)."""
+    user_repo = _get_user_repo()
+    return user_repo.get_usage_history(user.id, limit=limit)
+
+
+@router.get(
+    "/admin/users/{user_id}/usage",
+    response_model=List[UsageLogResponse],
+)
+async def get_user_usage_admin(
+    user_id: str,
+    limit: int = Query(50, ge=1, le=500),
+    user: UserIdentity = Depends(get_current_user),
+):
+    """Admin-only: get any user's token usage history."""
+    _require_admin(user)
+    user_repo = _get_user_repo()
+    return user_repo.get_usage_history(user_id, limit=limit)
+
+
+# ── COURSE ENROLLMENT ─────────────────────────────────────────────────────────
+
+
+@router.post(
+    "/admin/courses/{course_id}/enroll",
+    response_model=EnrollmentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def enroll_user_in_course(
+    course_id: str,
+    data: EnrollRequest,
+    user: UserIdentity = Depends(get_current_user),
+    folder_repo: FolderRepository = Depends(get_folder_repository),
+):
+    """Admin-only: enroll a user in a course."""
+    _require_admin(user)
+
+    folder = await folder_repo.get_folder(course_id)
+    if not folder or not folder["is_course"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    enrollment_repo = _get_enrollment_repo()
+    if enrollment_repo.is_enrolled(course_id, data.user_id):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="User is already enrolled.",
+        )
+
+    enrollment_repo.enroll_user(
+        course_id=course_id,
+        user_id=data.user_id,
+        enrolled_by=user.id,
+    )
+
+    return {
+        "user_id": data.user_id,
+        "course_id": course_id,
+        "enrolled_at": datetime.now(timezone.utc).isoformat(),
+        "enrolled_by": user.id,
+    }
+
+
+@router.delete(
+    "/admin/courses/{course_id}/enroll/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def unenroll_user_from_course(
+    course_id: str,
+    user_id: str,
+    user: UserIdentity = Depends(get_current_user),
+    folder_repo: FolderRepository = Depends(get_folder_repository),
+):
+    """Admin-only: remove a user's enrollment from a course."""
+    _require_admin(user)
+
+    folder = await folder_repo.get_folder(course_id)
+    if not folder or not folder["is_course"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    enrollment_repo = _get_enrollment_repo()
+    enrollment_repo.unenroll_user(course_id=course_id, user_id=user_id)
+    return None
+
+
+@router.get(
+    "/admin/courses/{course_id}/enrollments",
+    response_model=List[EnrollmentResponse],
+)
+async def list_course_enrollments(
+    course_id: str,
+    user: UserIdentity = Depends(get_current_user),
+    folder_repo: FolderRepository = Depends(get_folder_repository),
+):
+    """Admin-only: list all users enrolled in a course."""
+    _require_admin(user)
+
+    folder = await folder_repo.get_folder(course_id)
+    if not folder or not folder["is_course"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    enrollment_repo = _get_enrollment_repo()
+    return enrollment_repo.list_course_enrollments(course_id)
+
+
+@router.get("/my-courses", response_model=List[EnrollmentResponse])
+async def get_my_courses(
+    user: UserIdentity = Depends(get_current_user),
+):
+    """List courses the current user is enrolled in."""
+    enrollment_repo = _get_enrollment_repo()
+    return enrollment_repo.list_user_enrollments(user.id)
