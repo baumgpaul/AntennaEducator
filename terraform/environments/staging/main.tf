@@ -318,7 +318,15 @@ module "lambda_preprocessor" {
   memory_size = 512
   timeout     = 30
 
-  environment_variables = {}
+  environment_variables = {
+    USE_COGNITO          = "true"
+    COGNITO_USER_POOL_ID = module.cognito.user_pool_id
+    COGNITO_REGION       = var.aws_region
+    USE_DYNAMODB         = "true"
+    DYNAMODB_TABLE_NAME  = module.dynamodb.table_name
+  }
+
+  dynamodb_table_arns = [module.dynamodb.table_arn]
 
   create_function_url    = true
   function_url_auth_type = "NONE"
@@ -341,7 +349,15 @@ module "lambda_solver" {
   memory_size = 2048
   timeout     = 900
 
-  environment_variables = {}
+  environment_variables = {
+    USE_COGNITO          = "true"
+    COGNITO_USER_POOL_ID = module.cognito.user_pool_id
+    COGNITO_REGION       = var.aws_region
+    USE_DYNAMODB         = "true"
+    DYNAMODB_TABLE_NAME  = module.dynamodb.table_name
+  }
+
+  dynamodb_table_arns = [module.dynamodb.table_arn]
 
   create_function_url    = true
   function_url_auth_type = "NONE"
@@ -365,8 +381,15 @@ module "lambda_postprocessor" {
   timeout     = 300
 
   environment_variables = {
+    USE_COGNITO             = "true"
+    COGNITO_USER_POOL_ID    = module.cognito.user_pool_id
+    COGNITO_REGION          = var.aws_region
+    USE_DYNAMODB            = "true"
+    DYNAMODB_TABLE_NAME     = module.dynamodb.table_name
     POSTPROCESSOR_LOG_LEVEL = "INFO"
   }
+
+  dynamodb_table_arns = [module.dynamodb.table_arn]
 
   create_function_url    = true
   function_url_auth_type = "NONE"

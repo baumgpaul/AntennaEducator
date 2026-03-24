@@ -199,6 +199,13 @@ export const updateUserFlatrate = createAsyncThunk(
   },
 );
 
+export const updateUserLockStatus = createAsyncThunk(
+  'folders/updateUserLockStatus',
+  async ({ userId, isLocked }: { userId: string; isLocked: boolean }) => {
+    return await foldersApi.updateUserLockStatus(userId, isLocked);
+  },
+);
+
 // ============================================================================
 // Slice
 // ============================================================================
@@ -364,6 +371,11 @@ const foldersSlice = createSlice({
     });
 
     builder.addCase(updateUserFlatrate.fulfilled, (state, action) => {
+      const idx = state.users.findIndex((u) => u.user_id === action.payload.user_id);
+      if (idx !== -1) state.users[idx] = action.payload;
+    });
+
+    builder.addCase(updateUserLockStatus.fulfilled, (state, action) => {
       const idx = state.users.findIndex((u) => u.user_id === action.payload.user_id);
       if (idx !== -1) state.users[idx] = action.payload;
     });

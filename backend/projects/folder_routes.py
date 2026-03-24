@@ -699,6 +699,47 @@ async def update_user_flatrate(
     return updated
 
 
+@router.put(
+    "/admin/users/{user_id}/lock",
+    response_model=UserListResponse,
+)
+async def update_user_lock_status(
+    user_id: str,
+    data: dict,
+    user: UserIdentity = Depends(get_current_user),
+):
+    """Admin-only: lock or unlock a user account."""
+    _require_admin(user)
+
+    is_locked = data.get("is_locked")
+    if not isinstance(is_locked, bool):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="is_locked must be a boolean.",
+        )
+
+    if user_id == user.id:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Cannot lock your own account.",
+        )
+
+    user_repo = _get_user_repo()
+
+    target = user_repo.get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    user_repo.update_user_lock_status(user_id, is_locked)
+
+    from backend.common.auth import invalidate_profile_cache
+
+    invalidate_profile_cache(user_id)
+
+    updated = user_repo.get_user_by_id(user_id)
+    return updated
+
+
 # ── USAGE HISTORY ─────────────────────────────────────────────────────────────
 
 

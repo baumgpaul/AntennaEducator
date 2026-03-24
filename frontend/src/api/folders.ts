@@ -278,3 +278,14 @@ export async function getMyCourses(): Promise<EnrollmentItem[]> {
   const response = await projectsClient.get<EnrollmentItem[]>('/api/my-courses');
   return response.data;
 }
+
+export async function updateUserLockStatus(
+  userId: string,
+  isLocked: boolean,
+): Promise<UserListItem> {
+  const response = await projectsClient.put<UserListItem>(
+    `/api/admin/users/${userId}/lock`,
+    { is_locked: isLocked },
+  );
+  return response.data;
+}
