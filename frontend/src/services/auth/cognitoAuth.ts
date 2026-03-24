@@ -12,6 +12,7 @@ import {
 } from 'amazon-cognito-identity-js'
 import type { IAuthService, LoginCredentials, RegisterData, AuthResponse, AuthTokens } from './types'
 import type { User } from '@/types/models'
+import { getCurrentUser as fetchProfile } from '@/api/auth'
 
 export class CognitoAuthService implements IAuthService {
   private userPool: CognitoUserPool
@@ -59,9 +60,9 @@ export class CognitoAuthService implements IAuthService {
           localStorage.setItem('id_token', idToken)
           localStorage.setItem('refresh_token', refreshToken)
 
-          // Extract user info from ID token
+          // Fetch enriched profile from backend (role, tokens, etc.)
           const idTokenPayload = result.getIdToken().payload
-          const user: User = {
+          const fallbackUser: User = {
             id: idTokenPayload.sub,
             email: idTokenPayload.email || credentials.email,
             username: idTokenPayload['cognito:username'] || credentials.email,
@@ -70,15 +71,16 @@ export class CognitoAuthService implements IAuthService {
             created_at: new Date().toISOString(),
           }
 
-          resolve({
-            user,
-            tokens: {
-              accessToken,
-              idToken,
-              refreshToken,
-              expiresIn: result.getAccessToken().getExpiration(),
-            },
-          })
+          const tokens: AuthTokens = {
+            accessToken,
+            idToken,
+            refreshToken,
+            expiresIn: result.getAccessToken().getExpiration(),
+          }
+
+          fetchProfile()
+            .then((profile) => resolve({ user: profile, tokens }))
+            .catch(() => resolve({ user: fallbackUser, tokens }))
         },
         onFailure: (err) => {
           // Provide more specific error messages
@@ -252,28 +254,34 @@ export class CognitoAuthService implements IAuthService {
           return
         }
 
-        cognitoUser.getUserAttributes((err, attributes) => {
-          if (err) {
-            reject(err)
-            return
-          }
+        // Fetch enriched profile from backend
+        fetchProfile()
+          .then((profile) => resolve(profile))
+          .catch(() => {
+            // Fallback to Cognito attributes if backend fails
+            cognitoUser.getUserAttributes((err, attributes) => {
+              if (err) {
+                reject(err)
+                return
+              }
 
-          const idTokenPayload = session.getIdToken().payload
+              const idTokenPayload = session.getIdToken().payload
 
-          const user: User = {
-            id: idTokenPayload.sub,
-            email: attributes?.find((attr) => attr.Name === 'email')?.Value || '',
-            username:
-              attributes?.find((attr) => attr.Name === 'preferred_username')?.Value ||
-              idTokenPayload['cognito:username'] ||
-              '',
-            is_approved: true,
-            is_admin: false,
-            created_at: new Date().toISOString(),
-          }
+              const user: User = {
+                id: idTokenPayload.sub,
+                email: attributes?.find((attr) => attr.Name === 'email')?.Value || '',
+                username:
+                  attributes?.find((attr) => attr.Name === 'preferred_username')?.Value ||
+                  idTokenPayload['cognito:username'] ||
+                  '',
+                is_approved: true,
+                is_admin: false,
+                created_at: new Date().toISOString(),
+              }
 
-          resolve(user)
-        })
+              resolve(user)
+            })
+          })
       })
     })
   }
