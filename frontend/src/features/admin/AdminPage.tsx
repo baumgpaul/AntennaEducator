@@ -28,6 +28,8 @@ import {
   List,
   ListItem,
   ListItemText,
+  Divider,
+  Autocomplete,
 } from '@mui/material';
 import {
   AdminPanelSettings,
@@ -38,24 +40,32 @@ import {
   Close as CloseIcon,
   History as HistoryIcon,
   ExpandLess as ExpandLessIcon,
+  School as SchoolIcon,
+  PersonAdd as PersonAddIcon,
+  PersonRemove as PersonRemoveIcon,
+  SwapHoriz as SwapHorizIcon,
+  Group as GroupIcon,
 } from '@mui/icons-material';
 import { useState, useEffect, Fragment } from 'react';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import {
   fetchUsers,
+  fetchCourses,
   updateUserRole,
   updateUserTokens,
   updateUserFlatrate,
   updateUserLockStatus,
+  assignCourseOwner,
   selectUsers,
+  selectCourses,
   selectAdminLoading,
   selectFoldersError,
 } from '@/store/foldersSlice';
-import type { UserListItem } from '@/store/foldersSlice';
+import type { UserListItem, Folder } from '@/store/foldersSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
 import { formatErrorMessage } from '@/utils/errors';
-import { getUserUsage } from '@/api/folders';
-import type { UsageLogItem } from '@/api/folders';
+import { getUserUsage, enrollUser, unenrollUser, listCourseEnrollments } from '@/api/folders';
+import type { UsageLogItem, EnrollmentItem } from '@/api/folders';
 
 /**
  * AdminPage — User management panel for admins.
@@ -64,6 +74,7 @@ import type { UsageLogItem } from '@/api/folders';
 function AdminPage() {
   const dispatch = useAppDispatch();
   const users = useAppSelector(selectUsers);
+  const courses = useAppSelector(selectCourses);
   const loading = useAppSelector(selectAdminLoading);
   const error = useAppSelector(selectFoldersError);
   const currentUser = useAppSelector((state) => state.auth.user);
@@ -77,8 +88,20 @@ function AdminPage() {
   const [usageData, setUsageData] = useState<UsageLogItem[]>([]);
   const [usageLoading, setUsageLoading] = useState(false);
 
+  // Course enrollment state
+  const [expandedEnrollCourseId, setExpandedEnrollCourseId] = useState<string | null>(null);
+  const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
+  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
+  const [enrollDialogCourseId, setEnrollDialogCourseId] = useState<string | null>(null);
+  const [enrollSelectedUser, setEnrollSelectedUser] = useState<UserListItem | null>(null);
+
+  // Course owner reassignment state
+  const [ownerDialogCourse, setOwnerDialogCourse] = useState<Folder | null>(null);
+  const [ownerSelectedUser, setOwnerSelectedUser] = useState<UserListItem | null>(null);
+
   useEffect(() => {
     dispatch(fetchUsers());
+    dispatch(fetchCourses());
   }, [dispatch]);
 
   const handleRoleChange = async (user: UserListItem, newRole: string) => {
@@ -217,6 +240,83 @@ function AdminPage() {
     } finally {
       setUsageLoading(false);
     }
+  };
+
+  // ── Course Enrollment Handlers ─────────────────────────────────────────
+
+  const handleToggleEnrollments = async (courseId: string) => {
+    if (expandedEnrollCourseId === courseId) {
+      setExpandedEnrollCourseId(null);
+      return;
+    }
+    setExpandedEnrollCourseId(courseId);
+    setEnrollmentLoading(true);
+    try {
+      const data = await listCourseEnrollments(courseId);
+      setEnrollments(data);
+    } catch {
+      dispatch(showError('Failed to load enrollments'));
+      setExpandedEnrollCourseId(null);
+    } finally {
+      setEnrollmentLoading(false);
+    }
+  };
+
+  const handleEnrollUser = async () => {
+    if (!enrollDialogCourseId || !enrollSelectedUser) return;
+    try {
+      await enrollUser(enrollDialogCourseId, { user_id: enrollSelectedUser.user_id });
+      dispatch(showSuccess(`${enrollSelectedUser.username} enrolled`));
+      setEnrollDialogCourseId(null);
+      setEnrollSelectedUser(null);
+      // Refresh enrollments
+      const data = await listCourseEnrollments(enrollDialogCourseId);
+      setEnrollments(data);
+    } catch (err) {
+      dispatch(showError(`Failed to enroll user: ${formatErrorMessage(err)}`));
+    }
+  };
+
+  const handleUnenrollUser = async (courseId: string, userId: string) => {
+    const user = users.find((u) => u.user_id === userId);
+    const confirmed = window.confirm(
+      `Remove ${user?.username ?? userId} from this course?`,
+    );
+    if (!confirmed) return;
+    try {
+      await unenrollUser(courseId, userId);
+      dispatch(showSuccess('User unenrolled'));
+      setEnrollments((prev) => prev.filter((e) => e.user_id !== userId));
+    } catch (err) {
+      dispatch(showError(`Failed to unenroll user: ${formatErrorMessage(err)}`));
+    }
+  };
+
+  const handleChangeOwner = async () => {
+    if (!ownerDialogCourse || !ownerSelectedUser) return;
+    const confirmed = window.confirm(
+      `Transfer "${ownerDialogCourse.name}" to ${ownerSelectedUser.username}?`,
+    );
+    if (!confirmed) return;
+    try {
+      await dispatch(
+        assignCourseOwner({
+          folderId: ownerDialogCourse.id,
+          data: { new_owner_id: ownerSelectedUser.user_id },
+        }),
+      ).unwrap();
+      dispatch(showSuccess(`Owner changed to ${ownerSelectedUser.username}`));
+    } catch (err) {
+      dispatch(showError(`Failed to change owner: ${formatErrorMessage(err)}`));
+    } finally {
+      setOwnerDialogCourse(null);
+      setOwnerSelectedUser(null);
+    }
+  };
+
+  const resolveUsername = (userId: string) => {
+    const user = users.find((u) => u.user_id === userId);
+    return user?.username ?? user?.email ?? userId.slice(0, 8) + '…';
   };
 
   // Guard: only admins should see this page
@@ -466,6 +566,213 @@ function AdminPage() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <Divider sx={{ my: 4 }} />
+
+      {/* ── Courses Management ──────────────────────────────────────────── */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <SchoolIcon color="primary" />
+        <Typography variant="h5">Course Management</Typography>
+      </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Manage course enrollments and reassign course ownership.
+      </Typography>
+
+      <TableContainer component={Paper} variant="outlined">
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Course Name</TableCell>
+              <TableCell>Owner</TableCell>
+              <TableCell>Created</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {courses.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No courses found
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              courses.map((course) => (
+                <Fragment key={course.id}>
+                  <TableRow hover>
+                    <TableCell>{course.name}</TableCell>
+                    <TableCell>{resolveUsername(course.owner_id)}</TableCell>
+                    <TableCell>
+                      {course.created_at
+                        ? new Date(course.created_at).toLocaleDateString()
+                        : '—'}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Change owner">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setOwnerDialogCourse(course);
+                            setOwnerSelectedUser(null);
+                          }}
+                        >
+                          <SwapHorizIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Manage enrollments">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleToggleEnrollments(course.id)}
+                        >
+                          {expandedEnrollCourseId === course.id ? (
+                            <ExpandLessIcon fontSize="small" />
+                          ) : (
+                            <GroupIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                  {/* Enrollment expandable row */}
+                  <TableRow>
+                    <TableCell colSpan={4} sx={{ py: 0, borderBottom: expandedEnrollCourseId === course.id ? undefined : 'none' }}>
+                      <Collapse in={expandedEnrollCourseId === course.id} unmountOnExit>
+                        <Box sx={{ py: 1, pl: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Typography variant="subtitle2">
+                              Enrolled Users
+                            </Typography>
+                            <Button
+                              size="small"
+                              startIcon={<PersonAddIcon />}
+                              onClick={() => {
+                                setEnrollDialogCourseId(course.id);
+                                setEnrollSelectedUser(null);
+                              }}
+                            >
+                              Enroll User
+                            </Button>
+                          </Box>
+                          {enrollmentLoading ? (
+                            <CircularProgress size={20} />
+                          ) : enrollments.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary">
+                              No enrolled users
+                            </Typography>
+                          ) : (
+                            <List dense disablePadding>
+                              {enrollments.map((enrollment) => (
+                                <ListItem
+                                  key={enrollment.user_id}
+                                  disableGutters
+                                  sx={{ py: 0.25 }}
+                                  secondaryAction={
+                                    <Tooltip title="Unenroll">
+                                      <IconButton
+                                        edge="end"
+                                        size="small"
+                                        onClick={() => handleUnenrollUser(course.id, enrollment.user_id)}
+                                      >
+                                        <PersonRemoveIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  }
+                                >
+                                  <ListItemText
+                                    primary={resolveUsername(enrollment.user_id)}
+                                    secondary={`Enrolled ${new Date(enrollment.enrolled_at).toLocaleDateString()}`}
+                                    primaryTypographyProps={{ variant: 'body2' }}
+                                    secondaryTypographyProps={{ variant: 'caption' }}
+                                  />
+                                </ListItem>
+                              ))}
+                            </List>
+                          )}
+                        </Box>
+                      </Collapse>
+                    </TableCell>
+                  </TableRow>
+                </Fragment>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* ── Enroll User Dialog ──────────────────────────────────────────── */}
+      <Dialog
+        open={!!enrollDialogCourseId}
+        onClose={() => setEnrollDialogCourseId(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Enroll User</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Select a user to enroll in{' '}
+            <strong>
+              {courses.find((c) => c.id === enrollDialogCourseId)?.name ?? 'this course'}
+            </strong>.
+          </Typography>
+          <Autocomplete
+            options={users}
+            getOptionLabel={(u) => `${u.username} (${u.email})`}
+            value={enrollSelectedUser}
+            onChange={(_e, value) => setEnrollSelectedUser(value)}
+            renderInput={(params) => (
+              <TextField {...params} label="User" autoFocus />
+            )}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEnrollDialogCourseId(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={!enrollSelectedUser}
+            onClick={handleEnrollUser}
+          >
+            Enroll
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Change Owner Dialog ─────────────────────────────────────────── */}
+      <Dialog
+        open={!!ownerDialogCourse}
+        onClose={() => setOwnerDialogCourse(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Change Course Owner</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Reassign ownership of <strong>{ownerDialogCourse?.name}</strong>{' '}
+            (currently owned by{' '}
+            <strong>{ownerDialogCourse ? resolveUsername(ownerDialogCourse.owner_id) : ''}</strong>
+            ).
+          </Typography>
+          <Autocomplete
+            options={users}
+            getOptionLabel={(u) => `${u.username} (${u.email})`}
+            value={ownerSelectedUser}
+            onChange={(_e, value) => setOwnerSelectedUser(value)}
+            renderInput={(params) => (
+              <TextField {...params} label="New Owner" autoFocus />
+            )}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOwnerDialogCourse(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={!ownerSelectedUser}
+            onClick={handleChangeOwner}
+          >
+            Transfer
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Flatrate grant dialog */}
       <Dialog
