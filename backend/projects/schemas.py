@@ -105,6 +105,7 @@ class FolderResponse(BaseModel):
     name: str
     parent_folder_id: Optional[str] = None
     is_course: bool = False
+    source_course_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -281,6 +282,7 @@ class ProjectResponse(ProjectBase):
     id: str
     user_id: str
     folder_id: Optional[str] = None
+    source_project_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     last_opened_at: Optional[datetime] = None
@@ -296,6 +298,7 @@ class ProjectListResponse(BaseModel):
     name: str
     description: Optional[str] = None
     folder_id: Optional[str] = None
+    source_project_id: Optional[str] = None
     has_documentation: bool = False
     documentation_preview: str = ""
     created_at: datetime

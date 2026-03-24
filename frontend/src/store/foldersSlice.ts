@@ -163,6 +163,13 @@ export const copyCourseProjectToUser = createAsyncThunk(
   },
 );
 
+export const resetProjectToSource = createAsyncThunk(
+  'folders/resetProjectToSource',
+  async (projectId: string) => {
+    return await foldersApi.resetProjectToSource(projectId);
+  },
+);
+
 // ============================================================================
 // Async Thunks — Admin
 // ============================================================================
@@ -338,6 +345,21 @@ const foldersSlice = createSlice({
       .addCase(copyCourseProjectToUser.rejected, (state, action) => {
         state.copyLoading = false;
         state.error = action.error.message || 'Failed to copy project';
+      });
+
+    builder
+      .addCase(resetProjectToSource.pending, (state) => {
+        state.copyLoading = true;
+      })
+      .addCase(resetProjectToSource.fulfilled, (state, action) => {
+        state.copyLoading = false;
+        // Update project in currentFolderContents if it's there
+        const idx = state.currentFolderContents.findIndex((p) => p.id === action.payload.id);
+        if (idx !== -1) state.currentFolderContents[idx] = action.payload;
+      })
+      .addCase(resetProjectToSource.rejected, (state, action) => {
+        state.copyLoading = false;
+        state.error = action.error.message || 'Failed to reset project';
       });
 
     // ── Admin ──────────────────────────────────────────────────────────────

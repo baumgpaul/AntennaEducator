@@ -83,6 +83,7 @@ class DynamoDBProjectRepository(ProjectRepository):
         name: str,
         description: Optional[str] = None,
         folder_id: Optional[str] = None,
+        source_project_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         project_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
@@ -106,6 +107,8 @@ class DynamoDBProjectRepository(ProjectRepository):
             "CreatedAt": now,
             "UpdatedAt": now,
         }
+        if source_project_id:
+            item["SourceProjectId"] = source_project_id
         self.table.put_item(Item=item)
         return self._to_dict(item)
 
@@ -260,6 +263,7 @@ class DynamoDBProjectRepository(ProjectRepository):
             "ui_state": _from_dynamodb(pick("UiState", "ui_state", default={})),
             "documentation": _from_dynamodb(pick("Documentation", "documentation", default={})),
             "folder_id": pick("FolderId", "folder_id", default="") or None,
+            "source_project_id": pick("SourceProjectId", default=None) or None,
             "created_at": pick("CreatedAt", "created_at"),
             "updated_at": pick("UpdatedAt", "updated_at"),
             "last_opened_at": pick("LastOpenedAt", "last_opened_at", default=None),

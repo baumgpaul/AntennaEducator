@@ -393,6 +393,7 @@ async def copy_course_to_user(
         folder_repo=folder_repo,
         repo=repo,
         doc_svc=doc_svc,
+        source_course_id=folder_id,
     )
     return new_root
 
@@ -432,18 +433,21 @@ async def _deep_copy_folder(
     folder_repo: FolderRepository,
     repo: ProjectRepository,
     doc_svc: DocumentationService,
+    source_course_id: Optional[str] = None,
 ) -> dict:
     """Recursively copy a course folder tree into the user's space."""
     source = await folder_repo.get_folder(source_folder_id)
     if not source:
         raise ValueError(f"Source folder {source_folder_id} not found")
 
-    # Create the target folder in user's space (not a course)
+    # Create the target folder in user's space.
+    # Preserve source_course_id on the root so the frontend can recognise it.
     new_folder = await folder_repo.create_folder(
         owner_id=user.id,
         name=source["name"],
         parent_folder_id=target_parent_id,
         is_course=False,
+        source_course_id=source_course_id,
     )
 
     # Copy projects in this folder
@@ -457,7 +461,7 @@ async def _deep_copy_folder(
             doc_svc=doc_svc,
         )
 
-    # Recursively copy subfolders
+    # Recursively copy subfolders (no source_course_id — only root gets tagged)
     subfolders = await folder_repo.list_subfolders(source_folder_id)
     for sf in subfolders:
         await _deep_copy_folder(
@@ -485,6 +489,7 @@ async def _deep_copy_project(
         name=original["name"],
         description=original.get("description", ""),
         folder_id=target_folder_id,
+        source_project_id=original["id"],
     )
 
     # Copy all JSON blobs

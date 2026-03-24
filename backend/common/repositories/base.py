@@ -37,6 +37,7 @@ class ProjectRepository(ABC):
         name: str,
         description: Optional[str] = None,
         folder_id: Optional[str] = None,
+        source_project_id: Optional[str] = None,
     ) -> Dict[str, Any]: ...
 
     @abstractmethod

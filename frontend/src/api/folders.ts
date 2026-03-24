@@ -15,6 +15,7 @@ export interface Folder {
   name: string;
   parent_folder_id: string | null;
   is_course: boolean;
+  source_course_id: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -88,6 +89,7 @@ export interface ProjectListItem {
   folder_id: string | null;
   has_documentation: boolean;
   documentation_preview: string;
+  source_project_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -246,6 +248,11 @@ export async function getOwnUsage(limit?: number): Promise<UsageLogItem[]> {
   const params: Record<string, string> = {};
   if (limit) params.limit = String(limit);
   const response = await projectsClient.get<UsageLogItem[]>('/api/usage', { params });
+  return response.data;
+}
+
+export async function resetProjectToSource(projectId: string): Promise<ProjectListItem> {
+  const response = await projectsClient.post<ProjectListItem>(`/api/projects/${projectId}/reset`);
   return response.data;
 }
 

@@ -18,11 +18,11 @@ import {
   Token as TokenIcon,
   AllInclusive,
 } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar, toggleTheme } from '@/store/uiSlice';
-import { logoutAsync } from '@/store/authSlice';
+import { logoutAsync, getCurrentUserAsync } from '@/store/authSlice';
 
 /**
  * Header component with navigation, theme toggle, and user menu
@@ -36,6 +36,17 @@ function Header() {
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(anchorEl);
+
+  // Refresh token balance whenever the user returns to this tab
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        dispatch(getCurrentUserAsync());
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [dispatch]);
 
   const hasActiveFlatrate =
     !!user?.flatrate_until && new Date(user.flatrate_until) > new Date();
