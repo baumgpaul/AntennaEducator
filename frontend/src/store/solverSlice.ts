@@ -11,6 +11,7 @@ import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { solveSingle, solveMultiAntenna } from '@/api/solver';
 import { computeFarField, computeNearField } from '@/api/postprocessor';
 import { generateObservationPoints } from '@/utils/fieldGeneration';
+import { getCurrentUserAsync } from '@/store/authSlice';
 
 // ============================================================================
 // Helper Functions
@@ -384,6 +385,9 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
     dispatch(setSolverState('solved'));
     dispatch(setCurrentFrequency(frequencyMHz));
 
+    // Refresh token balance after simulation
+    dispatch(getCurrentUserAsync());
+
     // Return first solution for compatibility
     if (result.antenna_solutions.length > 0) {
       const solution = result.antenna_solutions[0];
@@ -690,6 +694,9 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 
     // Update workflow state
     dispatch(setSolverState('postprocessing-ready'));
+
+    // Refresh token balance after postprocessing
+    dispatch(getCurrentUserAsync());
 
     return { ...response, totalFieldDataSizeMB };
   } catch (error: any) {
