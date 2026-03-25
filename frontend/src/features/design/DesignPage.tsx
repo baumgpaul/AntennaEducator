@@ -15,6 +15,7 @@ import {
   addLumpedElementToElement,
   addSource,
   addSourceToElement,
+  updateElementSource,
   setSelectedElement,
   setElementColor,
   setElementPosition,
@@ -32,6 +33,7 @@ import { addNotification } from '@/store/uiSlice';
 import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
 import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
+import type { Source } from '@/types/models';
 import {
   buildMultiAntennaRequest,
   countSimulationReadyElements,
@@ -613,6 +615,10 @@ function DesignPage() {
     orientationChangeRef.current(elementId, orientation);
   };
 
+  const handleSourceChange = (elementId: string, source: Source) => {
+    dispatch(updateElementSource({ elementId, source }));
+  };
+
   // Element management handlers
   const handleElementRename = (elementId: string, newName: string) => {
     dispatch(updateElement({ id: elementId, updates: { name: newName } }));
@@ -959,6 +965,7 @@ function DesignPage() {
             onPositionChange={handlePositionChange}
             onRotationChange={handleRotationChange}
             onOrientationChange={handleOrientationChange}
+            onSourceChange={handleSourceChange}
             selectedElement={
               selectedNodeId && !selectedElementId
                 ? {
