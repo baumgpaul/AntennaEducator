@@ -123,7 +123,25 @@ async def login(user_data: UserLogin):
 async def get_current_user_info(
     user: UserIdentity = Depends(get_current_user),
 ):
-    """Return the authenticated user's profile."""
+    """Return the authenticated user's profile.
+
+    Always reads simulation_tokens and flatrate_until fresh from DynamoDB so
+    the token balance shown in the UI is never stale (the profile cache in
+    get_current_user has a 60 s TTL which would otherwise hide deductions).
+    """
+    from backend.common.repositories.user_repository import UserRepository
+
+    simulation_tokens = user.simulation_tokens
+    flatrate_until = user.flatrate_until
+    try:
+        repo = UserRepository()
+        fresh = repo.get_user_by_id(user.id)
+        if fresh:
+            simulation_tokens = fresh.get("simulation_tokens", simulation_tokens)
+            flatrate_until = fresh.get("flatrate_until", flatrate_until)
+    except Exception as exc:
+        logger.warning("Failed to fetch fresh token balance for %s: %s", user.id, exc)
+
     return UserResponse(
         id=user.id,
         email=user.email,
@@ -132,8 +150,8 @@ async def get_current_user_info(
         is_admin=user.is_admin,
         is_locked=user.is_locked,
         created_at=str(user.created_at) if user.created_at else None,
-        simulation_tokens=user.simulation_tokens,
-        flatrate_until=str(user.flatrate_until) if user.flatrate_until else None,
+        simulation_tokens=simulation_tokens,
+        flatrate_until=str(flatrate_until) if flatrate_until else None,
     )
 
 
