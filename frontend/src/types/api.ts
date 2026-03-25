@@ -25,7 +25,7 @@ import type {
 export interface VoltageSourceInput {
   node_start: number  // 1-based
   node_end: number    // 0 = ground
-  value: number | { real: number; imag: number }
+  value: number | string  // number for real-only, string "a+bj" for complex
   R?: number         // Resistance [Ω]
   L?: number         // Inductance [H]
   C_inv?: number     // Inverse capacitance [1/F]
@@ -33,7 +33,7 @@ export interface VoltageSourceInput {
 
 export interface CurrentSourceInput {
   node: number  // 1-based, negative for appended
-  value: number | { real: number; imag: number }
+  value: number | string  // number for real-only, string "a+bj" for complex
 }
 
 export interface LoadInput {
