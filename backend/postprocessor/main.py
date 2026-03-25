@@ -6,10 +6,14 @@ import time
 from datetime import datetime, timezone
 
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
+
+from backend.common.auth.dependencies import get_current_user
+from backend.common.auth.identity import UserIdentity
+from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
 
 from .config import settings
 from .field import compute_directivity_from_pattern, compute_far_field
@@ -125,7 +129,11 @@ def _estimate_computation_time(n_points: int, n_edges: int, n_freq: int) -> dict
     response_model=dict,
     summary="Compute near-field at observation points",
 )
-async def compute_near_field(request: FieldRequest):
+async def compute_near_field(
+    request: FieldRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(3)),
+):
     """Compute electric and magnetic fields at specified observation points."""
     t_start = time.perf_counter()
     try:
@@ -250,7 +258,11 @@ async def compute_near_field(request: FieldRequest):
     response_model=RadiationPatternResponse,
     summary="Compute far-field radiation pattern",
 )
-async def compute_far_field_endpoint(request: FarFieldRequest):
+async def compute_far_field_endpoint(
+    request: FarFieldRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(3)),
+):
     """Compute far-field radiation pattern over angular grid."""
     try:
         frequencies = np.array(request.frequencies)
@@ -316,7 +328,10 @@ async def compute_far_field_endpoint(request: FarFieldRequest):
     response_class=Response,
     summary="Export field data to VTU format for ParaView",
 )
-async def export_to_vtu(request: FieldRequest):
+async def export_to_vtu(
+    request: FieldRequest,
+    user: UserIdentity = Depends(get_current_user),
+):
     """Export electromagnetic field data to VTU (VTK Unstructured Grid) format."""
     try:
         frequency_hz = request.frequencies[0] if request.frequencies else 0

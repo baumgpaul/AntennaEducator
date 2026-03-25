@@ -284,6 +284,7 @@ export interface Project {
   documentation_preview?: string           // Plain-text preview of documentation content
   user_id?: string | number
   folder_id?: string | null               // Folder this project belongs to (null = root)
+  source_project_id?: string | null       // If copied from a course project, the original project ID
   created_at: string
   updated_at: string
   last_opened_at?: string | null          // When the project was last opened
@@ -349,6 +350,8 @@ export interface User {
   role?: UserRole
   cognito_sub?: string
   created_at: string
+  simulation_tokens?: number
+  flatrate_until?: string | null
 }
 
 export interface AuthTokens {

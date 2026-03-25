@@ -60,6 +60,13 @@ export const parseApiError = (error: unknown): ErrorResponse => {
           retryable: false,
         }
 
+      case 402:
+        return {
+          title: 'Insufficient Tokens',
+          message: getDetailMessage(error) || 'You do not have enough simulation tokens for this operation.',
+          retryable: false,
+        }
+
       case 403:
         return {
           title: 'Access Denied',
@@ -167,6 +174,13 @@ const getDetailMessage = (error: ApiError): string | undefined => {
     // Try common detail fields
     if (typeof error.details.detail === 'string') {
       return error.details.detail
+    }
+    // Handle structured detail (e.g. 402 token errors: {message, required, balance})
+    if (typeof error.details.detail === 'object' && error.details.detail !== null) {
+      const detail = error.details.detail as Record<string, unknown>
+      if (typeof detail.message === 'string') {
+        return detail.message
+      }
     }
     if (typeof error.details.message === 'string') {
       return error.details.message

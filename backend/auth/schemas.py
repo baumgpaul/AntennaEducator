@@ -42,3 +42,5 @@ class UserResponse(BaseModel):
     is_locked: bool = False
     cognito_sub: Optional[str] = None
     created_at: Optional[str] = None
+    simulation_tokens: int = 0
+    flatrate_until: Optional[str] = None

@@ -5,9 +5,14 @@ import time
 from datetime import datetime, timezone
 
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+from backend.common.auth.dependencies import get_current_user
+from backend.common.auth.identity import UserIdentity
+from backend.common.auth.token_costs import calculate_sweep_cost
+from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
 
 # Configure logging
 logging.basicConfig(
@@ -118,7 +123,11 @@ def _get_solver_config(request_config):
     tags=["Solver"],
     summary="Solve at single frequency",
 )
-async def solve_single_frequency_endpoint(request: SingleFrequencyRequest):
+async def solve_single_frequency_endpoint(
+    request: SingleFrequencyRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(5)),
+):
     """Solve PEEC system at a single frequency."""
     try:
         # Validate inputs
@@ -198,8 +207,41 @@ async def solve_single_frequency_endpoint(request: SingleFrequencyRequest):
     tags=["Solver"],
     summary="Solve frequency sweep",
 )
-async def solve_frequency_sweep_endpoint(request: FrequencySweepRequest):
+async def solve_frequency_sweep_endpoint(
+    request: FrequencySweepRequest,
+    user: UserIdentity = Depends(get_current_user),
+):
     """Solve PEEC system across multiple frequencies."""
+    # Sweep cost scales with number of frequencies (capped at 250)
+    cost = calculate_sweep_cost(len(request.frequencies))
+    from backend.common.auth.token_dependency import InsufficientTokensError, _check_token_balance
+
+    try:
+        result_check = _check_token_balance(user, cost)
+    except InsufficientTokensError as exc:
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "message": "Insufficient simulation tokens",
+                "required": exc.required,
+                "balance": exc.balance,
+            },
+        )
+    if result_check.should_deduct:
+        from backend.common.repositories.user_repository import UserRepository
+
+        repo = UserRepository()
+        try:
+            repo.deduct_user_tokens(user.id, cost)
+        except ValueError:
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "message": "Insufficient simulation tokens",
+                    "required": cost,
+                    "balance": user.simulation_tokens,
+                },
+            )
     try:
         # Validate inputs
         if len(request.nodes) < 2:
@@ -306,7 +348,11 @@ async def solve_frequency_sweep_endpoint(request: FrequencySweepRequest):
     tags=["Solver"],
     summary="Solve multiple antennas at single frequency",
 )
-async def solve_multi_antenna_endpoint(request: MultiAntennaRequest):
+async def solve_multi_antenna_endpoint(
+    request: MultiAntennaRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(5)),
+):
     """Solve multiple antennas at a single frequency."""
     try:
         # Validate inputs

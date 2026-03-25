@@ -20,6 +20,7 @@ from jose import JWTError, jwt
 
 from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity, UserRole
 from backend.common.auth.provider import AuthProvider
+from backend.common.auth.token_costs import DEFAULT_STARTER_TOKENS
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +170,7 @@ class CognitoAuthProvider(AuthProvider):
                 "IsLocked": False,
                 "Role": UserRole.USER.value,
                 "CreatedAt": now,
+                "SimulationTokens": DEFAULT_STARTER_TOKENS,
             }
         )
 
@@ -256,6 +258,8 @@ class CognitoAuthProvider(AuthProvider):
             role=role,
             is_locked=item.get("IsLocked", False),
             created_at=item.get("CreatedAt"),
+            simulation_tokens=int(item.get("SimulationTokens", 0)),
+            flatrate_until=item.get("FlatrateUntil"),
         )
 
     # ── Helpers ───────────────────────────────────────────────────────────
@@ -280,6 +284,7 @@ class CognitoAuthProvider(AuthProvider):
             "IsLocked": False,
             "Role": UserRole.USER.value,
             "CreatedAt": now,
+            "SimulationTokens": DEFAULT_STARTER_TOKENS,
         }
         self._table.put_item(Item=item)
 
@@ -290,4 +295,5 @@ class CognitoAuthProvider(AuthProvider):
             role=UserRole.USER,
             is_locked=False,
             created_at=now,
+            simulation_tokens=DEFAULT_STARTER_TOKENS,
         )

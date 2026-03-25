@@ -274,6 +274,52 @@ async def delete_project(
     return None
 
 
+@app.post("/api/projects/{project_id}/reset", response_model=ProjectResponse)
+async def reset_project_to_source(
+    project_id: str,
+    user: UserIdentity = Depends(get_current_user),
+    repo: ProjectRepository = Depends(get_repository),
+    doc_svc: DocumentationService = Depends(_get_doc_service),
+):
+    """Reset a copied course project back to its original source state.
+
+    Restores design_state, simulation_config, and ui_state from the source project,
+    clears simulation_results, and re-copies source documentation content.
+    """
+    project = await repo.get_project(project_id=project_id)
+    if not project or project["user_id"] != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    source_id = project.get("source_project_id")
+    if not source_id:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="Project has no source to reset to."
+        )
+
+    source = await repo.get_project(project_id=source_id)
+    if not source:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Source project no longer exists.")
+
+    # Restore state blobs from source; clear simulation results
+    updated = await repo.update_project(
+        project_id=project_id,
+        design_state=source.get("design_state") or {},
+        simulation_config=source.get("simulation_config") or {},
+        simulation_results={},
+        ui_state=source.get("ui_state") or {},
+    )
+
+    # Re-copy documentation content from source
+    try:
+        source_doc = await doc_svc.load_content(source_id)
+        if source_doc and source_doc.get("content"):
+            await doc_svc.save_content(project_id, source_doc["content"])
+    except Exception as e:
+        logger.warning(f"Failed to re-copy documentation during reset for {project_id}: {e}")
+
+    return updated
+
+
 @app.post(
     "/api/projects/{project_id}/duplicate",
     response_model=ProjectResponse,

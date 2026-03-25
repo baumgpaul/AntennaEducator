@@ -1,15 +1,34 @@
 """Tests for the Preprocessor service."""
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.common.auth.dependencies import get_current_user
+from backend.common.auth.identity import UserIdentity, UserRole
 from backend.preprocessor.main import app
+
+
+def _mock_user():
+    """Return a flatrate user so token deduction is skipped entirely."""
+    return UserIdentity(
+        id="test-user",
+        email="t@t.com",
+        username="tester",
+        role=UserRole.USER,
+        simulation_tokens=9999,
+        flatrate_until=datetime.now(timezone.utc) + timedelta(days=365),
+    )
 
 
 @pytest.fixture
 def client():
-    """Create a test client for the FastAPI application."""
-    return TestClient(app)
+    """Create a test client for the FastAPI application with mocked auth."""
+    app.dependency_overrides[get_current_user] = _mock_user
+    c = TestClient(app)
+    yield c
+    app.dependency_overrides.clear()
 
 
 def test_health_check(client):

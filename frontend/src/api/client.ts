@@ -251,8 +251,17 @@ export const handleApiResponse = <T>(response: { data: T }): T => {
 // Helper function for handling API errors
 export const handleApiError = (error: unknown): ApiError => {
   if (axios.isAxiosError(error)) {
+    const detail = error.response?.data?.detail
+    let message: string
+    if (typeof detail === 'string') {
+      message = detail
+    } else if (detail && typeof detail === 'object' && typeof detail.message === 'string') {
+      message = detail.message
+    } else {
+      message = error.message
+    }
     return {
-      message: error.response?.data?.detail || error.message,
+      message,
       status: error.response?.status,
       code: error.code,
       details: error.response?.data,
