@@ -80,6 +80,9 @@ export const generateDipoleMesh = async (formData: {
   frequency: number;
   segments: number;
   feedType: 'gap' | 'balanced';
+  sourceType?: 'voltage' | 'current';
+  sourceAmplitude?: number;
+  sourcePhase?: number;
   position?: { x: number; y: number; z: number };
   orientation?: { x: number; y: number; z: number };
 }): Promise<PreprocessorResponse> => {
@@ -87,6 +90,13 @@ export const generateDipoleMesh = async (formData: {
   const orientX = formData.orientation?.x || 0;
   const orientY = formData.orientation?.y || 0;
   const orientZ = formData.orientation?.z || 1; // Default to Z-axis
+
+  // Convert polar (amplitude + phase) to cartesian (real + imag)
+  const amplitude = formData.sourceAmplitude ?? 1;
+  const phaseDeg = formData.sourcePhase ?? 0;
+  const phaseRad = (phaseDeg * Math.PI) / 180;
+  const real = amplitude * Math.cos(phaseRad);
+  const imag = amplitude * Math.sin(phaseRad);
 
   const config: DipoleConfig = {
     length: formData.length,
@@ -98,10 +108,10 @@ export const generateDipoleMesh = async (formData: {
     center_position: [0, 0, 0],
     // Use orientation vector directly
     orientation: [orientX, orientY, orientZ],
-    // Default voltage source at gap
+    // Source from dialog configuration
     source: {
-      type: 'voltage',
-      amplitude: { real: 1.0, imag: 0.0 },
+      type: formData.sourceType || 'voltage',
+      amplitude: { real, imag },
       node_start: 1,
       node_end: 2,
       position: 'center',

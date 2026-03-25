@@ -27,6 +27,9 @@ const dipoleSchema = z.object({
   gap: z.number().nonnegative('Gap must be non-negative').max(1, 'Gap too large'),
   segments: z.number().int('Must be integer').min(5, 'Minimum 5 segments').max(1000, 'Maximum 1000 segments'),
   feedType: z.enum(['gap', 'balanced']),
+  sourceType: z.enum(['voltage', 'current']),
+  sourceAmplitude: z.number().nonnegative('Amplitude must be non-negative'),
+  sourcePhase: z.number().min(-360).max(360),
   position: z.object({
     x: z.number(),
     y: z.number(),
@@ -68,6 +71,9 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
       gap: 0.001, // 1mm gap
       segments: 21,
       feedType: 'gap',
+      sourceType: 'voltage' as const,
+      sourceAmplitude: 1,
+      sourcePhase: 0,
       position: {
         x: 0,
         y: 0,
@@ -85,6 +91,9 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
   const orientationX = watch('orientation.x');
   const orientationY = watch('orientation.y');
   const orientationZ = watch('orientation.z');
+
+  // Watch source type for dynamic unit label
+  const sourceType = watch('sourceType');
 
   // Determine active preset based on current values
   const getActivePreset = (): 'X' | 'Y' | 'Z' | 'Custom' => {
@@ -260,6 +269,92 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
                     fullWidth
                     error={!!errors.segments}
                     helperText={errors.segments?.message || 'Number of wire segments'}
+                    disabled={isGenerating}
+                    inputProps={{ step: 1 }}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Feed Configuration */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Feed Configuration
+                </Typography>
+              </Divider>
+            </Grid>
+
+            {/* Source Type Toggle */}
+            <Grid item xs={12}>
+              <Controller
+                name="sourceType"
+                control={control}
+                render={({ field }) => (
+                  <ToggleButtonGroup
+                    value={field.value}
+                    exclusive
+                    onChange={(_, value) => {
+                      if (value !== null) field.onChange(value);
+                    }}
+                    size="small"
+                    disabled={isGenerating}
+                    fullWidth
+                  >
+                    <ToggleButton value="voltage">Voltage</ToggleButton>
+                    <ToggleButton value="current">Current</ToggleButton>
+                  </ToggleButtonGroup>
+                )}
+              />
+            </Grid>
+
+            {/* Amplitude */}
+            <Grid item xs={6}>
+              <Controller
+                name="sourceAmplitude"
+                control={control}
+                render={({ field: { onChange, value, ...field } }) => (
+                  <TextField
+                    {...field}
+                    value={value}
+                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) ?? 0)}
+                    label="Amplitude"
+                    type="number"
+                    fullWidth
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          {sourceType === 'voltage' ? 'V' : 'A'}
+                        </InputAdornment>
+                      ),
+                    }}
+                    error={!!errors.sourceAmplitude}
+                    helperText={errors.sourceAmplitude?.message}
+                    disabled={isGenerating}
+                    inputProps={{ step: 0.1, min: 0 }}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Phase */}
+            <Grid item xs={6}>
+              <Controller
+                name="sourcePhase"
+                control={control}
+                render={({ field: { onChange, value, ...field } }) => (
+                  <TextField
+                    {...field}
+                    value={value}
+                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) ?? 0)}
+                    label="Phase"
+                    type="number"
+                    fullWidth
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">°</InputAdornment>,
+                    }}
+                    error={!!errors.sourcePhase}
+                    helperText={errors.sourcePhase?.message}
                     disabled={isGenerating}
                     inputProps={{ step: 1 }}
                   />
