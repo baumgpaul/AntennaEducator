@@ -105,6 +105,7 @@ class FolderResponse(BaseModel):
     name: str
     parent_folder_id: Optional[str] = None
     is_course: bool = False
+    source_course_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -154,6 +155,57 @@ class UserListResponse(BaseModel):
     role: str = "user"
     is_locked: bool = False
     created_at: Optional[str] = None
+    simulation_tokens: int = 0
+    flatrate_until: Optional[str] = None
+
+
+class UserTokenUpdate(BaseModel):
+    """Schema for admin token management."""
+
+    action: str = Field(
+        ...,
+        description="'set' to replace balance, 'add' to increment.",
+    )
+    amount: int = Field(
+        ...,
+        ge=0,
+        description="Token amount (must be >= 0).",
+    )
+
+
+class UserFlatrateUpdate(BaseModel):
+    """Schema for granting / revoking user flatrate."""
+
+    until: Optional[str] = Field(
+        None,
+        description="ISO datetime for flatrate expiry, or null to revoke.",
+    )
+
+
+class UsageLogResponse(BaseModel):
+    """Schema for a single usage log entry."""
+
+    service: str
+    endpoint: str
+    cost: int
+    balance_after: int
+    was_flatrate: bool
+    timestamp: str
+
+
+class EnrollRequest(BaseModel):
+    """Schema for enrolling a user in a course."""
+
+    user_id: str = Field(..., description="User ID to enroll.")
+
+
+class EnrollmentResponse(BaseModel):
+    """Schema for an enrollment record."""
+
+    user_id: str
+    course_id: str
+    enrolled_at: str
+    enrolled_by: str
 
 
 # ── Project Schemas ───────────────────────────────────────────────────────────
@@ -230,6 +282,7 @@ class ProjectResponse(ProjectBase):
     id: str
     user_id: str
     folder_id: Optional[str] = None
+    source_project_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     last_opened_at: Optional[datetime] = None
@@ -245,6 +298,7 @@ class ProjectListResponse(BaseModel):
     name: str
     description: Optional[str] = None
     folder_id: Optional[str] = None
+    source_project_id: Optional[str] = None
     has_documentation: bool = False
     documentation_preview: str = ""
     created_at: datetime

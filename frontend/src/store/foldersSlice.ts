@@ -15,6 +15,8 @@ import type {
   DeepCopyRequest,
   UserRoleUpdateRequest,
   CourseOwnerUpdateRequest,
+  UserTokenUpdateRequest,
+  UserFlatrateUpdateRequest,
 } from '@/api/folders';
 
 // Re-export types for consumers
@@ -161,6 +163,13 @@ export const copyCourseProjectToUser = createAsyncThunk(
   },
 );
 
+export const resetProjectToSource = createAsyncThunk(
+  'folders/resetProjectToSource',
+  async (projectId: string) => {
+    return await foldersApi.resetProjectToSource(projectId);
+  },
+);
+
 // ============================================================================
 // Async Thunks — Admin
 // ============================================================================
@@ -180,6 +189,27 @@ export const assignCourseOwner = createAsyncThunk(
   'folders/assignCourseOwner',
   async ({ folderId, data }: { folderId: string; data: CourseOwnerUpdateRequest }) => {
     return await foldersApi.assignCourseOwner(folderId, data);
+  },
+);
+
+export const updateUserTokens = createAsyncThunk(
+  'folders/updateUserTokens',
+  async ({ userId, data }: { userId: string; data: UserTokenUpdateRequest }) => {
+    return await foldersApi.updateUserTokens(userId, data);
+  },
+);
+
+export const updateUserFlatrate = createAsyncThunk(
+  'folders/updateUserFlatrate',
+  async ({ userId, data }: { userId: string; data: UserFlatrateUpdateRequest }) => {
+    return await foldersApi.updateUserFlatrate(userId, data);
+  },
+);
+
+export const updateUserLockStatus = createAsyncThunk(
+  'folders/updateUserLockStatus',
+  async ({ userId, isLocked }: { userId: string; isLocked: boolean }) => {
+    return await foldersApi.updateUserLockStatus(userId, isLocked);
   },
 );
 
@@ -317,6 +347,21 @@ const foldersSlice = createSlice({
         state.error = action.error.message || 'Failed to copy project';
       });
 
+    builder
+      .addCase(resetProjectToSource.pending, (state) => {
+        state.copyLoading = true;
+      })
+      .addCase(resetProjectToSource.fulfilled, (state, action) => {
+        state.copyLoading = false;
+        // Update project in currentFolderContents if it's there
+        const idx = state.currentFolderContents.findIndex((p) => p.id === action.payload.id);
+        if (idx !== -1) state.currentFolderContents[idx] = action.payload;
+      })
+      .addCase(resetProjectToSource.rejected, (state, action) => {
+        state.copyLoading = false;
+        state.error = action.error.message || 'Failed to reset project';
+      });
+
     // ── Admin ──────────────────────────────────────────────────────────────
     builder
       .addCase(fetchUsers.pending, (state) => {
@@ -340,6 +385,21 @@ const foldersSlice = createSlice({
     builder.addCase(assignCourseOwner.fulfilled, (state, action) => {
       const idx = state.courses.findIndex((c) => c.id === action.payload.id);
       if (idx !== -1) state.courses[idx] = action.payload;
+    });
+
+    builder.addCase(updateUserTokens.fulfilled, (state, action) => {
+      const idx = state.users.findIndex((u) => u.user_id === action.payload.user_id);
+      if (idx !== -1) state.users[idx] = action.payload;
+    });
+
+    builder.addCase(updateUserFlatrate.fulfilled, (state, action) => {
+      const idx = state.users.findIndex((u) => u.user_id === action.payload.user_id);
+      if (idx !== -1) state.users[idx] = action.payload;
+    });
+
+    builder.addCase(updateUserLockStatus.fulfilled, (state, action) => {
+      const idx = state.users.findIndex((u) => u.user_id === action.payload.user_id);
+      if (idx !== -1) state.users[idx] = action.payload;
     });
   },
 });

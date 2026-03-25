@@ -11,10 +11,27 @@ import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { solveSingle, solveMultiAntenna } from '@/api/solver';
 import { computeFarField, computeNearField } from '@/api/postprocessor';
 import { generateObservationPoints } from '@/utils/fieldGeneration';
+import { getCurrentUserAsync } from '@/store/authSlice';
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * Extract a user-friendly error message from Axios errors.
+ * Handles both string detail and structured detail objects (e.g. 402 token errors).
+ */
+function extractErrorMessage(error: any, fallback: string): string {
+  const detail = error.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (detail && typeof detail === 'object' && detail.message) {
+    if (detail.required !== undefined && detail.balance !== undefined) {
+      return `${detail.message} (need ${detail.required}, have ${detail.balance})`;
+    }
+    return detail.message;
+  }
+  return error.message || fallback;
+}
 
 /**
  * Parse complex number from various formats:
@@ -193,7 +210,7 @@ export const runMultiAntennaSimulation = createAsyncThunk<
     const result = await solveMultiAntenna(request);
     return result;
   } catch (error: any) {
-    const errorMessage = error.response?.data?.detail || error.message || 'Multi-antenna simulation failed';
+    const errorMessage = extractErrorMessage(error, 'Multi-antenna simulation failed');
     return rejectWithValue(errorMessage);
   }
 });
@@ -280,9 +297,12 @@ export const runFrequencySweep = createAsyncThunk<
       currentDistributions,
     };
 
+    // Refresh token balance after sweep
+    dispatch(getCurrentUserAsync());
+
     return sweepResult;
   } catch (error: any) {
-    return rejectWithValue(error.message || 'Frequency sweep failed');
+    return rejectWithValue(extractErrorMessage(error, 'Frequency sweep failed'));
   }
 });
 
@@ -368,6 +388,9 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
     dispatch(setSolverState('solved'));
     dispatch(setCurrentFrequency(frequencyMHz));
 
+    // Refresh token balance after simulation
+    dispatch(getCurrentUserAsync());
+
     // Return first solution for compatibility
     if (result.antenna_solutions.length > 0) {
       const solution = result.antenna_solutions[0];
@@ -395,7 +418,7 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
 
     throw new Error('No antenna solutions returned');
   } catch (error: any) {
-    return rejectWithValue(error.message || 'Solve failed');
+    return rejectWithValue(extractErrorMessage(error, 'Solve failed'));
   }
 });
 
@@ -675,9 +698,12 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     // Update workflow state
     dispatch(setSolverState('postprocessing-ready'));
 
+    // Refresh token balance after postprocessing
+    dispatch(getCurrentUserAsync());
+
     return { ...response, totalFieldDataSizeMB };
   } catch (error: any) {
-    return rejectWithValue(error.message || 'Postprocessing failed');
+    return rejectWithValue(extractErrorMessage(error, 'Postprocessing failed'));
   }
 });
 
@@ -803,7 +829,7 @@ export const computeRadiationPattern = createAsyncThunk<
 
     return pattern;
   } catch (error: any) {
-    const errorMessage = error.response?.data?.detail || error.message || 'Far-field computation failed';
+    const errorMessage = extractErrorMessage(error, 'Far-field computation failed');
     return rejectWithValue(errorMessage);
   }
 });

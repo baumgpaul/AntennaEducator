@@ -20,6 +20,7 @@ import {
   Description as DescriptionIcon,
   ContentCopy,
   Lock as LockIcon,
+  RestartAlt as RestartAltIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -31,13 +32,14 @@ interface ProjectCardProps {
   onDelete?: (project: Project) => void;
   onDuplicate?: (project: Project) => void;
   onCopy?: (project: Project) => void;
+  onReset?: (project: Project) => void;
   copyOnly?: boolean;
 }
 
 /**
  * ProjectCard - Display project information with actions
  */
-function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, copyOnly = false }: ProjectCardProps) {
+function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, onReset, copyOnly = false }: ProjectCardProps) {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(anchorEl);
@@ -78,6 +80,12 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, copyOnly 
     e.stopPropagation();
     handleMenuClose();
     onDuplicate?.(project);
+  };
+
+  const handleReset = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleMenuClose();
+    onReset?.(project);
   };
 
   const formatDate = (dateString: string) => {
@@ -227,6 +235,12 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, copyOnly 
               <CopyIcon fontSize="small" sx={{ mr: 1 }} />
               Duplicate
             </MenuItem>,
+            project.source_project_id && (
+              <MenuItem key="reset" onClick={handleReset} sx={{ color: 'warning.dark' }}>
+                <RestartAltIcon fontSize="small" sx={{ mr: 1 }} />
+                Reset to original
+              </MenuItem>
+            ),
             <MenuItem key="delete" onClick={handleDelete} sx={{ color: 'error.main' }}>
               <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
               Delete

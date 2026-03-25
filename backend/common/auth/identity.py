@@ -4,7 +4,7 @@ This is a plain Pydantic model with NO ORM dependency.
 Every service that needs the current user receives this, not a SQLAlchemy model.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -39,6 +39,8 @@ class UserIdentity(BaseModel):
     role: UserRole = UserRole.USER
     is_locked: bool = False
     created_at: Optional[datetime] = None
+    simulation_tokens: int = 0
+    flatrate_until: Optional[datetime] = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -51,6 +53,14 @@ class UserIdentity(BaseModel):
     def is_maintainer(self) -> bool:
         """Check if user has maintainer or admin privileges."""
         return self.role in (UserRole.MAINTAINER, UserRole.ADMIN)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def has_active_flatrate(self) -> bool:
+        """Check if user has an active (non-expired) flatrate."""
+        if self.flatrate_until is None:
+            return False
+        return self.flatrate_until > datetime.now(timezone.utc)
 
 
 class TokenResponse(BaseModel):

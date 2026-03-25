@@ -9,6 +9,8 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
+from backend.common.auth.token_costs import DEFAULT_STARTER_TOKENS
+
 logger = logging.getLogger(__name__)
 
 
@@ -159,6 +161,7 @@ class UserRepository:
             "IsLocked": is_locked,
             "Role": role or ("admin" if is_admin else "user"),
             "CreatedAt": now,
+            "SimulationTokens": DEFAULT_STARTER_TOKENS,
         }
 
         if cognito_sub:
@@ -303,6 +306,128 @@ class UserRepository:
             logger.error(f"Error updating user lock status: {e}")
             raise RuntimeError(f"Failed to update user: {e}")
 
+    # ── token management ──────────────────────────────────────────────────
+
+    def set_user_tokens(self, user_id: str, tokens: int) -> None:
+        """Set a user's simulation token balance to an exact value."""
+        try:
+            self.table.update_item(
+                Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
+                UpdateExpression="SET SimulationTokens = :tokens",
+                ExpressionAttributeValues={":tokens": tokens},
+            )
+            logger.info("Set user %s tokens to %d", user_id, tokens)
+        except ClientError as e:
+            logger.error("Error setting tokens for user %s: %s", user_id, e)
+            raise RuntimeError(f"Failed to set tokens: {e}")
+
+    def deduct_user_tokens(self, user_id: str, cost: int) -> int:
+        """Atomically deduct tokens. Returns remaining balance.
+
+        Uses a DynamoDB conditional update to prevent overdraw.
+
+        Raises:
+            ValueError: If user has insufficient tokens.
+        """
+        try:
+            response = self.table.update_item(
+                Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
+                UpdateExpression="SET SimulationTokens = SimulationTokens - :cost",
+                ConditionExpression="SimulationTokens >= :cost",
+                ExpressionAttributeValues={":cost": cost},
+                ReturnValues="ALL_NEW",
+            )
+            remaining = int(response["Attributes"]["SimulationTokens"])
+            logger.info(
+                "Deducted %d tokens from user %s (remaining: %d)",
+                cost,
+                user_id,
+                remaining,
+            )
+            return remaining
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                raise ValueError(f"Insufficient simulation tokens (need {cost})")
+            logger.error("Error deducting tokens for user %s: %s", user_id, e)
+            raise RuntimeError(f"Failed to deduct tokens: {e}")
+
+    def set_user_flatrate(self, user_id: str, until: Optional[datetime]) -> None:
+        """Grant or revoke a user's flatrate.
+
+        Args:
+            user_id: Target user.
+            until: Expiry datetime (tz-aware), or None to revoke.
+        """
+        try:
+            if until is not None:
+                self.table.update_item(
+                    Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
+                    UpdateExpression="SET FlatrateUntil = :flatrate",
+                    ExpressionAttributeValues={":flatrate": until.isoformat()},
+                )
+                logger.info("Set flatrate for user %s until %s", user_id, until)
+            else:
+                self.table.update_item(
+                    Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
+                    UpdateExpression="REMOVE FlatrateUntil",
+                )
+                logger.info("Removed flatrate for user %s", user_id)
+        except ClientError as e:
+            logger.error("Error setting flatrate for user %s: %s", user_id, e)
+            raise RuntimeError(f"Failed to set flatrate: {e}")
+
+    # ── helpers ───────────────────────────────────────────────────────────
+
+    # ── usage logging ─────────────────────────────────────────────────────
+
+    def log_token_usage(self, entry) -> None:
+        """Write a usage log entry to DynamoDB.
+
+        Item key: PK=USER#{user_id}, SK=USAGE#{timestamp}#{uuid_suffix}
+        """
+        import uuid
+
+        suffix = str(uuid.uuid4())[:8]
+        sk = f"USAGE#{entry.timestamp}#{suffix}"
+        item = {
+            "PK": f"USER#{entry.user_id}",
+            "SK": sk,
+            "EntityType": "USAGE",
+            **entry.to_dict(),
+        }
+        try:
+            self.table.put_item(Item=item)
+        except ClientError as e:
+            logger.error("Error logging token usage for user %s: %s", entry.user_id, e)
+            raise RuntimeError(f"Failed to log token usage: {e}")
+
+    def get_usage_history(self, user_id: str, limit: int = 50) -> list:
+        """Query usage log entries for a user, newest first."""
+        from boto3.dynamodb.conditions import Key
+
+        try:
+            response = self.table.query(
+                KeyConditionExpression=(
+                    Key("PK").eq(f"USER#{user_id}") & Key("SK").begins_with("USAGE#")
+                ),
+                ScanIndexForward=False,
+                Limit=limit,
+            )
+            return [
+                {
+                    "service": item.get("Service", ""),
+                    "endpoint": item.get("Endpoint", ""),
+                    "cost": int(item.get("Cost", 0)),
+                    "balance_after": int(item.get("BalanceAfter", 0)),
+                    "was_flatrate": item.get("WasFlatrate", False),
+                    "timestamp": item.get("Timestamp", ""),
+                }
+                for item in response.get("Items", [])
+            ]
+        except ClientError as e:
+            logger.error("Error querying usage history for user %s: %s", user_id, e)
+            return []
+
     # ── helpers ───────────────────────────────────────────────────────────
 
     @staticmethod
@@ -317,4 +442,6 @@ class UserRepository:
             "is_locked": item.get("IsLocked", False),
             "role": item.get("Role", "admin" if item.get("IsAdmin", False) else "user"),
             "created_at": item.get("CreatedAt"),
+            "simulation_tokens": int(item.get("SimulationTokens", 0)),
+            "flatrate_until": item.get("FlatrateUntil"),
         }

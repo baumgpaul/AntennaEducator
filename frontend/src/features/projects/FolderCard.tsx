@@ -7,6 +7,7 @@ import {
   Menu,
   MenuItem,
   Box,
+  Chip,
 } from '@mui/material';
 import {
   Folder as FolderIcon,
@@ -14,6 +15,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   CreateNewFolder as CreateNewFolderIcon,
+  School as SchoolIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
 import type { FolderTreeNode } from '@/store/foldersSlice';
@@ -78,7 +80,9 @@ function FolderCard({
       <CardContent sx={{ flexGrow: 1, pb: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, pr: 1 }}>
-            <FolderIcon sx={{ color: 'warning.main', fontSize: 28 }} />
+            {folder.source_course_id
+              ? <SchoolIcon sx={{ color: 'primary.main', fontSize: 28 }} />
+              : <FolderIcon sx={{ color: 'warning.main', fontSize: 28 }} />}
             <Typography variant="h6" component="h3" noWrap>
               {folder.name}
             </Typography>
@@ -92,11 +96,21 @@ function FolderCard({
         <Typography variant="body2" color="text.secondary">
           {summary}
         </Typography>
+        {folder.source_course_id && (
+          <Chip
+            icon={<SchoolIcon sx={{ fontSize: '0.8rem !important' }} />}
+            label="Course copy"
+            size="small"
+            color="primary"
+            variant="outlined"
+            sx={{ mt: 1, height: 22, fontSize: '0.7rem' }}
+          />
+        )}
       </CardContent>
 
       <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
         <Typography variant="caption" color="text.secondary">
-          Folder
+          {folder.source_course_id ? 'Course' : 'Folder'}
         </Typography>
       </CardActions>
 

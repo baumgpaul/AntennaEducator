@@ -67,6 +67,7 @@ class FolderRepository:
         *,
         parent_folder_id: Optional[str] = None,
         is_course: bool = False,
+        source_course_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create a new folder.
 
@@ -75,6 +76,7 @@ class FolderRepository:
             name: Display name.
             parent_folder_id: Parent folder (None = root level).
             is_course: If True, this is a public course folder.
+            source_course_id: If set, this folder is a user copy of that course.
 
         Returns:
             Folder dict (snake_case keys).
@@ -97,6 +99,8 @@ class FolderRepository:
             "CreatedAt": now,
             "UpdatedAt": now,
         }
+        if source_course_id:
+            item["SourceCourseId"] = source_course_id
         self.table.put_item(Item=item)
         return self._to_dict(item)
 
@@ -276,6 +280,7 @@ class FolderRepository:
             "name": item.get("Name", ""),
             "parent_folder_id": item.get("ParentFolderId", "") or None,
             "is_course": item.get("IsCourse", False),
+            "source_course_id": item.get("SourceCourseId") or None,
             "created_at": item.get("CreatedAt"),
             "updated_at": item.get("UpdatedAt"),
         }

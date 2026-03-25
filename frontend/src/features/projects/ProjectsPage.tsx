@@ -40,6 +40,7 @@ import {
   selectFolders,
   setCurrentFolderId,
   selectCurrentFolderId,
+  resetProjectToSource,
 } from '@/store/foldersSlice';
 import type { FolderTreeNode } from '@/store/foldersSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
@@ -199,6 +200,16 @@ function ProjectsPage() {
       dispatch(showSuccess(`Project "${project.name}" duplicated successfully`));
     } catch (err) {
       dispatch(showError(`Failed to duplicate project: ${formatErrorMessage(err)}`));
+    }
+  };
+
+  const handleResetProject = async (project: Project) => {
+    if (!window.confirm(`Reset "${project.name}" to its original course state? Your changes will be lost.`)) return;
+    try {
+      await dispatch(resetProjectToSource(String(project.id))).unwrap();
+      dispatch(showSuccess(`"${project.name}" has been reset to its original state.`));
+    } catch (err) {
+      dispatch(showError(`Failed to reset project: ${formatErrorMessage(err)}`));
     }
   };
 
@@ -399,6 +410,7 @@ function ProjectsPage() {
               onEdit={handleEditProject}
               onDelete={handleDeleteProject}
               onDuplicate={handleDuplicateProject}
+              onReset={handleResetProject}
             />
           </Grid>
         ))}
