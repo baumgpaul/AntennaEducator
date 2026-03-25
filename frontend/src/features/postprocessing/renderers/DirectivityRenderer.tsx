@@ -17,7 +17,10 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
   item,
   frequencyHz,
 }) => {
-  const radiationPattern = useAppSelector((state) => state.solver.radiationPattern);
+  // Use per-frequency pattern if available, falling back to the single radiationPattern
+  const radiationPatterns = useAppSelector((state) => state.solver.radiationPatterns);
+  const fallbackPattern = useAppSelector((state) => state.solver.radiationPattern);
+  const radiationPattern = (frequencyHz && radiationPatterns?.[frequencyHz]) || fallbackPattern;
 
   // Extract directivity data (may be undefined before early return check)
   const theta_angles = radiationPattern?.theta_angles;

@@ -105,6 +105,22 @@ function calculateFieldDataSize(fieldData: SolverState['fieldData']): number {
 export type SimulationStatus = 'idle' | 'preparing' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type SolverWorkflowState = 'idle' | 'solved' | 'postprocessing-ready';
 
+export interface RadiationPatternData {
+  frequency: number;
+  theta_angles: number[];
+  phi_angles: number[];
+  E_theta_mag: number[];
+  E_phi_mag: number[];
+  E_total_mag: number[];
+  pattern_db: number[];
+  directivity: number;
+  gain: number;
+  efficiency: number;
+  beamwidth_theta?: number;
+  beamwidth_phi?: number;
+  max_direction: [number, number];
+}
+
 interface SolverState {
   // Current simulation
   status: SimulationStatus;
@@ -117,21 +133,7 @@ interface SolverState {
   // Results
   results: SolverResult | null;
   currentDistribution: number[] | null; // Magnitude of branch currents for visualization
-  radiationPattern: {
-    frequency: number;
-    theta_angles: number[];
-    phi_angles: number[];
-    E_theta_mag: number[];
-    E_phi_mag: number[];
-    E_total_mag: number[];
-    pattern_db: number[];
-    directivity: number;
-    gain: number;
-    efficiency: number;
-    beamwidth_theta?: number;
-    beamwidth_phi?: number;
-    max_direction: [number, number];
-  } | null;
+  radiationPattern: RadiationPatternData | null;
 
   // Multi-antenna results
   multiAntennaResults: MultiAntennaSolutionResponse | null;
@@ -166,6 +168,12 @@ interface SolverState {
     H_vectors?: Array<{ x: { real: number; imag: number }; y: { real: number; imag: number }; z: { real: number; imag: number } }>; // Complex H-field vectors
   }>> | null; // fieldData[fieldId][frequencyHz] = { points, magnitudes, vectors }
 
+  // Per-frequency radiation patterns (for sweep mode)
+  radiationPatterns: Record<number, RadiationPatternData> | null; // radiationPatterns[frequencyHz]
+
+  // Global selected frequency (Hz) for postprocessing display
+  selectedFrequencyHz: number | null;
+
   // Results validity tracking
   resultsStale: boolean; // True when geometry/sources changed and results are outdated
 }
@@ -191,6 +199,8 @@ const initialState: SolverState = {
   postprocessingStatus: 'idle',
   postprocessingProgress: null,
   fieldData: null,
+  radiationPatterns: null,
+  selectedFrequencyHz: null,
   resultsStale: false,
 };
 
@@ -499,23 +509,40 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     }
 
     // Initialize progress tracking for all work to be done
-    const totalWork = fieldsToCompute.length + (directivityNeedsComputing ? 1 : 0);
+    // For sweep mode, each field × each frequency is one work unit; directivity counts per frequency too
+    const numFreqs = frequencies.length;
+    const totalWork = (fieldsToCompute.length * numFreqs)
+      + (directivityNeedsComputing ? numFreqs : 0);
     let completedWork = 0;
     dispatch(updatePostprocessingProgress({ completed: 0, total: totalWork }));
 
-    // Compute directivity if requested
+    // Compute directivity if requested — one API call per frequency
     if (directivityNeedsComputing) {
-      const pattern = await dispatch(computeRadiationPattern()).unwrap();
-      response.directivity = pattern;
+      for (let freqIdx = 0; freqIdx < frequencies.length; freqIdx++) {
+        const freqHz = frequencies[freqIdx];
+        const pattern = await dispatch(computeRadiationPatternForFrequency({
+          frequencyIndex: freqIdx,
+        })).unwrap();
 
-      // Mark as completed
-      completedWork++;
+        // Store per-frequency radiation pattern
+        dispatch(setRadiationPatternForFrequency({ frequencyHz: freqHz, pattern }));
+
+        completedWork++;
+        dispatch(updatePostprocessingProgress({ completed: completedWork, total: totalWork }));
+      }
+
+      // Set the first frequency's pattern as the active one for backward compat
+      const firstFreqHz = frequencies[0];
+      const firstPattern = getState().solver.radiationPatterns?.[firstFreqHz];
+      if (firstPattern) {
+        response.directivity = firstPattern;
+      }
+
       dispatch(updateFieldResult({
         fieldId: 'directivity',
         computed: true,
-        num_points: 0, // Will be updated when implemented
+        num_points: 0,
       }));
-      dispatch(updatePostprocessingProgress({ completed: completedWork, total: totalWork }));
     }
 
     // Compute requested field regions
@@ -564,7 +591,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
         totalEdges: mesh.edges.length,
       });
 
-      // Compute fields for each requested region
+      // Compute fields for each requested region, one frequency at a time
       const fieldResults = [];
 
       for (const field of fieldsToCompute) {
@@ -576,77 +603,60 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           return rejectWithValue('Unable to determine edge radii for field computation');
         }
 
-        // Prepare branch currents for all frequencies
-        // Results can be in different formats:
-        // 1. Single antenna: results.branch_currents (array)
-        // 2. Multi-antenna single freq: results.antenna_solutions[].branch_currents
-        // 3. Frequency sweep: frequencySweep.results[].antenna_solutions[].branch_currents
-        let branch_currents_array;
-        const multiAntennaResults = (results as any)?.antenna_solutions;
-
-        console.log('[Postprocessing] Branch currents check:', {
-          isSweepMode,
-          hasFrequencySweep: !!frequencySweep,
-          sweepResultsCount: frequencySweep?.results?.length,
-          hasResults: !!results,
-          hasBranchCurrents: results ? !!results.branch_currents : false,
-          hasAntennaSolutions: !!multiAntennaResults,
-          antennaSolutionsCount: multiAntennaResults?.length,
-        });
-
-        if (isSweepMode && frequencySweep && frequencySweep.results && frequencySweep.results.length > 0) {
-          // For sweep: combine branch currents from all antennas at each frequency
-          branch_currents_array = frequencySweep.results.map(result => {
-            if (result.antenna_solutions && result.antenna_solutions.length > 0) {
-              // Concatenate currents from all antennas
-              return result.antenna_solutions.flatMap((sol: any) => sol.branch_currents || []);
-            }
-            return [];
-          });
-        } else if (results && results.branch_currents) {
-          // For single antenna, single frequency
-          branch_currents_array = [results.branch_currents];
-        } else if (multiAntennaResults && multiAntennaResults.length > 0) {
-          // For multi-antenna, single frequency: combine currents from all antennas
-          const combinedCurrents = multiAntennaResults.flatMap((sol: any) => sol.branch_currents || []);
-          branch_currents_array = [combinedCurrents];
-        } else {
-          console.error('[Postprocessing] No branch currents! results =', results);
-          return rejectWithValue('No branch currents available for field computation');
-        }
-
-        // Call postprocessor API
-        const fieldRequest = {
-          frequencies: frequencies,
-          branch_currents: branch_currents_array,
-          nodes: mesh.nodes,
-          edges: mesh.edges,
-          radii: mesh.radii,
-          observation_points,
-        };
-
-        // Pre-flight estimate: warn if computation may timeout
-        const estEvals = observation_points.length * 19 * frequencies.length * mesh.edges.length;
-        const estSec = estEvals * 5e-7;
-        console.log(
-          `[Postprocessing] Field "${field.name}": ${observation_points.length} pts × ${mesh.edges.length} edges → est. ${estSec.toFixed(1)}s`
-        );
-        if (estSec > 250) {
-          console.warn(
-            `[Postprocessing] ⚠️ Field "${field.name}" estimated at ${estSec.toFixed(0)}s — may exceed Lambda 300s timeout!`
-          );
-        }
-
-        const fieldData = await computeNearField(fieldRequest);
-
-        // Store field data for all frequencies
+        // Iterate over each frequency individually so the backend returns
+        // correct field data for that frequency (avoids the Lambda 6MB limit
+        // and the "returns only first frequency" issue).
         for (let freqIdx = 0; freqIdx < frequencies.length; freqIdx++) {
           const freqHz = frequencies[freqIdx];
 
-          // Note: Backend currently returns data for first frequency only
-          // In future, backend should return array of results for each frequency
-          // For now, we store the same data for all frequencies
-          // TODO: Update when backend supports multi-frequency field computation
+          // Extract branch currents for this frequency
+          let branch_currents_for_freq: any[];
+          const multiAntennaResults = (results as any)?.antenna_solutions;
+
+          if (isSweepMode && frequencySweep && frequencySweep.results && frequencySweep.results[freqIdx]) {
+            const result = frequencySweep.results[freqIdx];
+            if (result.antenna_solutions && result.antenna_solutions.length > 0) {
+              branch_currents_for_freq = result.antenna_solutions.flatMap(
+                (sol: any) => sol.branch_currents || []
+              );
+            } else {
+              branch_currents_for_freq = [];
+            }
+          } else if (results && results.branch_currents) {
+            branch_currents_for_freq = results.branch_currents;
+          } else if (multiAntennaResults && multiAntennaResults.length > 0) {
+            branch_currents_for_freq = multiAntennaResults.flatMap(
+              (sol: any) => sol.branch_currents || []
+            );
+          } else {
+            console.error('[Postprocessing] No branch currents for freq index', freqIdx);
+            return rejectWithValue('No branch currents available for field computation');
+          }
+
+          const fieldRequest = {
+            frequencies: [freqHz],
+            branch_currents: [branch_currents_for_freq],
+            nodes: mesh.nodes,
+            edges: mesh.edges,
+            radii: mesh.radii,
+            observation_points,
+          };
+
+          // Pre-flight estimate: warn if computation may timeout
+          const estEvals = observation_points.length * 19 * mesh.edges.length;
+          const estSec = estEvals * 5e-7;
+          if (freqIdx === 0) {
+            console.log(
+              `[Postprocessing] Field "${field.name}": ${observation_points.length} pts × ${mesh.edges.length} edges × ${frequencies.length} freqs → est. ${(estSec * frequencies.length).toFixed(1)}s total`
+            );
+          }
+          if (estSec > 250) {
+            console.warn(
+              `[Postprocessing] ⚠️ Field "${field.name}" at ${(freqHz / 1e6).toFixed(2)} MHz estimated at ${estSec.toFixed(0)}s — may exceed Lambda 300s timeout!`
+            );
+          }
+
+          const fieldData = await computeNearField(fieldRequest);
 
           dispatch(setFieldData({
             fieldId: field.id,
@@ -659,25 +669,22 @@ export const computePostprocessingWorkflow = createAsyncThunk<
               H_vectors: fieldData.H_field,
             },
           }));
+
+          completedWork++;
+          dispatch(updatePostprocessingProgress({ completed: completedWork, total: totalWork }));
         }
 
-        // Update field result immediately
-        completedWork++;
+        // Update field result after all frequencies computed for this field
         dispatch(updateFieldResult({
           fieldId: field.id,
           computed: true,
-          num_points: fieldData.num_points,
+          num_points: generateObservationPoints(field).length,
         }));
-        dispatch(updatePostprocessingProgress({ completed: completedWork, total: totalWork }));
 
         fieldResults.push({
           fieldId: field.id,
           computed: true,
-          num_points: fieldData.num_points,
-          E_magnitudes: fieldData.E_magnitudes,
-          H_magnitudes: fieldData.H_magnitudes,
-          // Note: Full field vectors stored in fieldData but not included in summary
-          // In production, would upload large arrays to S3/MinIO and return URL
+          num_points: generateObservationPoints(field).length,
         });
       }
 
@@ -695,6 +702,14 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     // Update workflow state
     dispatch(setSolverState('postprocessing-ready'));
 
+    // Set selected frequency to first if not already set
+    if (!getState().solver.selectedFrequencyHz && frequencies.length > 0) {
+      dispatch(setSelectedFrequency(frequencies[0]));
+    }
+
+    // TODO: In the future, highlight selectedFrequencyHz on impedance/S-parameter charts
+    // (vertical marker line on return loss, VSWR, impedance vs frequency plots)
+
     // Refresh token balance after postprocessing
     dispatch(getCurrentUserAsync());
 
@@ -705,24 +720,11 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 });
 
 /**
- * Compute radiation pattern from solver results
+ * Compute radiation pattern from solver results (original — computes for all/first freq).
+ * Kept for backward compatibility with single-frequency solves.
  */
 export const computeRadiationPattern = createAsyncThunk<
-  {
-    frequency: number;
-    theta_angles: number[];
-    phi_angles: number[];
-    E_theta_mag: number[];
-    E_phi_mag: number[];
-    E_total_mag: number[];
-    pattern_db: number[];
-    directivity: number;
-    gain: number;
-    efficiency: number;
-    beamwidth_theta?: number;
-    beamwidth_phi?: number;
-    max_direction: [number, number];
-  },
+  RadiationPatternData,
   void,
   { state: RootState }
 >('solver/computeRadiationPattern', async (_, { getState, rejectWithValue }) => {
@@ -731,7 +733,6 @@ export const computeRadiationPattern = createAsyncThunk<
     const { results, frequencySweep, currentFrequency } = state.solver;
     const { elements } = state.design;
 
-    // Check for either single solve results or sweep results
     const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
     const hasResults = results || (isSweepMode && frequencySweep.results && frequencySweep.results.length > 0);
 
@@ -739,17 +740,12 @@ export const computeRadiationPattern = createAsyncThunk<
       return rejectWithValue('No solver results or mesh data available');
     }
 
-    // Get directivity discretization settings
     const { directivitySettings } = state.solver;
-
-    // Determine frequencies and branch currents
     const frequencies = isSweepMode ? frequencySweep.frequencies : (currentFrequency ? [currentFrequency * 1e6] : [results!.frequency]);
 
-    // Check if results is multi-antenna format (could be in results or multiAntennaResults)
     const multiAntennaResult = state.solver.multiAntennaResults || (results as any);
     const isMultiAntenna = multiAntennaResult?.antenna_solutions !== undefined;
 
-    // For multi-antenna: combine all meshes into one (concatenate nodes/edges/radii)
     let combinedNodes: number[][] = [];
     let combinedEdges: number[][] = [];
     let combinedRadii: number[] = [];
@@ -761,13 +757,9 @@ export const computeRadiationPattern = createAsyncThunk<
       let nodeOffset = 0;
       for (let i = 0; i < elements.length; i++) {
         const element = elements[i];
-        if (!element.mesh) {
-          continue;
-        }
+        if (!element.mesh) continue;
 
         const mesh = element.mesh;
-
-        // Add nodes (with position offset already applied)
         const offsetNodes = mesh.nodes.map(node => [
           node[0] + element.position[0],
           node[1] + element.position[1],
@@ -775,39 +767,27 @@ export const computeRadiationPattern = createAsyncThunk<
         ]);
         combinedNodes.push(...offsetNodes);
 
-        // Add edges (adjusting indices by nodeOffset)
         const offsetEdges = mesh.edges.map(edge => [
-          edge[0] + nodeOffset,
-          edge[1] + nodeOffset
+          edge[0] + nodeOffset, edge[1] + nodeOffset
         ]);
         combinedEdges.push(...offsetEdges);
-
-        // Add radii
         combinedRadii.push(...mesh.radii);
 
-        // Add branch currents from corresponding antenna solution
         if (antenna_solutions[i]) {
           combinedBranchCurrents.push(...antenna_solutions[i].branch_currents);
         }
-
         nodeOffset += mesh.nodes.length;
       }
     } else {
-      // Single antenna: use first element's mesh
       const element = elements[0];
-      if (!element.mesh) {
-        return rejectWithValue('No mesh data available');
-      }
+      if (!element.mesh) return rejectWithValue('No mesh data available');
 
-      const mesh = element.mesh;
-      combinedNodes = mesh.nodes;
-      combinedEdges = mesh.edges;
-      combinedRadii = mesh.radii;
+      combinedNodes = element.mesh.nodes;
+      combinedEdges = element.mesh.edges;
+      combinedRadii = element.mesh.radii;
       combinedBranchCurrents = results!.branch_currents;
     }
 
-    // For sweep, extract and combine branch_currents from ALL antennas at each frequency
-    // For single solve, use the combined branch currents
     const branch_currents_array = isSweepMode
       ? frequencySweep.results.map(r =>
           r.antenna_solutions && r.antenna_solutions.length > 0
@@ -816,7 +796,6 @@ export const computeRadiationPattern = createAsyncThunk<
         )
       : [combinedBranchCurrents];
 
-    // Prepare request for far-field computation
     const request = {
       frequencies: frequencies,
       branch_currents: branch_currents_array,
@@ -828,11 +807,106 @@ export const computeRadiationPattern = createAsyncThunk<
     };
 
     const pattern = await computeFarField(request);
-
     return pattern;
   } catch (error: any) {
-    const errorMessage = extractErrorMessage(error, 'Far-field computation failed');
-    return rejectWithValue(errorMessage);
+    return rejectWithValue(extractErrorMessage(error, 'Far-field computation failed'));
+  }
+});
+
+/**
+ * Compute radiation pattern for a single frequency from sweep results.
+ * Called once per frequency during multi-frequency postprocessing.
+ */
+export const computeRadiationPatternForFrequency = createAsyncThunk<
+  RadiationPatternData,
+  { frequencyIndex: number },
+  { state: RootState }
+>('solver/computeRadiationPatternForFrequency', async ({ frequencyIndex }, { getState, rejectWithValue }) => {
+  try {
+    const state = getState();
+    const { results, frequencySweep, currentFrequency } = state.solver;
+    const { elements } = state.design;
+
+    const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
+    const hasResults = results || (isSweepMode && frequencySweep.results && frequencySweep.results.length > 0);
+
+    if (!hasResults || !elements || elements.length === 0) {
+      return rejectWithValue('No solver results or mesh data available');
+    }
+
+    const { directivitySettings } = state.solver;
+
+    // Get the single frequency and its branch currents
+    let freqHz: number;
+    let branchCurrentsForFreq: any[];
+
+    if (isSweepMode) {
+      freqHz = frequencySweep.frequencies[frequencyIndex];
+      const result = frequencySweep.results[frequencyIndex];
+      if (result.antenna_solutions && result.antenna_solutions.length > 0) {
+        branchCurrentsForFreq = result.antenna_solutions.flatMap(
+          (sol: any) => sol.branch_currents || []
+        );
+      } else {
+        return rejectWithValue(`No antenna solutions for frequency index ${frequencyIndex}`);
+      }
+    } else {
+      freqHz = currentFrequency ? currentFrequency * 1e6 : results!.frequency;
+      const multiAntennaResult = state.solver.multiAntennaResults || (results as any);
+      const isMultiAntenna = multiAntennaResult?.antenna_solutions !== undefined;
+
+      if (isMultiAntenna) {
+        branchCurrentsForFreq = multiAntennaResult.antenna_solutions.flatMap(
+          (sol: any) => sol.branch_currents || []
+        );
+      } else {
+        branchCurrentsForFreq = results!.branch_currents;
+      }
+    }
+
+    // Build combined mesh from all elements
+    let combinedNodes: number[][] = [];
+    let combinedEdges: number[][] = [];
+    let combinedRadii: number[] = [];
+    let nodeOffset = 0;
+
+    for (const element of elements) {
+      if (!element.mesh) continue;
+      const mesh = element.mesh;
+      const pos = element.position || [0, 0, 0];
+      const offsetNodes = mesh.nodes.map(node => [
+        node[0] + pos[0],
+        node[1] + pos[1],
+        node[2] + pos[2]
+      ]);
+      combinedNodes.push(...offsetNodes);
+
+      const offsetEdges = mesh.edges.map(edge => [
+        edge[0] + nodeOffset, edge[1] + nodeOffset
+      ]);
+      combinedEdges.push(...offsetEdges);
+      combinedRadii.push(...mesh.radii);
+      nodeOffset += mesh.nodes.length;
+    }
+
+    if (combinedNodes.length === 0) {
+      return rejectWithValue('No mesh data available');
+    }
+
+    const request = {
+      frequencies: [freqHz],
+      branch_currents: [branchCurrentsForFreq],
+      nodes: combinedNodes,
+      edges: combinedEdges,
+      radii: combinedRadii,
+      theta_points: directivitySettings.theta_points,
+      phi_points: directivitySettings.phi_points,
+    };
+
+    const pattern = await computeFarField(request);
+    return pattern;
+  } catch (error: any) {
+    return rejectWithValue(extractErrorMessage(error, 'Far-field computation failed'));
   }
 });
 
@@ -943,6 +1017,9 @@ const solverSlice = createSlice({
         }
       }
 
+      if (savedState.radiationPatterns !== undefined) state.radiationPatterns = savedState.radiationPatterns;
+      if (savedState.selectedFrequencyHz !== undefined) state.selectedFrequencyHz = savedState.selectedFrequencyHz;
+
       // Don't restore status/progress/error/jobId - these are runtime state
       // Don't restore currentRequest - this is transient
       // Don't restore sweepInProgress - this is runtime state
@@ -964,6 +1041,33 @@ const solverSlice = createSlice({
 
     setCurrentFrequency: (state, action: PayloadAction<number>) => {
       state.currentFrequency = action.payload;
+    },
+
+    /** Set the globally selected frequency (Hz) for postprocessing display */
+    setSelectedFrequency: (state, action: PayloadAction<number | null>) => {
+      state.selectedFrequencyHz = action.payload;
+      // When frequency changes, update radiationPattern to match for backward compat
+      if (action.payload !== null && state.radiationPatterns?.[action.payload]) {
+        state.radiationPattern = state.radiationPatterns[action.payload];
+      }
+    },
+
+    /** Store a radiation pattern for a specific frequency (Hz) */
+    setRadiationPatternForFrequency: (state, action: PayloadAction<{
+      frequencyHz: number;
+      pattern: RadiationPatternData;
+    }>) => {
+      if (!state.radiationPatterns) {
+        state.radiationPatterns = {};
+      }
+      state.radiationPatterns[action.payload.frequencyHz] = action.payload.pattern;
+      // Backward compat: keep radiationPattern in sync with selectedFrequencyHz
+      if (
+        state.selectedFrequencyHz === action.payload.frequencyHz ||
+        state.selectedFrequencyHz == null
+      ) {
+        state.radiationPattern = action.payload.pattern;
+      }
     },
 
   updateFieldResult: (state, action: PayloadAction<{ fieldId: string; computed: boolean; num_points: number }>) => {
@@ -1008,6 +1112,7 @@ const solverSlice = createSlice({
 
   clearFieldData: (state) => {
     state.fieldData = null;
+    state.radiationPatterns = null;
   },
 
   clearFieldDataForField: (state, action: PayloadAction<string>) => {
@@ -1039,6 +1144,8 @@ const solverSlice = createSlice({
       state.results = null;
       state.currentDistribution = null;
       state.radiationPattern = null;
+      state.radiationPatterns = null;
+      state.selectedFrequencyHz = null;
       state.frequencySweep = null;
       state.fieldResults = null;
       state.fieldData = null;
@@ -1172,6 +1279,8 @@ const solverSlice = createSlice({
       state.results = null;
       state.currentDistribution = null;
       state.radiationPattern = null;
+      state.radiationPatterns = null;
+      state.selectedFrequencyHz = null;
       state.multiAntennaResults = null;
       state.fieldResults = null;
       state.fieldData = null;
@@ -1185,6 +1294,10 @@ const solverSlice = createSlice({
       state.frequencySweep = action.payload;
       state.solverState = 'solved'; // Enable postprocessing after sweep
       state.resultsStale = false; // Fresh results, not stale
+      // Default selected frequency to first sweep frequency
+      if (action.payload.frequencies && action.payload.frequencies.length > 0) {
+        state.selectedFrequencyHz = action.payload.frequencies[0];
+      }
     });
 
     builder.addCase(runFrequencySweep.rejected, (state, action) => {
@@ -1306,6 +1419,8 @@ export const {
   clearFieldDataForField,
   markResultsStale,
   clearResultsStaleFlag,
+  setSelectedFrequency,
+  setRadiationPatternForFrequency,
 } = solverSlice.actions;
 
 // Selectors
@@ -1331,5 +1446,7 @@ export const selectSolverState = (state: RootState) => state.solver.solverState;
 export const selectCurrentFrequency = (state: RootState) => state.solver.currentFrequency;
 export const selectFieldData = (state: RootState) => state.solver.fieldData;
 export const selectResultsStale = (state: RootState) => state.solver.resultsStale;
+export const selectSelectedFrequencyHz = (state: RootState) => state.solver.selectedFrequencyHz;
+export const selectRadiationPatterns = (state: RootState) => state.solver.radiationPatterns;
 
 export default solverSlice.reducer;

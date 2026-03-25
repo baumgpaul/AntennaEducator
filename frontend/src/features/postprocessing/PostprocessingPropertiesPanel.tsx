@@ -35,8 +35,8 @@ import {
   deleteViewConfiguration,
   updateItemProperty,
   toggleItemVisibility,
-  setViewFrequency,
 } from '../../store/postprocessingSlice';
+import { selectSelectedFrequencyHz } from '../../store/solverSlice';
 
 /**
  * Get ordinal suffix for density numbers (1st, 2nd, 3rd, 4th, etc.)
@@ -64,6 +64,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const fieldData = useAppSelector((state) => state.solver.fieldData);
   const radiationPattern = useAppSelector((state) => state.solver.radiationPattern);
+  const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
   const requestedFields = useAppSelector((state) => state.solver.requestedFields) as FieldDefinition[];
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
@@ -147,12 +148,6 @@ const PostprocessingPropertiesPanel: React.FC = () => {
     setDeleteDialogOpen(false);
   };
 
-  const handleFrequencyChange = (_event: Event, value: number | number[]) => {
-    const frequencyMHz = value as number;
-    const frequencyHz = frequencyMHz * 1e6;
-    dispatch(setViewFrequency({ viewId: selectedView.id, frequencyHz }));
-  };
-
   // Item property handlers (to be implemented with item editors)
   const handleItemPropertyChange = (property: keyof import('../../types/postprocessing').ViewItem, value: any) => {
     if (selectedItem) {
@@ -194,7 +189,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
     if (!selectedItem) return null;
 
     // Compute auto range for current item (used for auto→manual default values)
-    const displayFrequencyHz = selectedView?.selectedFrequencyHz ?? null;
+    const displayFrequencyHz = selectedFrequencyHz ?? null;
     const autoRange = computeAutoRange(
       selectedItem,
       solverResults,
@@ -932,24 +927,8 @@ const PostprocessingPropertiesPanel: React.FC = () => {
           />
         </Box>
 
-        {/* Frequency Slider (3D views with multiple frequencies only) */}
-        {selectedView.viewType === '3D' && hasMultipleFrequencies && hasAnyFrequencies && currentFrequencyMHz !== null && (
-          <Box sx={{ mb: 1.5 }}>
-            <Typography variant="body2" gutterBottom>
-              Frequency: {currentFrequencyMHz.toFixed(2)} MHz
-            </Typography>
-            <Slider
-              value={currentFrequencyMHz}
-              onChange={handleFrequencyChange}
-              min={Math.min(...computedFrequenciesMHz)}
-              max={Math.max(...computedFrequenciesMHz)}
-              step={null}
-              marks={computedFrequenciesMHz.map((freq) => ({ value: freq, label: '' }))}
-              valueLabelDisplay="auto"
-              valueLabelFormat={(value) => `${value.toFixed(2)} MHz`}
-            />
-          </Box>
-        )}
+        {/* Frequency selection is now handled by the global FrequencySelector
+           component in the PostprocessingTab left panel. */}
 
         {/* Delete View Button */}
         <Button
