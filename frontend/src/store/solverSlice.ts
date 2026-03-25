@@ -297,6 +297,9 @@ export const runFrequencySweep = createAsyncThunk<
       currentDistributions,
     };
 
+    // Refresh token balance after sweep
+    dispatch(getCurrentUserAsync());
+
     return sweepResult;
   } catch (error: any) {
     return rejectWithValue(extractErrorMessage(error, 'Frequency sweep failed'));
