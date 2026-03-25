@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { MuiColorInput } from 'mui-color-input';
 import { parseDecimalNumber } from '@/utils/numberParser';
-import type { AntennaElement } from '@/types/models';
+import type { AntennaElement, Source, ComplexNumber } from '@/types/models';
 
 // Helper to convert comma to period in number inputs
 const handleDecimalInput = (e: React.FormEvent<HTMLDivElement>) => {
@@ -48,6 +48,7 @@ interface PropertiesPanelProps {
   onPositionChange?: (elementId: string, position: [number, number, number]) => void;
   onRotationChange?: (elementId: string, rotation: [number, number, number]) => void;
   onOrientationChange?: (elementId: string, orientation: [number, number, number]) => void;
+  onSourceChange?: (elementId: string, source: Source) => void;
 }
 
 /**
@@ -115,6 +116,7 @@ function PropertiesPanel({
   onPositionChange,
   onRotationChange,
   onOrientationChange,
+  onSourceChange,
 }: PropertiesPanelProps) {
   // Track orientation locally for responsive UI
   const elementOrientation = antennaElement ? getElementOrientation(antennaElement) : [0, 0, 1] as [number, number, number];
@@ -150,6 +152,53 @@ function PropertiesPanel({
     setLocalOrientation(newOrientation);
     onOrientationChange(antennaElement.id, newOrientation);
   };
+
+  // --- Source configuration state ---
+  const primarySource = antennaElement?.sources?.[0];
+
+  function extractSourceAmplitudePhase(source?: Source): { magnitude: number; phaseDeg: number } {
+    if (!source) return { magnitude: 1, phaseDeg: 0 };
+    const amp = source.amplitude;
+    if (amp !== undefined && amp !== null && typeof amp === 'object' && 'real' in amp && 'imag' in amp) {
+      const c = amp as ComplexNumber;
+      const magnitude = Math.sqrt(c.real * c.real + c.imag * c.imag);
+      const phaseDeg = Math.atan2(c.imag, c.real) * (180 / Math.PI);
+      return { magnitude, phaseDeg: Math.round(phaseDeg * 1000) / 1000 };
+    }
+    if (typeof amp === 'number') return { magnitude: Math.abs(amp), phaseDeg: 0 };
+    return { magnitude: 1, phaseDeg: 0 };
+  }
+
+  const { magnitude: initMag, phaseDeg: initPhase } = extractSourceAmplitudePhase(primarySource);
+  const [localSourceType, setLocalSourceType] = useState<'voltage' | 'current'>(primarySource?.type || 'voltage');
+  const [localAmplitude, setLocalAmplitude] = useState(initMag);
+  const [localPhase, setLocalPhase] = useState(initPhase);
+
+  // Sync local source state when element changes
+  useEffect(() => {
+    if (antennaElement?.sources?.[0]) {
+      const src = antennaElement.sources[0];
+      const { magnitude, phaseDeg } = extractSourceAmplitudePhase(src);
+      setLocalSourceType(src.type || 'voltage');
+      setLocalAmplitude(magnitude);
+      setLocalPhase(phaseDeg);
+    }
+  }, [antennaElement?.id, antennaElement?.sources]);
+
+  const emitSourceChange = (type: 'voltage' | 'current', amplitude: number, phaseDeg: number) => {
+    if (!antennaElement || !onSourceChange || !primarySource) return;
+    const phaseRad = (phaseDeg * Math.PI) / 180;
+    const updatedSource: Source = {
+      ...primarySource,
+      type,
+      amplitude: {
+        real: amplitude * Math.cos(phaseRad),
+        imag: amplitude * Math.sin(phaseRad),
+      },
+    };
+    onSourceChange(antennaElement.id, updatedSource);
+  };
+
   const renderPropertyField = (key: string, field: PropertyField) => {
     const handleChange = (value: string | number) => {
       if (field.editable !== false) {
@@ -498,6 +547,75 @@ function PropertiesPanel({
                     </Box>
                   </Stack>
                 </Box>
+
+                {/* Feed Configuration (for elements with sources) */}
+                {primarySource && (
+                  <>
+                    <Divider />
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                        Feed Configuration
+                      </Typography>
+                      <ToggleButtonGroup
+                        value={localSourceType}
+                        exclusive
+                        onChange={(_, value) => {
+                          if (value !== null) {
+                            setLocalSourceType(value);
+                            emitSourceChange(value, localAmplitude, localPhase);
+                          }
+                        }}
+                        size="small"
+                        sx={{ mb: 2, display: 'flex' }}
+                      >
+                        <ToggleButton value="voltage" sx={{ flex: 1 }}>Voltage</ToggleButton>
+                        <ToggleButton value="current" sx={{ flex: 1 }}>Current</ToggleButton>
+                      </ToggleButtonGroup>
+                      <Stack spacing={1}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Amplitude"
+                          type="number"
+                          value={localAmplitude}
+                          onInput={handleDecimalInput}
+                          onChange={(e) => {
+                            const val = parseDecimalNumber(e.target.value) ?? 0;
+                            setLocalAmplitude(val);
+                            emitSourceChange(localSourceType, val, localPhase);
+                          }}
+                          sx={{ bgcolor: 'background.default' }}
+                          InputProps={{
+                            endAdornment: (
+                              <Typography variant="caption">
+                                {localSourceType === 'voltage' ? 'V' : 'A'}
+                              </Typography>
+                            ),
+                          }}
+                          inputProps={{ step: 0.1, min: 0 }}
+                        />
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Phase"
+                          type="number"
+                          value={localPhase}
+                          onInput={handleDecimalInput}
+                          onChange={(e) => {
+                            const val = parseDecimalNumber(e.target.value) ?? 0;
+                            setLocalPhase(val);
+                            emitSourceChange(localSourceType, localAmplitude, val);
+                          }}
+                          sx={{ bgcolor: 'background.default' }}
+                          InputProps={{
+                            endAdornment: <Typography variant="caption">°</Typography>,
+                          }}
+                          inputProps={{ step: 1 }}
+                        />
+                      </Stack>
+                    </Box>
+                  </>
+                )}
               </>
             )}
 

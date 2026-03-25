@@ -98,6 +98,9 @@ export const generateDipole = createAsyncThunk(
       frequency: number
       segments: number
       feedType: 'gap' | 'balanced'
+      sourceType: 'voltage' | 'current'
+      sourceAmplitude: number
+      sourcePhase: number
       position: { x: number; y: number; z: number }
       orientation: { x: number; y: number; z: number }
     },
@@ -506,6 +509,15 @@ const designSlice = createSlice({
       state.sources.push(action.payload.source)
     },
 
+    // Update the primary source on a specific element
+    updateElementSource: (state, action: PayloadAction<{ elementId: string; source: Source }>) => {
+      const index = state.elements.findIndex(el => el.id === action.payload.elementId)
+      if (index >= 0 && state.elements[index].sources && state.elements[index].sources!.length > 0) {
+        state.elements[index].sources![0] = action.payload.source
+        state.isSolved = false
+      }
+    },
+
     addLumpedElement: (state, action: PayloadAction<LumpedElement>) => {
       state.lumpedElements.push(action.payload)
     },
@@ -598,16 +610,22 @@ const designSlice = createSlice({
         // Auto-assign color
         const color = getNextElementColor(state.elements);
 
-        // Auto-create voltage source across the gap
-        // For a dipole: nodes 1 to (total/2 + 1) spans the gap
+        // Create source from form data configuration
+        const sourceType = formData?.sourceType || 'voltage';
+        const amplitude = formData?.sourceAmplitude ?? 1;
+        const phaseDeg = formData?.sourcePhase ?? 0;
+        const phaseRad = (phaseDeg * Math.PI) / 180;
         const numNodes = action.payload.mesh?.nodes?.length || 0;
-        const gapEndNode = Math.ceil(numNodes / 2) + 1; // Node at start of second arm
+        const gapEndNode = Math.ceil(numNodes / 2) + 1;
 
         const autoSource: Source = {
-          type: 'voltage',
-          amplitude: { real: 1, imag: 0 },
-          node_start: 1, // First node of first arm
-          node_end: gapEndNode, // First node of second arm
+          type: sourceType,
+          amplitude: {
+            real: amplitude * Math.cos(phaseRad),
+            imag: amplitude * Math.sin(phaseRad),
+          },
+          node_start: 1,
+          node_end: gapEndNode,
           series_R: 0,
           series_L: 0,
           series_C_inv: 0,
@@ -886,6 +904,7 @@ export const {
   clearMesh,
   addSource,
   addSourceToElement,
+  updateElementSource,
   updateSource,
   removeSource,
   addLumpedElement,

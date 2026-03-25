@@ -11,6 +11,7 @@ import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { solveSingle, solveMultiAntenna } from '@/api/solver';
 import { computeFarField, computeNearField } from '@/api/postprocessor';
 import { generateObservationPoints } from '@/utils/fieldGeneration';
+import { extractComplexValue } from '@/utils/multiAntennaBuilder';
 import { getCurrentUserAsync } from '@/store/authSlice';
 
 // ============================================================================
@@ -339,9 +340,7 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
         .map((s) => ({
           node_start: s.node_start,
           node_end: s.node_end,
-          value: typeof s.amplitude === 'number' ? s.amplitude :
-                 typeof s.amplitude === 'string' ? parseFloat(s.amplitude) :
-                 (s.amplitude as any).real || 1.0,
+          value: extractComplexValue(s.amplitude),
           R: s.series_R || 0,
           L: s.series_L || 0,
           C_inv: s.series_C_inv || 0,
@@ -351,9 +350,7 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
         .filter((s) => s.type === 'current')
         .map((s) => ({
           node: s.node_start,  // Use primary node for current source
-          value: typeof s.amplitude === 'number' ? s.amplitude :
-                 typeof s.amplitude === 'string' ? parseFloat(s.amplitude) :
-                 (s.amplitude as any).real || 1.0,
+          value: extractComplexValue(s.amplitude),
         }));
 
       // Map lumped elements to loads
@@ -748,8 +745,9 @@ export const computeRadiationPattern = createAsyncThunk<
     // Determine frequencies and branch currents
     const frequencies = isSweepMode ? frequencySweep.frequencies : (currentFrequency ? [currentFrequency * 1e6] : [results!.frequency]);
 
-    // Check if results is multi-antenna format
-    const isMultiAntenna = (results as any)?.antenna_solutions !== undefined;
+    // Check if results is multi-antenna format (could be in results or multiAntennaResults)
+    const multiAntennaResult = state.solver.multiAntennaResults || (results as any);
+    const isMultiAntenna = multiAntennaResult?.antenna_solutions !== undefined;
 
     // For multi-antenna: combine all meshes into one (concatenate nodes/edges/radii)
     let combinedNodes: number[][] = [];
@@ -758,7 +756,7 @@ export const computeRadiationPattern = createAsyncThunk<
     let combinedBranchCurrents: any[] = [];
 
     if (isMultiAntenna) {
-      const antenna_solutions = (results as any).antenna_solutions;
+      const antenna_solutions = multiAntennaResult.antenna_solutions;
 
       let nodeOffset = 0;
       for (let i = 0; i < elements.length; i++) {
@@ -808,10 +806,14 @@ export const computeRadiationPattern = createAsyncThunk<
       combinedBranchCurrents = results!.branch_currents;
     }
 
-    // For sweep, extract branch_currents from antenna_solutions[0] in each result
+    // For sweep, extract and combine branch_currents from ALL antennas at each frequency
     // For single solve, use the combined branch currents
     const branch_currents_array = isSweepMode
-      ? frequencySweep.results.map(r => r.antenna_solutions?.[0]?.branch_currents || [])
+      ? frequencySweep.results.map(r =>
+          r.antenna_solutions && r.antenna_solutions.length > 0
+            ? r.antenna_solutions.flatMap((sol: any) => sol.branch_currents || [])
+            : []
+        )
       : [combinedBranchCurrents];
 
     // Prepare request for far-field computation

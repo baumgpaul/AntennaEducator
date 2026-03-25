@@ -9,6 +9,7 @@ import {
   countSimulationReadyElements,
   validateHasSources,
   getSimulationComplexity,
+  extractComplexValue,
 } from '../multiAntennaBuilder'
 import type { AntennaElement } from '@/types/models'
 
@@ -191,7 +192,7 @@ describe('multiAntennaBuilder', () => {
       expect(antenna.voltage_sources).toHaveLength(1)
       expect(antenna.voltage_sources[0].node_start).toBe(1)
       expect(antenna.voltage_sources[0].node_end).toBe(2)
-      expect(antenna.voltage_sources[0].value).toBe(2.0) // Uses real part
+      expect(antenna.voltage_sources[0].value).toBe('2+0.5j') // Full complex value preserved
       expect(antenna.voltage_sources[0].R).toBe(75.0)
       expect(antenna.voltage_sources[0].L).toBe(1e-9)
     })
@@ -389,6 +390,106 @@ describe('multiAntennaBuilder', () => {
       const complexity = getSimulationComplexity(elements)
 
       expect(complexity.totalNodes).toBe(2) // Only first element
+    })
+  })
+
+  describe('extractComplexValue', () => {
+    it('should return real number when imaginary part is zero', () => {
+      expect(extractComplexValue({ real: 2.0, imag: 0 })).toBe(2.0)
+    })
+
+    it('should return complex string when imaginary part is non-zero', () => {
+      expect(extractComplexValue({ real: 1.0, imag: 0.5 })).toBe('1+0.5j')
+    })
+
+    it('should handle negative imaginary part', () => {
+      expect(extractComplexValue({ real: 1.0, imag: -0.5 })).toBe('1-0.5j')
+    })
+
+    it('should handle pure imaginary values', () => {
+      expect(extractComplexValue({ real: 0, imag: 1.0 })).toBe('0+1j')
+    })
+
+    it('should handle 90-degree phase (0+1j)', () => {
+      // 1V at 90°: real = cos(90°) ≈ 0, imag = sin(90°) = 1
+      const real = Math.cos(Math.PI / 2)
+      const imag = Math.sin(Math.PI / 2)
+      const result = extractComplexValue({ real, imag })
+      // Should be a string since imag != 0
+      expect(typeof result).toBe('string')
+      expect(result).toContain('j')
+    })
+
+    it('should handle numeric amplitude', () => {
+      expect(extractComplexValue(5.0)).toBe(5.0)
+    })
+
+    it('should handle string amplitude "1+0j"', () => {
+      expect(extractComplexValue('1+0j')).toBe(1.0)
+    })
+
+    it('should handle string amplitude with imaginary "2+3j"', () => {
+      expect(extractComplexValue('2+3j')).toBe('2+3j')
+    })
+
+    it('should default to 1.0 for invalid string', () => {
+      expect(extractComplexValue('invalid')).toBe(1.0)
+    })
+  })
+
+  describe('convertElementToAntennaInput - complex amplitude', () => {
+    it('should preserve complex voltage source amplitude through conversion', () => {
+      // Simulate 1V at 90° phase: amplitude = { real: 0, imag: 1 }
+      const element = createMockElement({
+        sources: [
+          {
+            type: 'voltage',
+            amplitude: { real: 0, imag: 1.0 },
+            node_start: 1,
+            node_end: 2,
+            series_R: 50.0,
+          },
+        ],
+      })
+
+      const antenna = convertElementToAntennaInput(element)
+
+      expect(antenna.voltage_sources[0].value).toBe('0+1j')
+    })
+
+    it('should preserve complex current source amplitude through conversion', () => {
+      const element = createMockElement({
+        sources: [
+          {
+            type: 'current',
+            amplitude: { real: 0.005, imag: 0.005 },
+            node_start: 1,
+            node_end: 0,
+          },
+        ],
+      })
+
+      const antenna = convertElementToAntennaInput(element)
+
+      expect(antenna.current_sources[0].value).toBe('0.005+0.005j')
+    })
+
+    it('should send real-only voltage source as plain number', () => {
+      const element = createMockElement({
+        sources: [
+          {
+            type: 'voltage',
+            amplitude: { real: 2.0, imag: 0 },
+            node_start: 1,
+            node_end: 2,
+          },
+        ],
+      })
+
+      const antenna = convertElementToAntennaInput(element)
+
+      expect(antenna.voltage_sources[0].value).toBe(2.0)
+      expect(typeof antenna.voltage_sources[0].value).toBe('number')
     })
   })
 })

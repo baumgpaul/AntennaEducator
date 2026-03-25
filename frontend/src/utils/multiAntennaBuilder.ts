@@ -3,7 +3,7 @@
  * Converts AntennaElement[] from Redux into MultiAntennaRequest for solver
  */
 
-import type { AntennaElement } from '@/types/models'
+import type { AntennaElement, Source } from '@/types/models'
 import type {
   MultiAntennaRequest,
   AntennaInput,
@@ -12,6 +12,34 @@ import type {
   LoadInput,
   SolverConfiguration,
 } from '@/types/api'
+
+/**
+ * Extract complex value from a Source's amplitude field.
+ * Returns a number if purely real, or a Python-compatible complex string "a+bj" if imaginary part is non-zero.
+ */
+export function extractComplexValue(amplitude: Source['amplitude']): number | string {
+  let real = 1.0
+  let imag = 0.0
+
+  if (typeof amplitude === 'string') {
+    const complexMatch = amplitude.match(/^([+-]?[\d.]+)([+-][\d.]+)j$/)
+    if (complexMatch) {
+      real = parseFloat(complexMatch[1])
+      imag = parseFloat(complexMatch[2])
+    } else {
+      real = parseFloat(amplitude) || 1.0
+    }
+  } else if (typeof amplitude === 'object' && amplitude !== null && 'real' in amplitude) {
+    real = amplitude.real
+    imag = amplitude.imag
+  } else if (typeof amplitude === 'number') {
+    real = amplitude
+  }
+
+  if (imag === 0) return real
+  const sign = imag >= 0 ? '+' : ''
+  return `${real}${sign}${imag}j`
+}
 
 /**
  * Convert multiple AntennaElements into a MultiAntennaRequest
@@ -106,27 +134,12 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
       const source1 = centerTapSources[0];
       const source2 = centerTapSources[1];
 
-      // Parse amplitude from first source
-      let amplitude = 1.0;
-      if (typeof source1.amplitude === 'string') {
-        const complexMatch = source1.amplitude.match(/^([+-]?[\d.]+)([+-][\d.]+)j$/);
-        if (complexMatch) {
-          amplitude = parseFloat(complexMatch[1]);
-        } else {
-          amplitude = parseFloat(source1.amplitude) || 1.0;
-        }
-      } else if (typeof source1.amplitude === 'object' && 'real' in source1.amplitude) {
-        amplitude = source1.amplitude.real;
-      } else if (typeof source1.amplitude === 'number') {
-        amplitude = source1.amplitude;
-      }
-
       console.log(`Converting balanced feed to gap source for ${element.name}: nodes ${source1.node_end} → ${source2.node_end}`);
 
       voltage_sources.push({
         node_start: source1.node_end,
         node_end: source2.node_end,
-        value: amplitude,
+        value: extractComplexValue(source1.amplitude),
         R: source1.series_R || 0.0,
         L: source1.series_L || 0.0,
         C_inv: source1.series_C_inv || 0.0,
@@ -135,22 +148,6 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
       // Process sources normally (non-balanced feed)
       for (const source of element.sources) {
         if (source.type === 'voltage') {
-          // Convert amplitude - handle various formats
-          let amplitude = 1.0;
-          if (typeof source.amplitude === 'string') {
-            // Parse string format like "1+0j" or "-1+-0j"
-            const complexMatch = source.amplitude.match(/^([+-]?[\d.]+)([+-][\d.]+)j$/);
-            if (complexMatch) {
-              amplitude = parseFloat(complexMatch[1]);
-            } else {
-              amplitude = parseFloat(source.amplitude) || 1.0;
-            }
-          } else if (typeof source.amplitude === 'object' && 'real' in source.amplitude) {
-            amplitude = source.amplitude.real;
-          } else if (typeof source.amplitude === 'number') {
-            amplitude = source.amplitude;
-          }
-
           // Sources with node_start=0 are valid (ground reference)
           // Only skip if BOTH nodes are 0
           if (source.node_start === 0 && source.node_end === 0) {
@@ -161,22 +158,12 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
           voltage_sources.push({
             node_start: source.node_start,
             node_end: source.node_end,
-            value: amplitude,
+            value: extractComplexValue(source.amplitude),
             R: source.series_R || 0.0,
             L: source.series_L || 0.0,
             C_inv: source.series_C_inv || 0.0,
           })
         } else if (source.type === 'current') {
-          // Convert amplitude
-          let amplitude = 0.001;
-          if (typeof source.amplitude === 'string') {
-            amplitude = parseFloat(source.amplitude) || 0.001;
-          } else if (typeof source.amplitude === 'object' && 'real' in source.amplitude) {
-            amplitude = source.amplitude.real;
-          } else if (typeof source.amplitude === 'number') {
-            amplitude = source.amplitude;
-          }
-
           if (source.node_start === 0) {
             console.warn(`Skipping current source with node=0 (invalid for solver API): ${element.name}`);
             continue;
@@ -184,7 +171,7 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
 
           current_sources.push({
             node: source.node_start,
-            value: amplitude,
+            value: extractComplexValue(source.amplitude),
           })
         }
       }

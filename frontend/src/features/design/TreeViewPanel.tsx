@@ -43,7 +43,34 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { DEFAULT_ELEMENT_COLOR } from '@/utils/colors';
-import type { Mesh, Source, LumpedElement, AntennaElement } from '@/types/models';
+import type { Mesh, Source, LumpedElement, AntennaElement, ComplexNumber } from '@/types/models';
+
+/**
+ * Format a source label with type, amplitude and phase.
+ * E.g. "VOLTAGE Source (1V ∠ 0°)" or "CURRENT Source (0.5A ∠ 90°)"
+ */
+function formatSourceLabel(source: Source): string {
+  const typeLabel = source.type.toUpperCase();
+  const unit = source.type === 'voltage' ? 'V' : 'A';
+
+  let magnitude = 0;
+  let phaseDeg = 0;
+  const amp = source.amplitude;
+  if (amp !== undefined && amp !== null) {
+    if (typeof amp === 'object' && 'real' in amp && 'imag' in amp) {
+      const c = amp as ComplexNumber;
+      magnitude = Math.sqrt(c.real * c.real + c.imag * c.imag);
+      phaseDeg = Math.atan2(c.imag, c.real) * (180 / Math.PI);
+    } else if (typeof amp === 'number') {
+      magnitude = Math.abs(amp);
+    }
+  }
+
+  // Round for display
+  const magStr = Number.isInteger(magnitude) ? magnitude.toString() : magnitude.toFixed(2).replace(/\.?0+$/, '');
+  const phaseStr = Math.round(phaseDeg).toString();
+  return `${typeLabel} Source (${magStr}${unit} ∠ ${phaseStr}°)`;
+}
 
 interface TreeNode {
   id: string;
@@ -200,7 +227,7 @@ function TreeViewPanel({
             elementNode.children!.push({
               id: `${element.id}_source_${idx}`,
               elementId: element.id,
-              label: `${source.type.toUpperCase()} Source`,
+              label: formatSourceLabel(source),
               type: 'source',
               visible: element.visible,
             });
@@ -220,8 +247,8 @@ function TreeViewPanel({
           });
         }
 
-        // Add mesh structure for each element
-        if (element.mesh) {
+        // Add mesh structure for each element (skip for dipoles — mesh details are in the dialog)
+        if (element.mesh && element.type !== 'dipole') {
           const meshNode: TreeNode = {
             id: `${element.id}_mesh`,
             elementId: element.id,
@@ -505,6 +532,8 @@ function TreeViewPanel({
         key={node.id}
         disablePadding
         secondaryAction={
+          // Hide visibility toggle for source and load nodes (no 3D effect)
+          node.type === 'source' || node.type === 'load' ? undefined : (
           <Tooltip title={visible ? 'Hide' : 'Show'}>
             <IconButton
               size="small"
@@ -527,6 +556,7 @@ function TreeViewPanel({
               )}
             </IconButton>
           </Tooltip>
+          )
         }
       >
         <ListItemButton
