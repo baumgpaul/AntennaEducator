@@ -865,9 +865,9 @@ export const computeRadiationPatternForFrequency = createAsyncThunk<
     }
 
     // Build combined mesh from all elements
-    let combinedNodes: number[][] = [];
-    let combinedEdges: number[][] = [];
-    let combinedRadii: number[] = [];
+    const combinedNodes: number[][] = [];
+    const combinedEdges: number[][] = [];
+    const combinedRadii: number[] = [];
     let nodeOffset = 0;
 
     for (const element of elements) {
