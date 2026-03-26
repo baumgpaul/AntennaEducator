@@ -20,18 +20,41 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
   animationPhase,
 }) => {
   const results = useAppSelector((state) => state.solver.results);
+  const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const elements = useAppSelector((state) => state.design.elements);
 
-  // Get voltage distribution data
+  // Get voltage distribution data — supports both single-freq and sweep modes
   const voltageData = useMemo(() => {
-    if (!results?.node_voltages || !frequencyHz) {
-      return null;
+    if (!frequencyHz) return null;
+
+    // Sweep mode: look up node_voltages for this specific frequency
+    if (frequencySweep?.frequencies && frequencySweep.results) {
+      const freqIdx = frequencySweep.frequencies.findIndex(
+        (f) => Math.abs(f - frequencyHz) < 1 // 1 Hz tolerance
+      );
+      if (freqIdx >= 0 && frequencySweep.results[freqIdx]) {
+        const sweepResult = frequencySweep.results[freqIdx];
+        if (sweepResult.antenna_solutions?.length) {
+          return sweepResult.antenna_solutions.flatMap(
+            (sol: any) => sol.node_voltages || []
+          );
+        }
+      }
     }
 
-    // Use node voltages from results
-    // TODO: implement frequency-specific lookup for sweeps
-    return results.node_voltages;
-  }, [results, frequencyHz]);
+    // Single-frequency mode
+    if (results?.node_voltages) {
+      return results.node_voltages;
+    }
+
+    // Multi-antenna single freq
+    const multiResults = (results as any)?.antenna_solutions;
+    if (multiResults?.length) {
+      return multiResults.flatMap((sol: any) => sol.node_voltages || []);
+    }
+
+    return null;
+  }, [results, frequencySweep, frequencyHz]);
 
   // Extract node positions from elements
   const nodes = useMemo(() => {
