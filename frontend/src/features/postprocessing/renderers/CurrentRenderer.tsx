@@ -30,26 +30,41 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
   animationPhase,
 }) => {
   const results = useAppSelector((state) => state.solver.results);
+  const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const elements = useAppSelector((state) => state.design.elements);
 
-  // Get current distribution data
+  // Get current distribution data — supports both single-freq and sweep modes
   const currentData = useMemo(() => {
-    console.log('[CurrentRenderer] === CURRENT DATA EXTRACTION ===');
-    console.log('[CurrentRenderer] results:', results);
-    console.log('[CurrentRenderer] frequencyHz:', frequencyHz);
+    if (!frequencyHz) return null;
 
-    if (!results?.branch_currents || !frequencyHz) {
-      console.log('[CurrentRenderer] ❌ No results or frequency, returning null');
-      return null;
+    // Sweep mode: look up the result for this specific frequency
+    if (frequencySweep?.frequencies && frequencySweep.results) {
+      const freqIdx = frequencySweep.frequencies.findIndex(
+        (f) => Math.abs(f - frequencyHz) < 1 // 1 Hz tolerance
+      );
+      if (freqIdx >= 0 && frequencySweep.results[freqIdx]) {
+        const sweepResult = frequencySweep.results[freqIdx];
+        if (sweepResult.antenna_solutions?.length) {
+          return sweepResult.antenna_solutions.flatMap(
+            (sol: any) => sol.branch_currents || []
+          );
+        }
+      }
     }
 
-    console.log('[CurrentRenderer] ✅ branch_currents found:', results.branch_currents.length, 'currents');
-    console.log('[CurrentRenderer] First 3 currents:', results.branch_currents.slice(0, 3));
+    // Single-frequency mode: use results.branch_currents
+    if (results?.branch_currents) {
+      return results.branch_currents;
+    }
 
-    // Use branch currents from results
-    // TODO: implement frequency-specific lookup for sweeps
-    return results.branch_currents;
-  }, [results, frequencyHz]);
+    // Multi-antenna single freq: results might have antenna_solutions
+    const multiResults = (results as any)?.antenna_solutions;
+    if (multiResults?.length) {
+      return multiResults.flatMap((sol: any) => sol.branch_currents || []);
+    }
+
+    return null;
+  }, [results, frequencySweep, frequencyHz]);
 
   if (!currentData || !elements || elements.length === 0) {
     console.log('[CurrentRenderer] ❌ Early exit - currentData:', !!currentData, 'elements:', elements?.length);

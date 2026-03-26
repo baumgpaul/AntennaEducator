@@ -11,7 +11,7 @@ import {
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import type { SolverWorkflowState } from '@/store/solverSlice';
-import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRequestedFields } from '@/store/solverSlice';
+import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields } from '@/store/solverSlice';
 import { selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
@@ -26,6 +26,7 @@ import LineViewPanel from '../postprocessing/LineViewPanel';
 import { ViewItemRenderer } from '../postprocessing/ViewItemRenderer';
 import { Colorbar } from '../postprocessing/Colorbar';
 import TimeAnimationOverlay from '../postprocessing/TimeAnimationOverlay';
+import FrequencySelector from '../postprocessing/FrequencySelector';
 import ExportPDFDialog from './dialogs/ExportPDFDialog';
 import { exportToPDF } from '@/utils/exportToPDF';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -41,6 +42,7 @@ import {
   removeItemFromView,
   toggleItemVisibility,
 } from '@/store/postprocessingSlice';
+import { selectSelectedFrequencyHz } from '@/store/solverSlice';
 
 interface PostprocessingTabProps {
   solverState: SolverWorkflowState;
@@ -187,7 +189,9 @@ function PostprocessingTab({
   const isSolved = useAppSelector(selectIsSolved);
   const solverResults = useAppSelector(selectSolverResults);
   const radiationPattern = useAppSelector(selectRadiationPattern);
+  const radiationPatterns = useAppSelector(selectRadiationPatterns);
   const requestedFields = useAppSelector(selectRequestedFields);
+  const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
 
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
 
@@ -198,7 +202,7 @@ function PostprocessingTab({
     }
   }, [selectedItemId, selectedViewId]);
 
-  const [selectedFrequencyIndex] = useState<number>(0);
+  const [selectedFrequencyIndex] = useState<number>(0); // legacy, kept for fallback
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [isAnimationPlaying, setIsAnimationPlaying] = useState(false);
@@ -235,27 +239,16 @@ function PostprocessingTab({
     setAnimationSpeed(speed);
   }, []);
 
-  // Debug logging
-  console.log('[PostprocessingTab] Props:', {
-    currentFrequency,
-    frequencySweep: frequencySweep ? {
-      numFrequencies: frequencySweep.frequencies?.length,
-      frequencies: frequencySweep.frequencies
-    } : null
-  });
-
   // Determine if we're in sweep mode
   const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
   const availableFrequencies = isSweepMode ? frequencySweep!.frequencies : (currentFrequency ? [currentFrequency * 1e6] : []); // MHz to Hz
 
-  console.log('[PostprocessingTab] Frequency state:', {
-    isSweepMode,
-    availableFrequenciesCount: availableFrequencies.length,
-    selectedFrequencyIndex
-  });
-
   // Get current frequency in Hz for field data lookup
-  const displayFrequencyHz = availableFrequencies[selectedFrequencyIndex] || (currentFrequency ? currentFrequency * 1e6 : null);
+  // Use global selectedFrequencyHz from store (set by FrequencySelector slider),
+  // falling back to the legacy local state for single-frequency mode.
+  const displayFrequencyHz = selectedFrequencyHz
+    ?? availableFrequencies[selectedFrequencyIndex]
+    ?? (currentFrequency ? currentFrequency * 1e6 : null);
 
   // Handle PDF export
   const handlePDFExport = async (options: {
@@ -358,6 +351,8 @@ function PostprocessingTab({
             backgroundColor: 'background.paper',
           }}
         >
+          {/* FrequencySelector — shown above tree when sweep results available */}
+          <FrequencySelector />
           <TreeViewPanel
             mode="postprocessing"
             viewConfigurations={viewConfigurations}
@@ -463,7 +458,10 @@ function PostprocessingTab({
               min = colorItem.valueRangeMin ?? 0;
               max = colorItem.valueRangeMax ?? 1;
             } else {
-              const range = computeAutoRange(colorItem, solverResults, fieldData, radiationPattern, displayFrequencyHz, requestedFields);
+              // Use per-frequency radiation pattern for directivity color range
+              const activePattern = (displayFrequencyHz && radiationPatterns?.[displayFrequencyHz])
+                || radiationPattern;
+              const range = computeAutoRange(colorItem, solverResults, fieldData, activePattern, displayFrequencyHz, requestedFields);
               min = range.min;
               max = range.max;
             }
