@@ -5,10 +5,10 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from './store';
-import type { SolverRequest, SolverResult, Mesh, Source } from '@/types/models';
-import type { MultiAntennaRequest, MultiAntennaSolutionResponse, FrequencySweepParams, FrequencySweepResult } from '@/types/api';
+import type { SolverRequest, SolverResult } from '@/types/models';
+import type { AntennaSolution, MultiAntennaRequest, MultiAntennaSolutionResponse, FrequencySweepParams, FrequencySweepResult } from '@/types/api';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
-import { solveSingle, solveMultiAntenna } from '@/api/solver';
+import { solveMultiAntenna } from '@/api/solver';
 import { computeFarField, computeNearField } from '@/api/postprocessor';
 import { generateObservationPoints } from '@/utils/fieldGeneration';
 import { extractComplexValue } from '@/utils/multiAntennaBuilder';
@@ -478,14 +478,8 @@ export const computePostprocessingWorkflow = createAsyncThunk<
       return rejectWithValue('No reference result available for postprocessing');
     }
 
-    // For sweep mode, branch_currents are in antenna_solutions, not at top level
-    const isMultiAntenna = (referenceResult as any).antenna_solutions !== undefined;
-    const referenceBranchCurrents = isSweepMode && isMultiAntenna && (referenceResult as any).antenna_solutions?.length
-      ? (referenceResult as any).antenna_solutions[0].branch_currents
-      : (referenceResult as any).branch_currents;
-
     const response: {
-      directivity?: any;
+      directivity?: RadiationPatternData;
       fields?: Array<{ fieldId: string; computed: boolean; dataUrl?: string }>;
       message: string;
     } = { message: 'Postprocessing complete' };
@@ -610,14 +604,16 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           const freqHz = frequencies[freqIdx];
 
           // Extract branch currents for this frequency
-          let branch_currents_for_freq: any[];
-          const multiAntennaResults = (results as any)?.antenna_solutions;
+          let branch_currents_for_freq: AntennaSolution['branch_currents'];
+          const multiAntennaResults = results
+            ? (results as unknown as MultiAntennaSolutionResponse).antenna_solutions
+            : undefined;
 
           if (isSweepMode && frequencySweep && frequencySweep.results && frequencySweep.results[freqIdx]) {
             const result = frequencySweep.results[freqIdx];
             if (result.antenna_solutions && result.antenna_solutions.length > 0) {
               branch_currents_for_freq = result.antenna_solutions.flatMap(
-                (sol: any) => sol.branch_currents || []
+                sol => sol.branch_currents || []
               );
             } else {
               branch_currents_for_freq = [];
@@ -626,7 +622,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
             branch_currents_for_freq = results.branch_currents;
           } else if (multiAntennaResults && multiAntennaResults.length > 0) {
             branch_currents_for_freq = multiAntennaResults.flatMap(
-              (sol: any) => sol.branch_currents || []
+              sol => sol.branch_currents || []
             );
           } else {
             console.error('[Postprocessing] No branch currents for freq index', freqIdx);
@@ -743,13 +739,14 @@ export const computeRadiationPattern = createAsyncThunk<
     const { directivitySettings } = state.solver;
     const frequencies = isSweepMode ? frequencySweep.frequencies : (currentFrequency ? [currentFrequency * 1e6] : [results!.frequency]);
 
-    const multiAntennaResult = state.solver.multiAntennaResults || (results as any);
+    const multiAntennaResult = state.solver.multiAntennaResults
+      || (results as unknown as MultiAntennaSolutionResponse | null);
     const isMultiAntenna = multiAntennaResult?.antenna_solutions !== undefined;
 
     let combinedNodes: number[][] = [];
     let combinedEdges: number[][] = [];
     let combinedRadii: number[] = [];
-    let combinedBranchCurrents: any[] = [];
+    let combinedBranchCurrents: AntennaSolution['branch_currents'] = [];
 
     if (isMultiAntenna) {
       const antenna_solutions = multiAntennaResult.antenna_solutions;
@@ -791,7 +788,7 @@ export const computeRadiationPattern = createAsyncThunk<
     const branch_currents_array = isSweepMode
       ? frequencySweep.results.map(r =>
           r.antenna_solutions && r.antenna_solutions.length > 0
-            ? r.antenna_solutions.flatMap((sol: any) => sol.branch_currents || [])
+            ? r.antenna_solutions.flatMap(sol => sol.branch_currents || [])
             : []
         )
       : [combinedBranchCurrents];
@@ -838,26 +835,27 @@ export const computeRadiationPatternForFrequency = createAsyncThunk<
 
     // Get the single frequency and its branch currents
     let freqHz: number;
-    let branchCurrentsForFreq: any[];
+    let branchCurrentsForFreq: AntennaSolution['branch_currents'];
 
     if (isSweepMode) {
       freqHz = frequencySweep.frequencies[frequencyIndex];
       const result = frequencySweep.results[frequencyIndex];
       if (result.antenna_solutions && result.antenna_solutions.length > 0) {
         branchCurrentsForFreq = result.antenna_solutions.flatMap(
-          (sol: any) => sol.branch_currents || []
+          sol => sol.branch_currents || []
         );
       } else {
         return rejectWithValue(`No antenna solutions for frequency index ${frequencyIndex}`);
       }
     } else {
       freqHz = currentFrequency ? currentFrequency * 1e6 : results!.frequency;
-      const multiAntennaResult = state.solver.multiAntennaResults || (results as any);
+      const multiAntennaResult = state.solver.multiAntennaResults
+        || (results as unknown as MultiAntennaSolutionResponse | null);
       const isMultiAntenna = multiAntennaResult?.antenna_solutions !== undefined;
 
       if (isMultiAntenna) {
         branchCurrentsForFreq = multiAntennaResult.antenna_solutions.flatMap(
-          (sol: any) => sol.branch_currents || []
+          sol => sol.branch_currents || []
         );
       } else {
         branchCurrentsForFreq = results!.branch_currents;
