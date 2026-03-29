@@ -124,7 +124,7 @@ describe('LumpedElementDialog', () => {
     await user.click(capacitorOption);
 
     // Should show capacitance field
-    expect(screen.getByLabelText(/Inverse Capacitance/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Capacitance \(F\)/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Resistance/i)).not.toBeInTheDocument();
   });
 
