@@ -136,6 +136,26 @@ cd frontend && npm test            # Vitest with jsdom
 .\dev_tools\test_dipole_api.ps1    # Quick API smoke test
 ```
 
+## Pre-Commit CI/CD Checks (MANDATORY)
+
+**Before every commit**, run the full CI/CD linting and test suite locally. These are the same checks that `buildspec-test.yml` runs in CodePipeline — a commit that fails any of them will break the build.
+
+```powershell
+# === Python checks (from repo root, venv activated) ===
+black --check backend/ tests/           # Formatting
+isort --check-only backend/ tests/      # Import order
+ruff check backend/ tests/              # Linting
+pytest tests/unit/ -x -q --tb=short     # Unit tests
+
+# === Frontend checks (from frontend/) ===
+cd frontend
+npx tsc --noEmit                        # TypeScript compilation
+npm run lint                            # ESLint (0 errors required; warnings OK)
+cd ..
+```
+
+If `black` or `isort` report failures, auto-fix with `black backend/ tests/` and `isort backend/ tests/` before committing.
+
 ## Critical Conventions
 
 - **Physical constants** centralized in `backend/common/constants.py` (`MU_0`, `EPSILON_0`, `C_0`, `Z_0`, etc.). Always import from there — never hardcode.
@@ -148,6 +168,7 @@ cd frontend && npm test            # Vitest with jsdom
 - **Lambda packaging**: Each service has a `Dockerfile.lambda` that builds a container image. Mangum wraps FastAPI for Lambda. Build context is always the repo root (`.`), Dockerfile path is `backend/<service>/Dockerfile.lambda`.
 - **AWS naming convention**: Resources follow `antenna-simulator-{service}-{environment}` (e.g., `antenna-simulator-solver-staging`).
 - **TDD principle**: Always follow Test-Driven Development — write tests first, make small incremental changes, and commit after code runs and tests pass.
+- **Pre-commit checks**: Before every `git commit`, run **all** CI/CD checks from the "Pre-Commit CI/CD Checks" section above (`black`, `isort`, `ruff`, `pytest`, `tsc`, `npm run lint`). Never commit code that hasn't passed these checks.
 
 ## Known Issues & Workarounds
 

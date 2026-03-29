@@ -126,31 +126,36 @@ export const generateDipoleMesh = async (formData: {
  */
 export const generateLoopMesh = async (formData: {
   name: string;
-  loopType: 'circular' | 'rectangular' | 'polygon';
-  radius?: number;
-  width?: number;
-  height?: number;
-  sides?: number;
-  circumradius?: number;
+  radius: number;
   wireRadius: number;
   feedGap: number;
   frequency: number;
   segments: number;
+  sourceType?: 'voltage' | 'current';
+  sourceAmplitude?: number;
+  sourcePhase?: number;
   position?: { x: number; y: number; z: number };
   orientation?: { rotX: number; rotY: number; rotZ: number };
 }): Promise<PreprocessorResponse> => {
-  const baseConfig = {
-    loop_type: formData.loopType,
+  // Convert polar (amplitude + phase) to cartesian (real + imag)
+  const amplitude = formData.sourceAmplitude ?? 1;
+  const phaseDeg = formData.sourcePhase ?? 0;
+  const phaseRad = (phaseDeg * Math.PI) / 180;
+  const real = amplitude * Math.cos(phaseRad);
+  const imag = amplitude * Math.sin(phaseRad);
+
+  const config: LoopConfig = {
+    loop_type: 'circular',
+    radius: formData.radius,
     wire_radius: formData.wireRadius,
     gap: formData.feedGap,
     segments: formData.segments,
     // Always generate at origin - frontend will apply position offset
     center_position: [0, 0, 0] as [number, number, number],
-    normal_vector: [0, 0, 1] as [number, number, number], // Loop in XY plane, normal points up (Z)
-    // Add default voltage source (two symmetric sources like dipole)
+    normal_vector: [0, 0, 1] as [number, number, number],
     source: {
-      type: 'voltage' as const,
-      amplitude: { real: 1.0, imag: 0.0 },
+      type: formData.sourceType || 'voltage',
+      amplitude: { real, imag },
       series_R: 0.0,
       series_L: 0.0,
       series_C_inv: 0.0,
@@ -158,48 +163,18 @@ export const generateLoopMesh = async (formData: {
     },
   };
 
-  let config: LoopConfig;
-
-  if (formData.loopType === 'circular') {
-    config = {
-      ...baseConfig,
-      loop_type: 'circular',
-      radius: formData.radius!,
-    };
-  } else if (formData.loopType === 'rectangular') {
-    config = {
-      ...baseConfig,
-      loop_type: 'rectangular',
-      width: formData.width!,
-      height: formData.height!,
-    };
-  } else {
-    // polygon - generate regular polygon vertices
-    const sides = formData.sides!;
-    const r = formData.circumradius!;
-    const vertices: [number, number, number][] = [];
-
-    for (let i = 0; i < sides; i++) {
-      const angle = (2 * Math.PI * i) / sides;
-      vertices.push([
-        r * Math.cos(angle),
-        r * Math.sin(angle),
-        0,
-      ]);
-    }
-
-    config = {
-      ...baseConfig,
-      loop_type: 'polygon',
-      vertices,
-    };
-  }
-
   return createLoop(config);
 };
 
 // Wrapper function for helix dialog
 export async function generateHelixMesh(formData: any): Promise<PreprocessorResponse> {
+  // Convert polar (amplitude + phase) to cartesian (real + imag)
+  const amplitude = formData.sourceAmplitude ?? 1;
+  const phaseDeg = formData.sourcePhase ?? 0;
+  const phaseRad = (phaseDeg * Math.PI) / 180;
+  const real = amplitude * Math.cos(phaseRad);
+  const imag = amplitude * Math.sin(phaseRad);
+
   const config: HelixConfig = {
     radius: formData.diameter / 2,
     pitch: formData.pitch,
@@ -212,10 +187,9 @@ export async function generateHelixMesh(formData: any): Promise<PreprocessorResp
     segments_per_turn: formData.segments_per_turn,
     helix_mode: formData.helix_mode,
     polarization: formData.polarization,
-    // Add default voltage source (feeding against node 0)
     source: {
-      type: 'voltage' as const,
-      amplitude: { real: 1.0, imag: 0.0 },
+      type: formData.sourceType || 'voltage',
+      amplitude: { real, imag },
       series_R: 0.0,
       series_L: 0.0,
       series_C_inv: 0.0,

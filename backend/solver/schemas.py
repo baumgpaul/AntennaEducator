@@ -44,6 +44,9 @@ class CurrentSourceInput(BaseModel):
 
     node: int = Field(..., description="Node index (1-based, negative for appended)")
     value: complex = Field(..., description="Current [A]")
+    node_end: Optional[int] = Field(
+        None, description="Return node for two-terminal current source (closed loop feed)"
+    )
 
 
 class LoadInput(BaseModel):

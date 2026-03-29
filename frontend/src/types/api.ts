@@ -34,6 +34,7 @@ export interface VoltageSourceInput {
 export interface CurrentSourceInput {
   node: number  // 1-based, negative for appended
   value: number | string  // number for real-only, string "a+bj" for complex
+  node_end?: number  // Return node for two-terminal current source (closed loop feed)
 }
 
 export interface LoadInput {

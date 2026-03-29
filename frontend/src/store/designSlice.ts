@@ -123,16 +123,14 @@ export const generateLoop = createAsyncThunk(
   async (
     formData: {
       name: string
-      loopType: 'circular' | 'rectangular' | 'polygon'
-      radius?: number
-      width?: number
-      height?: number
-      sides?: number
-      circumradius?: number
+      radius: number
       wireRadius: number
       feedGap: number
       frequency: number
       segments: number
+      sourceType: 'voltage' | 'current'
+      sourceAmplitude: number
+      sourcePhase: number
       position: { x: number; y: number; z: number }
       orientation: { rotX: number; rotY: number; rotZ: number }
     },
@@ -162,6 +160,9 @@ export const generateHelix = createAsyncThunk(
       wire_radius: number
       frequency: number
       segments_per_turn: number
+      sourceType: 'voltage' | 'current'
+      sourceAmplitude: number
+      sourcePhase: number
       position: { x: number; y: number; z: number }
       orientation: { rotX: number; rotY: number; rotZ: number }
     },
@@ -610,37 +611,14 @@ const designSlice = createSlice({
         // Auto-assign color
         const color = getNextElementColor(state.elements);
 
-        // Create source from form data configuration
-        const sourceType = formData?.sourceType || 'voltage';
-        const amplitude = formData?.sourceAmplitude ?? 1;
-        const phaseDeg = formData?.sourcePhase ?? 0;
-        const phaseRad = (phaseDeg * Math.PI) / 180;
-        const numNodes = action.payload.mesh?.nodes?.length || 0;
-        const gapEndNode = Math.ceil(numNodes / 2) + 1;
-
-        const autoSource: Source = {
-          type: sourceType,
-          amplitude: {
-            real: amplitude * Math.cos(phaseRad),
-            imag: amplitude * Math.sin(phaseRad),
-          },
-          node_start: 1,
-          node_end: gapEndNode,
-          series_R: 0,
-          series_L: 0,
-          series_C_inv: 0,
-          tag: 'Auto-generated feed',
-        };
-
-        console.log(`Auto-creating voltage source across gap: 1 → ${gapEndNode} (total nodes: ${numNodes})`);
-
         // Normalize config: extract parameters from backend response to flat DipoleConfig format
         const backendElement = action.payload.element;
         const normalizedConfig = backendElement?.parameters
           ? { ...backendElement.parameters }  // Backend format: extract parameters dict
           : (backendElement?.config || backendElement || {});  // Already flat or fallback
 
-        // Create AntennaElement from response (use ONLY the auto-source, ignore backend sources)
+        // Create AntennaElement from response (use backend sources — they handle
+        // balanced feed, current excitation, and correct node indexing)
         const element: AntennaElement = {
           id: `dipole_${Date.now()}`,
           type: 'dipole',
@@ -649,7 +627,7 @@ const designSlice = createSlice({
           position,
           rotation,
           mesh: action.payload.mesh,
-          sources: [autoSource], // Only auto-source, no backend sources
+          sources: action.payload.element?.sources || [],
           lumped_elements: action.payload.element?.lumped_elements || [],
           visible: true,
           locked: false,
@@ -699,7 +677,7 @@ const designSlice = createSlice({
           ? { ...backendLoopElement.parameters }
           : (backendLoopElement?.config || backendLoopElement || {});
 
-        // Create AntennaElement from response
+        // Create AntennaElement from response (include backend sources)
         const element: AntennaElement = {
           id: `loop_${Date.now()}`,
           type: 'loop',
@@ -708,6 +686,8 @@ const designSlice = createSlice({
           position,
           rotation,
           mesh: action.payload.mesh,
+          sources: action.payload.element?.sources || [],
+          lumped_elements: action.payload.element?.lumped_elements || [],
           visible: true,
           locked: false,
           color,
@@ -752,7 +732,7 @@ const designSlice = createSlice({
           ? { ...backendHelixElement.parameters }
           : (backendHelixElement?.config || backendHelixElement || {});
 
-        // Create AntennaElement from response
+        // Create AntennaElement from response (include backend sources)
         const element: AntennaElement = {
           id: `helix_${Date.now()}`,
           type: 'helix',
@@ -761,6 +741,8 @@ const designSlice = createSlice({
           position,
           rotation,
           mesh: action.payload.mesh,
+          sources: action.payload.element?.sources || [],
+          lumped_elements: action.payload.element?.lumped_elements || [],
           visible: true,
           locked: false,
           color,
@@ -809,6 +791,8 @@ const designSlice = createSlice({
           position: [0, 0, 0], // Rod position is in its geometry
           rotation: [0, 0, 0],
           mesh: action.payload.mesh,
+          sources: action.payload.element?.sources || [],
+          lumped_elements: action.payload.element?.lumped_elements || [],
           visible: true,
           locked: false,
           color,

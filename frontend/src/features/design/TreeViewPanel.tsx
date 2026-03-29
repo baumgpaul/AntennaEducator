@@ -610,33 +610,37 @@ function TreeViewPanel({
       padding: 0,
       bgcolor: 'background.paper',
     }}>
-      {/* Header */}
-      <Box
-        sx={{
-          p: 2,
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.default',
-        }}
-      >
-        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-          Structure
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          Antenna mesh hierarchy
-        </Typography>
-      </Box>
+      {/* Header - hidden in postprocessing mode */}
+      {mode !== 'postprocessing' && (
+        <Box
+          sx={{
+            p: 2,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'background.default',
+          }}
+        >
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+            Structure
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Antenna mesh hierarchy
+          </Typography>
+        </Box>
+      )}
 
       {/* Tree Content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {treeData.length === 0 ? (
-          <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
-            <Typography variant="body2">No antenna loaded</Typography>
-          </Box>
-        ) : (
-          <List disablePadding key={elements?.map(e => e.id).join(',') || 'single-mesh'}>
-            {treeData.map((node) => renderTreeNode(node, 0))}
-          </List>
+        {mode !== 'postprocessing' && (
+          treeData.length === 0 ? (
+            <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
+              <Typography variant="body2">No antenna loaded</Typography>
+            </Box>
+          ) : (
+            <List disablePadding key={elements?.map(e => e.id).join(',') || 'single-mesh'}>
+              {treeData.map((node) => renderTreeNode(node, 0))}
+            </List>
+          )
         )}
 
         {/* Requested Quantities Section (Solver Mode) */}
@@ -954,18 +958,19 @@ function TreeViewPanel({
         )}
       </Box>
 
-      {/* Footer Stats */}
-      <Box
-        sx={{
-          p: 1.5,
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.default',
-          display: 'flex',
-          gap: 1,
-          flexWrap: 'wrap',
-        }}
-      >
+      {/* Footer Stats - hidden in postprocessing mode */}
+      {mode !== 'postprocessing' && (
+        <Box
+          sx={{
+            p: 1.5,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'background.default',
+            display: 'flex',
+            gap: 1,
+            flexWrap: 'wrap',
+          }}
+        >
         {mesh && (
           <>
             <Chip label={`${mesh.edges.length} Edges`} size="small" variant="outlined" />
@@ -988,7 +993,8 @@ function TreeViewPanel({
             )}
           </>
         )}
-      </Box>
+        </Box>
+      )}
 
       {/* Context Menu for Element Actions */}
       <Menu

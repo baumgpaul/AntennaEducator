@@ -8,6 +8,7 @@ import {
   convertElementToAntennaInput,
   countSimulationReadyElements,
   validateHasSources,
+  validateGeometry,
   getSimulationComplexity,
   extractComplexValue,
 } from '../multiAntennaBuilder'
@@ -490,6 +491,91 @@ describe('multiAntennaBuilder', () => {
 
       expect(antenna.voltage_sources[0].value).toBe(2.0)
       expect(typeof antenna.voltage_sources[0].value).toBe('number')
+    })
+  })
+
+  describe('validateGeometry', () => {
+    it('should pass for valid element with source', () => {
+      const elements = [createMockElement()]
+      const issues = validateGeometry(elements)
+      expect(issues).toHaveLength(0)
+    })
+
+    it('should report error for no visible elements', () => {
+      const elements = [createMockElement({ visible: false })]
+      const issues = validateGeometry(elements)
+      expect(issues).toHaveLength(1)
+      expect(issues[0].severity).toBe('error')
+      expect(issues[0].message).toContain('No visible')
+    })
+
+    it('should report error for missing source', () => {
+      const elements = [createMockElement({ sources: [] })]
+      const issues = validateGeometry(elements)
+      expect(issues.some((i) => i.message.includes('source is required'))).toBe(true)
+    })
+
+    it('should report error for element without mesh', () => {
+      const elements = [createMockElement({ mesh: undefined as any })]
+      const issues = validateGeometry(elements)
+      expect(issues.some((i) => i.message.includes('No mesh'))).toBe(true)
+    })
+
+    it('should report error for edge referencing non-existing node', () => {
+      const elements = [
+        createMockElement({
+          mesh: {
+            nodes: [[0, 0, 0], [0, 0, 0.5]],
+            edges: [[1, 5]], // node 5 doesn't exist (1-based, max is 2)
+            radii: [0.001],
+          },
+        }),
+      ]
+      const issues = validateGeometry(elements)
+      expect(issues.some((i) => i.message.includes('non-existing node'))).toBe(true)
+    })
+
+    it('should warn about disconnected nodes', () => {
+      const elements = [
+        createMockElement({
+          mesh: {
+            nodes: [[0, 0, 0], [0, 0, 0.25], [0, 0, 0.5]],
+            edges: [[1, 2]], // node 3 (1-based) is disconnected
+            radii: [0.001],
+          },
+        }),
+      ]
+      const issues = validateGeometry(elements)
+      expect(issues.some((i) => i.message.includes('disconnected'))).toBe(true)
+    })
+
+    it('should warn about segment length exceeding lambda/10', () => {
+      // 300 MHz → λ = 1m → λ/10 = 0.1m. Create a 0.5m segment.
+      const elements = [
+        createMockElement({
+          mesh: {
+            nodes: [[0, 0, 0], [0, 0, 0.5]],
+            edges: [[1, 2]], // 1-based
+            radii: [0.001],
+          },
+        }),
+      ]
+      const issues = validateGeometry(elements, 300e6)
+      expect(issues.some((i) => i.message.includes('exceeds λ/10'))).toBe(true)
+    })
+
+    it('should not warn about segment length when no frequency provided', () => {
+      const elements = [
+        createMockElement({
+          mesh: {
+            nodes: [[0, 0, 0], [0, 0, 0.5]],
+            edges: [[1, 2]], // 1-based
+            radii: [0.001],
+          },
+        }),
+      ]
+      const issues = validateGeometry(elements)
+      expect(issues.some((i) => i.message.includes('exceeds λ/10'))).toBe(false)
     })
   })
 })

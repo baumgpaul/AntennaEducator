@@ -37,12 +37,14 @@ import {
   selectCurrentFrequency,
   selectFrequencySweep,
   selectSweepInProgress,
+  selectSweepProgress,
   selectResultsStale,
   cancelPostprocessing,
 } from '@/store/solverSlice';
 import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
+import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
 
 /**
  * SolverTab - New 3-panel layout for solver workflow
@@ -75,6 +77,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const currentFrequency = useSelector(selectCurrentFrequency);
   const frequencySweep = useSelector(selectFrequencySweep);
   const sweepInProgress = useSelector(selectSweepInProgress);
+  const sweepProgress = useSelector(selectSweepProgress);
   const results = useSelector((state: RootState) => state.solver.results);
   const postprocessingStatus = useSelector((state: RootState) => state.solver.postprocessingStatus);
   const fieldResults = useSelector((state: RootState) => state.solver.fieldResults);
@@ -89,6 +92,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const [directivityDialogOpen, setDirectivityDialogOpen] = useState(false);
   const [selectedFieldId, setSelectedFieldId] = useState<string | undefined>(undefined);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [lastSweepParams, setLastSweepParams] = useState<FrequencySweepParams | null>(null);
 
   // Auto-open properties panel when a field is selected
   useEffect(() => {
@@ -135,61 +139,26 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         return;
       }
 
-      // Build antenna requests similar to single frequency solve
-      const antennaRequests = elements.map((element: AntennaElement) => {
-        if (!element.mesh) {
-          throw new Error(`Element ${element.name} has no mesh`);
-        }
+      // Build antenna requests using canonical builder (handles balanced feed, position offsets)
+      const antennaRequests = elements
+        .filter((el: AntennaElement) => el.visible && !el.locked && el.mesh && el.mesh.nodes.length > 0 && el.mesh.edges.length > 0)
+        .map((element: AntennaElement) => convertElementToAntennaInput(element));
 
-        const allSources = element.sources || [];
-        const voltage_sources = allSources
-          .filter((s) => s.type === 'voltage')
-          .map((s) => ({
-            node_start: s.node_start,
-            node_end: s.node_end,
-            value: typeof s.amplitude === 'number' ? s.amplitude :
-                   typeof s.amplitude === 'string' ? parseFloat(s.amplitude) :
-                   (s.amplitude as any).real || 1.0,
-            R: s.series_R || 0,
-            L: s.series_L || 0,
-            C_inv: s.series_C_inv || 0,
-          }));
-
-        const current_sources = allSources
-          .filter((s) => s.type === 'current')
-          .map((s) => ({
-            node: s.node_start,  // Use primary node for current source
-            value: typeof s.amplitude === 'number' ? s.amplitude :
-                   typeof s.amplitude === 'string' ? parseFloat(s.amplitude) :
-                   (s.amplitude as any).real || 1.0,
-          }));
-
-        const loads = (element.lumped_elements || []).map((le) => ({
-          node_start: le.node_start,
-          node_end: le.node_end,
-          R: le.R,
-          L: le.L,
-          C_inv: le.C_inv,
-        }));
-
-        return {
-          antenna_id: element.id,
-          nodes: element.mesh.nodes,
-          edges: element.mesh.edges,
-          radii: element.mesh.radii,
-          voltage_sources,
-          current_sources,
-          loads,
-        };
-      });
+      if (antennaRequests.length === 0) {
+        setSnackbarMessage('No valid elements for simulation');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        return;
+      }
 
       // Base request without frequency (will be set per sweep point)
       const baseRequest: Omit<MultiAntennaRequest, 'frequency'> = {
         antennas: antennaRequests,
       };
 
-      // Close dialog immediately
+      // Close dialog immediately and save params for next open
       setSweepDialogOpen(false);
+      setLastSweepParams(params);
 
       await dispatch(runFrequencySweep({
         params,
@@ -366,13 +335,13 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                 return (
                   <>
                     <Chip
-                      icon={<CircularProgress size={12} />}
+                      icon={<CircularProgress size={12} variant={isSweepMode && solverProgress > 0 ? 'determinate' : 'indeterminate'} value={solverProgress} />}
                       label="Unsolved"
                       size="small"
                       sx={{ height: 20, fontSize: '0.65rem', color: 'info.main' }}
                     />
                     <Chip
-                      label={isSweepMode ? 'Sweep running' : 'Solving...'}
+                      label={isSweepMode && sweepProgress ? `Solving freq ${sweepProgress.current}/${sweepProgress.total}` : isSweepMode ? `Sweep ${solverProgress}%` : 'Solving...'}
                       size="small"
                       sx={{ height: 20, fontSize: '0.65rem' }}
                     />
@@ -398,8 +367,8 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                 if (isSweepMode && frequencySweep) {
                   const start = frequencySweep.frequencies?.[0];
                   const end = frequencySweep.frequencies?.[frequencySweep.frequencies.length - 1];
-                  const startLabel = start !== undefined ? start.toFixed(1) : 'N/A';
-                  const endLabel = end !== undefined ? end.toFixed(1) : 'N/A';
+                  const startLabel = start !== undefined ? (start / 1e6).toFixed(1) : 'N/A';
+                  const endLabel = end !== undefined ? (end / 1e6).toFixed(1) : 'N/A';
                   return (
                     <>
                       <Chip
@@ -729,6 +698,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         onClose={() => setFrequencyDialogOpen(false)}
         onSolve={handleFrequencySolve}
         isLoading={simulationStatus === 'running' || simulationStatus === 'preparing'}
+        initialFrequency={currentFrequency ?? undefined}
       />
 
       <FrequencySweepDialog
@@ -736,6 +706,12 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         onClose={() => setSweepDialogOpen(false)}
         onSubmit={handleFrequencySweepSubmit}
         isLoading={simulationStatus === 'running' || simulationStatus === 'preparing'}
+        initialValues={lastSweepParams ? {
+          startFrequency: lastSweepParams.startFrequency,
+          stopFrequency: lastSweepParams.stopFrequency,
+          numPoints: lastSweepParams.numPoints,
+          spacing: lastSweepParams.spacing,
+        } : undefined}
       />
 
       <AddFieldDialog

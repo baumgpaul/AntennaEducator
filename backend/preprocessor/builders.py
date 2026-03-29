@@ -340,9 +340,10 @@ def create_loop(
                 node_start = 0
                 node_end = 1
             else:
-                # Closed loop: source connects first and last nodes (wraparound)
-                node_start = 1
-                node_end = segments + 1  # Last node index (1-based)
+                # Closed loop: source across the wraparound edge (last→first)
+                # loop_to_mesh generates exactly 'segments' nodes for closed loops
+                node_start = segments  # Last node (1-based)
+                node_end = 1  # First node (1-based)
 
             # Allow custom positioning if specified
             if "position" in source:
@@ -366,17 +367,24 @@ def create_loop(
             )
 
         elif source_type == "current":
-            # Current source: injects at a single node (PEEC style)
-            # For loop with gap: inject at first node
-            # For closed loop: inject at first node
-            node_start = 1  # First mesh node (1-based)
-            node_end = None  # Not used for current sources
+            # Current source: two-terminal for closed loops, single-node for gapped
+            if gap > 0:
+                # Gapped loop: inject at first node, return to ground (implicit)
+                node_start = 1
+                node_end = None
+            else:
+                # Closed loop: must create a feed gap (like VS) so current
+                # flows around the loop instead of through local capacitive coupling.
+                node_start = 1  # Current injected here
+                node_end = segments  # Current extracted here (return terminal)
 
             # Allow custom positioning if specified
             if "position" in source:
                 pos = source["position"]
                 if isinstance(pos, int):
                     node_start = pos + 1  # Convert to 1-based
+                    if gap == 0:
+                        node_end = pos + 2  # Two-terminal for closed loops
 
             source_objs.append(
                 Source(
@@ -480,13 +488,19 @@ def loop_to_mesh(element: AntennaElement) -> Mesh:
 
     # Generate nodes around the circle (with gap at start if needed)
     if gap > 0:
-        # Start after half the gap, end before the other half
-        start_angle = gap_angle / 2
-        end_angle = 2 * np.pi - gap_angle / 2
+        # Start after half the gap, end before the other half.
+        # Offset by π so the feed gap sits at the bottom of the loop (0, -r, 0)
+        # which is the natural feed-terminal position for a physical loop.
+        start_angle = np.pi + gap_angle / 2
+        end_angle = np.pi + 2 * np.pi - gap_angle / 2
         angles = np.linspace(start_angle, end_angle, segments + 1)
     else:
-        # Full circle
-        angles = np.linspace(0, 2 * np.pi, segments + 1)[:-1]  # Don't duplicate last point
+        # Full circle — offset by half a segment so the feed gap (closing edge
+        # between node N and node 1) is centred at the bottom of the loop
+        # (0, -r, 0).  Without this offset node 1 sits exactly at π and
+        # node N is one step before, so the feed midpoint is off-centre.
+        half_step = np.pi / segments
+        angles = np.linspace(np.pi + half_step, 3 * np.pi + half_step, segments + 1)[:-1]
 
     nodes = []
     for angle in angles:
@@ -505,8 +519,21 @@ def loop_to_mesh(element: AntennaElement) -> Mesh:
         for i in range(segments):
             edges.append([i + 1, ((i + 1) % segments) + 1])
 
-    # All edges have same wire radius
-    radii = [wire_radius] * segments
+    # Remove wire edges that coincide with source node pairs (voltage or
+    # two-terminal current sources).  In PEEC MNA, both the wire segment and
+    # the source are branches; if they share the same node pair they become
+    # parallel paths, which corrupts the series-loop current distribution.
+    # Removing the wire edge makes the source the sole branch at that location.
+    if element.sources:
+        source_pairs = set()
+        for src in element.sources:
+            if src.node_end is not None:
+                source_pairs.add((src.node_start, src.node_end))
+                source_pairs.add((src.node_end, src.node_start))
+        edges = [e for e in edges if (e[0], e[1]) not in source_pairs]
+
+    # All remaining edges have same wire radius
+    radii = [wire_radius] * len(edges)
 
     # Create mesh
     mesh = Mesh(

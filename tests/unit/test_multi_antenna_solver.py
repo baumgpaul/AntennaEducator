@@ -8,7 +8,7 @@ with various antenna configurations.
 import numpy as np
 import pytest
 
-from backend.solver.schemas import AntennaInput, VoltageSourceInput
+from backend.solver.schemas import AntennaInput, CurrentSourceInput, VoltageSourceInput
 from backend.solver.solver import SolverConfiguration, merge_antennas, solve_multi_antenna
 
 
@@ -230,6 +230,78 @@ class TestSolveMultiAntenna:
         # Should be within 50% of each other (loose tolerance for coupled system)
         ratio = Z1_mag / Z2_mag if Z2_mag > 0 else 1.0
         assert 0.5 < ratio < 2.0, f"Impedance ratio {ratio} suggests incorrect coupling"
+
+
+class TestMergeAntennasCurrentSource:
+    """Test merging antennas with current sources."""
+
+    def test_single_antenna_with_current_source(self):
+        """Test merging antenna with current source correctly counts appended nodes."""
+        antenna = AntennaInput(
+            antenna_id="dipole_cs",
+            nodes=[[0.0, 0.0, 0.0], [0.0, 0.0, 0.5]],
+            edges=[[1, 2]],
+            radii=[0.001],
+            current_sources=[CurrentSourceInput(node=1, value=0.001)],
+        )
+
+        config = SolverConfiguration()
+        merged = merge_antennas([antenna], config)
+
+        assert merged.n_total_sticks == 1
+        assert merged.n_total_points == 2
+        assert merged.n_total_current_sources == 1
+        assert merged.current_sources[0].node == 1
+
+    def test_two_antennas_with_current_sources_renumbering(self):
+        """Test merging two antennas with current sources renumbers nodes."""
+        antenna1 = AntennaInput(
+            antenna_id="dipole_1",
+            nodes=[[0.0, 0.0, 0.0], [0.0, 0.0, 0.5]],
+            edges=[[1, 2]],
+            radii=[0.001],
+            current_sources=[CurrentSourceInput(node=1, value=0.001)],
+        )
+
+        antenna2 = AntennaInput(
+            antenna_id="dipole_2",
+            nodes=[[1.0, 0.0, 0.0], [1.0, 0.0, 0.5]],
+            edges=[[1, 2]],
+            radii=[0.001],
+            current_sources=[CurrentSourceInput(node=2, value=0.002)],
+        )
+
+        config = SolverConfiguration()
+        merged = merge_antennas([antenna1, antenna2], config)
+
+        assert merged.n_total_current_sources == 2
+        # First antenna's current source node unchanged
+        assert merged.current_sources[0].node == 1
+        # Second antenna's current source node renumbered: 2 + 2 (offset) = 4
+        assert merged.current_sources[1].node == 4
+
+    def test_current_source_solve(self):
+        """Test solving with current source excitation produces valid result."""
+        antenna = AntennaInput(
+            antenna_id="dipole_cs",
+            nodes=[
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.25],
+                [0.0, 0.0, 0.5],
+            ],
+            edges=[[1, 2], [2, 3]],
+            radii=[0.001, 0.001],
+            current_sources=[CurrentSourceInput(node=2, value=0.001)],
+        )
+
+        config = SolverConfiguration(gauss_order=2)
+        result = solve_multi_antenna([antenna], 300e6, config)
+
+        assert result["converged"] is True
+        assert len(result["antenna_solutions"]) == 1
+        sol = result["antenna_solutions"][0]
+        assert sol["antenna_id"] == "dipole_cs"
+        assert len(sol["node_voltages"]) == 3
 
 
 if __name__ == "__main__":

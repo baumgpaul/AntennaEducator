@@ -15,6 +15,10 @@ import {
   InputLabel,
   FormHelperText,
   Divider,
+  InputAdornment,
+  Typography,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,6 +34,9 @@ const helixSchema = z.object({
   polarization: z.enum(['RHCP', 'LHCP']),
   wire_radius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
   segments_per_turn: z.number().int().min(8, 'Min 8 segments per turn').max(50, 'Max 50 segments per turn'),
+  sourceType: z.enum(['voltage', 'current']),
+  sourceAmplitude: z.number().nonnegative('Amplitude must be non-negative'),
+  sourcePhase: z.number().min(-360).max(360),
   position: z.object({
     x: z.number(),
     y: z.number(),
@@ -70,6 +77,9 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
       polarization: 'RHCP',
       wire_radius: 0.001,
       segments_per_turn: 16,
+      sourceType: 'voltage' as const,
+      sourceAmplitude: 1,
+      sourcePhase: 0,
       position: {
         x: 0,
         y: 0,
@@ -85,6 +95,7 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
 
   const diameter = watch('diameter');
   const turns = watch('turns');
+  const sourceType = watch('sourceType');
 
   // Calculate helix length
   const pitch = watch('pitch');
@@ -251,6 +262,84 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
                     helperText={errors.segments_per_turn?.message || 'More = better accuracy'}
                     inputProps={{ step: 1 }}
                     onChange={(e) => field.onChange(parseInt(e.target.value))}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Feed Configuration */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                Feed Configuration
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Source Type
+              </Typography>
+              <Controller
+                name="sourceType"
+                control={control}
+                render={({ field }) => (
+                  <ToggleButtonGroup
+                    value={field.value}
+                    exclusive
+                    onChange={(_, val) => { if (val) field.onChange(val); }}
+                    size="small"
+                    fullWidth
+                  >
+                    <ToggleButton value="voltage">Voltage Source</ToggleButton>
+                    <ToggleButton value="current">Current Source</ToggleButton>
+                  </ToggleButtonGroup>
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="sourceAmplitude"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Amplitude"
+                    type="number"
+                    fullWidth
+                    error={!!errors.sourceAmplitude}
+                    helperText={errors.sourceAmplitude?.message}
+                    inputProps={{ step: 0.1, min: 0 }}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          {sourceType === 'voltage' ? 'V' : 'A'}
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="sourcePhase"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Phase"
+                    type="number"
+                    fullWidth
+                    error={!!errors.sourcePhase}
+                    helperText={errors.sourcePhase?.message}
+                    inputProps={{ step: 1, min: -180, max: 180 }}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">°</InputAdornment>,
+                    }}
                   />
                 )}
               />

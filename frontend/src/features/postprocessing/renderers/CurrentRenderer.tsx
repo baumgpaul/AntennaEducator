@@ -5,6 +5,7 @@ import { useAppSelector } from '../../../store/hooks';
 import { Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { createColorArray, arrayMin, arrayMax } from '../../../utils/colorMaps';
+import { parseComplex } from '../../../api/solverHelpers';
 
 interface CurrentRendererProps {
   item: ViewItem;
@@ -157,8 +158,9 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
     console.log('[CurrentRenderer] === MAGNITUDE CALCULATION ===');
     console.log('[CurrentRenderer] Display quantity:', displayQuantity);
     const mags = currentData.map((current, idx) => {
-      const real = current.real || 0;
-      const imag = current.imag || 0;
+      const parsed = parseComplex(current);
+      const real = parsed.real;
+      const imag = parsed.imag;
 
       let val: number;
       switch (displayQuantity) {
