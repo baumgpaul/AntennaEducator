@@ -304,5 +304,109 @@ class TestMergeAntennasCurrentSource:
         assert len(sol["node_voltages"]) == 3
 
 
+class TestParasiticElements:
+    """Test multi-antenna solving with parasitic (sourceless) elements."""
+
+    def test_merge_parasitic_element(self):
+        """Parasitic element (no sources) merges without error."""
+        driven = AntennaInput(
+            antenna_id="driven",
+            nodes=[[0.0, 0.0, -0.25], [0.0, 0.0, 0.25]],
+            edges=[[1, 2]],
+            radii=[0.001],
+            voltage_sources=[VoltageSourceInput(node_start=1, node_end=2, value=1.0)],
+        )
+        parasitic = AntennaInput(
+            antenna_id="reflector",
+            nodes=[[0.5, 0.0, -0.25], [0.5, 0.0, 0.25]],
+            edges=[[1, 2]],
+            radii=[0.001],
+        )
+
+        config = SolverConfiguration()
+        merged = merge_antennas([driven, parasitic], config)
+
+        assert merged.n_total_sticks == 2
+        assert merged.n_total_points == 4
+        assert merged.n_total_voltage_sources == 1
+        assert len(merged.voltage_sources) == 1
+
+    def test_yagi_three_element_solve(self):
+        """Three-element Yagi (reflector + driven + director) solves correctly.
+
+        Only the driven element has a voltage source; the reflector and
+        director are parasitic and receive induced currents via mutual coupling.
+        """
+        freq = 144e6
+        wavelength = 3e8 / freq  # ~2.08 m
+
+        # Element lengths (typical Yagi design)
+        L_reflector = 0.52 * wavelength
+        L_driven = 0.50 * wavelength
+        L_director = 0.47 * wavelength
+
+        # X-axis spacing
+        x_reflector = -0.20 * wavelength
+        x_driven = 0.0
+        x_director = 0.20 * wavelength
+
+        n_seg = 5  # Keep low for fast test
+
+        def make_rod(antenna_id, x_pos, length, n_segments):
+            half = length / 2
+            nodes = []
+            for i in range(n_segments + 1):
+                z = -half + i * length / n_segments
+                nodes.append([x_pos, 0.0, z])
+            edges = [[i + 1, i + 2] for i in range(n_segments)]
+            radii = [0.001] * n_segments
+            return antenna_id, nodes, edges, radii
+
+        _, r_nodes, r_edges, r_radii = make_rod("reflector", x_reflector, L_reflector, n_seg)
+        _, d_nodes, d_edges, d_radii = make_rod("driven", x_driven, L_driven, n_seg)
+        _, dir_nodes, dir_edges, dir_radii = make_rod("director", x_director, L_director, n_seg)
+
+        # Source at center of driven element
+        center = n_seg // 2
+        vs = VoltageSourceInput(node_start=center + 1, node_end=center + 2, value=1.0)
+
+        reflector = AntennaInput(
+            antenna_id="reflector", nodes=r_nodes, edges=r_edges, radii=r_radii
+        )
+        driven = AntennaInput(
+            antenna_id="driven",
+            nodes=d_nodes,
+            edges=d_edges,
+            radii=d_radii,
+            voltage_sources=[vs],
+        )
+        director = AntennaInput(
+            antenna_id="director", nodes=dir_nodes, edges=dir_edges, radii=dir_radii
+        )
+
+        config = SolverConfiguration(gauss_order=2)
+        result = solve_multi_antenna([reflector, driven, director], freq, config)
+
+        assert result["converged"] is True
+        assert len(result["antenna_solutions"]) == 3
+
+        sol_r = result["antenna_solutions"][0]
+        sol_d = result["antenna_solutions"][1]
+        sol_dir = result["antenna_solutions"][2]
+
+        # Parasitic elements should have induced currents (non-zero)
+        assert any(
+            abs(c) > 1e-15 for c in sol_r["branch_currents"]
+        ), "Reflector should have induced currents"
+        assert any(
+            abs(c) > 1e-15 for c in sol_dir["branch_currents"]
+        ), "Director should have induced currents"
+
+        # Driven element should have input impedance; parasitic elements should not
+        assert sol_d["input_impedance"] is not None
+        assert sol_r["input_impedance"] is None
+        assert sol_dir["input_impedance"] is None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
