@@ -39,9 +39,9 @@
 
 **Frontend dialogs**:
 
-- [ ] **DipoleDialog**: Test that orientation presets (X/Y/Z) correctly set `center_position` and `orientation` vectors. Verify gap toggle enables/disables the gap-width field. *Deferred to Phase 3 dialog rework.*
-- [ ] **LoopDialog**: Verify `normal_vector` input accepts arbitrary vectors and normalizes. Test that gap position is correctly mapped when `gap=true`. *Deferred to Phase 3 dialog rework.*
-- [ ] **RodDialog**: Verify `base_position` defaults and that orientation vector is normalized before sending. *Deferred to Phase 3 dialog rework.*
+- [~] **DipoleDialog**: ~~Test orientation presets (X/Y/Z), gap toggle.~~ *Deferred to Phase 3 dialog rework.*
+- [~] **LoopDialog**: ~~Verify `normal_vector` normalization, gap position mapping.~~ *Deferred to Phase 3 dialog rework.*
+- [~] **RodDialog**: ~~Verify `base_position` defaults, normalized orientation.~~ *Deferred to Phase 3 dialog rework.*
 - [~] **HelixDialog**: ~~Check `segments_per_turn` minimum.~~ *Deferred — helix removed from Phase 0 scope.*
 - [x] **SourceDialog**: Fix node index input — ensure it validates against the actual element's node count (not hardcoded max). *(Dynamic Zod schema `createSourceSchema(maxNodeIndex)` with `.refine()` validators)*
 - [x] **LumpedElementDialog**: Same node validation issue. Also verify `C_inv` conversion (user enters C in Farads, backend expects 1/C). *(Dynamic Zod schema + changed field from "Inverse Capacitance (1/F)" to "Capacitance (F)" with auto C→1/C conversion)*
@@ -312,7 +312,15 @@ class AntennaElement(BaseModel):
 **Port definition for solver requests (Phase 4)**:
 A port is a pair of nodes `(node_a, node_b)` where we measure voltage/current. For a 2-pole (1-port) antenna, the port is typically `(source_node_start, source_node_end)`. This is defined at solver request time, not stored in the geometry.
 
-### 3.2 — Frontend: Enhanced Lumped Element Dialog
+### 3.2 — Frontend: Dialog Tests Carried Over from Phase 0
+
+The following dialog-level tests were deferred from Phase 0 (no active bugs, just verification). They belong here since Phase 3 reworks all four dialogs:
+
+- [ ] **DipoleDialog**: Test that orientation presets (X/Y/Z) correctly set `center_position` and `orientation` vectors. Verify gap toggle enables/disables the gap-width field.
+- [ ] **LoopDialog**: Verify `normal_vector` input accepts arbitrary vectors and normalizes correctly. Test that gap position is correctly mapped when `gap=true`.
+- [ ] **RodDialog**: Verify `base_position` defaults and that orientation vector is normalized before sending to backend.
+
+### 3.3 — Frontend: Enhanced Lumped Element Dialog
 
 **Reworked `LumpedElementDialog.tsx`**:
 
@@ -333,7 +341,7 @@ A port is a pair of nodes `(node_a, node_b)` where we measure voltage/current. F
 - Current source: amplitude (complex)
 - Show source polarity (+ / −) in the node selector hint
 
-### 3.3 — Frontend: Port/Network Visualization in Preview
+### 3.4 — Frontend: Port/Network Visualization in Preview
 
 In the 3D preview (custom dialog and existing type previews):
 - Appended nodes rendered as hollow circles (distinct from mesh nodes which are solid dots)
@@ -341,7 +349,7 @@ In the 3D preview (custom dialog and existing type previews):
 - Sources rendered as circled V or I symbols
 - Port pairs highlighted when hovered
 
-### 3.4 — Deliverables
+### 3.5 — Deliverables
 
 | Artifact | Type | Description |
 |----------|------|-------------|
@@ -351,6 +359,7 @@ In the 3D preview (custom dialog and existing type previews):
 | `frontend/src/features/design/components/NodeSelector.tsx` | Component | Reusable node dropdown with mesh/ground/appended |
 | `frontend/src/features/design/components/SchematicOverlay.tsx` | Component | Lumped element symbols in 3D preview |
 | `tests/unit/test_appended_nodes.py` | Test | Appended node indexing, lumped element attachment |
+| DipoleDialog / LoopDialog / RodDialog tests | Frontend | Orientation presets, gap toggle, normal vector normalization (carried from Phase 0) |
 
 ---
 
