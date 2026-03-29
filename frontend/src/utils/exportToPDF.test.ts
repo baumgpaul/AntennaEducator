@@ -30,6 +30,8 @@ describe('exportToPDF', () => {
       text: vi.fn(),
       addImage: vi.fn(),
       save: vi.fn(),
+      setFontSize: vi.fn(),
+      setFont: vi.fn(),
       internal: { pageSize: { getWidth: () => 297, getHeight: () => 210 } },
     };
     (jsPDF as any).mockImplementation(() => mockPDF);

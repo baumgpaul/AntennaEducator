@@ -288,6 +288,7 @@ export function generateDefaultItemLabel(type: ViewItemType, existingItems: View
   };
 
   const baseLabel = baseLabels[type];
+  if (!baseLabel) return type;
 
   // For items that typically have only one instance, return base label
   if (type === 'antenna-system' || type === 'directivity') {
@@ -298,7 +299,7 @@ export function generateDefaultItemLabel(type: ViewItemType, existingItems: View
   let counter = 1;
   let label = baseLabel;
 
-  while (existingItems.some(item => item.label === label || (item.type === type && !item.label))) {
+  while (existingItems.some(item => item.label === label)) {
     counter++;
     label = `${baseLabel} ${counter}`;
   }

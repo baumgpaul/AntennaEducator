@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import PostprocessingTab from '../PostprocessingTab';
@@ -7,7 +7,7 @@ import postprocessingReducer from '@/store/postprocessingSlice';
 import designReducer from '@/store/designSlice';
 import solverReducer from '@/store/solverSlice';
 import type { AntennaElement } from '@/types/models';
-import type { FieldDefinition } from '@/types/fieldDefinitions';
+import type { ViewConfiguration } from '@/types/postprocessing';
 
 const makeElement = (id: string, name: string, type: AntennaElement['type']): AntennaElement => ({
   id,
@@ -21,21 +21,20 @@ const makeElement = (id: string, name: string, type: AntennaElement['type']): An
   locked: false,
 });
 
-const makeField = (id: string, regionType: '2D' | '3D', shape: string): FieldDefinition => ({
+const makeView = (id: string, name: string, items: ViewConfiguration['items'] = []): ViewConfiguration => ({
   id,
-  name: `Field ${id}`,
-  type: regionType,
-  shape: shape as any,
-  centerPoint: [0, 0, 0],
-  sampling: regionType === '2D' ? { x: 5, y: 5 } : { radial: 5, angular: 10 },
-  fieldType: 'E',
-  visible: true,
-  opacity: 80,
-  parameters: {},
+  name,
+  viewType: '3D',
+  items,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
 });
 
 // Helper to create a test store and render with Provider
-function renderWithStore(component: React.ReactElement, preloadedState = {}) {
+function renderWithStore(
+  component: React.ReactElement,
+  overrides: { postprocessing?: Record<string, unknown>; solver?: Record<string, unknown> } = {},
+) {
   const store = configureStore({
     reducer: {
       postprocessing: postprocessingReducer,
@@ -48,26 +47,18 @@ function renderWithStore(component: React.ReactElement, preloadedState = {}) {
         selectedViewId: null,
         selectedItemId: null,
         addViewDialogOpen: false,
-        addAntennaElementDialogOpen: false,
-        addFieldVisualizationDialogOpen: false,
+        addAntennaDialogOpen: false,
+        addFieldDialogOpen: false,
         addScalarPlotDialogOpen: false,
-      },
-      design: {
-        elements: [],
-        sources: [],
-        loadPorts: [],
-        selectedElementId: null,
-        currentTab: 'designer',
-        requestedFields: [],
-        fieldRegions: [],
-        selectedFieldId: null,
-        ...preloadedState,
-      },
+        scalarPlotPreselect: null,
+        exportPDFDialogOpen: false,
+        exportType: null,
+        ...overrides.postprocessing,
+      } as any,
       solver: {
         status: 'idle',
         progress: 0,
         error: null,
-        jobId: null,
         currentRequest: null,
         results: null,
         currentDistribution: null,
@@ -75,6 +66,7 @@ function renderWithStore(component: React.ReactElement, preloadedState = {}) {
         multiAntennaResults: null,
         frequencySweep: null,
         sweepInProgress: false,
+        sweepProgress: null,
         resultsHistory: [],
         requestedFields: [],
         directivityRequested: false,
@@ -85,49 +77,18 @@ function renderWithStore(component: React.ReactElement, preloadedState = {}) {
         postprocessingStatus: 'idle',
         postprocessingProgress: null,
         fieldData: null,
-      },
+        radiationPatterns: null,
+        selectedFrequencyHz: null,
+        resultsStale: false,
+        ...overrides.solver,
+      } as any,
     },
   });
-  return renderWithStore(<Provider store={store}>{component}</Provider>);
+  return render(<Provider store={store}>{component}</Provider>);
 }
 
 describe('PostprocessingTab', () => {
-  it('renders structure and solution outputs with data', () => {
-    const elements = [makeElement('1', 'Dipole 1', 'dipole')];
-    const requestedFields: FieldDefinition[] = [makeField('f1', '2D', 'plane')];
-    const fieldResults = { f1: { computed: true, num_points: 25 } };
-
-    renderWithStore(
-      <PostprocessingTab
-        solverState="postprocessing-ready"
-        elements={elements}
-        requestedFields={requestedFields}
-        directivityRequested
-        fieldResults={fieldResults}
-        currentFrequency={300}
-        frequencySweep={null}        fieldData={null}
-      />
-    );
-
-    // Check section headers
-    expect(screen.getByText('Structure')).toBeInTheDocument();
-    expect(screen.getByText('Solution Outputs')).toBeInTheDocument();
-
-    // Check structure content
-    expect(screen.getByText('Dipole 1')).toBeInTheDocument();
-    expect(screen.getByText('dipole')).toBeInTheDocument();
-
-    // Check solution outputs
-    expect(screen.getByText('Currents')).toBeInTheDocument();
-    expect(screen.getByText('Branch currents')).toBeInTheDocument();
-    expect(screen.getByText('Voltages')).toBeInTheDocument();
-    expect(screen.getByText('Node potentials')).toBeInTheDocument();
-    expect(screen.getByText('Directivity')).toBeInTheDocument();
-    expect(screen.getByText('Field f1')).toBeInTheDocument();
-    expect(screen.getByText(/2D plane · 25 pts/)).toBeInTheDocument();
-  });
-
-  it('renders empty states when no antennas or fields', () => {
+  it('renders result views section and empty state', () => {
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
@@ -135,38 +96,91 @@ describe('PostprocessingTab', () => {
         requestedFields={[]}
         directivityRequested={false}
         fieldResults={null}
+        currentFrequency={300}
+        frequencySweep={null}
+        fieldData={null}
+      />,
+      { solver: { currentFrequency: 300 } },
+    );
+
+    // TreeViewPanel in postprocessing mode renders "Result Views"
+    expect(screen.getByText('Result Views')).toBeInTheDocument();
+    // Empty views message
+    expect(screen.getByText(/No result views yet/i)).toBeInTheDocument();
+  });
+
+  it('renders "no view selected" when no view is selected', () => {
+    renderWithStore(
+      <PostprocessingTab
+        solverState="solved"
+        elements={[makeElement('1', 'Dipole 1', 'dipole')]}
+        requestedFields={[]}
+        directivityRequested={false}
+        fieldResults={{}}
+        currentFrequency={300}
+        frequencySweep={null}
+        fieldData={null}
+      />,
+      { solver: { currentFrequency: 300 } },
+    );
+
+    // Middle panel shows placeholder
+    expect(
+      screen.getByText('No view selected. Create a view to get started.'),
+    ).toBeInTheDocument();
+  });
+
+  it('renders view configurations with items', () => {
+    const views: ViewConfiguration[] = [
+      makeView('v1', 'My 3D View', [
+        { id: 'i1', type: 'current', label: 'Currents', visible: true },
+        { id: 'i2', type: 'voltage', label: 'Voltages', visible: true },
+      ]),
+    ];
+
+    renderWithStore(
+      <PostprocessingTab
+        solverState="solved"
+        elements={[makeElement('1', 'Wire 1', 'dipole')]}
+        requestedFields={[]}
+        directivityRequested={false}
+        fieldResults={{}}
+        currentFrequency={300}
+        frequencySweep={null}
+        fieldData={null}
+      />,
+      {
+        postprocessing: { viewConfigurations: views, selectedViewId: null, selectedItemId: null },
+        solver: { currentFrequency: 300 },
+      },
+    );
+
+    expect(screen.getByText('My 3D View')).toBeInTheDocument();
+    expect(screen.getByText('Currents')).toBeInTheDocument();
+    expect(screen.getByText('Voltages')).toBeInTheDocument();
+  });
+
+  it('shows warning banner when no results available', () => {
+    renderWithStore(
+      <PostprocessingTab
+        solverState="idle"
+        elements={[]}
+        requestedFields={[]}
+        directivityRequested={false}
+        fieldResults={null}
         currentFrequency={null}
         frequencySweep={null}
         fieldData={null}
-      />
+      />,
     );
 
-    expect(screen.getByText('No antenna loaded')).toBeInTheDocument();
-    expect(screen.getByText('No fields requested')).toBeInTheDocument();
+    expect(screen.getByText('No Results Available')).toBeInTheDocument();
+    expect(
+      screen.getByText(/No solver results found. Please run the solver first./i),
+    ).toBeInTheDocument();
   });
 
-  it('shows pending status for uncomputed fields', () => {
-    const requestedFields: FieldDefinition[] = [makeField('f1', '3D', 'sphere')];
-    const fieldResults = { f1: { computed: false, num_points: 0 } };
-
-    renderWithStore(
-      <PostprocessingTab
-        solverState="postprocessing-ready"
-        elements={[makeElement('1', 'Loop 1', 'loop')]}
-        requestedFields={requestedFields}
-        directivityRequested={false}
-        fieldResults={fieldResults}
-        currentFrequency={300}
-        frequencySweep={null}
-      />
-    );
-
-    // Field should show without point count when not computed
-    expect(screen.getByText('Field f1')).toBeInTheDocument();
-    expect(screen.getByText('3D sphere')).toBeInTheDocument();
-  });
-
-  it('selects currents and shows properties panel', () => {
+  it('shows stale results warning', () => {
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
@@ -176,245 +190,182 @@ describe('PostprocessingTab', () => {
         fieldResults={{}}
         currentFrequency={300}
         frequencySweep={null}
-      />
+        fieldData={null}
+      />,
+      { solver: { resultsStale: true, currentFrequency: 300 } },
     );
 
-    const currentsItem = screen.getByRole('button', { name: /currents/i });
-    fireEvent.click(currentsItem);
-
-    expect(screen.getByText('Branch Currents')).toBeInTheDocument();
-    expect(screen.getByText(/current distribution on antenna edges/i)).toBeInTheDocument();
+    expect(screen.getByText('Results Outdated')).toBeInTheDocument();
   });
 
-  it('selects voltages and shows properties panel', () => {
+  it('renders properties panel with "no view selected" when nothing selected', () => {
+    // Properties panel is controlled by rightPanelOpen state. When no view is selected,
+    // the panel shows "No view selected" IF the panel is open.
+    // Since rightPanelOpen defaults to false, verifying the middle panel placeholder is enough.
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
-        elements={[makeElement('wire1', 'Wire 1', 'dipole')]}
+        elements={[makeElement('1', 'Dipole 1', 'dipole')]}
         requestedFields={[]}
         directivityRequested={false}
         fieldResults={{}}
         currentFrequency={300}
         frequencySweep={null}
-        fieldData={null}        fieldData={null}      />
+        fieldData={null}
+      />,
+      { solver: { currentFrequency: 300 } },
     );
 
-    const voltagesItem = screen.getByRole('button', { name: /voltages/i });
-    fireEvent.click(voltagesItem);
-
-    expect(screen.getByText('Node Voltages')).toBeInTheDocument();
-    expect(screen.getByText(/potential at antenna nodes/i)).toBeInTheDocument();
+    expect(
+      screen.getByText('No view selected. Create a view to get started.'),
+    ).toBeInTheDocument();
   });
 
-  it('selects directivity and shows properties panel', () => {
+  it('shows view properties when a view is selected', () => {
+    const views: ViewConfiguration[] = [
+      makeView('v1', 'My View', [
+        { id: 'i1', type: 'current', label: 'Branch Currents', visible: true },
+      ]),
+    ];
+
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
         requestedFields={[]}
-        directivityRequested={true}
+        directivityRequested={false}
         fieldResults={{}}
         currentFrequency={300}
-        frequencySweep={null}        fieldData={null}      />
+        frequencySweep={null}
+        fieldData={null}
+      />,
+      {
+        postprocessing: {
+          viewConfigurations: views,
+          selectedViewId: 'v1',
+          selectedItemId: null,
+        },
+        solver: { currentFrequency: 300 },
+      },
     );
 
-    const directivityItem = screen.getByRole('button', { name: /directivity/i });
-    fireEvent.click(directivityItem);
-
-    expect(screen.getByText('Directivity Pattern')).toBeInTheDocument();
-    expect(screen.getByText(/2D polar plots and 3D visualization/i)).toBeInTheDocument();
+    // Properties panel auto-opens when a view is selected
+    expect(screen.getByText('View Properties')).toBeInTheDocument();
   });
 
-  it('selects field and shows properties panel with field details', () => {
-    const field: FieldDefinition = {
-      id: 'field1',
-      name: 'Field 1',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [1, 2, 3],
-      parameters: {},
-      sampling: { x: 5, y: 5 },
-      fieldType: 'E',
-      visible: true,
-      opacity: 80,
-    };
+  it('shows item properties when an item is selected', () => {
+    const views: ViewConfiguration[] = [
+      makeView('v1', 'My View', [
+        { id: 'i1', type: 'current', label: 'Branch Currents', visible: true },
+      ]),
+    ];
 
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
-        requestedFields={[field]}
+        requestedFields={[]}
         directivityRequested={false}
-        fieldResults={{ field1: { computed: true, num_points: 25 } }}
+        fieldResults={{}}
         currentFrequency={300}
         frequencySweep={null}
         fieldData={null}
-      />
+      />,
+      {
+        postprocessing: {
+          viewConfigurations: views,
+          selectedViewId: 'v1',
+          selectedItemId: 'i1',
+        },
+        solver: { currentFrequency: 300 },
+      },
     );
 
-    const fieldItem = screen.getByRole('button', { name: /field 1/i });
-    fireEvent.click(fieldItem);
-
-    expect(screen.getByText(/2D Region/i)).toBeInTheDocument();
-    expect(screen.getByText(/\(1, 2, 3\) mm/i)).toBeInTheDocument();
-    expect(screen.getByText(/Computed \(25 points\)/i)).toBeInTheDocument();
+    // Properties panel shows view + item properties
+    expect(screen.getByText('View Properties')).toBeInTheDocument();
+    expect(screen.getByText('Item Properties')).toBeInTheDocument();
   });
 
-  it('shows visualization controls for computed fields', () => {
-    const field: FieldDefinition = {
-      id: 'field1',
-      name: 'Field 1',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 50],
-      parameters: {},
-      sampling: { x: 10, y: 10 },
-      fieldType: 'E',
-      visible: true,
-      opacity: 80,
-    };
+  it('shows 3D View chip for 3D view type', () => {
+    const views: ViewConfiguration[] = [makeView('v1', 'View A')];
 
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
-        requestedFields={[field]}
+        requestedFields={[]}
         directivityRequested={false}
-        fieldResults={{ field1: { computed: true, num_points: 25 } }}
+        fieldResults={{}}
         currentFrequency={300}
         frequencySweep={null}
         fieldData={null}
-      />
+      />,
+      {
+        postprocessing: {
+          viewConfigurations: views,
+          selectedViewId: null,
+          selectedItemId: null,
+        },
+        solver: { currentFrequency: 300 },
+      },
     );
 
-    const fieldItem = screen.getByRole('button', { name: /field 1/i });
-    fireEvent.click(fieldItem);
-
-    // Check visualization controls are present
-    expect(screen.getByText('Visualization Settings')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /magnitude/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /vectorial/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /component/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /phase/i })).toBeInTheDocument();
-    expect(screen.getAllByText(/Color Map/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/opacity:/i)).toBeInTheDocument();
+    expect(screen.getByText('3D')).toBeInTheDocument();
   });
 
-  it('hides visualization controls for uncomputed fields', () => {
-    const field: FieldDefinition = {
-      id: 'field1',
-      name: 'Field 1',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 50],
-      parameters: {},
-      sampling: { x: 10, y: 10 },
-      fieldType: 'E',
-      visible: true,
-      opacity: 80,
-    };
+  it('shows Line chip for Line view type', () => {
+    const views: ViewConfiguration[] = [
+      { ...makeView('v1', 'Line Plot'), viewType: 'Line' },
+    ];
 
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
-        requestedFields={[field]}
+        requestedFields={[]}
         directivityRequested={false}
-        fieldResults={{ field1: { computed: false, num_points: 0 } }}
+        fieldResults={{}}
         currentFrequency={300}
         frequencySweep={null}
         fieldData={null}
-      />
+      />,
+      {
+        postprocessing: {
+          viewConfigurations: views,
+          selectedViewId: null,
+          selectedItemId: null,
+        },
+        solver: { currentFrequency: 300 },
+      },
     );
 
-    const fieldItem = screen.getByRole('button', { name: /field 1/i });
-    fireEvent.click(fieldItem);
-
-    // Visualization controls should not be present
-    expect(screen.queryByText('Visualization Settings')).not.toBeInTheDocument();
-    expect(screen.getByText(/visualization settings will be available after field computation/i)).toBeInTheDocument();
+    expect(screen.getByText('Line')).toBeInTheDocument();
   });
 
-  it('shows component selector when component mode is selected', () => {
-    const field: FieldDefinition = {
-      id: 'field1',
-      name: 'Field 1',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 50],
-      parameters: {},
-      sampling: { x: 10, y: 10 },
-      fieldType: 'E',
-      visible: true,
-      opacity: 80,
-    };
+  it('shows "No items in this view" for empty view', () => {
+    const views: ViewConfiguration[] = [makeView('v1', 'Empty View', [])];
 
     renderWithStore(
       <PostprocessingTab
         solverState="solved"
         elements={[makeElement('1', 'Wire 1', 'dipole')]}
-        requestedFields={[field]}
+        requestedFields={[]}
         directivityRequested={false}
-        fieldResults={{ field1: { computed: true, num_points: 25 } }}
+        fieldResults={{}}
         currentFrequency={300}
         frequencySweep={null}
         fieldData={null}
-      />
+      />,
+      {
+        postprocessing: {
+          viewConfigurations: views,
+          selectedViewId: null,
+          selectedItemId: null,
+        },
+        solver: { currentFrequency: 300 },
+      },
     );
 
-    const fieldItem = screen.getByRole('button', { name: /field 1/i });
-    fireEvent.click(fieldItem);
-
-    // Should have 1 combobox initially (Color Map only, magnitude mode is default)
-    expect(screen.getAllByRole('combobox')).toHaveLength(1);
-
-    // Click component mode button
-    const componentButton = screen.getByRole('button', { name: 'Component' });
-    fireEvent.click(componentButton);
-
-    // Component and complex value dropdowns should now be visible (3 comboboxes total)
-    expect(screen.getAllByRole('combobox')).toHaveLength(3);
-    // Check that both dropdown labels exist (will find multiple matches but that's ok)
-    expect(screen.getAllByText(/Component/).length).toBeGreaterThan(1);
-    expect(screen.getAllByText(/Value/).length).toBeGreaterThan(0);
-  });
-
-  it('shows complex value selector in phase mode', () => {
-    const field: FieldDefinition = {
-      id: 'field1',
-      name: 'Field 1',
-      type: '2D',
-      shape: 'plane',
-      centerPoint: [0, 0, 50],
-      parameters: {},
-      sampling: { x: 10, y: 10 },
-      fieldType: 'E',
-      visible: true,
-      opacity: 80,
-    };
-
-    renderWithStore(
-      <PostprocessingTab
-        solverState="solved"
-        elements={[makeElement('1', 'Wire 1', 'dipole')]}
-        requestedFields={[field]}
-        directivityRequested={false}
-        fieldResults={{ field1: { computed: true, num_points: 25 } }}
-        currentFrequency={300}
-        frequencySweep={null}
-        fieldData={null}
-      />
-    );
-
-    const fieldItem = screen.getByRole('button', { name: /field 1/i });
-    fireEvent.click(fieldItem);
-
-    // Click phase mode button
-    const phaseButton = screen.getByRole('button', { name: 'Phase' });
-    fireEvent.click(phaseButton);
-
-    // Complex value dropdown should be visible (2 comboboxes: Color Map + Value)
-    expect(screen.getAllByRole('combobox')).toHaveLength(2);
-    expect(screen.getAllByText(/Value/).length).toBeGreaterThan(0);
+    expect(screen.getByText('No items in this view')).toBeInTheDocument();
   });
 });

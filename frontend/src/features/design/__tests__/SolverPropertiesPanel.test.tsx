@@ -26,12 +26,20 @@ const createMockStore = (fields: FieldDefinition[] = [], directivityRequested = 
         multiAntennaResults: null,
         frequencySweep: null,
         sweepInProgress: false,
+        sweepProgress: null,
         resultsHistory: [],
         requestedFields: fields,
         directivityRequested,
         directivitySettings: { theta_points: 19, phi_points: 37 },
         solverState: 'idle',
         currentFrequency: null,
+        fieldResults: null,
+        postprocessingStatus: 'idle',
+        postprocessingProgress: null,
+        fieldData: null,
+        radiationPatterns: null,
+        selectedFrequencyHz: null,
+        resultsStale: false,
       },
     },
   });
@@ -113,7 +121,7 @@ describe('SolverPropertiesPanel', () => {
       </Provider>
     );
 
-    expect(screen.getByText('Field Region Display')).toBeInTheDocument();
+    expect(screen.getByText('Show Requested Fields')).toBeInTheDocument();
     expect(screen.getByText('Show Field Regions')).toBeInTheDocument();
   });
 
@@ -215,7 +223,7 @@ describe('SolverPropertiesPanel', () => {
     expect(screen.getByText('Type: 2D Region')).toBeInTheDocument();
     // Check some key input fields exist
     expect(screen.getByLabelText('X')).toBeInTheDocument();
-    expect(screen.getByLabelText('Width (X)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Width')).toBeInTheDocument();
   });
 
   it('updates field name for identification', async () => {
@@ -298,7 +306,7 @@ describe('SolverPropertiesPanel', () => {
       </Provider>
     );
 
-    const widthInput = screen.getByLabelText('Width (X)');
+    const widthInput = screen.getByLabelText('Width');
     await user.clear(widthInput);
     await user.type(widthInput, '150');
     fireEvent.blur(widthInput);
@@ -321,7 +329,7 @@ describe('SolverPropertiesPanel', () => {
       </Provider>
     );
 
-    const xSamplingInput = screen.getByLabelText('Points in X');
+    const xSamplingInput = screen.getByLabelText('Points X');
     await user.clear(xSamplingInput);
     await user.type(xSamplingInput, '30');
     fireEvent.blur(xSamplingInput);

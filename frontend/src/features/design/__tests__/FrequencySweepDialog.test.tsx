@@ -150,7 +150,7 @@ describe('FrequencySweepDialog', () => {
       expect(mockOnSubmit).not.toHaveBeenCalled();
     });
 
-    it('should reject frequencies above maximum (1000 MHz)', async () => {
+    it('should reject frequencies above maximum (10 GHz)', async () => {
       const user = userEvent.setup();
       render(
         <FrequencySweepDialog
@@ -164,11 +164,11 @@ describe('FrequencySweepDialog', () => {
       const runButton = screen.getByRole('button', { name: /Run Sweep/i });
 
       await user.clear(stopFreq);
-      await user.type(stopFreq, '1500'); // 1500 MHz
+      await user.type(stopFreq, '11000'); // 11000 MHz = 11 GHz
       await user.click(runButton);
 
       await waitFor(() => {
-        expect(screen.getByText(/Stop frequency must be less than 1000 MHz/i)).toBeInTheDocument();
+        expect(screen.getByText(/Stop frequency must be less than 10 GHz/i)).toBeInTheDocument();
       });
       expect(mockOnSubmit).not.toHaveBeenCalled();
     });
