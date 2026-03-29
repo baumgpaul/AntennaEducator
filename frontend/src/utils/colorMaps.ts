@@ -210,12 +210,19 @@ export function createColorArray(
   } else {
     max = arrayMax(values);
   }
-  const range = max - min || 1; // Avoid division by zero
+  const rawRange = max - min;
+  const absScale = Math.max(Math.abs(min), Math.abs(max));
+  // When all values are essentially equal (range < 0.1% of scale),
+  // map everything to the midpoint color to avoid amplifying numerical noise
+  const isEffectivelyUniform =
+    rawRange === 0 || (absScale > 0 && rawRange / absScale < 1e-3);
 
   const colors = new Float32Array(values.length * 3);
 
   for (let i = 0; i < values.length; i++) {
-    const normalized = (values[i] - min) / range;
+    const normalized = isEffectivelyUniform
+      ? 0.5
+      : (values[i] - min) / rawRange;
     const color = getColor(normalized, colorMap);
     colors[i * 3] = color.r;
     colors[i * 3 + 1] = color.g;

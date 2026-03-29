@@ -165,9 +165,10 @@ def test_create_loop_with_source(client):
     assert element["name"] == "Test Loop"
     assert len(element["sources"]) > 0
     assert element["sources"][0]["type"] == "voltage"
-    # Source between first and last node (across gap) - 1-based indexing
-    assert element["sources"][0]["node_start"] == 1
-    assert element["sources"][0]["node_end"] == 25  # 24 segments = 25 nodes
+    # Source across the wraparound edge (last→first node) - 1-based indexing
+    # Closed loop with 24 segments has 24 nodes (no duplicate endpoint)
+    assert element["sources"][0]["node_start"] == 24
+    assert element["sources"][0]["node_end"] == 1
     assert element["parameters"]["segments"] == 24
 
 

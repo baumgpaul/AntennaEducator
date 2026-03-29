@@ -172,6 +172,7 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
           current_sources.push({
             node: source.node_start,
             value: extractComplexValue(source.amplitude),
+            ...(source.node_end != null ? { node_end: source.node_end } : {}),
           })
         }
       }
@@ -272,4 +273,133 @@ export function getSimulationComplexity(elements: AntennaElement[]): {
   }
 
   return { totalNodes, totalEdges, totalSources }
+}
+
+export interface ValidationIssue {
+  severity: 'error' | 'warning'
+  element: string
+  message: string
+}
+
+/**
+ * Validate geometry of all visible/unlocked elements.
+ * Checks: connected nodes, valid edges, lumped elements on both poles,
+ * at least one source, segment length vs wavelength.
+ */
+export function validateGeometry(
+  elements: AntennaElement[],
+  frequencyHz?: number
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const visibleElements = elements.filter((el) => el.visible && !el.locked)
+
+  if (visibleElements.length === 0) {
+    issues.push({ severity: 'error', element: 'Design', message: 'No visible/unlocked elements' })
+    return issues
+  }
+
+  // Global: at least one source
+  const hasAnySource = visibleElements.some(
+    (el) => el.sources && el.sources.length > 0
+  )
+  if (!hasAnySource) {
+    issues.push({ severity: 'error', element: 'Design', message: 'At least one source is required' })
+  }
+
+  for (const el of visibleElements) {
+    const name = el.name || el.id
+
+    if (!el.mesh || !el.mesh.nodes || el.mesh.nodes.length < 2) {
+      issues.push({ severity: 'error', element: name, message: 'No mesh or too few nodes' })
+      continue
+    }
+    if (!el.mesh.edges || el.mesh.edges.length < 1) {
+      issues.push({ severity: 'error', element: name, message: 'No edges in mesh' })
+      continue
+    }
+
+    const numNodes = el.mesh.nodes.length
+
+    // Check edges reference valid node indices (1-based, 0 = ground, negative = appended)
+    for (let i = 0; i < el.mesh.edges.length; i++) {
+      const [a, b] = el.mesh.edges[i]
+      // Valid range: negative (appended), 0 (ground), or 1..numNodes (1-based)
+      const isValidIndex = (idx: number) => idx <= numNodes
+      if (!isValidIndex(a) || !isValidIndex(b)) {
+        issues.push({
+          severity: 'error',
+          element: name,
+          message: `Edge ${i} references non-existing node (${a}, ${b})`,
+        })
+      }
+    }
+
+    // Check all mesh nodes are connected (appear in at least one edge)
+    // Edges use 1-based indexing; translate to 0-based for set comparison
+    const usedNodes = new Set<number>()
+    for (const [a, b] of el.mesh.edges) {
+      if (a >= 1 && a <= numNodes) usedNodes.add(a - 1)
+      if (b >= 1 && b <= numNodes) usedNodes.add(b - 1)
+    }
+    const disconnectedCount = numNodes - usedNodes.size
+    if (disconnectedCount > 0) {
+      issues.push({
+        severity: 'warning',
+        element: name,
+        message: `${disconnectedCount} disconnected node(s) not referenced by any edge`,
+      })
+    }
+
+    // Check lumped elements have valid node connections (1-based, 0 = ground)
+    if (el.lumped_elements) {
+      for (const le of el.lumped_elements) {
+        if (le.node_start < 0 || le.node_start > numNodes) {
+          issues.push({
+            severity: 'error',
+            element: name,
+            message: `Lumped element has invalid node_start: ${le.node_start}`,
+          })
+        }
+        if (le.node_end < 0 || le.node_end > numNodes) {
+          issues.push({
+            severity: 'error',
+            element: name,
+            message: `Lumped element has invalid node_end: ${le.node_end}`,
+          })
+        }
+      }
+    }
+
+    // Segment length vs wavelength check
+    if (frequencyHz && frequencyHz > 0) {
+      const c = 299792458 // speed of light
+      const wavelength = c / frequencyHz
+      const maxSegLength = wavelength / 10 // λ/10 rule
+
+      for (let i = 0; i < el.mesh.edges.length; i++) {
+        const [a, b] = el.mesh.edges[i]
+        // Convert 1-based to 0-based for array access
+        const ai = a - 1
+        const bi = b - 1
+        if (ai >= 0 && ai < numNodes && bi >= 0 && bi < numNodes) {
+          const na = el.mesh.nodes[ai]
+          const nb = el.mesh.nodes[bi]
+          const dx = nb[0] - na[0]
+          const dy = nb[1] - na[1]
+          const dz = nb[2] - na[2]
+          const segLen = Math.sqrt(dx * dx + dy * dy + dz * dz)
+          if (segLen > maxSegLength) {
+            issues.push({
+              severity: 'warning',
+              element: name,
+              message: `Segment ${i} length (${(segLen * 100).toFixed(2)} cm) exceeds λ/10 (${(maxSegLength * 100).toFixed(2)} cm) at ${(frequencyHz / 1e6).toFixed(1)} MHz`,
+            })
+            break // Only report once per element
+          }
+        }
+      }
+    }
+  }
+
+  return issues
 }

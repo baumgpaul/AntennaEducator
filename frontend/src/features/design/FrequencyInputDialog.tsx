@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -27,9 +27,9 @@ const frequencySchema = z.object({
 }).refine((data) => {
   // Convert to MHz for validation
   const frequencyInMHz = data.unit === 'GHz' ? data.value * 1000 : data.value;
-  return frequencyInMHz >= 0.1 && frequencyInMHz <= 1000000; // 0.1 MHz to 1000 GHz
+  return frequencyInMHz >= 0.1 && frequencyInMHz <= 10000; // 0.1 MHz to 10 GHz
 }, {
-  message: 'Frequency must be between 0.1 MHz and 1000 GHz',
+  message: 'Frequency must be between 0.1 MHz and 10 GHz',
 });
 
 interface FrequencyInputDialogProps {
@@ -37,6 +37,7 @@ interface FrequencyInputDialogProps {
   onClose: () => void;
   onSolve: (frequency: number, unit: 'MHz' | 'GHz') => Promise<void>;
   isLoading?: boolean;
+  initialFrequency?: number; // MHz
 }
 
 /**
@@ -62,11 +63,19 @@ export function FrequencyInputDialog({
   onClose,
   onSolve,
   isLoading = false,
+  initialFrequency,
 }: FrequencyInputDialogProps) {
-  const [frequency, setFrequency] = useState<number>(300); // Default 300 MHz
+  const [frequency, setFrequency] = useState<number>(initialFrequency ?? 300);
   const [unit, setUnit] = useState<'MHz' | 'GHz'>('MHz');
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Sync frequency when dialog re-opens with a new initial value
+  useEffect(() => {
+    if (open && initialFrequency !== undefined) {
+      setFrequency(initialFrequency);
+    }
+  }, [open, initialFrequency]);
 
   const handleFrequencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
