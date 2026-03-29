@@ -60,10 +60,13 @@ class CurrentSource:
     Attributes:
         node: Node index where current is injected (1-based, 0 for ground, negative for appended)
         value: Complex current value [A]
+        node_end: Optional return node for two-terminal current source (e.g. closed loop feed).
+                  When set, current is extracted from this node (I_source[node_end] = -value).
     """
 
     node: int
     value: complex
+    node_end: Optional[int] = None
 
 
 @dataclass
@@ -418,9 +421,17 @@ def assemble_source_vector(
         if isrc.node < 0:
             # Appended node current source
             source_I_app[abs(isrc.node) - 1] = isrc.value
-        else:
-            # Regular node current source
-            I_source[isrc.node] = isrc.value
+        elif isrc.node > 0:
+            # Regular node current source (1-based → 0-based)
+            I_source[isrc.node - 1] = isrc.value
+        # node == 0 is ground — not represented in incidence matrix, skip
+
+        # Two-terminal current source: extract current at return node
+        if isrc.node_end is not None:
+            if isrc.node_end < 0:
+                source_I_app[abs(isrc.node_end) - 1] -= isrc.value
+            elif isrc.node_end > 0:
+                I_source[isrc.node_end - 1] -= isrc.value
 
     # Add current source coupling term: (1/jω)A'P*I_source
     # This represents the capacitive voltage induced by current sources

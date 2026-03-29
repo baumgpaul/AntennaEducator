@@ -87,7 +87,8 @@ def _convert_sources(request):
     ]
 
     current_sources = [
-        CurrentSource(node=cs.node, value=cs.value) for cs in request.current_sources
+        CurrentSource(node=cs.node, value=cs.value, node_end=cs.node_end)
+        for cs in request.current_sources
     ]
 
     loads = [

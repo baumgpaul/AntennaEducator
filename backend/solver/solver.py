@@ -270,6 +270,9 @@ def solve_peec_frequency_sweep(
     for isrc in current_sources:
         if 0 < isrc.node <= max_node:
             I_source[isrc.node - 1] = isrc.value
+        # Two-terminal current source: extract current at return node
+        if isrc.node_end is not None and 0 < isrc.node_end <= max_node:
+            I_source[isrc.node_end - 1] -= isrc.value
 
     # Step 4: Solve at each frequency
     frequency_solutions = []
@@ -763,10 +766,8 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
             if vs.node_end < 0:
                 appended_nodes.add(vs.node_end)
         for cs in antenna.current_sources:
-            if cs.node_start < 0:
-                appended_nodes.add(cs.node_start)
-            if cs.node_end < 0:
-                appended_nodes.add(cs.node_end)
+            if cs.node < 0:
+                appended_nodes.add(cs.node)
         for ld in antenna.loads:
             if ld.node_start < 0:
                 appended_nodes.add(ld.node_start)
@@ -804,12 +805,13 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
             # Renumber positive indices
             if node_start > 0:
                 node_start += offset["start_point"] - 1
-            else:  # Negative: appended nodes
+            elif node_start < 0:  # Negative: appended nodes
                 node_start -= offset["start_appended"] - 1
+            # node_start == 0 (ground) stays unchanged
 
             if node_end > 0:
                 node_end += offset["start_point"] - 1
-            else:
+            elif node_end < 0:
                 node_end -= offset["start_appended"] - 1
 
             combined_edges.append([node_start, node_end])
@@ -824,12 +826,12 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
 
             if node_start > 0:
                 node_start += offset["start_point"] - 1
-            else:
+            elif node_start < 0:
                 node_start -= offset["start_appended"] - 1
 
             if node_end > 0:
                 node_end += offset["start_point"] - 1
-            else:
+            elif node_end < 0:
                 node_end -= offset["start_appended"] - 1
 
             combined_voltage_sources.append(
@@ -849,10 +851,19 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
 
             if node > 0:
                 node += offset["start_point"] - 1
-            else:
+            elif node < 0:
                 node -= offset["start_appended"] - 1
 
-            combined_current_sources.append(CurrentSource(node=node, value=cs.value))
+            cs_node_end = getattr(cs, "node_end", None)
+            if cs_node_end is not None:
+                if cs_node_end > 0:
+                    cs_node_end += offset["start_point"] - 1
+                elif cs_node_end < 0:
+                    cs_node_end -= offset["start_appended"] - 1
+
+            combined_current_sources.append(
+                CurrentSource(node=node, value=cs.value, node_end=cs_node_end)
+            )
 
         # Renumber loads
         for ld in antenna.loads:
@@ -861,12 +872,12 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
 
             if node_start > 0:
                 node_start += offset["start_point"] - 1
-            else:
+            elif node_start < 0:
                 node_start -= offset["start_appended"] - 1
 
             if node_end > 0:
                 node_end += offset["start_point"] - 1
-            else:
+            elif node_end < 0:
                 node_end -= offset["start_appended"] - 1
 
             combined_loads.append(
