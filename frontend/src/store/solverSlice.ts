@@ -11,12 +11,39 @@ import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { solveMultiAntenna } from '@/api/solver';
 import { computeFarField, computeNearField } from '@/api/postprocessor';
 import { generateObservationPoints } from '@/utils/fieldGeneration';
-import { extractComplexValue } from '@/utils/multiAntennaBuilder';
+import { extractComplexValue, convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
 import { getCurrentUserAsync } from '@/store/authSlice';
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * Check whether an element has voltage sources between two real mesh nodes
+ * (both node_start >= 1 and node_end >= 1).  Ground-referencing sources
+ * (node 0) cannot be represented as far-field edges because the ground
+ * node has no physical mesh position.  Additionally, balanced-feed
+ * dipoles have 2 ground-referencing sources that the solver merges into
+ * 1 gap source, which would cause an edges/currents count mismatch.
+ */
+function hasNonGroundVs(el: { sources?: { type?: string; node_start?: number | null; node_end?: number | null }[] }): boolean {
+  if (!el.sources || el.sources.length === 0) return false;
+  return el.sources.some(
+    s => s.type === 'voltage'
+      && s.node_start != null && s.node_end != null
+      && s.node_start >= 1 && s.node_end >= 1
+  );
+}
+
+/** True when the element has a two-terminal current source (both nodes >= 1). */
+function hasNonGroundCs(el: { sources?: { type?: string; node_start?: number | null; node_end?: number | null }[] }): boolean {
+  if (!el.sources || el.sources.length === 0) return false;
+  return el.sources.some(
+    s => s.type === 'current'
+      && s.node_start != null && s.node_end != null
+      && s.node_start >= 1 && s.node_end >= 1
+  );
+}
 
 /**
  * Extract a user-friendly error message from Axios errors.
@@ -141,6 +168,7 @@ interface SolverState {
   // Frequency sweep results
   frequencySweep: FrequencySweepResult | null;
   sweepInProgress: boolean;
+  sweepProgress: { current: number; total: number } | null;
 
   // History
   resultsHistory: Array<{
@@ -189,6 +217,7 @@ const initialState: SolverState = {
   multiAntennaResults: null,
   frequencySweep: null,
   sweepInProgress: false,
+  sweepProgress: null,
   resultsHistory: [],
   requestedFields: [],
   directivityRequested: false,
@@ -270,6 +299,7 @@ export const runFrequencySweep = createAsyncThunk<
 
       // Update progress
       dispatch(setProgress(Math.round((i / frequencies.length) * 100)));
+      dispatch(setSweepProgress({ current: i + 1, total: frequencies.length }));
 
       // Create request for this frequency
       const freqRequest: MultiAntennaRequest = {
@@ -337,51 +367,14 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
     // Convert frequency to MHz
     const frequencyMHz = unit === 'GHz' ? frequency * 1000 : frequency;
 
-    // Prepare multi-antenna request
-    const antennaRequests = elements.map((element) => {
-      if (!element.mesh) {
-        throw new Error(`Element ${element.name} has no mesh`);
-      }
+    // Prepare multi-antenna request using canonical builder
+    const antennaRequests = elements
+      .filter((el) => el.visible && !el.locked && el.mesh && el.mesh.nodes.length > 0 && el.mesh.edges.length > 0)
+      .map((element) => convertElementToAntennaInput(element));
 
-      // Split sources into voltage and current sources
-      const allSources = element.sources || [];
-      const voltage_sources = allSources
-        .filter((s) => s.type === 'voltage')
-        .map((s) => ({
-          node_start: s.node_start,
-          node_end: s.node_end,
-          value: extractComplexValue(s.amplitude),
-          R: s.series_R || 0,
-          L: s.series_L || 0,
-          C_inv: s.series_C_inv || 0,
-        }));
-
-      const current_sources = allSources
-        .filter((s) => s.type === 'current')
-        .map((s) => ({
-          node: s.node_start,  // Use primary node for current source
-          value: extractComplexValue(s.amplitude),
-        }));
-
-      // Map lumped elements to loads
-      const loads = (element.lumped_elements || []).map((le) => ({
-        node_start: le.node_start,
-        node_end: le.node_end,
-        R: le.R,
-        L: le.L,
-        C_inv: le.C_inv,
-      }));
-
-      return {
-        antenna_id: element.id,
-        nodes: element.mesh.nodes,
-        edges: element.mesh.edges,
-        radii: element.mesh.radii,
-        voltage_sources,
-        current_sources,
-        loads,
-      };
-    });
+    if (antennaRequests.length === 0) {
+      return rejectWithValue('No valid elements for simulation');
+    }
 
     const request: MultiAntennaRequest = {
       frequency: frequencyMHz * 1e6, // Convert MHz to Hz
@@ -553,6 +546,16 @@ export const computePostprocessingWorkflow = createAsyncThunk<
       let combinedRadii: number[] = [];
       let nodeOffset = 0;
 
+      // Only add VS edges to the mesh when VS currents will also be included in
+      // branch_currents_for_freq — otherwise the edge/current counts diverge and
+      // the backend einsum raises a shape error (500).
+      const includeVsEdgesNF = isSweepMode
+        ? !!(frequencySweep?.results?.some(r => r.antenna_solutions?.length))
+        : !!(state.solver.multiAntennaResults?.antenna_solutions?.length);
+
+      // Track two-terminal CS edges to add after the mesh loop.
+      const csEdgeElements: { element: typeof elementsWithMesh[0]; nodeOffset: number }[] = [];
+
       for (const element of elementsWithMesh) {
         const mesh = element.mesh!;
 
@@ -570,7 +573,39 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           combinedRadii = combinedRadii.concat(mesh.edges.map(() => 0.001)); // Default 1mm
         }
 
+        // Include voltage source edges so fields see a closed current path.
+        // Only for non-ground VS to keep edge count == branch_current count.
+        if (includeVsEdgesNF && hasNonGroundVs(element) && element.sources) {
+          for (const source of element.sources) {
+            if (source.type === 'voltage'
+                && source.node_start != null && source.node_end != null
+                && source.node_start >= 1 && source.node_end >= 1) {
+              combinedEdges.push([source.node_start + nodeOffset, source.node_end + nodeOffset] as [number, number]);
+              combinedRadii.push((mesh.radii && mesh.radii[0]) ?? 0.001);
+            }
+          }
+        }
+
+        // Include two-terminal CS edges (gap edge removed during meshing).
+        // The CS current value is appended to branch_currents later per-frequency.
+        if (hasNonGroundCs(element)) {
+          csEdgeElements.push({ element, nodeOffset });
+        }
+
         nodeOffset += mesh.nodes.length;
+      }
+
+      // Add two-terminal CS gap edges to the mesh.
+      // Edge direction [node_end → node_start] so positive current completes loop.
+      for (const { element, nodeOffset: off } of csEdgeElements) {
+        for (const source of element.sources ?? []) {
+          if (source.type === 'current'
+              && source.node_start != null && source.node_end != null
+              && source.node_start >= 1 && source.node_end >= 1) {
+            combinedEdges.push([source.node_end + off, source.node_start + off] as [number, number]);
+            combinedRadii.push((element.mesh!.radii && element.mesh!.radii[0]) ?? 0.001);
+          }
+        }
       }
 
       const mesh = {
@@ -605,28 +640,48 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 
           // Extract branch currents for this frequency
           let branch_currents_for_freq: AntennaSolution['branch_currents'];
-          const multiAntennaResults = results
-            ? (results as unknown as MultiAntennaSolutionResponse).antenna_solutions
-            : undefined;
+          const multiAntennaResultsForField = state.solver.multiAntennaResults;
+
+          // Pre-compute per-element VS inclusion for this near-field path.
+          const nfVsPerElement = elementsWithMesh.map(el => hasNonGroundVs(el));
 
           if (isSweepMode && frequencySweep && frequencySweep.results && frequencySweep.results[freqIdx]) {
             const result = frequencySweep.results[freqIdx];
             if (result.antenna_solutions && result.antenna_solutions.length > 0) {
               branch_currents_for_freq = result.antenna_solutions.flatMap(
-                sol => sol.branch_currents || []
+                (sol, i) => [
+                  ...(sol.branch_currents || []),
+                  ...(nfVsPerElement[i] ? (sol.voltage_source_currents || []) : []),
+                ]
               );
             } else {
               branch_currents_for_freq = [];
             }
+          } else if (multiAntennaResultsForField?.antenna_solutions?.length) {
+            // Use multiAntennaResults (includes voltage_source_currents) to match
+            // the VS edges that were added to the mesh above.
+            branch_currents_for_freq = multiAntennaResultsForField.antenna_solutions.flatMap(
+              (sol, i) => [
+                ...(sol.branch_currents || []),
+                ...(nfVsPerElement[i] ? (sol.voltage_source_currents || []) : []),
+              ]
+            );
           } else if (results && results.branch_currents) {
             branch_currents_for_freq = results.branch_currents;
-          } else if (multiAntennaResults && multiAntennaResults.length > 0) {
-            branch_currents_for_freq = multiAntennaResults.flatMap(
-              sol => sol.branch_currents || []
-            );
           } else {
             console.error('[Postprocessing] No branch currents for freq index', freqIdx);
             return rejectWithValue('No branch currents available for field computation');
+          }
+
+          // Append known CS currents for two-terminal current source gap edges.
+          for (const { element } of csEdgeElements) {
+            for (const source of element.sources ?? []) {
+              if (source.type === 'current'
+                  && source.node_start != null && source.node_end != null
+                  && source.node_start >= 1 && source.node_end >= 1) {
+                branch_currents_for_freq.push(source.amplitude ?? 1.0);
+              }
+            }
           }
 
           const fieldRequest = {
@@ -770,9 +825,42 @@ export const computeRadiationPattern = createAsyncThunk<
         combinedEdges.push(...offsetEdges);
         combinedRadii.push(...mesh.radii);
 
+        // Include voltage source edges so the far-field sees a closed current path.
+        // Only for non-ground VS (both nodes >= 1) — ground node 0 has no mesh
+        // position, and balanced-feed sources would cause a count mismatch.
+        const elHasVs = hasNonGroundVs(element);
+        if (elHasVs && element.sources) {
+          for (const source of element.sources) {
+            if (source.type === 'voltage'
+                && source.node_start != null && source.node_end != null
+                && source.node_start >= 1 && source.node_end >= 1) {
+              combinedEdges.push([source.node_start + nodeOffset, source.node_end + nodeOffset]);
+              combinedRadii.push(mesh.radii[0] ?? 0.001);
+            }
+          }
+        }
+
         if (antenna_solutions[i]) {
           combinedBranchCurrents.push(...antenna_solutions[i].branch_currents);
+          if (elHasVs && antenna_solutions[i].voltage_source_currents) {
+            combinedBranchCurrents.push(...antenna_solutions[i].voltage_source_currents);
+          }
         }
+
+        // Two-terminal CS: add gap edge + known source current
+        // Edge direction [node_end → node_start] so positive current completes loop.
+        if (element.sources) {
+          for (const source of element.sources) {
+            if (source.type === 'current'
+                && source.node_start != null && source.node_end != null
+                && source.node_start >= 1 && source.node_end >= 1) {
+              combinedEdges.push([source.node_end + nodeOffset, source.node_start + nodeOffset]);
+              combinedRadii.push(mesh.radii[0] ?? 0.001);
+              combinedBranchCurrents.push(source.amplitude ?? 1.0);
+            }
+          }
+        }
+
         nodeOffset += mesh.nodes.length;
       }
     } else {
@@ -780,15 +868,62 @@ export const computeRadiationPattern = createAsyncThunk<
       if (!element.mesh) return rejectWithValue('No mesh data available');
 
       combinedNodes = element.mesh.nodes;
-      combinedEdges = element.mesh.edges;
-      combinedRadii = element.mesh.radii;
-      combinedBranchCurrents = results!.branch_currents;
+      combinedEdges = [...element.mesh.edges];
+      combinedRadii = [...element.mesh.radii];
+      combinedBranchCurrents = [...results!.branch_currents];
+
+      // Include voltage source edges + currents only for non-ground VS.
+      const vsCurrents = multiAntennaResult?.antenna_solutions?.[0]?.voltage_source_currents;
+      if (vsCurrents && vsCurrents.length > 0 && hasNonGroundVs(element) && element.sources) {
+        for (const source of element.sources) {
+          if (source.type === 'voltage'
+              && source.node_start != null && source.node_end != null
+              && source.node_start >= 1 && source.node_end >= 1) {
+            combinedEdges.push([source.node_start, source.node_end]);
+            combinedRadii.push(element.mesh.radii[0] ?? 0.001);
+          }
+        }
+        combinedBranchCurrents.push(...vsCurrents);
+      }
+
+      // Two-terminal CS: add gap edge + known source current (single-antenna path)
+      // Edge direction [node_end → node_start] so positive current completes loop.
+      if (element.sources) {
+        for (const source of element.sources) {
+          if (source.type === 'current'
+              && source.node_start != null && source.node_end != null
+              && source.node_start >= 1 && source.node_end >= 1) {
+            combinedEdges.push([source.node_end, source.node_start]);
+            combinedRadii.push(element.mesh.radii[0] ?? 0.001);
+            combinedBranchCurrents.push(source.amplitude ?? 1.0);
+          }
+        }
+      }
     }
 
+    // For sweep mode, build per-frequency currents with same VS filtering.
+    // Also append known CS currents for two-terminal current source gap edges.
+    const legacyVsPerElement = elements.filter(el => el.mesh).map(el => hasNonGroundVs(el));
+    const legacyCsCurrents: AntennaSolution['branch_currents'] = [];
+    for (const el of elements.filter(e => e.mesh)) {
+      for (const source of el.sources ?? []) {
+        if (source.type === 'current'
+            && source.node_start != null && source.node_end != null
+            && source.node_start >= 1 && source.node_end >= 1) {
+          legacyCsCurrents.push(source.amplitude ?? 1.0);
+        }
+      }
+    }
     const branch_currents_array = isSweepMode
       ? frequencySweep.results.map(r =>
           r.antenna_solutions && r.antenna_solutions.length > 0
-            ? r.antenna_solutions.flatMap(sol => sol.branch_currents || [])
+            ? [
+                ...r.antenna_solutions.flatMap((sol, i) => [
+                  ...(sol.branch_currents || []),
+                  ...(legacyVsPerElement[i] ? (sol.voltage_source_currents || []) : []),
+                ]),
+                ...legacyCsCurrents,
+              ]
             : []
         )
       : [combinedBranchCurrents];
@@ -836,14 +971,26 @@ export const computeRadiationPatternForFrequency = createAsyncThunk<
     // Get the single frequency and its branch currents
     let freqHz: number;
     let branchCurrentsForFreq: AntennaSolution['branch_currents'];
+    let includeVsEdges = false;
+
+    // Pre-compute which elements have non-ground VS (both source nodes >= 1).
+    // Ground-referencing VS edges can't be added to the mesh (no physical
+    // position for node 0) and balanced-feed dipoles merge 2 sources into
+    // 1 solver VS — so including them would cause an edge/current mismatch.
+    const elementsWithMesh = elements.filter(el => el.mesh);
+    const vsPerElement = elementsWithMesh.map(el => hasNonGroundVs(el));
 
     if (isSweepMode) {
       freqHz = frequencySweep.frequencies[frequencyIndex];
       const result = frequencySweep.results[frequencyIndex];
       if (result.antenna_solutions && result.antenna_solutions.length > 0) {
         branchCurrentsForFreq = result.antenna_solutions.flatMap(
-          sol => sol.branch_currents || []
+          (sol, i) => [
+            ...(sol.branch_currents || []),
+            ...(vsPerElement[i] ? (sol.voltage_source_currents || []) : []),
+          ]
         );
+        includeVsEdges = true;
       } else {
         return rejectWithValue(`No antenna solutions for frequency index ${frequencyIndex}`);
       }
@@ -855,10 +1002,15 @@ export const computeRadiationPatternForFrequency = createAsyncThunk<
 
       if (isMultiAntenna) {
         branchCurrentsForFreq = multiAntennaResult.antenna_solutions.flatMap(
-          sol => sol.branch_currents || []
+          (sol, i) => [
+            ...(sol.branch_currents || []),
+            ...(vsPerElement[i] ? (sol.voltage_source_currents || []) : []),
+          ]
         );
+        includeVsEdges = true;
       } else {
         branchCurrentsForFreq = results!.branch_currents;
+        includeVsEdges = false;
       }
     }
 
@@ -884,6 +1036,38 @@ export const computeRadiationPatternForFrequency = createAsyncThunk<
       ]);
       combinedEdges.push(...offsetEdges);
       combinedRadii.push(...mesh.radii);
+
+      // Include voltage source edges so the far-field sees a closed current path.
+      // Only add for non-ground VS (node_start >= 1 && node_end >= 1) to match
+      // the currents included above and avoid invalid ground-node references.
+      if (includeVsEdges && element.sources) {
+        for (const source of element.sources) {
+          if (source.type === 'voltage'
+              && source.node_start != null && source.node_end != null
+              && source.node_start >= 1 && source.node_end >= 1) {
+            combinedEdges.push([source.node_start + nodeOffset, source.node_end + nodeOffset]);
+            combinedRadii.push(mesh.radii[0] ?? 0.001);
+          }
+        }
+      }
+
+      // Include two-terminal current source edges.  The wire edge at the feed
+      // gap was removed during meshing; re-add it here with the known source
+      // current so the far-field sees a complete closed loop.
+      // Edge direction is [node_end → node_start] so positive current flows in
+      // the same direction as the other wire edges (completing the loop).
+      if (element.sources) {
+        for (const source of element.sources) {
+          if (source.type === 'current'
+              && source.node_start != null && source.node_end != null
+              && source.node_start >= 1 && source.node_end >= 1) {
+            combinedEdges.push([source.node_end + nodeOffset, source.node_start + nodeOffset]);
+            combinedRadii.push(mesh.radii[0] ?? 0.001);
+            branchCurrentsForFreq.push(source.amplitude ?? 1.0);
+          }
+        }
+      }
+
       nodeOffset += mesh.nodes.length;
     }
 
@@ -919,6 +1103,9 @@ const solverSlice = createSlice({
     // Update progress
     setProgress: (state, action: PayloadAction<number>) => {
       state.progress = Math.min(100, Math.max(0, action.payload));
+    },
+    setSweepProgress: (state, action: PayloadAction<{ current: number; total: number } | null>) => {
+      state.sweepProgress = action.payload;
     },
 
     // Clear results
@@ -1268,6 +1455,7 @@ const solverSlice = createSlice({
     // ========================================================================
     builder.addCase(runFrequencySweep.pending, (state) => {
       state.sweepInProgress = true;
+      state.sweepProgress = null;
       state.status = 'running';
       state.progress = 0;
       state.error = null;
@@ -1287,6 +1475,7 @@ const solverSlice = createSlice({
 
     builder.addCase(runFrequencySweep.fulfilled, (state, action) => {
       state.sweepInProgress = false;
+      state.sweepProgress = null;
       state.status = 'completed';
       state.progress = 100;
       state.frequencySweep = action.payload;
@@ -1397,6 +1586,7 @@ const solverSlice = createSlice({
 
 export const {
   setProgress,
+  setSweepProgress,
   clearResults,
   resetSolver,
   addFieldRegion,
@@ -1430,6 +1620,7 @@ export const selectCurrentDistribution = (state: RootState) => state.solver.curr
 export const selectResultsHistory = (state: RootState) => state.solver.resultsHistory;
 export const selectFrequencySweep = (state: RootState) => state.solver.frequencySweep;
 export const selectSweepInProgress = (state: RootState) => state.solver.sweepInProgress;
+export const selectSweepProgress = (state: RootState) => state.solver.sweepProgress;
 export const selectRadiationPattern = (state: RootState) => state.solver.radiationPattern;
 
 // Field and postprocessing selectors
