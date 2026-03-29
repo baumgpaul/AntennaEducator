@@ -527,23 +527,85 @@ function PropertiesPanel({
                   </Stack>
                 </Box>
 
-                {/* Mesh Info */}
+                {/* Type-Specific Parameters (read-only) */}
+                <Divider />
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                    Mesh Statistics
+                    Geometry Parameters
                   </Typography>
                   <Stack spacing={1}>
+                    {antennaElement.type === 'dipole' && (
+                      <>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Length:</Typography>
+                          <Typography variant="body2">{((antennaElement.config as any).length ?? '—')} m</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Segments:</Typography>
+                          <Typography variant="body2">{(antennaElement.config as any).segments ?? '—'}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Wire radius:</Typography>
+                          <Typography variant="body2">{((antennaElement.config as any).wire_radius ?? '—')} m</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Feed gap:</Typography>
+                          <Typography variant="body2">{((antennaElement.config as any).gap ?? '—')} m</Typography>
+                        </Box>
+                      </>
+                    )}
+                    {antennaElement.type === 'loop' && (
+                      <>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Radius:</Typography>
+                          <Typography variant="body2">{((antennaElement.config as any).radius ?? '—')} m</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Segments:</Typography>
+                          <Typography variant="body2">{(antennaElement.config as any).segments ?? '—'}</Typography>
+                        </Box>
+                      </>
+                    )}
+                    {antennaElement.type === 'helix' && (
+                      <>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Diameter:</Typography>
+                          <Typography variant="body2">{((antennaElement.config as any).radius ? (antennaElement.config as any).radius * 2 : '—')} m</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Pitch:</Typography>
+                          <Typography variant="body2">{((antennaElement.config as any).pitch ?? '—')} m</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Turns:</Typography>
+                          <Typography variant="body2">{(antennaElement.config as any).turns ?? '—'}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Segments/turn:</Typography>
+                          <Typography variant="body2">{(antennaElement.config as any).segments_per_turn ?? '—'}</Typography>
+                        </Box>
+                      </>
+                    )}
+                    {antennaElement.type === 'rod' && (
+                      <>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Length:</Typography>
+                          <Typography variant="body2">{((antennaElement.config as any).length ?? '—')} m</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Segments:</Typography>
+                          <Typography variant="body2">{(antennaElement.config as any).segments ?? '—'}</Typography>
+                        </Box>
+                      </>
+                    )}
+                    {/* Mesh info (always shown) */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Nodes:
-                      </Typography>
-                      <Typography variant="body2">{antennaElement.mesh.nodes.length}</Typography>
+                      <Typography variant="body2" color="text.secondary">Nodes:</Typography>
+                      <Typography variant="body2">{antennaElement.mesh?.nodes?.length ?? 0}</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Edges:
-                      </Typography>
-                      <Typography variant="body2">{antennaElement.mesh.edges.length}</Typography>
+                      <Typography variant="body2" color="text.secondary">Edges:</Typography>
+                      <Typography variant="body2">{antennaElement.mesh?.edges?.length ?? 0}</Typography>
                     </Box>
                   </Stack>
                 </Box>

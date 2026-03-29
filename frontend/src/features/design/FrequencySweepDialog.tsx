@@ -29,11 +29,11 @@ const frequencySweepSchema = z.object({
   startFrequency: z
     .number()
     .min(0.001e6, 'Start frequency must be at least 1 kHz')
-    .max(1000e6, 'Start frequency must be less than 1000 MHz'),
+    .max(10e9, 'Start frequency must be less than 10 GHz'),
   stopFrequency: z
     .number()
     .min(0.001e6, 'Stop frequency must be at least 1 kHz')
-    .max(1000e6, 'Stop frequency must be less than 1000 MHz'),
+    .max(10e9, 'Stop frequency must be less than 10 GHz'),
   numPoints: z
     .number()
     .int()
@@ -56,6 +56,7 @@ interface FrequencySweepDialogProps {
   onClose: () => void
   onSubmit: (params: FrequencySweepParams) => void
   isLoading?: boolean
+  initialValues?: Partial<FrequencySweepFormData>
 }
 
 // ============================================================================
@@ -128,7 +129,15 @@ export const FrequencySweepDialog: React.FC<FrequencySweepDialogProps> = ({
   onClose,
   onSubmit,
   isLoading = false,
+  initialValues,
 }) => {
+  const defaultValues = {
+    startFrequency: initialValues?.startFrequency ?? 10e6,
+    stopFrequency: initialValues?.stopFrequency ?? 100e6,
+    numPoints: initialValues?.numPoints ?? 20,
+    spacing: (initialValues?.spacing ?? 'linear') as FrequencySpacing,
+  };
+
   const {
     control,
     handleSubmit,
@@ -137,24 +146,24 @@ export const FrequencySweepDialog: React.FC<FrequencySweepDialogProps> = ({
     watch,
   } = useForm<FrequencySweepFormData>({
     resolver: zodResolver(frequencySweepSchema),
-    defaultValues: {
-      startFrequency: 10e6,  // 10 MHz
-      stopFrequency: 100e6,  // 100 MHz
-      numPoints: 20,
-      spacing: 'linear' as FrequencySpacing,
-    },
+    defaultValues,
   })
 
   const startFreq = watch('startFrequency')
   const stopFreq = watch('stopFrequency')
   const numPoints = watch('numPoints')
 
-  // Reset form when dialog opens (not when it closes)
+  // Reset form when dialog opens with latest initial values
   useEffect(() => {
     if (open) {
-      reset()
+      reset({
+        startFrequency: initialValues?.startFrequency ?? 10e6,
+        stopFrequency: initialValues?.stopFrequency ?? 100e6,
+        numPoints: initialValues?.numPoints ?? 20,
+        spacing: (initialValues?.spacing ?? 'linear') as FrequencySpacing,
+      })
     }
-  }, [open, reset])
+  }, [open, reset, initialValues])
 
   const handleFormSubmit = (data: FrequencySweepFormData) => {
     onSubmit({

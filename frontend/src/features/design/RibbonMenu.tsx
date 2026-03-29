@@ -2,16 +2,10 @@ import { useState } from 'react';
 import {
   Box,
   Paper,
-  Tabs,
-  Tab,
   ButtonGroup,
   Button,
   Divider,
   Tooltip,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
   Snackbar,
   Alert,
 } from '@mui/material';
@@ -20,24 +14,17 @@ import {
   RadioButtonChecked,
   Loop,
   Widgets,
-  PlayArrow,
-  Assessment,
-  Settings,
-  ExpandMore,
-  ColorLens,
-  TrendingUp,
   CheckCircle,
-  Error as ErrorIcon,
-  HourglassEmpty,
   Add,
-  ViewInAr,
   Sensors,
   ShowChart,
   PictureAsPdf,
   SaveAlt,
+  AccountTree,
+  ElectricalServices,
+  BoltOutlined,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector, useAppStore } from '@/store/hooks';
-import { toggleVisualizationMode } from '@/store/uiSlice';
 import {
   setAddViewDialogOpen,
   setAddAntennaDialogOpen,
@@ -47,8 +34,6 @@ import {
   setExportPDFDialogOpen,
   setExportType,
   addItemToView,
-  selectViewConfigurations,
-  selectSelectedViewId,
 } from '@/store/postprocessingSlice';
 import { exportToVTU, canExportToVTU } from '@/utils/ParaViewExporter';
 import type { RootState } from '@/store';
@@ -72,13 +57,9 @@ function RibbonMenu({
   currentTab = 'designer',
   onAntennaTypeSelect,
   onAnalysisAction,
-  onViewOption,
-  solverStatus = 'idle',
-  solverProgress = 0
 }: RibbonMenuProps) {
   const dispatch = useAppDispatch();
   const store = useAppStore();
-  const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
   const selectedViewId = useAppSelector((state) => state.postprocessing.selectedViewId);
   const viewConfigurations = useAppSelector((state) => state.postprocessing.viewConfigurations);
   const currentFrequency = useAppSelector((state) => state.solver.currentFrequency);
@@ -86,81 +67,13 @@ function RibbonMenu({
     state.postprocessing.viewConfigurations.find(v => v.id === selectedViewId)
   );
 
-  const [antennaMenuAnchor, setAntennaMenuAnchor] = useState<null | HTMLElement>(null);
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
-  const isSimulationRunning = solverStatus === 'preparing' || solverStatus === 'running';
-
-  const handleAntennaMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAntennaMenuAnchor(event.currentTarget);
-  };
-
-  const handleAntennaMenuClose = () => {
-    setAntennaMenuAnchor(null);
-  };
-
-  const handleAntennaSelect = (type: string) => {
-    onAntennaTypeSelect?.(type);
-    handleAntennaMenuClose();
-  };
-
-  const handleToggleVisualizationMode = () => {
-    dispatch(toggleVisualizationMode());
-  };
-
   // Postprocessing action handlers
   const handleAddView = () => {
     dispatch(setAddViewDialogOpen(true));
-  };
-
-  const handleAddAntennaSystem = () => {
-    if (!selectedViewId) return;
-
-    dispatch(addItemToView({
-      viewId: selectedViewId,
-      item: {
-        type: 'antenna-system',
-        visible: true,
-        label: 'Antenna System',
-      },
-    }));
-  };
-
-  const handleAddAntennaElement = () => {
-    dispatch(setAddAntennaDialogOpen(true));
-  };
-
-  const handleAddCurrentDistribution = () => {
-    if (!selectedViewId) return;
-
-    dispatch(addItemToView({
-      viewId: selectedViewId,
-      item: {
-        type: 'current',
-        visible: true,
-        label: 'Currents',
-        colorMap: 'jet',
-        opacity: 0.8,
-      },
-    }));
-  };
-
-  const handleAddVoltageDistribution = () => {
-    if (!selectedViewId) return;
-
-    dispatch(addItemToView({
-      viewId: selectedViewId,
-      item: {
-        type: 'voltage',
-        visible: true,
-        label: 'Potential',
-        colorMap: 'jet',
-        opacity: 0.8,
-        nodeSize: 0.01, // Default smaller node size appropriate for antenna scale
-      },
-    }));
   };
 
   const handleAddField = () => {
@@ -179,6 +92,57 @@ function RibbonMenu({
         colorMap: 'jet',
         opacity: 0.8,
         scale: 'logarithmic',
+      },
+    }));
+  };
+
+  const handleAddAntennaSystem = () => {
+    if (!selectedViewId) return;
+    dispatch(addItemToView({
+      viewId: selectedViewId,
+      item: {
+        type: 'antenna-system',
+        visible: true,
+        label: 'Antenna System',
+        opacity: 1.0,
+      },
+    }));
+  };
+
+  const handleAddAntennaElement = () => {
+    dispatch(setAddAntennaDialogOpen(true));
+  };
+
+  const handleAddCurrentDistribution = () => {
+    if (!selectedViewId) return;
+    dispatch(addItemToView({
+      viewId: selectedViewId,
+      item: {
+        type: 'current',
+        visible: true,
+        label: 'Current Distribution',
+        colorMap: 'jet',
+        edgeSize: 3,
+        displayQuantity: 'magnitude',
+        valueRangeMode: 'auto',
+        showColorbar: true,
+      },
+    }));
+  };
+
+  const handleAddVoltageDistribution = () => {
+    if (!selectedViewId) return;
+    dispatch(addItemToView({
+      viewId: selectedViewId,
+      item: {
+        type: 'voltage',
+        visible: true,
+        label: 'Potential Distribution',
+        colorMap: 'jet',
+        nodeSize: 3,
+        displayQuantity: 'magnitude',
+        valueRangeMode: 'auto',
+        showColorbar: true,
       },
     }));
   };
@@ -277,10 +241,10 @@ function RibbonMenu({
           {/* DESIGNER TAB RIBBON */}
           {currentTab === 'designer' && (
             <>
-              {/* Antenna Types Section */}
+              {/* Components Section */}
               <Box>
                 <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                  Antenna Types
+                  Components
                 </Box>
                 <ButtonGroup variant="outlined" size="small">
                   <Tooltip title="Create dipole antenna">
@@ -307,42 +271,31 @@ function RibbonMenu({
                       Helix
                     </Button>
                   </Tooltip>
-                  <Tooltip title="More antenna types">
+                  <Tooltip title="Create rod/wire antenna">
                     <Button
-                      onClick={handleAntennaMenuOpen}
-                      endIcon={<ExpandMore />}
+                      startIcon={<CableOutlined />}
+                      onClick={() => onAntennaTypeSelect?.('rod')}
                     >
-                      More
+                      Rod
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Create custom wire structure">
+                    <Button
+                      startIcon={<Widgets />}
+                      onClick={() => onAntennaTypeSelect?.('custom')}
+                    >
+                      Custom
                     </Button>
                   </Tooltip>
                 </ButtonGroup>
-
-                <Menu
-                  anchorEl={antennaMenuAnchor}
-                  open={Boolean(antennaMenuAnchor)}
-                  onClose={handleAntennaMenuClose}
-                >
-                  <MenuItem onClick={() => handleAntennaSelect('rod')}>
-                    <ListItemIcon>
-                      <CableOutlined fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText>Rod/Wire</ListItemText>
-                  </MenuItem>
-                  <MenuItem onClick={() => handleAntennaSelect('custom')}>
-                    <ListItemIcon>
-                      <Widgets fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText>Custom Structure</ListItemText>
-                  </MenuItem>
-                </Menu>
               </Box>
 
               <Divider orientation="vertical" flexItem />
 
-              {/* Elements Section */}
+              {/* Edit Circuitry Section */}
               <Box>
                 <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                  Add Elements
+                  Edit Circuitry
                 </Box>
                 <ButtonGroup variant="outlined" size="small">
                   <Tooltip title="Add voltage source">
@@ -359,6 +312,25 @@ function RibbonMenu({
                       onClick={() => onAntennaTypeSelect?.('lumped-element')}
                     >
                       R/L/C
+                    </Button>
+                  </Tooltip>
+                </ButtonGroup>
+              </Box>
+
+              <Divider orientation="vertical" flexItem />
+
+              {/* Edit Geometry Section */}
+              <Box>
+                <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
+                  Edit Geometry
+                </Box>
+                <ButtonGroup variant="outlined" size="small">
+                  <Tooltip title="Validate geometry before simulation">
+                    <Button
+                      startIcon={<CheckCircle />}
+                      onClick={() => onAnalysisAction?.('validate-geometry')}
+                    >
+                      Validate
                     </Button>
                   </Tooltip>
                 </ButtonGroup>
@@ -388,48 +360,60 @@ function RibbonMenu({
 
               <Divider orientation="vertical" flexItem />
 
-              {/* Antenna Section (3D only) */}
+              {/* 3D-only sections */}
               {selectedViewData?.viewType === '3D' && (
                 <>
+                  {/* Antenna Structure Section (3D only) */}
                   <Box>
                     <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                      Antenna
+                      Antenna Structure
                     </Box>
                     <ButtonGroup variant="outlined" size="small">
-                      <Tooltip title="Add all antennas as single tree item">
+                      <Tooltip title="Add full antenna system to view">
                         <Button
-                          startIcon={<ViewInAr />}
+                          startIcon={<AccountTree />}
                           onClick={handleAddAntennaSystem}
                           disabled={!selectedViewId}
                         >
-                          Add System
+                          System
                         </Button>
                       </Tooltip>
-                      <Tooltip title="Add individual antenna element">
+                      <Tooltip title="Add individual antenna element to view">
                         <Button
-                          startIcon={<Widgets />}
+                          startIcon={<CableOutlined />}
                           onClick={handleAddAntennaElement}
                           disabled={!selectedViewId}
                         >
-                          Add Element
+                          Element
                         </Button>
                       </Tooltip>
+                    </ButtonGroup>
+                  </Box>
+
+                  <Divider orientation="vertical" flexItem />
+
+                  {/* Distribution Section (3D only) */}
+                  <Box>
+                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
+                      Distribution
+                    </Box>
+                    <ButtonGroup variant="outlined" size="small">
                       <Tooltip title="Add current distribution visualization">
                         <Button
-                          startIcon={<TrendingUp />}
+                          startIcon={<ElectricalServices />}
                           onClick={handleAddCurrentDistribution}
                           disabled={!selectedViewId}
                         >
-                          Currents
+                          Current
                         </Button>
                       </Tooltip>
-                      <Tooltip title="Add voltage distribution visualization">
+                      <Tooltip title="Add potential (voltage) distribution visualization">
                         <Button
-                          startIcon={<RadioButtonChecked />}
+                          startIcon={<BoltOutlined />}
                           onClick={handleAddVoltageDistribution}
                           disabled={!selectedViewId}
                         >
-                          Voltages
+                          Potential
                         </Button>
                       </Tooltip>
                     </ButtonGroup>

@@ -38,6 +38,7 @@ import {
   buildMultiAntennaRequest,
   countSimulationReadyElements,
   validateHasSources,
+  validateGeometry,
   getSimulationComplexity,
 } from '@/utils/multiAntennaBuilder';
 import DesignCanvas from './DesignCanvas';
@@ -660,6 +661,35 @@ function DesignPage() {
 
   const handleAnalysisAction = async (action: string) => {
     console.log('Analysis action:', action);
+
+    if (action === 'validate-geometry') {
+      const issues = validateGeometry(elements || [], currentFrequency ? currentFrequency * 1e6 : undefined);
+      if (issues.length === 0) {
+        dispatch(addNotification({
+          id: Date.now(),
+          message: 'Geometry validation passed — no issues found.',
+          severity: 'success',
+          duration: 4000,
+        }));
+      } else {
+        const errors = issues.filter((i) => i.severity === 'error');
+        const warnings = issues.filter((i) => i.severity === 'warning');
+        const summary = [
+          errors.length > 0 ? `${errors.length} error(s)` : '',
+          warnings.length > 0 ? `${warnings.length} warning(s)` : '',
+        ].filter(Boolean).join(', ');
+        const details = issues
+          .map((i) => `[${i.element}] ${i.message}`)
+          .join('\n');
+        dispatch(addNotification({
+          id: Date.now(),
+          message: `Geometry validation: ${summary}.\n${details}`,
+          severity: errors.length > 0 ? 'error' : 'warning',
+          duration: 8000,
+        }));
+      }
+      return;
+    }
 
     if (action === 'run-solver') {
       // Check if we have elements

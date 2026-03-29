@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -8,15 +8,12 @@ import {
   TextField,
   Grid,
   InputAdornment,
-  FormHelperText,
   Typography,
   Divider,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Alert,
   CircularProgress,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import { Info } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
@@ -25,10 +22,16 @@ import { z } from 'zod';
 import { PositionControl } from '@/components/PositionControl';
 import { parseDecimalNumber } from '@/utils/numberParser';
 
-// TODO: Add support for rectangular and regular polygon loops (not just circular)
-
-// Common position and orientation schema
-const positionOrientationSchema = {
+// Validation schema — circular loop only
+const loopSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(50, 'Name too long'),
+  radius: z.number().positive('Radius must be positive').max(10, 'Radius too large'),
+  wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
+  feedGap: z.number().nonnegative('Feed gap must be non-negative').max(1, 'Feed gap too large'),
+  segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
+  sourceType: z.enum(['voltage', 'current']),
+  sourceAmplitude: z.number().nonnegative('Amplitude must be non-negative'),
+  sourcePhase: z.number().min(-360).max(360),
   position: z.object({
     x: z.number(),
     y: z.number(),
@@ -39,43 +42,7 @@ const positionOrientationSchema = {
     rotY: z.number().min(-180).max(180),
     rotZ: z.number().min(-180).max(180),
   }),
-};
-
-// Validation schema - conditional based on loop type
-const loopSchema = z.discriminatedUnion('loopType', [
-  // Circular loop
-  z.object({
-    name: z.string().min(1, 'Name is required').max(50, 'Name too long'),
-    loopType: z.literal('circular'),
-    radius: z.number().positive('Radius must be positive').max(10, 'Radius too large'),
-    wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
-    feedGap: z.number().nonnegative('Feed gap must be non-negative').max(1, 'Feed gap too large'),
-    segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
-    ...positionOrientationSchema,
-  }),
-  // Rectangular loop
-  z.object({
-    name: z.string().min(1, 'Name is required').max(50, 'Name too long'),
-    loopType: z.literal('rectangular'),
-    width: z.number().positive('Width must be positive').max(10, 'Width too large'),
-    height: z.number().positive('Height must be positive').max(10, 'Height too large'),
-    wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
-    feedGap: z.number().nonnegative('Feed gap must be non-negative').max(1, 'Feed gap too large'),
-    segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
-    ...positionOrientationSchema,
-  }),
-  // Polygon loop - simplified for now
-  z.object({
-    name: z.string().min(1, 'Name is required').max(50, 'Name too long'),
-    loopType: z.literal('polygon'),
-    sides: z.number().int('Must be integer').min(3, 'Minimum 3 sides').max(20, 'Maximum 20 sides'),
-    circumradius: z.number().positive('Radius must be positive').max(10, 'Radius too large'),
-    wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
-    feedGap: z.number().nonnegative('Feed gap must be non-negative').max(1, 'Feed gap too large'),
-    segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
-    ...positionOrientationSchema,
-  }),
-]);
+});
 
 type LoopFormData = z.infer<typeof loopSchema>;
 
@@ -98,11 +65,13 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
     resolver: zodResolver(loopSchema),
     defaultValues: {
       name: 'Loop',
-      loopType: 'circular',
       radius: 0.048, // ~λ/10 at 1 GHz
       wireRadius: 0.001, // 1mm
-      feedGap: 0.001, // 1mm feed gap
+      feedGap: 0, // 0 = closed loop (voltage source across wraparound edge)
       segments: 32,
+      sourceType: 'voltage' as const,
+      sourceAmplitude: 1,
+      sourcePhase: 0,
       position: {
         x: 0,
         y: 0,
@@ -116,7 +85,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
     },
   });
 
-  const loopType = watch('loopType');
+  const sourceType = watch('sourceType');
 
   const handleClose = () => {
     if (!isGenerating) {
@@ -133,60 +102,17 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
       onClose();
     } catch (error) {
       console.error('Failed to generate loop:', error);
-      // Error handling will be done in parent component via notifications
     } finally {
       setIsGenerating(false);
     }
   };
-
-  // Reset shape-specific fields when loop type changes
-  useEffect(() => {
-    const position = watch('position');
-    const orientation = watch('orientation');
-
-    if (loopType === 'circular') {
-      reset({
-        name: watch('name'),
-        loopType: 'circular',
-        radius: 0.048,
-        wireRadius: watch('wireRadius'),
-        feedGap: watch('feedGap'),
-        segments: watch('segments'),
-        position,
-        orientation,
-      });
-    } else if (loopType === 'rectangular') {
-      reset({        name: watch('name'),
-        loopType: 'rectangular',
-        width: 0.08,
-        height: 0.06,
-        wireRadius: watch('wireRadius'),
-        feedGap: watch('feedGap'),
-        segments: watch('segments'),
-        position,
-        orientation,
-      });
-    } else if (loopType === 'polygon') {
-      reset({
-        name: watch('name'),
-        loopType: 'polygon',
-        sides: 6,
-        circumradius: 0.048,
-        wireRadius: watch('wireRadius'),
-        feedGap: watch('feedGap'),
-        segments: watch('segments'),
-        position,
-        orientation,
-      });
-    }
-  }, [loopType]);
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Typography variant="h6">Configure Loop Antenna</Typography>
         <Typography variant="caption" color="text.secondary">
-          Design a loop antenna with various shapes
+          Design a circular loop antenna
         </Typography>
       </DialogTitle>
 
@@ -211,166 +137,34 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               />
             </Grid>
 
-            {/* Loop Type Selection */}
-            <Grid item xs={12}>
-              <Controller
-                name="loopType"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.loopType}>
-                    <InputLabel id="loop-shape-label">Loop Shape</InputLabel>
-                    <Select
-                      {...field}
-                      labelId="loop-shape-label"
-                      id="loop-shape-select"
-                      label="Loop Shape"
-                      disabled={isGenerating}
-                    >
-                      <MenuItem value="circular">Circular</MenuItem>
-                      <MenuItem value="rectangular">Rectangular</MenuItem>
-                      <MenuItem value="polygon">Regular Polygon</MenuItem>
-                    </Select>
-                    {errors.loopType && (
-                      <FormHelperText>{errors.loopType.message}</FormHelperText>
-                    )}
-                  </FormControl>
-                )}
-              />
-            </Grid>
-
             <Grid item xs={12}>
               <Divider />
             </Grid>
 
-            {/* Circular loop fields */}
-            {loopType === 'circular' && (
-              <Grid item xs={12}>
-                <Controller
-                  name="radius"
-                  control={control}
-                  render={({ field: { onChange, value, ...field } }) => (
-                    <TextField
-                      {...field}
-                      value={value || ''}
-                      onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
-                      label="Loop Radius"
-                      type="number"
-                      fullWidth
-                      error={!!(errors as any).radius}
-                      helperText={(errors as any).radius?.message}
-                      InputProps={{
-                        endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                        inputProps: { step: 0.001, min: 0 },
-                      }}
-                      disabled={isGenerating}
-                    />
-                  )}
-                />
-              </Grid>
-            )}
-
-            {/* Rectangular loop fields */}
-            {loopType === 'rectangular' && (
-              <>
-                <Grid item xs={6}>
-                  <Controller
-                    name="width"
-                    control={control}
-                    render={({ field: { onChange, value, ...field } }) => (
-                      <TextField
-                        {...field}
-                        value={value || ''}
-                        onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
-                        label="Width"
-                        type="number"
-                        fullWidth
-                        error={!!(errors as any).width}
-                        helperText={(errors as any).width?.message}
-                        InputProps={{
-                          endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                          inputProps: { step: 0.001, min: 0 },
-                        }}
-                        disabled={isGenerating}
-                      />
-                    )}
+            {/* Loop Radius */}
+            <Grid item xs={12}>
+              <Controller
+                name="radius"
+                control={control}
+                render={({ field: { onChange, value, ...field } }) => (
+                  <TextField
+                    {...field}
+                    value={value || ''}
+                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
+                    label="Loop Radius"
+                    type="number"
+                    fullWidth
+                    error={!!errors.radius}
+                    helperText={errors.radius?.message}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
+                      inputProps: { step: 0.001, min: 0 },
+                    }}
+                    disabled={isGenerating}
                   />
-                </Grid>
-                <Grid item xs={6}>
-                  <Controller
-                    name="height"
-                    control={control}
-                    render={({ field: { onChange, value, ...field } }) => (
-                      <TextField
-                        {...field}
-                        value={value || ''}
-                        onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
-                        label="Height"
-                        type="number"
-                        fullWidth
-                        error={!!(errors as any).height}
-                        helperText={(errors as any).height?.message}
-                        InputProps={{
-                          endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                          inputProps: { step: 0.001, min: 0 },
-                        }}
-                        disabled={isGenerating}
-                      />
-                    )}
-                  />
-                </Grid>
-              </>
-            )}
-
-            {/* Polygon loop fields */}
-            {loopType === 'polygon' && (
-              <>
-                <Grid item xs={6}>
-                  <Controller
-                    name="sides"
-                    control={control}
-                    render={({ field: { onChange, value, ...field } }) => (
-                      <TextField
-                        {...field}
-                        value={value || ''}
-                        onChange={(e) => onChange(parseInt(e.target.value) || 0)}
-                        label="Number of Sides"
-                        type="number"
-                        fullWidth
-                        error={!!(errors as any).sides}
-                        helperText={(errors as any).sides?.message || 'Polygon sides (3-20)'}
-                        InputProps={{
-                          inputProps: { step: 1, min: 3, max: 20 },
-                        }}
-                        disabled={isGenerating}
-                      />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <Controller
-                    name="circumradius"
-                    control={control}
-                    render={({ field: { onChange, value, ...field } }) => (
-                      <TextField
-                        {...field}
-                        value={value || ''}
-                        onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
-                        label="Circumradius"
-                        type="number"
-                        fullWidth
-                        error={!!(errors as any).circumradius}
-                        helperText={(errors as any).circumradius?.message}
-                        InputProps={{
-                          endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                          inputProps: { step: 0.001, min: 0 },
-                        }}
-                        disabled={isGenerating}
-                      />
-                    )}
-                  />
-                </Grid>
-              </>
-            )}
+                )}
+              />
+            </Grid>
 
             {/* Wire Radius */}
             <Grid item xs={6}>
@@ -441,6 +235,92 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                       inputProps: { step: 1, min: 8, max: 1000 },
                     }}
                     disabled={isGenerating}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Feed Configuration */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Feed Configuration
+                </Typography>
+              </Divider>
+            </Grid>
+
+            {/* Source Type Toggle */}
+            <Grid item xs={12}>
+              <Controller
+                name="sourceType"
+                control={control}
+                render={({ field }) => (
+                  <ToggleButtonGroup
+                    value={field.value}
+                    exclusive
+                    onChange={(_, value) => {
+                      if (value !== null) field.onChange(value);
+                    }}
+                    size="small"
+                    disabled={isGenerating}
+                    fullWidth
+                  >
+                    <ToggleButton value="voltage">Voltage</ToggleButton>
+                    <ToggleButton value="current">Current</ToggleButton>
+                  </ToggleButtonGroup>
+                )}
+              />
+            </Grid>
+
+            {/* Amplitude */}
+            <Grid item xs={6}>
+              <Controller
+                name="sourceAmplitude"
+                control={control}
+                render={({ field: { onChange, value, ...field } }) => (
+                  <TextField
+                    {...field}
+                    value={value}
+                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) ?? 0)}
+                    label="Amplitude"
+                    type="number"
+                    fullWidth
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          {sourceType === 'voltage' ? 'V' : 'A'}
+                        </InputAdornment>
+                      ),
+                    }}
+                    error={!!errors.sourceAmplitude}
+                    helperText={errors.sourceAmplitude?.message}
+                    disabled={isGenerating}
+                    inputProps={{ step: 0.1, min: 0 }}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Phase */}
+            <Grid item xs={6}>
+              <Controller
+                name="sourcePhase"
+                control={control}
+                render={({ field: { onChange, value, ...field } }) => (
+                  <TextField
+                    {...field}
+                    value={value}
+                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) ?? 0)}
+                    label="Phase"
+                    type="number"
+                    fullWidth
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">°</InputAdornment>,
+                    }}
+                    error={!!errors.sourcePhase}
+                    helperText={errors.sourcePhase?.message}
+                    disabled={isGenerating}
+                    inputProps={{ step: 1 }}
                   />
                 )}
               />

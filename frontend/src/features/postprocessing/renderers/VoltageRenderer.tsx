@@ -3,6 +3,7 @@ import { ViewItem, DisplayQuantity } from '../../../types/postprocessing';
 import { useAppSelector } from '../../../store/hooks';
 import * as THREE from 'three';
 import { createColorArray, arrayMin, arrayMax } from '../../../utils/colorMaps';
+import { parseComplex } from '../../../api/solverHelpers';
 
 interface VoltageRendererProps {
   item: ViewItem;
@@ -80,8 +81,9 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
     if (!voltageData) return [];
     const phase = animationPhase ?? 0;
     return voltageData.map((voltage) => {
-      const re = voltage.real || 0;
-      const im = voltage.imag || 0;
+      const parsed = parseComplex(voltage);
+      const re = parsed.real;
+      const im = parsed.imag;
       switch (displayQuantity) {
         case 'real':
           return re;
@@ -115,7 +117,7 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
   }, [displayValues, colorMap, min, max]);
 
   // Get node size and opacity - default smaller for antenna scale
-  const nodeSize = item.nodeSize ?? 0.01;
+  const nodeSize = item.nodeSize ?? 0.002;
   const opacity = item.opacity !== undefined ? item.opacity : 1.0;
 
   // Create sphere geometry and material (shared for performance)
