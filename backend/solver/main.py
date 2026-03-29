@@ -360,7 +360,7 @@ async def solve_multi_antenna_endpoint(
         if len(request.antennas) < 1:
             raise HTTPException(status_code=400, detail="At least 1 antenna required")
 
-        # Validate each antenna
+        # Validate each antenna's geometry
         for i, antenna in enumerate(request.antennas):
             if len(antenna.nodes) < 2:
                 raise HTTPException(
@@ -380,12 +380,16 @@ async def solve_multi_antenna_endpoint(
                     detail=f"Antenna {antenna.antenna_id}: Number of radii must match edges",
                 )
 
-            # At least one excitation required per antenna
-            if len(antenna.voltage_sources) == 0 and len(antenna.current_sources) == 0:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Antenna {antenna.antenna_id}: At least one source required",
-                )
+        # At least one antenna in the system must have a source
+        # (parasitic elements like Yagi reflectors/directors have no source)
+        has_any_source = any(
+            len(a.voltage_sources) > 0 or len(a.current_sources) > 0 for a in request.antennas
+        )
+        if not has_any_source:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one antenna must have a voltage or current source",
+            )
 
         # Get solver configuration
         config = _get_solver_config(request.config)
