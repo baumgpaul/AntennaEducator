@@ -13,6 +13,7 @@ import { http, HttpResponse } from 'msw';
 import ProjectsPage from '@/features/projects/ProjectsPage';
 import projectsReducer from '@/store/projectsSlice';
 import uiReducer from '@/store/uiSlice';
+import foldersReducer from '@/store/foldersSlice';
 import type { RootState } from '@/store/store';
 import { server } from '@/test/mocks/server';
 
@@ -25,6 +26,7 @@ function renderWithRedux(
     reducer: {
       projects: projectsReducer,
       ui: uiReducer,
+      folders: foldersReducer,
     },
     preloadedState: preloadedState as PreloadedState<RootState>,
   });
@@ -62,6 +64,7 @@ describe('ProjectsPage', () => {
           reducer: {
             projects: projectsReducer,
             ui: uiReducer,
+            folders: foldersReducer,
           },
           preloadedState: preloadedState as PreloadedState<RootState>,
         })}

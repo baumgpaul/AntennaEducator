@@ -9,6 +9,7 @@ import designReducer from '@/store/designSlice';
 import solverReducer from '@/store/solverSlice';
 import uiReducer from '@/store/uiSlice';
 import postprocessingReducer from '@/store/postprocessingSlice';
+import documentationReducer from '@/store/documentationSlice';
 
 // Create mock navigate function at module level
 const mockNavigate = vi.fn();
@@ -32,7 +33,40 @@ vi.mock('../DesignCanvas', () => ({
   default: () => <div data-testid="design-canvas">Design Canvas</div>,
 }));
 
-const createTestStore = (initialState = {}) => {
+const defaultUiState = {
+  theme: { mode: 'light' },
+  layout: { sidebarOpen: true, propertiesPanelOpen: true },
+  visualization: { mode: 'element-colors' },
+  notifications: [],
+  modals: {},
+};
+
+const defaultDocumentationState = {
+  projectId: null,
+  content: '',
+  version: 1,
+  imageKeys: [],
+  panelOpen: false,
+  loading: false,
+  saving: false,
+  error: null,
+  dirty: false,
+};
+
+const defaultPostprocessingState = {
+  viewConfigurations: [],
+  selectedViewId: null,
+  selectedItemId: null,
+  addViewDialogOpen: false,
+  addAntennaDialogOpen: false,
+  addFieldDialogOpen: false,
+  addScalarPlotDialogOpen: false,
+  scalarPlotPreselect: null,
+  exportPDFDialogOpen: false,
+  exportType: null,
+};
+
+const createTestStore = (initialState: Record<string, any> = {}) => {
   return configureStore({
     reducer: {
       projects: projectsReducer,
@@ -40,8 +74,14 @@ const createTestStore = (initialState = {}) => {
       solver: solverReducer,
       ui: uiReducer,
       postprocessing: postprocessingReducer,
+      documentation: documentationReducer,
     },
-    preloadedState: initialState,
+    preloadedState: {
+      ...initialState,
+      ui: initialState.ui || defaultUiState,
+      documentation: initialState.documentation || defaultDocumentationState,
+      postprocessing: initialState.postprocessing || defaultPostprocessingState,
+    } as any,
   });
 };
 
@@ -89,12 +129,10 @@ describe('DesignPage Results Navigation', () => {
           fieldResults: null,
           postprocessingStatus: 'idle',
           postprocessingProgress: null,
-        },
-        ui: {
-          theme: 'light',
-          sidebarOpen: true,
-          notifications: [],
-          modals: {},
+          fieldData: null,
+          radiationPatterns: null,
+          selectedFrequencyHz: null,
+          resultsStale: false,
         },
       });
 
@@ -149,12 +187,10 @@ describe('DesignPage Results Navigation', () => {
           fieldResults: null,
           postprocessingStatus: 'idle',
           postprocessingProgress: null,
-        },
-        ui: {
-          theme: 'light',
-          sidebarOpen: true,
-          notifications: [],
-          modals: {},
+          fieldData: null,
+          radiationPatterns: null,
+          selectedFrequencyHz: null,
+          resultsStale: false,
         },
       });
 
@@ -168,7 +204,10 @@ describe('DesignPage Results Navigation', () => {
 
       // Just check that it renders successfully without results
       expect(screen.getByRole('tab', { name: /Solver/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /Postprocessing/i })).toHaveAttribute('aria-disabled', 'true');
+      // When solverState is 'idle', Postprocessing tab should be disabled.
+      // MUI Tab renders disabled with the 'Mui-disabled' class.
+      const postTab = screen.getByRole('tab', { name: /Postprocessing/i });
+      expect(postTab).toHaveClass('Mui-disabled');
     });
   });
 
@@ -227,12 +266,10 @@ describe('DesignPage Results Navigation', () => {
           fieldResults: null,
           postprocessingStatus: 'idle',
           postprocessingProgress: null,
-        },
-        ui: {
-          theme: 'light',
-          sidebarOpen: true,
-          notifications: [],
-          modals: {},
+          fieldData: null,
+          radiationPatterns: null,
+          selectedFrequencyHz: null,
+          resultsStale: false,
         },
       });
 

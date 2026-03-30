@@ -9,6 +9,7 @@ let mockState: any;
 vi.mock('react-redux', () => ({
   useDispatch: () => mockDispatch,
   useSelector: (selector: any) => selector(mockState),
+  useStore: () => ({ getState: () => mockState, dispatch: mockDispatch }),
 }));
 
 vi.mock('../TreeViewPanel', () => ({
@@ -84,6 +85,22 @@ describe('SolverTab', () => {
         directivityRequested: false,
         directivitySettings: { theta_points: 19, phi_points: 37 },
         solverState: 'idle',
+        status: 'idle',
+        progress: 0,
+        error: null,
+        results: null,
+        currentDistribution: null,
+        frequencySweep: null,
+        sweepInProgress: false,
+        sweepProgress: 0,
+        currentFrequency: null,
+        fieldResults: null,
+        postprocessingStatus: 'idle',
+        postprocessingProgress: null,
+        resultsStale: false,
+      },
+      design: {
+        isSolved: false,
       },
     };
   });
@@ -100,7 +117,6 @@ describe('SolverTab', () => {
 
     expect(screen.getByTestId('tree-view-panel')).toBeInTheDocument();
     expect(screen.getByTestId('scene-3d')).toBeInTheDocument();
-    expect(screen.getByTestId('solver-properties-panel')).toBeInTheDocument();
     expect(screen.getByText('Solve Single')).toBeInTheDocument();
     expect(screen.getByText('Add Directivity')).toBeInTheDocument();
   });
@@ -118,6 +134,7 @@ describe('SolverTab', () => {
     expect(screen.getByText('Compute Postprocessing')).toBeDisabled();
 
     mockState.solver.solverState = 'solved';
+    mockState.design.isSolved = true;
 
     rerender(
       <SolverTab

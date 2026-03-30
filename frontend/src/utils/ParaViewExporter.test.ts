@@ -21,12 +21,26 @@ describe('ParaViewExporter', () => {
         fieldData: {
           'field1': {
             300000000: {
-              observation_points: [[0, 0, 0], [1, 0, 0]],
-              E_field: [[1, 0, 0], [0, 1, 0]],
-              H_field: [[0, 0, 1], [1, 0, 1]],
+              points: [[0, 0, 0], [1, 0, 0]],
+              E_vectors: [[1, 0, 0], [0, 1, 0]],
+              H_vectors: [[0, 0, 1], [1, 0, 1]],
             },
           },
         },
+      },
+      design: {
+        elements: [
+          {
+            id: 'elem-1',
+            name: 'Dipole 1',
+            type: 'dipole',
+            mesh: {
+              nodes: [[0, 0, -0.25], [0, 0, 0], [0, 0, 0.25]],
+              edges: [[0, 1], [1, 2]],
+              radii: [0.001, 0.001],
+            },
+          },
+        ],
       },
     } as any;
   });
@@ -54,14 +68,14 @@ describe('ParaViewExporter', () => {
       const mockResponse = { data: mockBlob };
       (postprocessorClient.post as any).mockResolvedValue(mockResponse);
 
-      // Mock URL.createObjectURL and document.createElement
+      // Mock URL methods
       global.URL.createObjectURL = vi.fn(() => 'mock-url');
-      const mockLink = {
-        href: '',
-        download: '',
-        click: vi.fn(),
-      };
-      vi.spyOn(document, 'createElement').mockReturnValue(mockLink as any);
+      global.URL.revokeObjectURL = vi.fn();
+
+      // Use a real anchor element so appendChild works in jsdom
+      const mockLink = document.createElement('a');
+      mockLink.click = vi.fn();
+      vi.spyOn(document, 'createElement').mockReturnValue(mockLink);
 
       await exportToVTU({
         fieldId: 'field1',
@@ -73,8 +87,9 @@ describe('ParaViewExporter', () => {
         '/api/export/vtu',
         expect.objectContaining({
           observation_points: [[0, 0, 0], [1, 0, 0]],
-          E_field: [[1, 0, 0], [0, 1, 0]],
-          H_field: [[0, 0, 1], [1, 0, 1]],
+          nodes: [[0, 0, -0.25], [0, 0, 0], [0, 0, 0.25]],
+          edges: [[0, 1], [1, 2]],
+          frequencies: [300000000],
         }),
         expect.objectContaining({
           responseType: 'blob',
@@ -88,12 +103,12 @@ describe('ParaViewExporter', () => {
       (postprocessorClient.post as any).mockResolvedValue(mockResponse);
 
       global.URL.createObjectURL = vi.fn(() => 'mock-url');
-      const mockLink = {
-        href: '',
-        download: '',
-        click: vi.fn(),
-      };
-      vi.spyOn(document, 'createElement').mockReturnValue(mockLink as any);
+      global.URL.revokeObjectURL = vi.fn();
+
+      // Use a real anchor element so appendChild works in jsdom
+      const mockLink = document.createElement('a');
+      mockLink.click = vi.fn();
+      vi.spyOn(document, 'createElement').mockReturnValue(mockLink);
 
       await exportToVTU({
         fieldId: 'field1',
@@ -112,7 +127,7 @@ describe('ParaViewExporter', () => {
           frequencyHz: 300000000,
           filename: 'test',
         }, mockState)
-      ).rejects.toThrow('Field data not found');
+      ).rejects.toThrow('No field data available for export');
     });
   });
 });

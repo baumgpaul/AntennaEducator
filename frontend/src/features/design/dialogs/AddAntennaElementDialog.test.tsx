@@ -30,8 +30,8 @@ describe('AddAntennaElementDialog', () => {
           selectedViewId: 'view-1',
           selectedItemId: null,
           addViewDialogOpen: false,
-          addAntennaElementDialogOpen: true,
-          addFieldVisualizationDialogOpen: false,
+          addAntennaDialogOpen: true,
+          addFieldDialogOpen: false,
           addScalarPlotDialogOpen: false,
         },
         design: {
@@ -64,20 +64,20 @@ describe('AddAntennaElementDialog', () => {
   it('displays antenna list in dropdown', () => {
     renderDialog();
 
-    const select = screen.getByLabelText(/Select Antenna/i);
+    const select = screen.getByRole('combobox');
     fireEvent.mouseDown(select);
 
-    expect(screen.getByText('Dipole 1')).toBeInTheDocument();
-    expect(screen.getByText('Loop')).toBeInTheDocument();
+    expect(screen.getByText('Dipole 1 (dipole)')).toBeInTheDocument();
+    expect(screen.getByText('Loop (circular_loop)')).toBeInTheDocument();
   });
 
   it('adds selected antenna to view', async () => {
     renderDialog();
 
-    const select = screen.getByLabelText(/Select Antenna/i);
+    const select = screen.getByRole('combobox');
     fireEvent.mouseDown(select);
 
-    const option = screen.getByText('Dipole 1');
+    const option = screen.getByText('Dipole 1 (dipole)');
     fireEvent.click(option);
 
     const addButton = screen.getByRole('button', { name: /add/i });
@@ -87,7 +87,7 @@ describe('AddAntennaElementDialog', () => {
       const state = store.getState();
       const view = state.postprocessing.viewConfigurations[0];
       expect(view.items).toHaveLength(1);
-      expect(view.items[0].type).toBe('antenna-element');
+      expect(view.items[0].type).toBe('single-antenna');
       expect(view.items[0].antennaId).toBe('ant-1');
     });
   });
@@ -105,8 +105,8 @@ describe('AddAntennaElementDialog', () => {
           selectedViewId: 'view-1',
           selectedItemId: null,
           addViewDialogOpen: false,
-          addAntennaElementDialogOpen: true,
-          addFieldVisualizationDialogOpen: false,
+          addAntennaDialogOpen: true,
+          addFieldDialogOpen: false,
           addScalarPlotDialogOpen: false,
         },
         design: {
@@ -125,6 +125,6 @@ describe('AddAntennaElementDialog', () => {
       </Provider>
     );
 
-    expect(screen.getByText(/No antennas in design/i)).toBeInTheDocument();
+    expect(screen.getByText(/No antennas available/i)).toBeInTheDocument();
   });
 });

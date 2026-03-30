@@ -20,8 +20,8 @@ describe('AddViewDialog', () => {
           selectedViewId: null,
           selectedItemId: null,
           addViewDialogOpen: true,
-          addAntennaElementDialogOpen: false,
-          addFieldVisualizationDialogOpen: false,
+          addAntennaDialogOpen: false,
+          addFieldDialogOpen: false,
           addScalarPlotDialogOpen: false,
         },
       },
@@ -66,7 +66,7 @@ describe('AddViewDialog', () => {
     renderDialog();
 
     // Leave name blank
-    const radioLine = screen.getByLabelText('Line View');
+    const radioLine = screen.getByLabelText(/Line View/);
     fireEvent.click(radioLine);
 
     const createButton = screen.getByRole('button', { name: /create/i });

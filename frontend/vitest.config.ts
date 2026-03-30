@@ -11,11 +11,12 @@ export default defineConfig({
     testTimeout: 10000,
     hookTimeout: 10000,
     teardownTimeout: 5000,
-    pool: 'threads',
+    pool: 'forks',
     poolOptions: {
-      threads: {
-        // Ensures worker threads terminate cleanly after tests complete
-        useAtomics: true,
+      forks: {
+        // Limit concurrency to avoid OOM on CI containers (2 vCPUs / 4 GB).
+        maxForks: 4,
+        minForks: 1,
       },
     },
   },

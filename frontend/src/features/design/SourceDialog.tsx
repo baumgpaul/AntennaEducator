@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -21,25 +21,32 @@ import {
 } from '@mui/material';
 import { AntennaElement } from '@/types/models';
 
-// Zod schema for voltage source
-const sourceSchema = z.object({
-  antennaId: z.string().min(1, 'Must select an antenna'),
-  type: z.enum(['voltage', 'current']),
-  node1: z.number().int('Must be integer'),
-  node2: z.number().int('Must be integer'),
-  value: z.number().positive('Value must be positive'),
-  seriesR: z.number().nonnegative('Series resistance must be non-negative'),
-  seriesL: z.number().nonnegative('Series inductance must be non-negative'),
-  seriesC: z.number().nonnegative('Series capacitance must be non-negative'),
-}).refine(
-  (data) => data.node1 !== data.node2,
-  {
-    message: 'Node 1 and Node 2 must be different',
-    path: ['node2'],
-  }
-);
+// Factory: creates Zod schema with dynamic node range validation
+const createSourceSchema = (maxNodeIndex: number) =>
+  z.object({
+    antennaId: z.string().min(1, 'Must select an antenna'),
+    type: z.enum(['voltage', 'current']),
+    node1: z.number().int('Must be integer').refine(
+      (v) => v <= 0 || v <= maxNodeIndex,
+      { message: `Mesh node index must be ≤ ${maxNodeIndex}` },
+    ),
+    node2: z.number().int('Must be integer').refine(
+      (v) => v <= 0 || v <= maxNodeIndex,
+      { message: `Mesh node index must be ≤ ${maxNodeIndex}` },
+    ),
+    value: z.number().positive('Value must be positive'),
+    seriesR: z.number().nonnegative('Series resistance must be non-negative'),
+    seriesL: z.number().nonnegative('Series inductance must be non-negative'),
+    seriesC: z.number().nonnegative('Series capacitance must be non-negative'),
+  }).refine(
+    (data) => data.node1 !== data.node2,
+    {
+      message: 'Node 1 and Node 2 must be different',
+      path: ['node2'],
+    }
+  );
 
-type SourceFormData = z.infer<typeof sourceSchema>;
+type SourceFormData = z.infer<ReturnType<typeof createSourceSchema>>;
 
 interface SourceDialogProps {
   open: boolean;
@@ -59,6 +66,8 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
   elements,
 }) => {
   const [adding, setAdding] = useState(false);
+
+  const sourceSchema = useMemo(() => createSourceSchema(maxNodeIndex), [maxNodeIndex]);
 
   const {
     control,
