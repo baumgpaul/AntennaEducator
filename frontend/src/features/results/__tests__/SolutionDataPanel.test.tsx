@@ -1,6 +1,47 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
 import SolutionDataPanel from '../SolutionDataPanel';
+import solverReducer from '@/store/solverSlice';
+
+const createTestStore = (overrides: Record<string, any> = {}) =>
+  configureStore({
+    reducer: { solver: solverReducer },
+    preloadedState: overrides.solver ? { solver: { ...defaultSolverState, ...overrides.solver } } : undefined,
+  });
+
+const defaultSolverState = {
+  status: 'idle' as const,
+  progress: 0,
+  error: null,
+  currentRequest: null,
+  results: null,
+  currentDistribution: null,
+  radiationPattern: null,
+  multiAntennaResults: null,
+  frequencySweep: null,
+  sweepInProgress: false,
+  sweepProgress: null,
+  resultsHistory: [],
+  requestedFields: [],
+  directivityRequested: false,
+  directivitySettings: { theta_points: 19, phi_points: 37 },
+  solverState: 'idle' as const,
+  currentFrequency: null,
+  fieldResults: null,
+  postprocessingStatus: 'idle' as const,
+  postprocessingProgress: null,
+  fieldData: null,
+  radiationPatterns: null,
+  selectedFrequencyHz: null,
+  resultsStale: false,
+};
+
+const renderWithStore = (ui: React.ReactElement, solverOverrides: Record<string, any> = {}) => {
+  const store = createTestStore({ solver: solverOverrides });
+  return render(<Provider store={store}>{ui}</Provider>);
+};
 
 describe('SolutionDataPanel', () => {
   const mockMesh = {
@@ -37,7 +78,7 @@ describe('SolutionDataPanel', () => {
 
   describe('Current Distribution Display', () => {
     it('should render current distribution accordion', () => {
-      render(
+      renderWithStore(
         <SolutionDataPanel
           results={mockResults}
           currentDistribution={mockCurrentDistribution}
@@ -52,7 +93,7 @@ describe('SolutionDataPanel', () => {
     });
 
     it('should display current statistics', () => {
-      render(
+      renderWithStore(
         <SolutionDataPanel
           results={mockResults}
           currentDistribution={mockCurrentDistribution}
@@ -70,7 +111,7 @@ describe('SolutionDataPanel', () => {
     });
 
     it('should render current table with all segments', () => {
-      render(
+      renderWithStore(
         <SolutionDataPanel
           results={mockResults}
           currentDistribution={mockCurrentDistribution}
@@ -88,7 +129,7 @@ describe('SolutionDataPanel', () => {
 
   describe('Voltage Display', () => {
     it('should render voltages accordion', () => {
-      render(
+      renderWithStore(
         <SolutionDataPanel
           results={mockResults}
           currentDistribution={mockCurrentDistribution}
@@ -105,7 +146,7 @@ describe('SolutionDataPanel', () => {
 
   describe('Field Options', () => {
     it('should render requested fields accordion', () => {
-      render(
+      renderWithStore(
         <SolutionDataPanel
           results={mockResults}
           currentDistribution={mockCurrentDistribution}
@@ -120,7 +161,7 @@ describe('SolutionDataPanel', () => {
     });
 
     it('should render all field checkboxes', () => {
-      render(
+      renderWithStore(
         <SolutionDataPanel
           results={mockResults}
           currentDistribution={mockCurrentDistribution}
@@ -142,7 +183,7 @@ describe('SolutionDataPanel', () => {
     });
 
     it('should have enabled "Run Postprocess" button when directivity is pre-selected', () => {
-      render(
+      renderWithStore(
         <SolutionDataPanel
           results={mockResults}
           currentDistribution={mockCurrentDistribution}
@@ -150,7 +191,8 @@ describe('SolutionDataPanel', () => {
           mesh={mockMesh}
           selectedFrequency={300e6}
           onFrequencyChange={vi.fn()}
-        />
+        />,
+        { solverState: 'solved' }
       );
 
       // Expand accordion
@@ -163,7 +205,7 @@ describe('SolutionDataPanel', () => {
     });
 
     it('should disable "Run Postprocess" button when no fields selected', () => {
-      render(
+      renderWithStore(
         <SolutionDataPanel
           results={mockResults}
           currentDistribution={mockCurrentDistribution}
@@ -171,7 +213,8 @@ describe('SolutionDataPanel', () => {
           mesh={mockMesh}
           selectedFrequency={300e6}
           onFrequencyChange={vi.fn()}
-        />
+        />,
+        { solverState: 'solved' }
       );
 
       // Expand accordion
@@ -189,7 +232,7 @@ describe('SolutionDataPanel', () => {
 
   describe('Frequency Display', () => {
     it('should show frequency value', () => {
-      render(
+      renderWithStore(
         <SolutionDataPanel
           results={mockResults}
           currentDistribution={mockCurrentDistribution}
@@ -205,7 +248,7 @@ describe('SolutionDataPanel', () => {
     });
 
     it('should show default frequency when no results', () => {
-      render(
+      renderWithStore(
         <SolutionDataPanel
           results={null}
           currentDistribution={null}

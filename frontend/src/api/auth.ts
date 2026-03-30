@@ -112,11 +112,21 @@ export const isAuthenticated = (): boolean => {
 }
 
 /**
- * Check if token is expired (basic check without decoding JWT)
- * For production, you'd want to decode the JWT and check exp claim
+ * Check if token is expired by decoding the JWT payload and checking the exp claim.
+ * Returns true if the token is missing, malformed, or expired.
  */
 export const isTokenExpired = (): boolean => {
-  // TODO: Implement JWT decoding to check expiration
-  // For now, assume token is valid if it exists
-  return !isAuthenticated()
+  const token = localStorage.getItem('auth_token')
+  if (!token) return true
+
+  try {
+    const payloadBase64 = token.split('.')[1]
+    if (!payloadBase64) return true
+    const payload = JSON.parse(atob(payloadBase64))
+    if (typeof payload.exp !== 'number') return true
+    // Expired if exp is in the past (with 30s grace period for clock skew)
+    return payload.exp < Date.now() / 1000 - 30
+  } catch {
+    return true
+  }
 }

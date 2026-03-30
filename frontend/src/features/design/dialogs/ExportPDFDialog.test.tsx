@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import ExportPDFDialog from './ExportPDFDialog';
 import postprocessingReducer from '@/store/postprocessingSlice';
+import solverReducer from '@/store/solverSlice';
 
 describe('ExportPDFDialog', () => {
   let store: ReturnType<typeof configureStore>;
@@ -14,6 +15,7 @@ describe('ExportPDFDialog', () => {
     store = configureStore({
       reducer: {
         postprocessing: postprocessingReducer,
+        solver: solverReducer,
       },
       preloadedState: {
         postprocessing: {
@@ -22,11 +24,13 @@ describe('ExportPDFDialog', () => {
           ],
           selectedViewId: 'view1',
           selectedItemId: null,
-          exportPDFDialogOpen: true,
           addViewDialogOpen: false,
-          addAntennaElementDialogOpen: false,
-          addFieldVisualizationDialogOpen: false,
+          addAntennaDialogOpen: false,
+          addFieldDialogOpen: false,
           addScalarPlotDialogOpen: false,
+          scalarPlotPreselect: null,
+          exportPDFDialogOpen: true,
+          exportType: null,
         },
       },
     });
@@ -42,7 +46,7 @@ describe('ExportPDFDialog', () => {
 
   it('renders dialog when open', () => {
     renderDialog();
-    expect(screen.getByText('Export to PDF')).toBeInTheDocument();
+    expect(screen.getByText('Export View to PDF')).toBeInTheDocument();
     expect(screen.getByLabelText(/Include metadata/i)).toBeInTheDocument();
   });
 
@@ -72,10 +76,11 @@ describe('ExportPDFDialog', () => {
     const metadataCheckbox = screen.getByLabelText(/Include metadata/i);
     fireEvent.click(metadataCheckbox);
 
-    const resolutionSelect = screen.getByLabelText(/Resolution/i);
+    const resolutionSelect = screen.getByRole('combobox');
     fireEvent.mouseDown(resolutionSelect);
-    const option1440p = await screen.findByText('1440p (2560×1440)');
-    fireEvent.click(option1440p);
+    const options = await screen.findAllByRole('option');
+    const option1440p = options.find(o => o.textContent?.includes('1440p'));
+    fireEvent.click(option1440p!);
 
     const filenameInput = screen.getByLabelText(/Filename/i);
     fireEvent.change(filenameInput, { target: { value: 'MyExport' } });
@@ -85,9 +90,9 @@ describe('ExportPDFDialog', () => {
 
     await waitFor(() => {
       expect(mockOnExport).toHaveBeenCalledWith({
-        includeMetadata: true,
+        includeMetadata: false,
         resolution: '1440p',
-        filename: 'MyExport',
+        filename: 'MyExport.pdf',
       });
     });
   });

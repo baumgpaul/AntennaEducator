@@ -30,8 +30,8 @@ describe('AddFieldVisualizationDialog', () => {
           selectedViewId: 'view-1',
           selectedItemId: null,
           addViewDialogOpen: false,
-          addAntennaElementDialogOpen: false,
-          addFieldVisualizationDialogOpen: true,
+          addAntennaDialogOpen: false,
+          addFieldDialogOpen: true,
           addScalarPlotDialogOpen: false,
         },
         solver: {
@@ -67,13 +67,13 @@ describe('AddFieldVisualizationDialog', () => {
   it('renders dialog with stepper', () => {
     renderDialog();
     expect(screen.getByText('Add Field Visualization')).toBeInTheDocument();
-    expect(screen.getByText('Select Field')).toBeInTheDocument();
+    expect(screen.getAllByText('Select Field').length).toBeGreaterThan(0);
   });
 
   it('displays field list in step 1', () => {
     renderDialog();
 
-    const select = screen.getByLabelText(/Select Field/i);
+    const select = screen.getByRole('combobox');
     fireEvent.mouseDown(select);
 
     expect(screen.getByText(/E-field Plane/)).toBeInTheDocument();
@@ -82,7 +82,7 @@ describe('AddFieldVisualizationDialog', () => {
   it('navigates to step 2 after field selection', async () => {
     renderDialog();
 
-    const select = screen.getByLabelText(/Select Field/i);
+    const select = screen.getByRole('combobox');
     fireEvent.mouseDown(select);
 
     const option = screen.getByText(/E-field Plane/);
@@ -92,7 +92,7 @@ describe('AddFieldVisualizationDialog', () => {
     fireEvent.click(nextButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Choose Mode')).toBeInTheDocument();
+      expect(screen.getAllByText('Visualization Mode').length).toBeGreaterThan(0);
     });
   });
 
@@ -100,7 +100,7 @@ describe('AddFieldVisualizationDialog', () => {
     renderDialog();
 
     // Go to step 2
-    const select = screen.getByLabelText(/Select Field/i);
+    const select = screen.getByRole('combobox');
     fireEvent.mouseDown(select);
     const option = screen.getByText(/E-field Plane/);
     fireEvent.click(option);
@@ -108,7 +108,7 @@ describe('AddFieldVisualizationDialog', () => {
     fireEvent.click(nextButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Choose Mode')).toBeInTheDocument();
+      expect(screen.getAllByText('Visualization Mode').length).toBeGreaterThan(0);
     });
 
     // Go back
@@ -116,7 +116,7 @@ describe('AddFieldVisualizationDialog', () => {
     fireEvent.click(backButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Select Field')).toBeInTheDocument();
+      expect(screen.getAllByText('Select Field').length).toBeGreaterThan(0);
     });
   });
 
@@ -124,7 +124,7 @@ describe('AddFieldVisualizationDialog', () => {
     renderDialog();
 
     // Step 1: Select field
-    const select = screen.getByLabelText(/Select Field/i);
+    const select = screen.getByRole('combobox');
     fireEvent.mouseDown(select);
     const option = screen.getByText(/E-field Plane/);
     fireEvent.click(option);
@@ -132,7 +132,7 @@ describe('AddFieldVisualizationDialog', () => {
     fireEvent.click(nextButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Choose Mode')).toBeInTheDocument();
+      expect(screen.getAllByText('Visualization Mode').length).toBeGreaterThan(0);
     });
 
     // Step 2: Select magnitude mode
@@ -164,8 +164,8 @@ describe('AddFieldVisualizationDialog', () => {
           selectedViewId: 'view-1',
           selectedItemId: null,
           addViewDialogOpen: false,
-          addAntennaElementDialogOpen: false,
-          addFieldVisualizationDialogOpen: true,
+          addAntennaDialogOpen: false,
+          addFieldDialogOpen: true,
           addScalarPlotDialogOpen: false,
         },
         solver: {
@@ -183,6 +183,6 @@ describe('AddFieldVisualizationDialog', () => {
       </Provider>
     );
 
-    expect(screen.getByText(/No computed fields available/i)).toBeInTheDocument();
+    expect(screen.getByText(/No fields available/i)).toBeInTheDocument();
   });
 });

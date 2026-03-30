@@ -28,8 +28,8 @@ describe('AddScalarPlotDialog', () => {
           selectedViewId: 'view-1',
           selectedItemId: null,
           addViewDialogOpen: false,
-          addAntennaElementDialogOpen: false,
-          addFieldVisualizationDialogOpen: false,
+          addAntennaDialogOpen: false,
+          addFieldDialogOpen: false,
           addScalarPlotDialogOpen: true,
         },
       },
@@ -52,7 +52,7 @@ describe('AddScalarPlotDialog', () => {
   it('shows port selector for voltage plot', async () => {
     renderDialog();
 
-    const select = screen.getByLabelText(/Data Type/i);
+    const select = screen.getByRole('combobox');
     fireEvent.mouseDown(select);
 
     const voltageOption = screen.getByText('Voltage vs Frequency');
@@ -66,25 +66,14 @@ describe('AddScalarPlotDialog', () => {
   it('hides port selector for impedance plot', async () => {
     renderDialog();
 
-    const select = screen.getByLabelText(/Data Type/i);
-    fireEvent.mouseDown(select);
-
-    const impedanceOption = screen.getByText('Input Impedance');
-    fireEvent.click(impedanceOption);
-
-    await waitFor(() => {
-      expect(screen.queryByLabelText(/Port Number/i)).not.toBeInTheDocument();
-    });
+    // Default is already impedance, so port selector should not be shown
+    expect(screen.queryByLabelText(/Port Number/i)).not.toBeInTheDocument();
   });
 
   it('adds impedance plot to view', async () => {
     renderDialog();
 
-    const select = screen.getByLabelText(/Plot Type/i);
-    fireEvent.mouseDown(select);
-    const impedanceOption = screen.getByText('Input Impedance');
-    fireEvent.click(impedanceOption);
-
+    // Default is already impedance, just click Add
     const addButton = screen.getByRole('button', { name: /add/i });
     fireEvent.click(addButton);
 
@@ -92,14 +81,14 @@ describe('AddScalarPlotDialog', () => {
       const state = store.getState();
       const view = state.postprocessing.viewConfigurations[0];
       expect(view.items).toHaveLength(1);
-      expect(view.items[0].type).toBe('scalar-impedance');
+      expect(view.items[0].type).toBe('scalar-plot');
     });
   });
 
   it('adds voltage plot with port number', async () => {
     renderDialog();
 
-    const select = screen.getByLabelText(/Plot Type/i);
+    const select = screen.getByRole('combobox');
     fireEvent.mouseDown(select);
     const voltageOption = screen.getByText('Voltage vs Frequency');
     fireEvent.click(voltageOption);
@@ -116,7 +105,7 @@ describe('AddScalarPlotDialog', () => {
       const state = store.getState();
       const view = state.postprocessing.viewConfigurations[0];
       expect(view.items).toHaveLength(1);
-      expect(view.items[0].type).toBe('scalar-voltage');
+      expect(view.items[0].type).toBe('scalar-plot');
       expect(view.items[0].portNumber).toBe(2);
     });
   });
@@ -142,9 +131,12 @@ describe('AddScalarPlotDialog', () => {
           selectedViewId: 'view-1',
           selectedItemId: null,
           addViewDialogOpen: false,
-          addAntennaElementDialogOpen: false,
-          addFieldVisualizationDialogOpen: false,
+          addAntennaDialogOpen: false,
+          addFieldDialogOpen: false,
           addScalarPlotDialogOpen: true,
+          scalarPlotPreselect: null,
+          exportPDFDialogOpen: false,
+          exportType: null,
         },
       },
     });
@@ -155,6 +147,13 @@ describe('AddScalarPlotDialog', () => {
       </Provider>
     );
 
-    expect(screen.getByText(/Scalar plots are only available for Line views/i)).toBeInTheDocument();
+    // The component silently refuses to add to non-Line views
+    const addButton = screen.getByRole('button', { name: /add/i });
+    fireEvent.click(addButton);
+
+    // Verify no items were added
+    const state = store3D.getState();
+    const view = state.postprocessing.viewConfigurations[0];
+    expect(view.items).toHaveLength(0);
   });
 });

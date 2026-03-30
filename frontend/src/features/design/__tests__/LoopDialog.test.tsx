@@ -52,8 +52,8 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
       expect(screen.getByLabelText(/Antenna Name/i)).toBeInTheDocument();
     });
 
-    it('should render loop type selector', () => {
-      expect(screen.getByLabelText(/Loop Shape/i)).toBeInTheDocument();
+    it('should render loop geometry fields for circular loop', () => {
+      expect(screen.getByLabelText(/Loop Radius/i)).toBeInTheDocument();
     });
 
     it('should render geometry parameter fields for circular loop', () => {
@@ -103,7 +103,7 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
 
       const submittedData = mockOnGenerate.mock.calls[0][0];
       expect(submittedData).toHaveProperty('name', 'Test Loop');
-      expect(submittedData).toHaveProperty('loopType', 'circular');
+      expect(submittedData).toHaveProperty('radius');
       expect(submittedData).not.toHaveProperty('frequency');
     });
 
@@ -139,11 +139,9 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
         />
       );
 
-      const loopTypeSelect = screen.getByLabelText(/Loop Shape/i);
-      // MUI Select value is set via the underlying input
-      expect(loopTypeSelect).toBeInTheDocument();
-      // Value check may not work reliably with MUI Select in testing environment
-      // so we just verify the select element exists
+      // Component is for circular loops — verify radius field exists
+      const radiusField = screen.getByLabelText(/Loop Radius/i);
+      expect(radiusField).toBeInTheDocument();
     });
   });
 
@@ -177,13 +175,12 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
       );
 
       const nameInput = screen.getByLabelText(/Antenna Name/i) as HTMLInputElement;
-      const loopTypeSelect = screen.getByLabelText(/Loop Shape/i);
 
-      // Name and loop shape selectors should be present
+      // Name should default to 'Loop'
       expect(nameInput).toBeInTheDocument();
       expect(nameInput.value).toBe('Loop');
-      expect(loopTypeSelect).toBeInTheDocument();
-      // Default loop type (circular) is set but value check unreliable with MUI Select
+      // Circular loop radius should be present
+      expect(screen.getByLabelText(/Loop Radius/i)).toBeInTheDocument();
     });
   });
 });

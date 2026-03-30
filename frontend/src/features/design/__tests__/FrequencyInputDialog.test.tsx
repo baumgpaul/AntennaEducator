@@ -128,13 +128,13 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       await user.click(solveButton);
 
       await waitFor(() => {
-        expect(screen.getByText(/Frequency must be between 0.1 MHz and 1000 GHz/i)).toBeInTheDocument();
+        expect(screen.getByText(/Frequency must be between 0.1 MHz and 10 GHz/i)).toBeInTheDocument();
       });
 
       expect(mockOnSolve).not.toHaveBeenCalled();
     });
 
-    it.skip('shows validation error for frequency above maximum (1000 GHz)', async () => {
+    it.skip('shows validation error for frequency above maximum (10 GHz)', async () => {
       const user = userEvent.setup();
       render(
         <FrequencyInputDialog
@@ -158,7 +158,7 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       await user.click(solveButton);
 
       await waitFor(() => {
-        expect(screen.getByText(/Frequency must be between 0.1 MHz and 1000 GHz/i)).toBeInTheDocument();
+        expect(screen.getByText(/Frequency must be between 0.1 MHz and 10 GHz/i)).toBeInTheDocument();
       });
 
       expect(mockOnSolve).not.toHaveBeenCalled();
@@ -186,7 +186,7 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       });
     });
 
-    it('validates boundary value 1000 GHz (maximum)', async () => {
+    it('validates boundary value 10 GHz (maximum)', async () => {
       const user = userEvent.setup();
       render(
         <FrequencyInputDialog
@@ -198,7 +198,7 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
 
       const frequencyInput = screen.getByRole('spinbutton');
       await user.clear(frequencyInput);
-      await user.type(frequencyInput, '1000');
+      await user.type(frequencyInput, '10');
 
       // Change unit to GHz
       const unitSelect = screen.getByLabelText(/Unit/i);
@@ -210,7 +210,7 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       await user.click(solveButton);
 
       await waitFor(() => {
-        expect(mockOnSolve).toHaveBeenCalledWith(1000, 'GHz');
+        expect(mockOnSolve).toHaveBeenCalledWith(10, 'GHz');
       });
     });
   });

@@ -13,11 +13,11 @@ describe('VoltagePlot', () => {
   ];
 
   it('renders plot with data', () => {
-    render(<VoltagePlot data={mockData} portNumber={1} />);
+    const { container } = render(<VoltagePlot data={mockData} portNumber={1} />);
 
     expect(screen.getByText('Voltage (Port 1)')).toBeInTheDocument();
-    expect(screen.getByText('|V|')).toBeInTheDocument();
-    expect(screen.getByText('∠V')).toBeInTheDocument();
+    // Legend text (|V|, ∠V) renders inside ResponsiveContainer which is 0x0 in jsdom
+    expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument();
   });
 
   it('renders custom title', () => {

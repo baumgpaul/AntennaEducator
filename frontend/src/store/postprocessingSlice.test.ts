@@ -181,7 +181,7 @@ describe('postprocessingSlice', () => {
       expect(view.name).toBe('New Name');
     });
 
-    it('should update updatedAt timestamp', () => {
+    it('should update updatedAt timestamp', async () => {
       const store = createTestStore();
 
       store.dispatch(createViewConfiguration({ viewType: '3D' }));
@@ -189,12 +189,11 @@ describe('postprocessingSlice', () => {
       const oldUpdatedAt = store.getState().postprocessing.viewConfigurations[0].updatedAt;
 
       // Wait a tiny bit to ensure timestamp changes
-      setTimeout(() => {
-        store.dispatch(renameViewConfiguration({ viewId, name: 'New Name' }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      store.dispatch(renameViewConfiguration({ viewId, name: 'New Name' }));
 
-        const newUpdatedAt = store.getState().postprocessing.viewConfigurations[0].updatedAt;
-        expect(newUpdatedAt).not.toBe(oldUpdatedAt);
-      }, 10);
+      const newUpdatedAt = store.getState().postprocessing.viewConfigurations[0].updatedAt;
+      expect(newUpdatedAt).not.toBe(oldUpdatedAt);
     });
 
     it('should do nothing if view ID does not exist', () => {
@@ -294,7 +293,7 @@ describe('postprocessingSlice', () => {
       const viewId = store.getState().postprocessing.viewConfigurations[0].id;
 
       const item: Omit<ViewItem, 'id'> = {
-        type: 'antenna-element',
+        type: 'single-antenna',
         visible: true,
       };
 
@@ -303,9 +302,9 @@ describe('postprocessingSlice', () => {
       store.dispatch(addItemToView({ viewId, item }));
 
       const view = store.getState().postprocessing.viewConfigurations[0];
-      expect(view.items[0].label).toBe('Antenna Element');
-      expect(view.items[1].label).toBe('Antenna Element 2');
-      expect(view.items[2].label).toBe('Antenna Element 3');
+      expect(view.items[0].label).toBe('Antenna');
+      expect(view.items[1].label).toBe('Antenna 2');
+      expect(view.items[2].label).toBe('Antenna 3');
     });
 
     it('should select the newly added item', () => {

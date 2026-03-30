@@ -18,11 +18,14 @@ import {
   TableHead,
   TableRow,
   Chip,
+  LinearProgress,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
   PlayArrow as PlayIcon,
 } from '@mui/icons-material';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { computePostprocessingWorkflow } from '@/store/solverSlice';
 import type { SolverResult, Mesh } from '@/types/models';
 
 interface SolutionDataPanelProps {
@@ -56,6 +59,11 @@ function SolutionDataPanel({
   selectedFrequency,
   onFrequencyChange,
 }: SolutionDataPanelProps) {
+  const dispatch = useAppDispatch();
+  const solverState = useAppSelector((state) => state.solver.solverState);
+  const postprocessingStatus = useAppSelector((state) => state.solver.postprocessingStatus);
+  const postprocessingProgress = useAppSelector((state) => state.solver.postprocessingProgress);
+
   // Field selection state
   const [selectedFields, setSelectedFields] = useState({
     directivity: true,
@@ -64,21 +72,21 @@ function SolutionDataPanel({
     hfield: false,
   });
 
-  // Postprocessing state
-  const [isProcessing, setIsProcessing] = useState(false);
-
   // Handle field checkbox changes
   const handleFieldChange = (field: keyof typeof selectedFields) => {
     setSelectedFields((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  // Handle postprocess button
+  // Handle postprocess button — dispatch the real workflow
   const handleRunPostprocess = () => {
-    console.log('Running postprocess with fields:', selectedFields);
-    setIsProcessing(true);
-    // TODO: Call postprocessor API
-    setTimeout(() => setIsProcessing(false), 2000); // Simulate processing
+    dispatch(computePostprocessingWorkflow());
   };
+
+  const isProcessing = postprocessingStatus === 'running';
+  const canRunPostprocess =
+    (solverState === 'solved' || solverState === 'postprocessing-ready') &&
+    !isProcessing &&
+    Object.values(selectedFields).some((v) => v);
 
   // Get current data for selected frequency
   const currentMagnitudes = currentDistribution || [];
@@ -172,19 +180,28 @@ function SolutionDataPanel({
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {mesh?.nodes.slice(0, 5).map((_node, idx) => (
+                  {results?.node_voltages?.slice(0, 5).map((v, idx) => (
                     <TableRow key={idx}>
-                      <TableCell>{idx}</TableCell>
+                      <TableCell>{idx + 1}</TableCell>
                       <TableCell align="right">
-                        {(Math.random() * 10).toFixed(2)}
+                        {Math.sqrt(v.real * v.real + v.imag * v.imag).toExponential(2)}
                       </TableCell>
                     </TableRow>
                   ))}
-                  {(mesh?.nodes.length || 0) > 5 && (
+                  {(results?.node_voltages?.length || 0) > 5 && (
                     <TableRow>
                       <TableCell colSpan={2} align="center">
                         <Typography variant="caption" color="text.secondary">
-                          ... {(mesh?.nodes.length || 0) - 5} more
+                          ... {(results?.node_voltages?.length || 0) - 5} more
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!results?.node_voltages && (
+                    <TableRow>
+                      <TableCell colSpan={2} align="center">
+                        <Typography variant="caption" color="text.secondary">
+                          No voltage data available
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -247,11 +264,18 @@ function SolutionDataPanel({
               variant="contained"
               startIcon={<PlayIcon />}
               onClick={handleRunPostprocess}
-              disabled={isProcessing || !Object.values(selectedFields).some((v) => v)}
+              disabled={!canRunPostprocess}
               sx={{ mt: 2 }}
             >
               {isProcessing ? 'Processing...' : 'Run Postprocess'}
             </Button>
+            {isProcessing && (
+              <LinearProgress
+                variant={postprocessingProgress ? 'determinate' : 'indeterminate'}
+                value={postprocessingProgress ? (postprocessingProgress.completed / postprocessingProgress.total) * 100 : undefined}
+                sx={{ mt: 1 }}
+              />
+            )}
           </AccordionDetails>
         </Accordion>
 

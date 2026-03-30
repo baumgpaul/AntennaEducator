@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -22,38 +22,45 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AntennaElement } from '@/types/models';
 
-// Zod discriminated union schema for different element types
-const lumpedElementSchema = z.discriminatedUnion('element_type', [
-  z.object({
-    antennaId: z.string().min(1, 'Must select an antenna'),
-    element_type: z.literal('R'),
-    resistance: z.number().positive('Resistance must be positive'),
-    node1: z.number().int('Node must be an integer'),
-    node2: z.number().int('Node must be an integer'),
-  }),
-  z.object({
-    antennaId: z.string().min(1, 'Must select an antenna'),
-    element_type: z.literal('L'),
-    inductance: z.number().positive('Inductance must be positive'),
-    node1: z.number().int('Node must be an integer'),
-    node2: z.number().int('Node must be an integer'),
-  }),
-  z.object({
-    antennaId: z.string().min(1, 'Must select an antenna'),
-    element_type: z.literal('C'),
-    capacitance_inv: z.number().positive('Capacitance inverse must be positive'),
-    node1: z.number().int('Node must be an integer'),
-    node2: z.number().int('Node must be an integer'),
-  }),
-]).refine(
-  (data) => data.node1 !== data.node2,
-  {
-    message: 'Node1 and Node2 must be different',
-    path: ['node2'],
-  }
-);
+// Factory: create Zod schema with dynamic node range validation
+const createLumpedElementSchema = (maxNodeIndex: number) => {
+  const nodeValidator = z.number().int('Node must be an integer').refine(
+    (v) => v <= 0 || v <= maxNodeIndex,
+    { message: `Mesh node index must be ≤ ${maxNodeIndex}` },
+  );
 
-type LumpedElementFormData = z.infer<typeof lumpedElementSchema>;
+  return z.discriminatedUnion('element_type', [
+    z.object({
+      antennaId: z.string().min(1, 'Must select an antenna'),
+      element_type: z.literal('R'),
+      resistance: z.number().positive('Resistance must be positive'),
+      node1: nodeValidator,
+      node2: nodeValidator,
+    }),
+    z.object({
+      antennaId: z.string().min(1, 'Must select an antenna'),
+      element_type: z.literal('L'),
+      inductance: z.number().positive('Inductance must be positive'),
+      node1: nodeValidator,
+      node2: nodeValidator,
+    }),
+    z.object({
+      antennaId: z.string().min(1, 'Must select an antenna'),
+      element_type: z.literal('C'),
+      capacitance: z.number().positive('Capacitance must be positive'),
+      node1: nodeValidator,
+      node2: nodeValidator,
+    }),
+  ]).refine(
+    (data) => data.node1 !== data.node2,
+    {
+      message: 'Node1 and Node2 must be different',
+      path: ['node2'],
+    }
+  );
+};
+
+type LumpedElementFormData = z.infer<ReturnType<typeof createLumpedElementSchema>>;
 
 interface LumpedElementDialogProps {
   open: boolean;
@@ -73,6 +80,8 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
   elements,
 }) => {
   const [adding, setAdding] = useState(false);
+
+  const lumpedElementSchema = useMemo(() => createLumpedElementSchema(maxNodeIndex), [maxNodeIndex]);
 
   const {
     control,
@@ -117,7 +126,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
       reset({
         antennaId: selectedAntennaId || elements[0]?.id || '',
         element_type: 'C',
-        capacitance_inv: 1e9,
+        capacitance: 1e-12,
         node1: 0,
         node2: 1,
       });
@@ -127,7 +136,11 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
   const handleFormSubmit = async (data: LumpedElementFormData) => {
     setAdding(true);
     try {
-      await onAdd(data);
+      // Convert capacitance (F) → inverse capacitance (1/F) for the backend
+      const submitData = data.element_type === 'C'
+        ? { ...data, capacitance_inv: 1 / data.capacitance }
+        : data;
+      await onAdd(submitData as any);
       reset();
       onClose();
     } catch (error) {
@@ -217,7 +230,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                     } else if (value === 'L') {
                       reset({ ...baseData, element_type: 'L', inductance: 1e-9 } as any);
                     } else if (value === 'C') {
-                      reset({ ...baseData, element_type: 'C', capacitance_inv: 1e9 } as any);
+                      reset({ ...baseData, element_type: 'C', capacitance: 1e-12 } as any);
                     }
                   }}
                   disabled={loading || adding}
@@ -278,17 +291,17 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
             {(elementType === 'C') && (
               <Grid item xs={12}>
                 <Controller
-                  name="capacitance_inv"
+                  name="capacitance"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Inverse Capacitance (1/F)"
+                      label="Capacitance (F)"
                       type="number"
                       fullWidth
-                      error={!!(errors as any).capacitance_inv}
-                      helperText={(errors as any).capacitance_inv?.message || '1/C (e.g., 1e9 for 1 pF)'}
-                      inputProps={{ step: 1e6 }}
+                      error={!!(errors as any).capacitance}
+                      helperText={(errors as any).capacitance?.message || 'Use scientific notation (e.g., 1e-12 for 1 pF)'}
+                      inputProps={{ step: 1e-13 }}
                       onChange={(e) => field.onChange(parseFloat(e.target.value))}
                     />
                   )}
