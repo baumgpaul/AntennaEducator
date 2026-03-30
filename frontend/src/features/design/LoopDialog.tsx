@@ -64,6 +64,7 @@ interface ResolvedLoopData {
   sourcePhase: number;
   position: { x: number; y: number; z: number };
   orientation: { rotX: number; rotY: number; rotZ: number };
+  expressions?: Record<string, string>;
 }
 
 interface LoopDialogProps {
@@ -124,6 +125,11 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
         radius: parseNumericOrExpression(data.radius, ctx),
         wireRadius: parseNumericOrExpression(data.wireRadius, ctx),
         feedGap: parseNumericOrExpression(data.feedGap, ctx),
+        expressions: {
+          radius: data.radius,
+          wireRadius: data.wireRadius,
+          feedGap: data.feedGap,
+        },
       };
       await onGenerate(resolved);
       reset();

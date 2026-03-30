@@ -103,6 +103,7 @@ export const generateDipole = createAsyncThunk(
       sourcePhase: number
       position: { x: number; y: number; z: number }
       orientation: { x: number; y: number; z: number }
+      expressions?: Record<string, string>
     },
     { rejectWithValue }
   ) => {
@@ -133,6 +134,7 @@ export const generateLoop = createAsyncThunk(
       sourcePhase: number
       position: { x: number; y: number; z: number }
       orientation: { rotX: number; rotY: number; rotZ: number }
+      expressions?: Record<string, string>
     },
     { rejectWithValue }
   ) => {
@@ -165,6 +167,7 @@ export const generateHelix = createAsyncThunk(
       sourcePhase: number
       position: { x: number; y: number; z: number }
       orientation: { rotX: number; rotY: number; rotZ: number }
+      expressions?: Record<string, string>
     },
     { rejectWithValue }
   ) => {
@@ -194,12 +197,13 @@ export const generateRod = createAsyncThunk(
       segments: number
       position: { x: number; y: number; z: number }
       orientation: { rotX: number; rotY: number; rotZ: number }
+      expressions?: Record<string, string>
     },
     { rejectWithValue }
   ) => {
     try {
       const response = await generateRodMesh(formData)
-      return response
+      return { ...response, formData }
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to generate rod mesh')
     }
@@ -276,6 +280,109 @@ export const remeshElementOrientation = createAsyncThunk(
       return { elementId, orientation, mesh: response.mesh }
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to re-mesh element')
+    }
+  }
+)
+
+/**
+ * Maps expression field keys to backend config field keys for each antenna type.
+ * Used when re-evaluating expressions to update element configs.
+ */
+const EXPR_TO_CONFIG_KEY: Record<string, Record<string, string>> = {
+  dipole: { length: 'length', radius: 'wire_radius', gap: 'gap' },
+  loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap' },
+  helix: { diameter: 'diameter', pitch: 'pitch', wire_radius: 'wire_radius' },
+  rod: { radius: 'wire_radius' },
+}
+
+/**
+ * Re-mesh an existing antenna element after its expression-driven parameters changed.
+ * Called when variables change and an element has stored expressions.
+ */
+export const remeshElementExpressions = createAsyncThunk(
+  'design/remeshElementExpressions',
+  async (
+    {
+      elementId,
+      resolvedValues,
+    }: {
+      elementId: string
+      resolvedValues: Record<string, number>
+    },
+    { getState, rejectWithValue }
+  ) => {
+    try {
+      const state = (getState() as any).design as DesignState
+      const element = state.elements.find(el => el.id === elementId)
+      if (!element) {
+        return rejectWithValue('Element not found')
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawCfg = element.config as any
+      const params = rawCfg.parameters || rawCfg
+      const mapping = EXPR_TO_CONFIG_KEY[element.type] || {}
+
+      // Build updated params by merging current config with new resolved values
+      const updatedParams = { ...params }
+      for (const [exprKey, value] of Object.entries(resolvedValues)) {
+        const configKey = mapping[exprKey]
+        if (configKey) {
+          if (element.type === 'helix' && exprKey === 'diameter') {
+            updatedParams.radius = value / 2
+          } else {
+            updatedParams[configKey] = value
+          }
+        }
+      }
+
+      let response
+      switch (element.type) {
+        case 'dipole': {
+          const config: DipoleConfig = {
+            length: updatedParams.length,
+            wire_radius: updatedParams.wire_radius,
+            gap: updatedParams.gap,
+            segments: updatedParams.segments,
+            balanced_feed: updatedParams.balanced_feed,
+            center_position: updatedParams.center_position || [0, 0, 0],
+            orientation: updatedParams.orientation || [0, 0, 1],
+          }
+          response = await createDipole(config)
+          break
+        }
+        case 'loop': {
+          const config: LoopConfig = {
+            ...updatedParams,
+            center_position: updatedParams.center_position || [0, 0, 0],
+            normal_vector: updatedParams.normal_vector || [0, 0, 1],
+          }
+          response = await createLoop(config)
+          break
+        }
+        case 'helix': {
+          const config: HelixConfig = {
+            ...updatedParams,
+            center_position: updatedParams.center_position || [0, 0, 0],
+            axis_direction: updatedParams.axis_direction || [0, 0, 1],
+          }
+          response = await createHelix(config)
+          break
+        }
+        case 'rod': {
+          const config: RodConfig = {
+            ...updatedParams,
+          }
+          response = await createRod(config)
+          break
+        }
+        default:
+          return rejectWithValue(`Unknown element type: ${element.type}`)
+      }
+
+      return { elementId, mesh: response.mesh, updatedParams, sources: response.element?.sources }
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to re-mesh element with updated expressions')
     }
   }
 )
@@ -632,6 +739,7 @@ const designSlice = createSlice({
           visible: true,
           locked: false,
           color,
+          expressions: formData?.expressions || undefined,
         };
 
         console.log('Redux: Created element with position:', position, 'rotation:', rotation, 'color:', color);
@@ -691,6 +799,7 @@ const designSlice = createSlice({
           visible: true,
           locked: false,
           color,
+          expressions: formData?.expressions || undefined,
         };
 
         // Add to elements array
@@ -746,6 +855,7 @@ const designSlice = createSlice({
           visible: true,
           locked: false,
           color,
+          expressions: formData?.expressions || undefined,
         };
 
         // Add to elements array
@@ -796,6 +906,7 @@ const designSlice = createSlice({
           visible: true,
           locked: false,
           color,
+          expressions: action.payload.formData?.expressions || undefined,
         };
 
         // Add to elements array
@@ -856,6 +967,38 @@ const designSlice = createSlice({
       .addCase(remeshElementOrientation.rejected, (state, action) => {
         state.meshGenerating = false;
         state.meshError = action.payload as string || 'Failed to re-mesh element';
+      })
+      // Re-mesh element after expression/variable change
+      .addCase(remeshElementExpressions.pending, (state) => {
+        state.meshGenerating = true;
+        state.meshError = null;
+      })
+      .addCase(remeshElementExpressions.fulfilled, (state, action) => {
+        state.meshGenerating = false;
+        const { elementId, mesh, updatedParams, sources } = action.payload;
+        const index = state.elements.findIndex(el => el.id === elementId);
+        if (index >= 0) {
+          const element = state.elements[index];
+          element.mesh = mesh;
+
+          // Merge updated config values
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const cfg = element.config as any;
+          const target = cfg.parameters || cfg;
+          Object.assign(target, updatedParams);
+
+          // Update sources if returned (they may reference new geometry)
+          if (sources) {
+            element.sources = sources;
+          }
+
+          state.isSolved = false;
+          state.mesh = mesh;
+        }
+      })
+      .addCase(remeshElementExpressions.rejected, (state, action) => {
+        state.meshGenerating = false;
+        state.meshError = action.payload as string || 'Failed to re-mesh with updated expressions';
       });
   },
 })

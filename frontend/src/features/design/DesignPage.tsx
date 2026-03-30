@@ -11,6 +11,7 @@ import {
   generateHelix,
   generateRod,
   remeshElementOrientation,
+  remeshElementExpressions,
   addLumpedElement,
   addLumpedElementToElement,
   addSource,
@@ -65,6 +66,11 @@ import DocumentationPanel from './DocumentationPanel';
 import { togglePanel as toggleDocPanel, closePanel as closeDocPanel, clearDocumentation } from '@/store/documentationSlice';
 import { selectVariables, setVariables, resetVariables } from '@/store/variablesSlice';
 import type { VariableDefinition } from '@/utils/expressionEvaluator';
+import {
+  BUILTIN_CONSTANTS,
+  parseNumericOrExpression,
+  evaluateVariableContextNumeric,
+} from '@/utils/expressionEvaluator';
 import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 
 
@@ -391,6 +397,69 @@ function DesignPage() {
       saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
     }
   }, [variables, projectId]);
+
+  // Re-mesh elements whose expressions depend on changed variables
+  const prevVariablesRef = useRef<VariableDefinition[]>(variables);
+  useEffect(() => {
+    if (projectLoadingRef.current) return;
+    // Skip initial render and identical references
+    if (prevVariablesRef.current === variables) return;
+    prevVariablesRef.current = variables;
+
+    // Evaluate full variable context (built-ins + user variables)
+    const varCtx = {
+      ...BUILTIN_CONSTANTS,
+      ...evaluateVariableContextNumeric(variables),
+    };
+
+    // Check each element that has stored expressions
+    for (const el of elements) {
+      if (!el.expressions || Object.keys(el.expressions).length === 0) continue;
+
+      // Re-evaluate each expression and see if the resolved value changed
+      const resolved: Record<string, number> = {};
+      let changed = false;
+      const rawCfg = el.config as Record<string, unknown>;
+      const params = (rawCfg.parameters || rawCfg) as Record<string, number>;
+
+      // Map from expression keys to config keys per type
+      const EXPR_MAP: Record<string, Record<string, string>> = {
+        dipole: { length: 'length', radius: 'wire_radius', gap: 'gap' },
+        loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap' },
+        helix: { diameter: 'diameter', pitch: 'pitch', wire_radius: 'wire_radius' },
+        rod: { radius: 'wire_radius' },
+      };
+      const mapping = EXPR_MAP[el.type] || {};
+
+      for (const [key, expr] of Object.entries(el.expressions)) {
+        try {
+          const newVal = parseNumericOrExpression(expr, varCtx);
+          resolved[key] = newVal;
+
+          // Compare with current config value
+          const configKey = mapping[key];
+          if (configKey) {
+            let currentVal: number;
+            if (el.type === 'helix' && key === 'diameter') {
+              currentVal = (params.radius ?? 0) * 2;
+            } else {
+              currentVal = params[configKey];
+            }
+            if (Math.abs(newVal - currentVal) > 1e-15) {
+              changed = true;
+            }
+          }
+        } catch {
+          // Expression evaluation failed (e.g., undefined variable) — skip
+        }
+      }
+
+      if (changed) {
+        console.log(`Variable change triggers remesh of ${el.name} (${el.id})`);
+        dispatch(remeshElementExpressions({ elementId: el.id, resolvedValues: resolved }));
+      }
+    }
+  }, [variables, elements, dispatch]);
 
   // Reset element count when opening a different project
   useEffect(() => {

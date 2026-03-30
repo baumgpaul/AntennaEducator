@@ -70,6 +70,7 @@ interface ResolvedHelixData {
   sourcePhase: number;
   position: { x: number; y: number; z: number };
   orientation: { rotX: number; rotY: number; rotZ: number };
+  expressions?: Record<string, string>;
 }
 
 interface HelixDialogProps {
@@ -126,6 +127,11 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
         diameter: parseNumericOrExpression(data.diameter, ctx),
         pitch: parseNumericOrExpression(data.pitch, ctx),
         wire_radius: parseNumericOrExpression(data.wire_radius, ctx),
+        expressions: {
+          diameter: data.diameter,
+          pitch: data.pitch,
+          wire_radius: data.wire_radius,
+        },
       };
       await onGenerate(resolved);
       reset();

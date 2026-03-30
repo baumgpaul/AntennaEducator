@@ -158,6 +158,8 @@ export interface AntennaElement {
   visible: boolean
   locked: boolean
   color?: string  // Hex color string (e.g., '#FF8C00')
+  /** Expression strings for geometry fields (e.g., { length: "wavelength / 2" }). */
+  expressions?: Record<string, string>
   created_at?: string
   updated_at?: string
 }

@@ -15,6 +15,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
   TableRow,
   TextField,
   IconButton,
@@ -147,6 +148,22 @@ export default function VariablePanel() {
 
       {/* User Variables */}
       <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ ...cellSx, fontWeight: 600, fontSize: '0.7rem', color: 'text.secondary', width: '30%' }}>
+              Name
+            </TableCell>
+            <TableCell sx={{ ...cellSx, fontWeight: 600, fontSize: '0.7rem', color: 'text.secondary', width: '35%' }}>
+              Expression
+            </TableCell>
+            <TableCell sx={{ ...cellSx, fontWeight: 600, fontSize: '0.7rem', color: 'text.secondary', width: '20%' }} align="right">
+              Value
+            </TableCell>
+            <TableCell sx={{ ...cellSx, fontWeight: 600, fontSize: '0.7rem', color: 'text.secondary', width: '15%' }}>
+              Unit
+            </TableCell>
+          </TableRow>
+        </TableHead>
         <TableBody>
           {variables.map((v, index) => {
             const evalResult = evaluated[v.name]

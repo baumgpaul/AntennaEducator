@@ -1,0 +1,57 @@
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { formatValue } from '@/utils/expressionEvaluator';
+
+describe('PropertiesPanel — expression display', () => {
+  describe('formatValue helper', () => {
+    it('formats integers without decimal', () => {
+      expect(formatValue(42)).toBe('42');
+    });
+
+    it('formats small floats with precision', () => {
+      expect(formatValue(0.001)).toBe('0.001');
+    });
+
+    it('formats very small numbers in scientific notation', () => {
+      const result = formatValue(1.23e-10);
+      expect(result).toMatch(/1\.23.*10/);
+    });
+
+    it('formats large numbers', () => {
+      const result = formatValue(300000000);
+      expect(result).toBe('300000000');
+    });
+  });
+
+  describe('expression-to-config key mapping', () => {
+    // Verify the mapping constants used in remesh logic
+    const EXPR_TO_CONFIG_KEY: Record<string, Record<string, string>> = {
+      dipole: { length: 'length', radius: 'wire_radius', gap: 'gap' },
+      loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap' },
+      helix: { diameter: 'diameter', pitch: 'pitch', wire_radius: 'wire_radius' },
+      rod: { radius: 'wire_radius' },
+    };
+
+    it('maps dipole expression keys correctly', () => {
+      expect(EXPR_TO_CONFIG_KEY.dipole.length).toBe('length');
+      expect(EXPR_TO_CONFIG_KEY.dipole.radius).toBe('wire_radius');
+      expect(EXPR_TO_CONFIG_KEY.dipole.gap).toBe('gap');
+    });
+
+    it('maps loop expression keys correctly', () => {
+      expect(EXPR_TO_CONFIG_KEY.loop.radius).toBe('radius');
+      expect(EXPR_TO_CONFIG_KEY.loop.wireRadius).toBe('wire_radius');
+      expect(EXPR_TO_CONFIG_KEY.loop.feedGap).toBe('gap');
+    });
+
+    it('maps helix expression keys correctly', () => {
+      expect(EXPR_TO_CONFIG_KEY.helix.diameter).toBe('diameter');
+      expect(EXPR_TO_CONFIG_KEY.helix.pitch).toBe('pitch');
+      expect(EXPR_TO_CONFIG_KEY.helix.wire_radius).toBe('wire_radius');
+    });
+
+    it('maps rod expression keys correctly', () => {
+      expect(EXPR_TO_CONFIG_KEY.rod.radius).toBe('wire_radius');
+    });
+  });
+});

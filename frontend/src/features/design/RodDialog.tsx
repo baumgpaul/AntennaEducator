@@ -60,6 +60,7 @@ type RodFormData = z.infer<typeof rodSchema>;
 
 interface ResolvedRodData extends Omit<RodFormData, 'radius'> {
   radius: number;
+  expressions?: Record<string, string>;
 }
 
 interface RodDialogProps {
@@ -123,6 +124,9 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
       const resolved: ResolvedRodData = {
         ...data,
         radius: parseNumericOrExpression(data.radius, ctx),
+        expressions: {
+          radius: data.radius,
+        },
       };
       await onGenerate(resolved);
       reset();

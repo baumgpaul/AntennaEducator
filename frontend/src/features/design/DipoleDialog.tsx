@@ -65,6 +65,7 @@ interface ResolvedDipoleData {
   sourcePhase: number;
   position: { x: number; y: number; z: number };
   orientation: { x: number; y: number; z: number };
+  expressions?: Record<string, string>;
 }
 
 interface DipoleDialogProps {
@@ -158,6 +159,11 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
         length: parseNumericOrExpression(data.length, ctx),
         radius: parseNumericOrExpression(data.radius, ctx),
         gap: parseNumericOrExpression(data.gap, ctx),
+        expressions: {
+          length: data.length,
+          radius: data.radius,
+          gap: data.gap,
+        },
       };
       await onGenerate(resolved);
       reset();
