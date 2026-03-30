@@ -24,15 +24,21 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PositionControl } from '@/components/PositionControl';
-import { parseDecimalNumber } from '@/utils/numberParser';
+import ExpressionField from '@/components/ExpressionField';
+import { useAppSelector } from '@/store/hooks';
+import { selectVariableContextNumeric } from '@/store/variablesSlice';
+import {
+  parseNumericOrExpression,
+  BUILTIN_CONSTANTS,
+} from '@/utils/expressionEvaluator';
 // Zod validation schema
 const helixSchema = z.object({
-  diameter: z.number().positive('Diameter must be positive').max(10, 'Diameter too large'),
-  pitch: z.number().positive('Pitch must be positive').max(5, 'Pitch too large'),
+  diameter: z.string().min(1, 'Required'),
+  pitch: z.string().min(1, 'Required'),
   turns: z.number().int().min(1, 'At least 1 turn required').max(50, 'Max 50 turns'),
   helix_mode: z.enum(['axial', 'normal']),
   polarization: z.enum(['RHCP', 'LHCP']),
-  wire_radius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
+  wire_radius: z.string().min(1, 'Required'),
   segments_per_turn: z.number().int().min(8, 'Min 8 segments per turn').max(50, 'Max 50 segments per turn'),
   sourceType: z.enum(['voltage', 'current']),
   sourceAmplitude: z.number().nonnegative('Amplitude must be non-negative'),
@@ -51,15 +57,31 @@ const helixSchema = z.object({
 
 type HelixFormData = z.infer<typeof helixSchema>;
 
+interface ResolvedHelixData {
+  diameter: number;
+  pitch: number;
+  turns: number;
+  helix_mode: 'axial' | 'normal';
+  polarization: 'RHCP' | 'LHCP';
+  wire_radius: number;
+  segments_per_turn: number;
+  sourceType: 'voltage' | 'current';
+  sourceAmplitude: number;
+  sourcePhase: number;
+  position: { x: number; y: number; z: number };
+  orientation: { rotX: number; rotY: number; rotZ: number };
+}
+
 interface HelixDialogProps {
   open: boolean;
   onClose: () => void;
-  onGenerate: (data: HelixFormData) => Promise<void>;
+  onGenerate: (data: ResolvedHelixData) => Promise<void>;
   loading?: boolean;
 }
 
 export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGenerate, loading = false }) => {
   const [generating, setGenerating] = useState(false);
+  const variableContext = useAppSelector(selectVariableContextNumeric);
 
   const {
     control,
@@ -70,12 +92,12 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
   } = useForm<HelixFormData>({
     resolver: zodResolver(helixSchema),
     defaultValues: {
-      diameter: 0.1,
-      pitch: 0.05,
+      diameter: 'wavelength / pi',
+      pitch: 'wavelength / 4',
       turns: 5,
       helix_mode: 'axial',
       polarization: 'RHCP',
-      wire_radius: 0.001,
+      wire_radius: '0.001',
       segments_per_turn: 16,
       sourceType: 'voltage' as const,
       sourceAmplitude: 1,
@@ -93,18 +115,19 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
     },
   });
 
-  const diameter = watch('diameter');
-  const turns = watch('turns');
   const sourceType = watch('sourceType');
-
-  // Calculate helix length
-  const pitch = watch('pitch');
-  const helixLength = turns * pitch;
 
   const handleFormSubmit = async (data: HelixFormData) => {
     setGenerating(true);
     try {
-      await onGenerate(data);
+      const ctx = { ...BUILTIN_CONSTANTS, ...variableContext };
+      const resolved: ResolvedHelixData = {
+        ...data,
+        diameter: parseNumericOrExpression(data.diameter, ctx),
+        pitch: parseNumericOrExpression(data.pitch, ctx),
+        wire_radius: parseNumericOrExpression(data.wire_radius, ctx),
+      };
+      await onGenerate(resolved);
       reset();
       onClose();
     } catch (error) {
@@ -173,15 +196,14 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
                 name="diameter"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Diameter (m)"
-                    type="number"
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Diameter"
                     fullWidth
-                    error={!!errors.diameter}
-                    helperText={errors.diameter?.message}
-                    inputProps={{ step: 0.001 }}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    unit="m"
+                    validate={(v) => (v > 0 ? null : 'Diameter must be positive')}
+                    disabled={generating}
                   />
                 )}
               />
@@ -193,15 +215,14 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
                 name="pitch"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Pitch (m)"
-                    type="number"
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Pitch"
                     fullWidth
-                    error={!!errors.pitch}
-                    helperText={errors.pitch?.message || 'Distance between turns'}
-                    inputProps={{ step: 0.001 }}
-                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
+                    unit="m"
+                    validate={(v) => (v > 0 ? null : 'Pitch must be positive')}
+                    disabled={generating}
                   />
                 )}
               />
@@ -233,15 +254,14 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
                 name="wire_radius"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Wire Radius (m)"
-                    type="number"
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Wire Radius"
                     fullWidth
-                    error={!!errors.wire_radius}
-                    helperText={errors.wire_radius?.message}
-                    inputProps={{ step: 0.0001 }}
-                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
+                    unit="m"
+                    validate={(v) => (v > 0 ? null : 'Wire radius must be positive')}
+                    disabled={generating}
                   />
                 )}
               />
@@ -343,17 +363,6 @@ export const HelixDialog: React.FC<HelixDialogProps> = ({ open, onClose, onGener
                   />
                 )}
               />
-            </Grid>
-
-            {/* Calculated Parameters Display */}
-            <Grid item xs={12}>
-              <Alert severity="info">
-                <strong>Calculated Parameters:</strong>
-                <br />
-                Helix Length = {helixLength.toFixed(4)} m ({(helixLength * 100).toFixed(2)} cm)
-                <br />
-                Circumference = {(Math.PI * diameter).toFixed(4)} m
-              </Alert>
             </Grid>
 
             {/* Position and Orientation Controls */}

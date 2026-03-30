@@ -18,13 +18,20 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { parseDecimalNumber } from '@/utils/numberParser';
+import ExpressionField from '@/components/ExpressionField';
+import { useAppSelector } from '@/store/hooks';
+import { selectVariableContextNumeric } from '@/store/variablesSlice';
+import {
+  parseNumericOrExpression,
+  BUILTIN_CONSTANTS,
+} from '@/utils/expressionEvaluator';
 
-// Validation schema - frequency removed, will be set during Solve phase
+// Validation schema — expression-capable fields store strings
 const dipoleSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50, 'Name too long'),
-  length: z.number().positive('Length must be positive').max(100, 'Length too large'),
-  radius: z.number().positive('Radius must be positive').max(1, 'Radius too large'),
-  gap: z.number().nonnegative('Gap must be non-negative').max(1, 'Gap too large'),
+  length: z.string().min(1, 'Required'),
+  radius: z.string().min(1, 'Required'),
+  gap: z.string().min(1, 'Required'),
   segments: z.number().int('Must be integer').min(5, 'Minimum 5 segments').max(1000, 'Maximum 1000 segments'),
   feedType: z.enum(['gap', 'balanced']),
   sourceType: z.enum(['voltage', 'current']),
@@ -46,14 +53,29 @@ const dipoleSchema = z.object({
 
 type DipoleFormData = z.infer<typeof dipoleSchema>;
 
+interface ResolvedDipoleData {
+  name: string;
+  length: number;
+  radius: number;
+  gap: number;
+  segments: number;
+  feedType: 'gap' | 'balanced';
+  sourceType: 'voltage' | 'current';
+  sourceAmplitude: number;
+  sourcePhase: number;
+  position: { x: number; y: number; z: number };
+  orientation: { x: number; y: number; z: number };
+}
+
 interface DipoleDialogProps {
   open: boolean;
   onClose: () => void;
-  onGenerate: (data: DipoleFormData) => Promise<void>;
+  onGenerate: (data: ResolvedDipoleData) => Promise<void>;
 }
 
 export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGenerate }) => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const variableContext = useAppSelector(selectVariableContextNumeric);
 
   const {
     control,
@@ -66,9 +88,9 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
     resolver: zodResolver(dipoleSchema),
     defaultValues: {
       name: 'Dipole',
-      length: 0.143, // ~λ/2 at 1 GHz
-      radius: 0.001, // 1mm
-      gap: 0.001, // 1mm gap
+      length: 'wavelength / 2',
+      radius: '0.001',
+      gap: '0.001',
       segments: 21,
       feedType: 'gap',
       sourceType: 'voltage' as const,
@@ -82,7 +104,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
       orientation: {
         x: 0,
         y: 0,
-        z: 1, // Default: Z-axis aligned dipole
+        z: 1,
       },
     },
   });
@@ -130,12 +152,18 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
   const onSubmit = async (data: DipoleFormData) => {
     setIsGenerating(true);
     try {
-      await onGenerate(data);
+      const ctx = { ...BUILTIN_CONSTANTS, ...variableContext };
+      const resolved: ResolvedDipoleData = {
+        ...data,
+        length: parseNumericOrExpression(data.length, ctx),
+        radius: parseNumericOrExpression(data.radius, ctx),
+        gap: parseNumericOrExpression(data.gap, ctx),
+      };
+      await onGenerate(resolved);
       reset();
       onClose();
     } catch (error) {
       console.error('Failed to generate dipole:', error);
-      // Error handling will be done in parent component via notifications
     } finally {
       setIsGenerating(false);
     }
@@ -184,21 +212,15 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               <Controller
                 name="length"
                 control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    value={value}
-                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Total Length"
-                    type="number"
                     fullWidth
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                    }}
-                    error={!!errors.length}
-                    helperText={errors.length?.message}
+                    unit="m"
+                    validate={(v) => (v > 0 ? null : 'Length must be positive')}
                     disabled={isGenerating}
-                    inputProps={{ step: 0.001 }}
                   />
                 )}
               />
@@ -209,21 +231,15 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               <Controller
                 name="radius"
                 control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    value={value}
-                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Wire Radius"
-                    type="number"
                     fullWidth
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                    }}
-                    error={!!errors.radius}
-                    helperText={errors.radius?.message}
+                    unit="m"
+                    validate={(v) => (v > 0 ? null : 'Radius must be positive')}
                     disabled={isGenerating}
-                    inputProps={{ step: 0.0001 }}
                   />
                 )}
               />
@@ -234,21 +250,15 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               <Controller
                 name="gap"
                 control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    value={value}
-                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Feed Gap"
-                    type="number"
                     fullWidth
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                    }}
-                    error={!!errors.gap}
-                    helperText={errors.gap?.message || 'Gap between dipole halves'}
+                    unit="m"
+                    validate={(v) => (v >= 0 ? null : 'Gap must be non-negative')}
                     disabled={isGenerating}
-                    inputProps={{ step: 0.0001 }}
                   />
                 )}
               />

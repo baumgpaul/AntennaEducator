@@ -44,6 +44,7 @@ import {
 } from '@mui/icons-material';
 import { DEFAULT_ELEMENT_COLOR } from '@/utils/colors';
 import type { Mesh, Source, LumpedElement, AntennaElement, ComplexNumber } from '@/types/models';
+import VariablePanel from './VariablePanel';
 
 /**
  * Format a source label with type, amplitude and phase.
@@ -631,6 +632,37 @@ function TreeViewPanel({
 
       {/* Tree Content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
+        {/* Variables Section (designer mode) */}
+        {mode !== 'postprocessing' && (
+          <Accordion
+            disableGutters
+            elevation={0}
+            defaultExpanded
+            sx={{
+              '&:before': { display: 'none' },
+              bgcolor: 'transparent',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMore />}
+              sx={{
+                minHeight: 36,
+                '& .MuiAccordionSummary-content': { my: 0.5 },
+                px: 2,
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                Variables
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 0, px: 0.5 }}>
+              <VariablePanel />
+            </AccordionDetails>
+          </Accordion>
+        )}
+
         {mode !== 'postprocessing' && (
           treeData.length === 0 ? (
             <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>

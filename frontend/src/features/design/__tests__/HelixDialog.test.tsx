@@ -1,7 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
+import variablesReducer from '@/store/variablesSlice';
 import { HelixDialog } from '../HelixDialog';
+
+function createTestStore() {
+  return configureStore({
+    reducer: {
+      variables: variablesReducer,
+    },
+  });
+}
 
 describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
   const mockOnClose = vi.fn();
@@ -14,11 +25,13 @@ describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
   describe('Dialog Structure', () => {
     it('should render when open', () => {
       render(
-        <HelixDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <HelixDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       expect(screen.getByText(/Create Helical Antenna/i)).toBeInTheDocument();
@@ -26,11 +39,13 @@ describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
 
     it('should not render when closed', () => {
       render(
-        <HelixDialog
-          open={false}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <HelixDialog
+            open={false}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       expect(screen.queryByText(/Create Helical Antenna/i)).not.toBeInTheDocument();
@@ -40,11 +55,13 @@ describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
   describe('Form Fields - WITHOUT Frequency', () => {
     beforeEach(() => {
       render(
-        <HelixDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <HelixDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
     });
 
@@ -85,11 +102,13 @@ describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
       mockOnGenerate.mockResolvedValue(undefined);
 
       render(
-        <HelixDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <HelixDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const diameterInput = screen.getByLabelText(/Diameter/i);
@@ -115,11 +134,13 @@ describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
       mockOnGenerate.mockResolvedValue(undefined);
 
       render(
-        <HelixDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <HelixDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const generateButton = screen.getByRole('button', { name: /Generate/i });
@@ -136,11 +157,13 @@ describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
       mockOnGenerate.mockRejectedValue(new Error('Generation failed'));
 
       render(
-        <HelixDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <HelixDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const generateButton = screen.getByRole('button', { name: /Generate/i });
@@ -160,11 +183,13 @@ describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
       const user = userEvent.setup();
 
       render(
-        <HelixDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <HelixDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const cancelButton = screen.getByRole('button', { name: /Cancel/i });
@@ -177,19 +202,21 @@ describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
   describe('Default Values', () => {
     it('should have correct default values without frequency', () => {
       render(
-        <HelixDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <HelixDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const diameterInput = screen.getByLabelText(/Diameter/i) as HTMLInputElement;
       const pitchInput = screen.getByLabelText(/Pitch/i) as HTMLInputElement;
       const turnsInput = screen.getByLabelText(/Turns/i) as HTMLInputElement;
 
-      expect(diameterInput.value).toBe('0.1');
-      expect(pitchInput.value).toBe('0.05');
+      expect(diameterInput.value).toBe('wavelength / pi');
+      expect(pitchInput.value).toBe('wavelength / 4');
       expect(turnsInput.value).toBe('5');
     });
   });
@@ -197,11 +224,13 @@ describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
   describe('Helix Configuration', () => {
     it('should support helix mode selection', () => {
       render(
-        <HelixDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <HelixDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const helixModeSelect = screen.getByLabelText(/Helix Mode/i);
@@ -210,11 +239,13 @@ describe('HelixDialog - T4.A3: Frequency Input Removal', () => {
 
     it('should support polarization selection', () => {
       render(
-        <HelixDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <HelixDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const polarizationSelect = screen.getByLabelText(/Polarization/i);

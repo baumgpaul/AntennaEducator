@@ -15,7 +15,11 @@ import {
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import ExpressionField from '@/components/ExpressionField';
 import { PositionControl } from '@/components/PositionControl';
+import { useAppSelector } from '@/store/hooks';
+import { selectVariableContextNumeric } from '@/store/variablesSlice';
+import { parseNumericOrExpression, BUILTIN_CONSTANTS } from '@/utils/expressionEvaluator';
 import { parseDecimalNumber } from '@/utils/numberParser';
 // Zod validation schema
 const rodSchema = z.object({
@@ -25,7 +29,7 @@ const rodSchema = z.object({
   end_x: z.number().min(-10, 'X too small').max(10, 'X too large'),
   end_y: z.number().min(-10, 'Y too small').max(10, 'Y too large'),
   end_z: z.number().min(-10, 'Z too small').max(10, 'Z too large'),
-  radius: z.number().positive('Radius must be positive').max(0.1, 'Radius too large'),
+  radius: z.string().min(1, 'Required'),
   segments: z.number().int().min(1, 'At least 1 segment required').max(200, 'Max 200 segments'),
   position: z.object({
     x: z.number(),
@@ -54,15 +58,20 @@ const rodSchema = z.object({
 
 type RodFormData = z.infer<typeof rodSchema>;
 
+interface ResolvedRodData extends Omit<RodFormData, 'radius'> {
+  radius: number;
+}
+
 interface RodDialogProps {
   open: boolean;
   onClose: () => void;
-  onGenerate: (data: RodFormData) => Promise<void>;
+  onGenerate: (data: ResolvedRodData) => Promise<void>;
   loading?: boolean;
 }
 
 export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate, loading = false }) => {
   const [generating, setGenerating] = useState(false);
+  const variableContext = useAppSelector(selectVariableContextNumeric);
 
   const {
     control,
@@ -79,7 +88,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
       end_x: 0,
       end_y: 0,
       end_z: 1.0,
-      radius: 0.001,
+      radius: '0.001',
       segments: 20,
       position: {
         x: 0,
@@ -110,7 +119,12 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
   const handleFormSubmit = async (data: RodFormData) => {
     setGenerating(true);
     try {
-      await onGenerate(data);
+      const ctx = { ...BUILTIN_CONSTANTS, ...variableContext };
+      const resolved: ResolvedRodData = {
+        ...data,
+        radius: parseNumericOrExpression(data.radius, ctx),
+      };
+      await onGenerate(resolved);
       reset();
       onClose();
     } catch (error) {
@@ -261,15 +275,14 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 name="radius"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Wire Radius (m)"
-                    type="number"
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Wire Radius"
                     fullWidth
-                    error={!!errors.radius}
-                    helperText={errors.radius?.message}
-                    inputProps={{ step: 0.0001 }}
-                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
+                    unit="m"
+                    validate={(v) => (v > 0 ? null : 'Radius must be positive')}
+                    disabled={generating}
                   />
                 )}
               />

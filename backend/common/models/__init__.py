@@ -12,6 +12,7 @@ from .solver_results import (
     SolverType,
     SweepResultEnvelope,
 )
+from .variables import Variable, VariableContext, default_variable_context
 
 __all__ = [
     "AntennaElement",
@@ -22,4 +23,7 @@ __all__ = [
     "PortResult",
     "FrequencyPointResult",
     "SweepResultEnvelope",
+    "Variable",
+    "VariableContext",
+    "default_variable_context",
 ]

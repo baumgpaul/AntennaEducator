@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from backend.common.auth.dependencies import get_current_user
 from backend.common.auth.identity import UserIdentity
 from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
+from backend.common.utils.expressions import ExpressionError
 
 from .builders import (
     create_dipole,
@@ -137,7 +138,7 @@ async def create_dipole_antenna(
             mesh=mesh.model_dump(),
             message=f"Dipole antenna created: {element.name}",
         )
-    except ValueError as e:
+    except (ValueError, ExpressionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
@@ -172,7 +173,7 @@ async def create_loop_antenna(
             mesh=mesh.model_dump(),
             message=f"Loop antenna created: {element.name}",
         )
-    except ValueError as e:
+    except (ValueError, ExpressionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
@@ -206,7 +207,7 @@ async def create_rod_antenna(
             mesh=mesh.model_dump(),
             message=f"Rod antenna created: {element.name}",
         )
-    except ValueError as e:
+    except (ValueError, ExpressionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
@@ -242,7 +243,7 @@ async def create_helix_antenna(
             mesh=mesh.model_dump(),
             message=f"Helix antenna created: {element.name}",
         )
-    except ValueError as e:
+    except (ValueError, ExpressionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")

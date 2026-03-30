@@ -21,13 +21,20 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PositionControl } from '@/components/PositionControl';
 import { parseDecimalNumber } from '@/utils/numberParser';
+import ExpressionField from '@/components/ExpressionField';
+import { useAppSelector } from '@/store/hooks';
+import { selectVariableContextNumeric } from '@/store/variablesSlice';
+import {
+  parseNumericOrExpression,
+  BUILTIN_CONSTANTS,
+} from '@/utils/expressionEvaluator';
 
 // Validation schema — circular loop only
 const loopSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50, 'Name too long'),
-  radius: z.number().positive('Radius must be positive').max(10, 'Radius too large'),
-  wireRadius: z.number().positive('Wire radius must be positive').max(0.1, 'Wire radius too large'),
-  feedGap: z.number().nonnegative('Feed gap must be non-negative').max(1, 'Feed gap too large'),
+  radius: z.string().min(1, 'Required'),
+  wireRadius: z.string().min(1, 'Required'),
+  feedGap: z.string().min(1, 'Required'),
   segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
   sourceType: z.enum(['voltage', 'current']),
   sourceAmplitude: z.number().nonnegative('Amplitude must be non-negative'),
@@ -46,14 +53,28 @@ const loopSchema = z.object({
 
 type LoopFormData = z.infer<typeof loopSchema>;
 
+interface ResolvedLoopData {
+  name: string;
+  radius: number;
+  wireRadius: number;
+  feedGap: number;
+  segments: number;
+  sourceType: 'voltage' | 'current';
+  sourceAmplitude: number;
+  sourcePhase: number;
+  position: { x: number; y: number; z: number };
+  orientation: { rotX: number; rotY: number; rotZ: number };
+}
+
 interface LoopDialogProps {
   open: boolean;
   onClose: () => void;
-  onGenerate: (data: LoopFormData) => Promise<void>;
+  onGenerate: (data: ResolvedLoopData) => Promise<void>;
 }
 
 export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerate }) => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const variableContext = useAppSelector(selectVariableContextNumeric);
 
   const {
     control,
@@ -65,9 +86,9 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
     resolver: zodResolver(loopSchema),
     defaultValues: {
       name: 'Loop',
-      radius: 0.048, // ~λ/10 at 1 GHz
-      wireRadius: 0.001, // 1mm
-      feedGap: 0, // 0 = closed loop (voltage source across wraparound edge)
+      radius: 'wavelength / (2 * pi)',
+      wireRadius: '0.001',
+      feedGap: '0.001',
       segments: 32,
       sourceType: 'voltage' as const,
       sourceAmplitude: 1,
@@ -97,7 +118,14 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
   const onSubmit = async (data: LoopFormData) => {
     setIsGenerating(true);
     try {
-      await onGenerate(data);
+      const ctx = { ...BUILTIN_CONSTANTS, ...variableContext };
+      const resolved: ResolvedLoopData = {
+        ...data,
+        radius: parseNumericOrExpression(data.radius, ctx),
+        wireRadius: parseNumericOrExpression(data.wireRadius, ctx),
+        feedGap: parseNumericOrExpression(data.feedGap, ctx),
+      };
+      await onGenerate(resolved);
       reset();
       onClose();
     } catch (error) {
@@ -146,20 +174,14 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               <Controller
                 name="radius"
                 control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    value={value || ''}
-                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Loop Radius"
-                    type="number"
                     fullWidth
-                    error={!!errors.radius}
-                    helperText={errors.radius?.message}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                      inputProps: { step: 0.001, min: 0 },
-                    }}
+                    unit="m"
+                    validate={(v) => (v > 0 ? null : 'Radius must be positive')}
                     disabled={isGenerating}
                   />
                 )}
@@ -171,20 +193,14 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               <Controller
                 name="wireRadius"
                 control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    value={value || ''}
-                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Wire Radius"
-                    type="number"
                     fullWidth
-                    error={!!errors.wireRadius}
-                    helperText={errors.wireRadius?.message}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                      inputProps: { step: 0.0001, min: 0 },
-                    }}
+                    unit="m"
+                    validate={(v) => (v > 0 ? null : 'Wire radius must be positive')}
                     disabled={isGenerating}
                   />
                 )}
@@ -196,20 +212,14 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               <Controller
                 name="feedGap"
                 control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    value={value || ''}
-                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) || 0)}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Feed Gap"
-                    type="number"
                     fullWidth
-                    error={!!errors.feedGap}
-                    helperText={errors.feedGap?.message || 'Gap at feed position'}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                      inputProps: { step: 0.0001, min: 0 },
-                    }}
+                    unit="m"
+                    validate={(v) => (v >= 0 ? null : 'Feed gap must be non-negative')}
                     disabled={isGenerating}
                   />
                 )}
