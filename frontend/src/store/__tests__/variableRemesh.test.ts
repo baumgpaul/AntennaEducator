@@ -13,9 +13,18 @@ import type { VariableDefinition } from '@/utils/expressionEvaluator';
  */
 
 const EXPR_MAP: Record<string, Record<string, string>> = {
-  dipole: { length: 'length', radius: 'wire_radius', gap: 'gap' },
-  loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap' },
-  rod: { radius: 'wire_radius' },
+  dipole: { length: 'length', radius: 'wire_radius', gap: 'gap', segments: 'segments' },
+  loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap', segments: 'segments' },
+  rod: {
+    radius: 'wire_radius',
+    segments: 'segments',
+    start_x: 'start_x',
+    start_y: 'start_y',
+    start_z: 'start_z',
+    end_x: 'end_x',
+    end_y: 'end_y',
+    end_z: 'end_z',
+  },
 };
 
 /** Simulate the DesignPage remesh detection logic. */
@@ -141,6 +150,142 @@ describe('Variable-change remesh detection', () => {
       const expressions = { radius: '0.002' };
       const result = detectChanges('rod', config, expressions, []);
       expect(result.changed).toBe(true);
+    });
+  });
+
+  describe('dipole segments change detection', () => {
+    const defaultVars: VariableDefinition[] = [
+      { name: 'freq', expression: '300e6', unit: 'Hz', description: 'Frequency' },
+      { name: 'wavelength', expression: 'C_0 / freq', unit: 'm', description: 'Wavelength' },
+    ];
+
+    it('detects segments change when expression-driven value differs', () => {
+      const config = {
+        length: 299792458 / 300e6 / 2,
+        wire_radius: 0.001,
+        gap: 0.01,
+        segments: 21,
+      };
+      const expressions = {
+        length: 'wavelength / 2',
+        radius: '0.001',
+        gap: '0.01',
+        segments: 'wavelength * 42',
+      };
+      const result = detectChanges('dipole', config, expressions, defaultVars);
+      expect(result.changed).toBe(true);
+      // wavelength * 42 at 300MHz = ~41.97 which != 21
+      expect(result.resolved.segments).toBeCloseTo(299792458 / 300e6 * 42, 2);
+    });
+
+    it('detects no segments change when expression matches config', () => {
+      const config = {
+        length: 299792458 / 300e6 / 2,
+        wire_radius: 0.001,
+        gap: 0.01,
+        segments: 21,
+      };
+      const expressions = {
+        length: 'wavelength / 2',
+        radius: '0.001',
+        gap: '0.01',
+        segments: '21',
+      };
+      const result = detectChanges('dipole', config, expressions, defaultVars);
+      expect(result.changed).toBe(false);
+      expect(result.resolved.segments).toBe(21);
+    });
+  });
+
+  describe('rod coordinate change detection', () => {
+    const defaultVars: VariableDefinition[] = [
+      { name: 'freq', expression: '300e6', unit: 'Hz', description: '' },
+      { name: 'wavelength', expression: 'C_0 / freq', unit: 'm', description: '' },
+    ];
+    const wavelength300 = 299792458 / 300e6;
+
+    it('detects rod coordinate change when variable changes', () => {
+      const config = {
+        wire_radius: 0.001,
+        segments: 20,
+        start_x: 0,
+        start_y: 0,
+        start_z: 0,
+        end_x: 0,
+        end_y: 0,
+        end_z: wavelength300 / 4,
+      };
+      const expressions = {
+        radius: '0.001',
+        segments: '20',
+        start_x: '0',
+        start_y: '0',
+        start_z: '0',
+        end_x: '0',
+        end_y: '0',
+        end_z: 'wavelength / 4',
+      };
+
+      // Same frequency — no change
+      let result = detectChanges('rod', config, expressions, defaultVars);
+      expect(result.changed).toBe(false);
+
+      // Different frequency — change
+      const vars600: VariableDefinition[] = [
+        { name: 'freq', expression: '600e6', unit: 'Hz', description: '' },
+        { name: 'wavelength', expression: 'C_0 / freq', unit: 'm', description: '' },
+      ];
+      result = detectChanges('rod', config, expressions, vars600);
+      expect(result.changed).toBe(true);
+      expect(result.resolved.end_z).toBeCloseTo(299792458 / 600e6 / 4, 6);
+    });
+
+    it('detects no change when rod coordinates match config', () => {
+      const config = {
+        wire_radius: 0.001,
+        segments: 20,
+        start_x: 0,
+        start_y: 0,
+        start_z: 0,
+        end_x: 0,
+        end_y: 0,
+        end_z: 1,
+      };
+      const expressions = {
+        radius: '0.001',
+        segments: '20',
+        start_x: '0',
+        start_y: '0',
+        start_z: '0',
+        end_x: '0',
+        end_y: '0',
+        end_z: '1',
+      };
+      const result = detectChanges('rod', config, expressions, defaultVars);
+      expect(result.changed).toBe(false);
+    });
+  });
+
+  describe('segment rounding in remesh', () => {
+    it('resolving expression 21.7 gives Math.round = 22', () => {
+      // The detectChanges helper resolves raw expressions; the real remesh
+      // logic applies Math.round before comparing/dispatching.
+      const config = { segments: 22 };
+      const expressions = { segments: '21.7' };
+      // After rounding, 21.7 → 22, so no change expected
+      const result = detectChanges('dipole', config, expressions, []);
+      // Raw resolved value is 21.7, config is 22 → changed because
+      // detectChanges doesn't round (the slice does).
+      expect(result.resolved.segments).toBeCloseTo(21.7, 5);
+      expect(Math.round(result.resolved.segments)).toBe(22);
+    });
+
+    it('resolving expression 20.3 gives Math.round = 20', () => {
+      const config = { segments: 20 };
+      const expressions = { segments: '20.3' };
+      const result = detectChanges('dipole', config, expressions, []);
+      expect(result.resolved.segments).toBeCloseTo(20.3, 5);
+      expect(Math.round(result.resolved.segments)).toBe(20);
     });
   });
 
