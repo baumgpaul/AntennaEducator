@@ -612,27 +612,10 @@ function TreeViewPanel({
       bgcolor: 'background.paper',
     }}>
       {/* Header - hidden in postprocessing mode */}
-      {mode !== 'postprocessing' && (
-        <Box
-          sx={{
-            p: 2,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.default',
-          }}
-        >
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-            Structure
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Antenna mesh hierarchy
-          </Typography>
-        </Box>
-      )}
 
       {/* Tree Content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {/* Variables Section (designer mode) */}
+        {/* Variables Section (designer mode) — shown first */}
         {mode !== 'postprocessing' && (
           <Accordion
             disableGutters
@@ -663,16 +646,43 @@ function TreeViewPanel({
           </Accordion>
         )}
 
+        {/* Structure Section (designer mode) — collapsible */}
         {mode !== 'postprocessing' && (
-          treeData.length === 0 ? (
-            <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
-              <Typography variant="body2">No antenna loaded</Typography>
-            </Box>
-          ) : (
-            <List disablePadding key={elements?.map(e => e.id).join(',') || 'single-mesh'}>
-              {treeData.map((node) => renderTreeNode(node, 0))}
-            </List>
-          )
+          <Accordion
+            disableGutters
+            elevation={0}
+            defaultExpanded
+            sx={{
+              '&:before': { display: 'none' },
+              bgcolor: 'transparent',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMore />}
+              sx={{
+                minHeight: 36,
+                '& .MuiAccordionSummary-content': { my: 0.5 },
+                px: 2,
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                Structure
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 0 }}>
+              {treeData.length === 0 ? (
+                <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
+                  <Typography variant="body2">No antenna loaded</Typography>
+                </Box>
+              ) : (
+                <List disablePadding key={elements?.map(e => e.id).join(',') || 'single-mesh'}>
+                  {treeData.map((node) => renderTreeNode(node, 0))}
+                </List>
+              )}
+            </AccordionDetails>
+          </Accordion>
         )}
 
         {/* Requested Quantities Section (Solver Mode) */}
