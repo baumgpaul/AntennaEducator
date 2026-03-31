@@ -8,9 +8,9 @@ import { parseApiError } from '@/utils/errors';
 import {
   generateDipole,
   generateLoop,
-  generateHelix,
   generateRod,
   remeshElementOrientation,
+  remeshElementExpressions,
   addLumpedElement,
   addLumpedElementToElement,
   addSource,
@@ -49,7 +49,6 @@ import type { Scene3DHandle } from './Scene3D';
 import ViewControls from './ViewControls';
 import { DipoleDialog } from './DipoleDialog';
 import { LoopDialog } from './LoopDialog';
-import { HelixDialog } from './HelixDialog';
 import { RodDialog } from './RodDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
@@ -63,6 +62,13 @@ import AddFieldVisualizationDialog from './dialogs/AddFieldVisualizationDialog';
 import AddScalarPlotDialog from './dialogs/AddScalarPlotDialog';
 import DocumentationPanel from './DocumentationPanel';
 import { togglePanel as toggleDocPanel, closePanel as closeDocPanel, clearDocumentation } from '@/store/documentationSlice';
+import { selectVariables, setVariables, resetVariables } from '@/store/variablesSlice';
+import type { VariableDefinition } from '@/utils/expressionEvaluator';
+import {
+  BUILTIN_CONSTANTS,
+  parseNumericOrExpression,
+  evaluateVariableContextNumeric,
+} from '@/utils/expressionEvaluator';
 import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 
 
@@ -106,6 +112,7 @@ function DesignPage() {
   const viewConfigurations = useAppSelector((state) => state.postprocessing.viewConfigurations);
   const solverState = useAppSelector((state) => state.solver); // Full solver state for persistence
   const docPanelOpen = useAppSelector((state) => state.documentation.panelOpen);
+  const variables = useAppSelector(selectVariables);
 
   // Helper: extract persistable solver state for auto-save
   // fieldData is included — the backend stores it in S3 (not DynamoDB)
@@ -136,7 +143,6 @@ function DesignPage() {
   const [showResultsPanel, setShowResultsPanel] = useState(false);
   const [dipoleDialogOpen, setDipoleDialogOpen] = useState(false);
   const [loopDialogOpen, setLoopDialogOpen] = useState(false);
-  const [helixDialogOpen, setHelixDialogOpen] = useState(false);
   const [rodDialogOpen, setRodDialogOpen] = useState(false);
   const [lumpedDialogOpen, setLumpedDialogOpen] = useState(false);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
@@ -214,6 +220,14 @@ function DesignPage() {
       dispatch(loadDesign({ elements: [] }));
     }
 
+    // Restore variables from design_state (v3+), otherwise reset to defaults
+    if (designState?.variables && Array.isArray(designState.variables)) {
+      console.log('Restored variables from design_state:', designState.variables);
+      dispatch(setVariables(designState.variables));
+    } else {
+      dispatch(resetVariables());
+    }
+
     // Mark design as solved if project has solver results
     // (loadDesign resets isSolved to false, so this must come AFTER)
     if (currentProject.simulation_results && Object.keys(currentProject.simulation_results).length > 0) {
@@ -236,7 +250,7 @@ function DesignPage() {
 
   // Auto-save function with retry logic (debounced)
   const saveProjectDebounced = useRef(
-    debounce(async (projectElements: typeof elements, fields: any[], views: any[], solverData: any, retryCount = 0) => {
+    debounce(async (projectElements: typeof elements, fields: any[], views: any[], solverData: any, projectVariables: VariableDefinition[], retryCount = 0) => {
       if (!projectId) {
         return;
       }
@@ -256,7 +270,8 @@ function DesignPage() {
             // Elements snapshot with schema version
             design_state: {
               elements: projectElements,
-              version: 2,
+              variables: projectVariables,
+              version: 3,
             },
             // Solver / postprocessor settings
             simulation_config: {
@@ -293,7 +308,7 @@ function DesignPage() {
           setSaveError(`Retrying in ${delay / 1000}s...`);
 
           setTimeout(() => {
-            saveProjectDebounced(projectElements, fields, views, solverData, retryCount + 1);
+            saveProjectDebounced(projectElements, fields, views, solverData, projectVariables, retryCount + 1);
           }, delay);
         } else {
           // Non-retryable error or all retries failed
@@ -316,7 +331,7 @@ function DesignPage() {
     if (projectLoadingRef.current) return; // Skip during project load
     if (triggerSave > 0 && projectId && elements.length > 0) {
       console.log('Triggering auto-save after property change, elements:', elements);
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState());
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
     }
   }, [triggerSave, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced, solverState]);
 
@@ -327,7 +342,7 @@ function DesignPage() {
     if (elements && elements.length > previousElementCountRef.current) {
       console.log(`New element(s) added: ${previousElementCountRef.current} -> ${elements.length}, saving...`);
       previousElementCountRef.current = elements.length;
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState());
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
     } else if (elements && elements.length < previousElementCountRef.current) {
       // Update count if elements were removed
       previousElementCountRef.current = elements.length;
@@ -344,7 +359,7 @@ function DesignPage() {
     if (projectLoadingRef.current) return; // Skip during project load
     if (projectId && (elements.length > 0 || requestedFields.length > 0)) {
       console.log('Requested fields changed, saving...');
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState());
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
     }
   }, [requestedFields, projectId, elements, viewConfigurations, saveProjectDebounced, solverState]);
 
@@ -358,7 +373,7 @@ function DesignPage() {
     // Save view configurations even when empty (to persist deletions)
     if (projectId) {
       console.log('View configurations changed, saving...', viewConfigurations.length, 'views');
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState());
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
     }
   }, [viewConfigurations, projectId, elements, requestedFields, saveProjectDebounced, solverState]);
 
@@ -367,9 +382,75 @@ function DesignPage() {
     if (projectLoadingRef.current) return; // Skip during project load
     if (projectId && solverState.results) {
       console.log('Solver results changed, saving...');
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState());
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
     }
   }, [solverState.results, solverState.radiationPattern, solverState.multiAntennaResults, solverState.frequencySweep, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced, solverState]);
+
+  // Auto-save when variables change
+  useEffect(() => {
+    if (projectLoadingRef.current) return;
+    if (projectId && elements.length > 0) {
+      console.log('Variables changed, saving...');
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
+    }
+  }, [variables, projectId]);
+
+  // Re-mesh elements whose expressions depend on changed variables
+  const prevVariablesRef = useRef<VariableDefinition[]>(variables);
+  useEffect(() => {
+    if (projectLoadingRef.current) return;
+    // Skip initial render and identical references
+    if (prevVariablesRef.current === variables) return;
+    prevVariablesRef.current = variables;
+
+    // Evaluate full variable context (built-ins + user variables)
+    const varCtx = {
+      ...BUILTIN_CONSTANTS,
+      ...evaluateVariableContextNumeric(variables),
+    };
+
+    // Check each element that has stored expressions
+    for (const el of elements) {
+      if (!el.expressions || Object.keys(el.expressions).length === 0) continue;
+
+      // Re-evaluate each expression and see if the resolved value changed
+      const resolved: Record<string, number> = {};
+      let changed = false;
+      const rawCfg = el.config as Record<string, unknown>;
+      const params = (rawCfg.parameters || rawCfg) as Record<string, number>;
+
+      // Map from expression keys to config keys per type
+      const EXPR_MAP: Record<string, Record<string, string>> = {
+        dipole: { length: 'length', radius: 'wire_radius', gap: 'gap' },
+        loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap' },
+        rod: { radius: 'wire_radius' },
+      };
+      const mapping = EXPR_MAP[el.type] || {};
+
+      for (const [key, expr] of Object.entries(el.expressions)) {
+        try {
+          const newVal = parseNumericOrExpression(expr, varCtx);
+          resolved[key] = newVal;
+
+          // Compare with current config value
+          const configKey = mapping[key];
+          if (configKey) {
+            const currentVal: number = params[configKey];
+            if (Math.abs(newVal - currentVal) > 1e-15) {
+              changed = true;
+            }
+          }
+        } catch {
+          // Expression evaluation failed (e.g., undefined variable) — skip
+        }
+      }
+
+      if (changed) {
+        console.log(`Variable change triggers remesh of ${el.name} (${el.id})`);
+        dispatch(remeshElementExpressions({ elementId: el.id, resolvedValues: resolved }));
+      }
+    }
+  }, [variables, elements, dispatch]);
 
   // Reset element count when opening a different project
   useEffect(() => {
@@ -388,9 +469,6 @@ function DesignPage() {
         break;
       case 'loop':
         setLoopDialogOpen(true);
-        break;
-      case 'helix':
-        setHelixDialogOpen(true);
         break;
       case 'rod':
         setRodDialogOpen(true);
@@ -443,26 +521,6 @@ function DesignPage() {
         duration: 5000,
       }));
       throw error; // Re-throw so dialog can handle it
-    }
-  };
-
-  const handleHelixGenerate = async (data: any) => {
-    try {
-      await dispatch(generateHelix(data)).unwrap();
-      dispatch(addNotification({
-        id: Date.now(),
-        message: `Helix antenna generated successfully!`,
-        severity: 'success',
-        duration: 5000,
-      }));
-    } catch (error: any) {
-      dispatch(addNotification({
-        id: Date.now(),
-        message: error || 'Failed to generate helix antenna',
-        severity: 'error',
-        duration: 5000,
-      }));
-      throw error;
     }
   };
 
@@ -1100,12 +1158,6 @@ function DesignPage() {
         open={loopDialogOpen}
         onClose={() => setLoopDialogOpen(false)}
         onGenerate={handleLoopGenerate}
-      />
-      <HelixDialog
-        open={helixDialogOpen}
-        onClose={() => setHelixDialogOpen(false)}
-        onGenerate={handleHelixGenerate}
-        loading={meshGenerating}
       />
       <RodDialog
         open={rodDialogOpen}

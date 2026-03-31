@@ -7,7 +7,6 @@ import { preprocessorClient, handleApiResponse } from './client'
 import type {
   DipoleConfig,
   LoopConfig,
-  HelixConfig,
   RodConfig,
   PreprocessorResponse,
   LumpedElement,
@@ -42,14 +41,6 @@ export const createDipole = async (
  */
 export const createLoop = async (config: LoopConfig): Promise<PreprocessorResponse> => {
   const response = await preprocessorClient.post('/api/antenna/loop', config)
-  return handleApiResponse(response)
-}
-
-/**
- * Create a helical antenna
- */
-export const createHelix = async (config: HelixConfig): Promise<PreprocessorResponse> => {
-  const response = await preprocessorClient.post('/api/antenna/helix', config)
   return handleApiResponse(response)
 }
 
@@ -166,40 +157,6 @@ export const generateLoopMesh = async (formData: {
   return createLoop(config);
 };
 
-// Wrapper function for helix dialog
-export async function generateHelixMesh(formData: any): Promise<PreprocessorResponse> {
-  // Convert polar (amplitude + phase) to cartesian (real + imag)
-  const amplitude = formData.sourceAmplitude ?? 1;
-  const phaseDeg = formData.sourcePhase ?? 0;
-  const phaseRad = (phaseDeg * Math.PI) / 180;
-  const real = amplitude * Math.cos(phaseRad);
-  const imag = amplitude * Math.sin(phaseRad);
-
-  const config: HelixConfig = {
-    radius: formData.diameter / 2,
-    pitch: formData.pitch,
-    turns: formData.turns,
-    wire_radius: formData.wire_radius,
-    // Always generate at origin - frontend will apply position offset
-    center_position: [0, 0, 0],
-    axis_direction: [0, 0, 1], // Helix grows along Z-axis (up)
-    start_angle: 0,
-    segments_per_turn: formData.segments_per_turn,
-    helix_mode: formData.helix_mode,
-    polarization: formData.polarization,
-    source: {
-      type: formData.sourceType || 'voltage',
-      amplitude: { real, imag },
-      series_R: 0.0,
-      series_L: 0.0,
-      series_C_inv: 0.0,
-      tag: 'Feed',
-    },
-  }
-
-  return createHelix(config)
-}
-
 // Wrapper function for rod dialog
 export async function generateRodMesh(formData: any): Promise<PreprocessorResponse> {
   const startPoint: [number, number, number] = [formData.start_x, formData.start_y, formData.start_z]
@@ -288,11 +245,9 @@ const preprocessorApi = {
   checkHealth,
   createDipole,
   createLoop,
-  createHelix,
   createRod,
   generateDipoleMesh,
   generateLoopMesh,
-  generateHelixMesh,
   generateRodMesh,
   addLumpedElementToMesh,
   addSourceToMesh,

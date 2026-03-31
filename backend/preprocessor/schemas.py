@@ -1,8 +1,14 @@
 """Request and response models for the Preprocessor API."""
 
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from backend.common.models.variables import Variable, VariableContext
+from backend.common.utils.expressions import (
+    ExpressionError,
+    parse_numeric_or_expression,
+)
 
 
 class ComplexNumber(BaseModel):
@@ -10,6 +16,15 @@ class ComplexNumber(BaseModel):
 
     real: float = Field(description="Real part")
     imag: float = Field(default=0.0, description="Imaginary part")
+
+
+class VariableDefinition(BaseModel):
+    """Variable definition for API requests."""
+
+    name: str
+    expression: str
+    unit: str | None = None
+    description: str | None = None
 
 
 class LumpedElementRequest(BaseModel):
@@ -52,6 +67,45 @@ class SourceRequest(BaseModel):
     tag: str = Field(default="", description="Human-readable label for the source")
 
 
+def _resolve_expressions(
+    data: dict[str, Any],
+    numeric_fields: list[str],
+    variables: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """
+    Resolve expression strings in numeric fields using the variable context.
+
+    Mutates `data` in place and returns it. If a field value is a string,
+    evaluate it against the variable context; otherwise leave it as-is.
+    """
+    if variables is None:
+        variables = []
+
+    # Build evaluated variable context
+    evaluated: dict[str, float] = {}
+    if variables:
+        ctx = VariableContext(variables=[Variable(**v) for v in variables])
+        evaluated = ctx.evaluate()
+
+    for field_name in numeric_fields:
+        if field_name not in data:
+            continue
+        value = data[field_name]
+        if isinstance(value, str):
+            try:
+                data[field_name] = parse_numeric_or_expression(value, evaluated)
+            except ExpressionError as exc:
+                raise ValueError(f"Field '{field_name}': {exc}")
+
+    return data
+
+
+# Numeric fields per antenna type that accept expressions
+_DIPOLE_NUMERIC = ["length", "wire_radius", "gap"]
+_LOOP_NUMERIC = ["radius", "wire_radius", "gap"]
+_ROD_NUMERIC = ["length", "wire_radius"]
+
+
 class DipoleRequest(BaseModel):
     """Request to create a dipole antenna."""
 
@@ -77,6 +131,16 @@ class DipoleRequest(BaseModel):
         description="Optional list of lumped circuit elements (R, L, C) to attach",
     )
     name: Optional[str] = Field(default=None, description="Optional name for the element")
+    variable_context: Optional[List[VariableDefinition]] = Field(
+        default=None, description="Optional variable definitions for expression evaluation"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_expressions(cls, data: Any) -> Any:
+        if isinstance(data, dict) and data.get("variable_context"):
+            _resolve_expressions(data, _DIPOLE_NUMERIC, data["variable_context"])
+        return data
 
 
 class LoopRequest(BaseModel):
@@ -100,6 +164,16 @@ class LoopRequest(BaseModel):
         description="Optional list of lumped circuit elements (R, L, C) to attach",
     )
     name: Optional[str] = Field(default=None, description="Optional name for the element")
+    variable_context: Optional[List[VariableDefinition]] = Field(
+        default=None, description="Optional variable definitions for expression evaluation"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_expressions(cls, data: Any) -> Any:
+        if isinstance(data, dict) and data.get("variable_context"):
+            _resolve_expressions(data, _LOOP_NUMERIC, data["variable_context"])
+        return data
 
 
 class RodRequest(BaseModel):
@@ -120,30 +194,16 @@ class RodRequest(BaseModel):
         description="Optional list of lumped circuit elements (R, L, C) to attach",
     )
     name: Optional[str] = Field(default=None, description="Optional name for the element")
+    variable_context: Optional[List[VariableDefinition]] = Field(
+        default=None, description="Optional variable definitions for expression evaluation"
+    )
 
-
-class HelixRequest(BaseModel):
-    """Request to create a helix antenna."""
-
-    radius: float = Field(gt=0, description="Helix radius in meters")
-    pitch: float = Field(gt=0, description="Vertical distance per turn in meters")
-    turns: float = Field(gt=0, description="Number of complete turns")
-    start_position: Tuple[float, float, float] = Field(
-        default=(0.0, 0.0, 0.0), description="Starting point [x, y, z] in meters"
-    )
-    axis: Tuple[float, float, float] = Field(
-        default=(0.0, 0.0, 1.0), description="Helix axis direction [dx, dy, dz]"
-    )
-    wire_radius: float = Field(default=0.001, gt=0, description="Wire radius in meters")
-    segments_per_turn: int = Field(
-        default=24, ge=3, description="Number of segments per complete turn"
-    )
-    source: Optional[SourceRequest] = Field(default=None, description="Optional source excitation")
-    lumped_elements: List[LumpedElementRequest] = Field(
-        default_factory=list,
-        description="Optional list of lumped circuit elements (R, L, C) to attach",
-    )
-    name: Optional[str] = Field(default=None, description="Optional name for the element")
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_expressions(cls, data: Any) -> Any:
+        if isinstance(data, dict) and data.get("variable_context"):
+            _resolve_expressions(data, _ROD_NUMERIC, data["variable_context"])
+        return data
 
 
 class GeometryResponse(BaseModel):

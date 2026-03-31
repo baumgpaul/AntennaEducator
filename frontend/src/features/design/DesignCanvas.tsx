@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { useAppSelector } from '@/store/hooks';
@@ -74,6 +74,56 @@ function DesignCanvas({
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [selectedElement, setSelectedElement] = useState<number | null>(null);
 
+  // Resizable panel widths with localStorage persistence
+  const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('design-left-panel-width');
+    return saved ? Math.min(500, Math.max(200, parseInt(saved))) : 280;
+  });
+  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('design-right-panel-width');
+    return saved ? Math.min(500, Math.max(250, parseInt(saved))) : 320;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('design-left-panel-width', String(leftPanelWidth));
+  }, [leftPanelWidth]);
+
+  useEffect(() => {
+    localStorage.setItem('design-right-panel-width', String(rightPanelWidth));
+  }, [rightPanelWidth]);
+
+  const handleResizeMouseDown = useCallback(
+    (side: 'left' | 'right') => (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = side === 'left' ? leftPanelWidth : rightPanelWidth;
+
+      const handleMouseMove = (ev: MouseEvent) => {
+        const delta = side === 'left' ? ev.clientX - startX : startX - ev.clientX;
+        const min = side === 'left' ? 200 : 250;
+        const newWidth = Math.min(500, Math.max(min, startWidth + delta));
+        if (side === 'left') {
+          setLeftPanelWidth(newWidth);
+        } else {
+          setRightPanelWidth(newWidth);
+        }
+      };
+
+      const handleMouseUp = () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    },
+    [leftPanelWidth, rightPanelWidth],
+  );
+
   // Get visualization mode from Redux store
   const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
 
@@ -86,9 +136,6 @@ function DesignCanvas({
 
   // Effective right panel visibility: hidden when doc panel occupies the space
   const showRightPanel = rightPanelOpen && !hideRightPanel;
-
-  const leftPanelWidth = 280;
-  const rightPanelWidth = 320;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
@@ -192,6 +239,24 @@ function DesignCanvas({
           </div>
         )}
 
+        {/* Left Resize Handle */}
+        {leftPanelOpen && (
+          <div
+            onMouseDown={handleResizeMouseDown('left')}
+            style={{
+              width: '4px',
+              cursor: 'col-resize',
+              backgroundColor: 'transparent',
+              flexShrink: 0,
+              position: 'relative',
+              zIndex: 15,
+              transition: 'background-color 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(25, 118, 210, 0.3)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+          />
+        )}
+
         {/* 3D Canvas */}
         <div style={{
           flex: 1,
@@ -263,6 +328,24 @@ function DesignCanvas({
             </div>
           )}
         </div>
+
+        {/* Right Resize Handle */}
+        {showRightPanel && (
+          <div
+            onMouseDown={handleResizeMouseDown('right')}
+            style={{
+              width: '4px',
+              cursor: 'col-resize',
+              backgroundColor: 'transparent',
+              flexShrink: 0,
+              position: 'relative',
+              zIndex: 15,
+              transition: 'background-color 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(25, 118, 210, 0.3)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+          />
+        )}
 
         {/* Right Panel (Properties) */}
         {showRightPanel && (

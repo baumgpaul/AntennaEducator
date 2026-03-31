@@ -5,7 +5,6 @@
 import type {
   DipoleConfig,
   LoopConfig,
-  HelixConfig,
   RodConfig,
   PreprocessorResponse,
   SolverRequest,
@@ -111,7 +110,6 @@ export interface ApiError {
 export interface PreprocessorAPI {
   createDipole(config: DipoleConfig): Promise<PreprocessorResponse>
   createLoop(config: LoopConfig): Promise<PreprocessorResponse>
-  createHelix(config: HelixConfig): Promise<PreprocessorResponse>
   createRod(config: RodConfig): Promise<PreprocessorResponse>
   health(): Promise<{ status: string }>
 }

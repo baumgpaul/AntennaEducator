@@ -12,6 +12,7 @@ import solverReducer from './solverSlice'
 import postprocessingReducer from './postprocessingSlice'
 import documentationReducer from './documentationSlice'
 import foldersReducer from './foldersSlice'
+import variablesReducer from './variablesSlice'
 
 export const store = configureStore({
   reducer: {
@@ -23,6 +24,7 @@ export const store = configureStore({
     postprocessing: postprocessingReducer,
     documentation: documentationReducer,
     folders: foldersReducer,
+    variables: variablesReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

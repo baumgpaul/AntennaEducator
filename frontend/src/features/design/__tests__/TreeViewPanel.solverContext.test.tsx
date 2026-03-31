@@ -1,7 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
+import variablesReducer from '@/store/variablesSlice';
 import TreeViewPanel from '../TreeViewPanel';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
+
+function createTestStore() {
+  return configureStore({
+    reducer: {
+      variables: variablesReducer,
+    },
+  });
+}
 
 type MinimalField = FieldDefinition;
 
@@ -21,12 +32,14 @@ const sampleField: MinimalField = {
 describe('TreeViewPanel - solver requested quantities', () => {
   it('renders locked currents, directivity, and field items', () => {
     render(
-      <TreeViewPanel
-        mode="solver"
-        elements={[]}
-        fieldRegions={[sampleField]}
-        directivityRequested
-      />
+      <Provider store={createTestStore()}>
+        <TreeViewPanel
+          mode="solver"
+          elements={[]}
+          fieldRegions={[sampleField]}
+          directivityRequested
+        />
+      </Provider>
     );
 
     expect(screen.getByText('Currents & Voltages')).toBeInTheDocument();
@@ -37,13 +50,15 @@ describe('TreeViewPanel - solver requested quantities', () => {
   it('invokes directivity delete callback', () => {
     const onDirectivityDelete = vi.fn()
     render(
-      <TreeViewPanel
-        mode="solver"
-        elements={[]}
-        fieldRegions={[sampleField]}
-        directivityRequested
-        onDirectivityDelete={onDirectivityDelete}
-      />
+      <Provider store={createTestStore()}>
+        <TreeViewPanel
+          mode="solver"
+          elements={[]}
+          fieldRegions={[sampleField]}
+          directivityRequested
+          onDirectivityDelete={onDirectivityDelete}
+        />
+      </Provider>
     );
 
     fireEvent.click(screen.getByLabelText('Delete directivity'));
@@ -53,12 +68,14 @@ describe('TreeViewPanel - solver requested quantities', () => {
   it('invokes onFieldSelect when a field is clicked', () => {
     const onFieldSelect = vi.fn()
     render(
-      <TreeViewPanel
-        mode="solver"
-        elements={[]}
-        fieldRegions={[sampleField]}
-        onFieldSelect={onFieldSelect}
-      />
+      <Provider store={createTestStore()}>
+        <TreeViewPanel
+          mode="solver"
+          elements={[]}
+          fieldRegions={[sampleField]}
+          onFieldSelect={onFieldSelect}
+        />
+      </Provider>
     );
 
     fireEvent.click(screen.getByText('Field 1'));
@@ -66,7 +83,11 @@ describe('TreeViewPanel - solver requested quantities', () => {
   });
 
   it('shows empty state when no requested quantities are present', () => {
-    render(<TreeViewPanel mode="solver" elements={[]} />);
+    render(
+      <Provider store={createTestStore()}>
+        <TreeViewPanel mode="solver" elements={[]} />
+      </Provider>
+    );
 
     expect(screen.getByText('No additional fields requested yet')).toBeInTheDocument();
   });

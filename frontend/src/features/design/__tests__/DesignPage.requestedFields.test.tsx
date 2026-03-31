@@ -13,6 +13,7 @@ import projectsReducer from '@/store/projectsSlice';
 import uiReducer from '@/store/uiSlice';
 import postprocessingReducer from '@/store/postprocessingSlice';
 import documentationReducer from '@/store/documentationSlice';
+import variablesReducer from '@/store/variablesSlice';
 import * as projectsApi from '@/api/projects';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 
@@ -58,6 +59,7 @@ function createTestStore(preloadedState = {}) {
       ui: uiReducer,
       postprocessing: postprocessingReducer,
       documentation: documentationReducer,
+      variables: variablesReducer,
     },
     preloadedState,
   });

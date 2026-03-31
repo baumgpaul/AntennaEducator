@@ -8,7 +8,7 @@ and are properly stored in AntennaElement objects.
 import pytest
 
 from backend.common.models import LumpedElement
-from backend.preprocessor.builders import create_dipole, create_helix, create_loop, create_rod
+from backend.preprocessor.builders import create_dipole, create_loop, create_rod
 
 
 class TestDipoleWithLumpedElements:
@@ -177,33 +177,6 @@ class TestRodWithLumpedElements:
         assert len(element.lumped_elements) == 1
         assert element.lumped_elements[0].L == 1e-9
         assert element.lumped_elements[0].tag == "Loading coil"
-
-
-class TestHelixWithLumpedElements:
-    """Test creating helices with lumped elements via builder."""
-
-    def test_helix_with_lumped_element(self):
-        """Test creating a helix with a lumped element."""
-        lumped_elements = [
-            {
-                "type": "rlc",
-                "R": 50.0,
-                "L": 1e-9,
-                "C_inv": 1e12,
-                "node_start": 16,
-                "node_end": 17,
-                "tag": "RLC load",
-            }
-        ]
-
-        element = create_helix(
-            radius=0.05, pitch=0.1, turns=3.0, segments_per_turn=24, lumped_elements=lumped_elements
-        )
-
-        assert len(element.lumped_elements) == 1
-        assert element.lumped_elements[0].R == 50.0
-        assert element.lumped_elements[0].L == 1e-9
-        assert element.lumped_elements[0].C_inv == 1e12
 
 
 class TestEnhancedSourceInBuilders:
