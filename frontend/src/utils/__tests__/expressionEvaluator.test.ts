@@ -389,7 +389,7 @@ describe('realistic antenna expressions', () => {
     expect(radius).toBeCloseTo(0.1591, 3);
   });
 
-  it('helix pitch = wavelength / 4', () => {
+  it('pitch = wavelength / 4', () => {
     const pitch = evaluateExpression('C_0 / freq / 4', antennaContext);
     expect(pitch).toBeCloseTo(0.2498, 3);
   });

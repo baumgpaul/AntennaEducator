@@ -105,8 +105,6 @@ function getElementOrientation(element: AntennaElement): [number, number, number
       return params.orientation ? toArray3(params.orientation) : [0, 0, 1];
     case 'loop':
       return params.normal_vector ? toArray3(params.normal_vector) : [0, 0, 1];
-    case 'helix':
-      return params.axis_direction ? toArray3(params.axis_direction) : [0, 0, 1];
     case 'rod':
       return params.direction ? toArray3(params.direction) : [0, 0, 1];
     default:
@@ -121,7 +119,6 @@ function getOrientationLabel(type: string): string {
   switch (type) {
     case 'dipole': return 'Orientation Vector';
     case 'loop': return 'Normal Vector';
-    case 'helix': return 'Axis Direction';
     case 'rod': return 'Direction';
     default: return 'Orientation';
   }
@@ -588,21 +585,6 @@ function PropertiesPanel({
                         </Box>
                         <GeometryRow label="Wire radius" value={(antennaElement.config as any).wire_radius} unit="m" exprKey="wireRadius" expressions={antennaElement.expressions} />
                         <GeometryRow label="Feed gap" value={(antennaElement.config as any).gap} unit="m" exprKey="feedGap" expressions={antennaElement.expressions} />
-                      </>
-                    )}
-                    {antennaElement.type === 'helix' && (
-                      <>
-                        <GeometryRow label="Diameter" value={(antennaElement.config as any).radius ? (antennaElement.config as any).radius * 2 : null} unit="m" exprKey="diameter" expressions={antennaElement.expressions} />
-                        <GeometryRow label="Pitch" value={(antennaElement.config as any).pitch} unit="m" exprKey="pitch" expressions={antennaElement.expressions} />
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Turns:</Typography>
-                          <Typography variant="body2">{(antennaElement.config as any).turns ?? '—'}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Segments/turn:</Typography>
-                          <Typography variant="body2">{(antennaElement.config as any).segments_per_turn ?? '—'}</Typography>
-                        </Box>
-                        <GeometryRow label="Wire radius" value={(antennaElement.config as any).wire_radius} unit="m" exprKey="wire_radius" expressions={antennaElement.expressions} />
                       </>
                     )}
                     {antennaElement.type === 'rod' && (

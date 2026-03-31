@@ -7,7 +7,6 @@ import {
   Button,
   TextField,
   Grid,
-  InputAdornment,
   Typography,
   Divider,
   Alert,
@@ -15,12 +14,9 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
-import { Info } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PositionControl } from '@/components/PositionControl';
-import { parseDecimalNumber } from '@/utils/numberParser';
 import ExpressionField from '@/components/ExpressionField';
 import { useAppSelector } from '@/store/hooks';
 import { selectVariableContextNumeric } from '@/store/variablesSlice';
@@ -35,19 +31,19 @@ const loopSchema = z.object({
   radius: z.string().min(1, 'Required'),
   wireRadius: z.string().min(1, 'Required'),
   feedGap: z.string().min(1, 'Required'),
-  segments: z.number().int('Must be integer').min(8, 'Minimum 8 segments').max(1000, 'Maximum 1000 segments'),
+  segments: z.string().min(1, 'Required'),
   sourceType: z.enum(['voltage', 'current']),
-  sourceAmplitude: z.number().nonnegative('Amplitude must be non-negative'),
-  sourcePhase: z.number().min(-360).max(360),
+  sourceAmplitude: z.string().min(1, 'Required'),
+  sourcePhase: z.string().min(1, 'Required'),
   position: z.object({
-    x: z.number(),
-    y: z.number(),
-    z: z.number(),
+    x: z.string().min(1, 'Required'),
+    y: z.string().min(1, 'Required'),
+    z: z.string().min(1, 'Required'),
   }),
   orientation: z.object({
-    rotX: z.number().min(-180).max(180),
-    rotY: z.number().min(-180).max(180),
-    rotZ: z.number().min(-180).max(180),
+    rotX: z.string().min(1, 'Required'),
+    rotY: z.string().min(1, 'Required'),
+    rotZ: z.string().min(1, 'Required'),
   }),
 });
 
@@ -90,19 +86,19 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
       radius: 'wavelength / (2 * pi)',
       wireRadius: '0.001',
       feedGap: '0.001',
-      segments: 32,
+      segments: '32',
       sourceType: 'voltage' as const,
-      sourceAmplitude: 1,
-      sourcePhase: 0,
+      sourceAmplitude: '1',
+      sourcePhase: '0',
       position: {
-        x: 0,
-        y: 0,
-        z: 0,
+        x: '0',
+        y: '0',
+        z: '0',
       },
       orientation: {
-        rotX: 0,
-        rotY: 0,
-        rotZ: 0,
+        rotX: '0',
+        rotY: '0',
+        rotZ: '0',
       },
     },
   });
@@ -125,10 +121,32 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
         radius: parseNumericOrExpression(data.radius, ctx),
         wireRadius: parseNumericOrExpression(data.wireRadius, ctx),
         feedGap: parseNumericOrExpression(data.feedGap, ctx),
+        segments: Math.round(parseNumericOrExpression(data.segments, ctx)),
+        sourceAmplitude: parseNumericOrExpression(data.sourceAmplitude, ctx),
+        sourcePhase: parseNumericOrExpression(data.sourcePhase, ctx),
+        position: {
+          x: parseNumericOrExpression(data.position.x, ctx),
+          y: parseNumericOrExpression(data.position.y, ctx),
+          z: parseNumericOrExpression(data.position.z, ctx),
+        },
+        orientation: {
+          rotX: parseNumericOrExpression(data.orientation.rotX, ctx),
+          rotY: parseNumericOrExpression(data.orientation.rotY, ctx),
+          rotZ: parseNumericOrExpression(data.orientation.rotZ, ctx),
+        },
         expressions: {
           radius: data.radius,
           wireRadius: data.wireRadius,
           feedGap: data.feedGap,
+          segments: data.segments,
+          sourceAmplitude: data.sourceAmplitude,
+          sourcePhase: data.sourcePhase,
+          positionX: data.position.x,
+          positionY: data.position.y,
+          positionZ: data.position.z,
+          orientationRotX: data.orientation.rotX,
+          orientationRotY: data.orientation.rotY,
+          orientationRotZ: data.orientation.rotZ,
         },
       };
       await onGenerate(resolved);
@@ -237,19 +255,17 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               <Controller
                 name="segments"
                 control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    value={value || ''}
-                    onChange={(e) => onChange(parseInt(e.target.value) || 0)}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Number of Segments"
-                    type="number"
                     fullWidth
-                    error={!!errors.segments}
-                    helperText={errors.segments?.message || 'More segments = better accuracy'}
-                    InputProps={{
-                      inputProps: { step: 1, min: 8, max: 1000 },
-                    }}
+                    validate={(v) =>
+                      Number.isInteger(v) && v >= 8 && v <= 1000
+                        ? null
+                        : 'Must be integer 8-1000'
+                    }
                     disabled={isGenerating}
                   />
                 )}
@@ -293,25 +309,15 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               <Controller
                 name="sourceAmplitude"
                 control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    value={value}
-                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) ?? 0)}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Amplitude"
-                    type="number"
                     fullWidth
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          {sourceType === 'voltage' ? 'V' : 'A'}
-                        </InputAdornment>
-                      ),
-                    }}
-                    error={!!errors.sourceAmplitude}
-                    helperText={errors.sourceAmplitude?.message}
+                    unit={sourceType === 'voltage' ? 'V' : 'A'}
+                    validate={(v) => (v >= 0 ? null : 'Must be non-negative')}
                     disabled={isGenerating}
-                    inputProps={{ step: 0.1, min: 0 }}
                   />
                 )}
               />
@@ -322,21 +328,17 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               <Controller
                 name="sourcePhase"
                 control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    value={value}
-                    onChange={(e) => onChange(parseDecimalNumber(e.target.value) ?? 0)}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Phase"
-                    type="number"
                     fullWidth
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">°</InputAdornment>,
-                    }}
-                    error={!!errors.sourcePhase}
-                    helperText={errors.sourcePhase?.message}
+                    unit="°"
+                    validate={(v) =>
+                      Math.abs(v) <= 360 ? null : 'Must be -360 to 360'
+                    }
                     disabled={isGenerating}
-                    inputProps={{ step: 1 }}
                   />
                 )}
               />
@@ -344,20 +346,139 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
 
             {/* Position and Orientation Controls */}
             <Grid item xs={12}>
-              <Divider sx={{ my: 2 }} />
-              <PositionControl
+              <Divider sx={{ my: 2 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Position & Orientation
+                </Typography>
+              </Divider>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom>
+                Position (meters)
+              </Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="position.x"
                 control={control}
-                positionPrefix="position"
-                orientationPrefix="orientation"
-                title="Position & Orientation"
-                subtitle="Set the loop placement and rotation in 3D space"
-                showPresets={false}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="X"
+                    fullWidth
+                    unit="m"
+                    disabled={isGenerating}
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="position.y"
+                control={control}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Y"
+                    fullWidth
+                    unit="m"
+                    disabled={isGenerating}
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="position.z"
+                control={control}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Z"
+                    fullWidth
+                    unit="m"
+                    disabled={isGenerating}
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+                Orientation (rotation angles)
+              </Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="orientation.rotX"
+                control={control}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Rot X"
+                    fullWidth
+                    unit="°"
+                    validate={(v) =>
+                      Math.abs(v) <= 180 ? null : 'Must be -180 to 180'
+                    }
+                    disabled={isGenerating}
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="orientation.rotY"
+                control={control}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Rot Y"
+                    fullWidth
+                    unit="°"
+                    validate={(v) =>
+                      Math.abs(v) <= 180 ? null : 'Must be -180 to 180'
+                    }
+                    disabled={isGenerating}
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={4}>
+              <Controller
+                name="orientation.rotZ"
+                control={control}
+                render={({ field }) => (
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Rot Z"
+                    fullWidth
+                    unit="°"
+                    validate={(v) =>
+                      Math.abs(v) <= 180 ? null : 'Must be -180 to 180'
+                    }
+                    disabled={isGenerating}
+                  />
+                )}
               />
             </Grid>
 
             {/* Design Guidelines */}
             <Grid item xs={12}>
-              <Alert severity="info" icon={<Info />}>
+              <Alert severity="info">
                 <Typography variant="caption" component="div">
                   <strong>Loop Antenna Guidelines:</strong>
                 </Typography>

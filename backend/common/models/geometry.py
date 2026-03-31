@@ -129,7 +129,7 @@ class AntennaElement(BaseModel):
 
     id: UUID = Field(default_factory=uuid4)
     name: str = Field(description="Human-readable name for the element")
-    type: Literal["dipole", "loop", "helix", "rod", "grid", "custom"] = Field(
+    type: Literal["dipole", "loop", "rod", "grid", "custom"] = Field(
         description="Type of antenna element"
     )
     parameters: Dict[str, Any] = Field(

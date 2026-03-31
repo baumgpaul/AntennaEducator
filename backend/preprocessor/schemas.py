@@ -104,7 +104,6 @@ def _resolve_expressions(
 _DIPOLE_NUMERIC = ["length", "wire_radius", "gap"]
 _LOOP_NUMERIC = ["radius", "wire_radius", "gap"]
 _ROD_NUMERIC = ["length", "wire_radius"]
-_HELIX_NUMERIC = ["radius", "pitch", "turns", "wire_radius"]
 
 
 class DipoleRequest(BaseModel):
@@ -204,40 +203,6 @@ class RodRequest(BaseModel):
     def resolve_expressions(cls, data: Any) -> Any:
         if isinstance(data, dict) and data.get("variable_context"):
             _resolve_expressions(data, _ROD_NUMERIC, data["variable_context"])
-        return data
-
-
-class HelixRequest(BaseModel):
-    """Request to create a helix antenna."""
-
-    radius: float = Field(gt=0, description="Helix radius in meters")
-    pitch: float = Field(gt=0, description="Vertical distance per turn in meters")
-    turns: float = Field(gt=0, description="Number of complete turns")
-    start_position: Tuple[float, float, float] = Field(
-        default=(0.0, 0.0, 0.0), description="Starting point [x, y, z] in meters"
-    )
-    axis: Tuple[float, float, float] = Field(
-        default=(0.0, 0.0, 1.0), description="Helix axis direction [dx, dy, dz]"
-    )
-    wire_radius: float = Field(default=0.001, gt=0, description="Wire radius in meters")
-    segments_per_turn: int = Field(
-        default=24, ge=3, description="Number of segments per complete turn"
-    )
-    source: Optional[SourceRequest] = Field(default=None, description="Optional source excitation")
-    lumped_elements: List[LumpedElementRequest] = Field(
-        default_factory=list,
-        description="Optional list of lumped circuit elements (R, L, C) to attach",
-    )
-    name: Optional[str] = Field(default=None, description="Optional name for the element")
-    variable_context: Optional[List[VariableDefinition]] = Field(
-        default=None, description="Optional variable definitions for expression evaluation"
-    )
-
-    @model_validator(mode="before")
-    @classmethod
-    def resolve_expressions(cls, data: Any) -> Any:
-        if isinstance(data, dict) and data.get("variable_context"):
-            _resolve_expressions(data, _HELIX_NUMERIC, data["variable_context"])
         return data
 
 

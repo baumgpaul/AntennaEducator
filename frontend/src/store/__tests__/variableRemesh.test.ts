@@ -15,7 +15,6 @@ import type { VariableDefinition } from '@/utils/expressionEvaluator';
 const EXPR_MAP: Record<string, Record<string, string>> = {
   dipole: { length: 'length', radius: 'wire_radius', gap: 'gap' },
   loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap' },
-  helix: { diameter: 'diameter', pitch: 'pitch', wire_radius: 'wire_radius' },
   rod: { radius: 'wire_radius' },
 };
 
@@ -40,12 +39,7 @@ function detectChanges(
       resolved[key] = newVal;
       const configKey = mapping[key];
       if (configKey) {
-        let currentVal: number;
-        if (elementType === 'helix' && key === 'diameter') {
-          currentVal = (currentConfig.radius ?? 0) * 2;
-        } else {
-          currentVal = currentConfig[configKey];
-        }
+          const currentVal = currentConfig[configKey];
         if (Math.abs(newVal - currentVal) > 1e-15) {
           changed = true;
         }
@@ -138,26 +132,6 @@ describe('Variable-change remesh detection', () => {
       ];
       result = detectChanges('loop', config, expressions, vars600);
       expect(result.changed).toBe(true);
-    });
-  });
-
-  describe('helix diameter special handling', () => {
-    it('correctly compares helix diameter (stored as radius × 2)', () => {
-      const config = { radius: 0.05, pitch: 0.02, wire_radius: 0.001 };
-      const expressions = { diameter: '0.1', pitch: '0.02', wire_radius: '0.001' };
-      const vars: VariableDefinition[] = [];
-      // diameter=0.1, config.radius=0.05 → diameter matches
-      const result = detectChanges('helix', config, expressions, vars);
-      expect(result.changed).toBe(false);
-    });
-
-    it('detects change when helix diameter changes', () => {
-      const config = { radius: 0.05, pitch: 0.02, wire_radius: 0.001 };
-      const expressions = { diameter: '0.2', pitch: '0.02', wire_radius: '0.001' };
-      const vars: VariableDefinition[] = [];
-      const result = detectChanges('helix', config, expressions, vars);
-      expect(result.changed).toBe(true);
-      expect(result.resolved.diameter).toBe(0.2);
     });
   });
 

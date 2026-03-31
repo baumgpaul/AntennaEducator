@@ -58,8 +58,8 @@ export type SourceType = 'voltage' | 'current'
 export interface Source {
   type: SourceType
   amplitude: ComplexNumber | string | number // Support complex, string format ("1+0j"), or number
-  node_start?: number // 1-based index (optional for generated geometries like Loop/Helix)
-  node_end?: number // 1-based index (optional for generated geometries like Loop/Helix)
+  node_start?: number // 1-based index (optional for generated geometries like Loop)
+  node_end?: number // 1-based index (optional for generated geometries like Loop)
   position?: string | number // 'center', 'base', or segment index
   series_R?: number
   series_L?: number
@@ -120,11 +120,13 @@ export interface HelixConfig {
   segments_per_turn?: number
   source?: Source
   lumped_elements?: LumpedElement[]
-  // Optional UI fields for helix variants
   helix_mode?: 'axial' | 'normal'
   polarization?: 'RHCP' | 'LHCP'
   start_angle?: number
 }
+
+/** @deprecated Helix antenna type removed. Kept for backward compatibility with old projects. */
+export type _HelixConfigDeprecated = HelixConfig
 
 export interface RodConfig {
   length: number
@@ -143,13 +145,13 @@ export interface RodConfig {
 // Multi-Element System Types
 // ============================================================================
 
-export type AntennaType = 'dipole' | 'loop' | 'helix' | 'rod'
+export type AntennaType = 'dipole' | 'loop' | 'rod'
 
 export interface AntennaElement {
   id: string
   type: AntennaType
   name: string
-  config: DipoleConfig | LoopConfig | HelixConfig | RodConfig
+  config: DipoleConfig | LoopConfig | RodConfig
   position: Vector3D
   rotation: Vector3D  // Euler angles (rx, ry, rz) in radians
   mesh: Mesh

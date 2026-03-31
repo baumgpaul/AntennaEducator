@@ -13,11 +13,9 @@ from backend.common.utils.expressions import ExpressionError
 
 from .builders import (
     create_dipole,
-    create_helix,
     create_loop,
     create_rod,
     dipole_to_mesh,
-    helix_to_mesh,
     loop_to_mesh,
     rod_to_mesh,
 )
@@ -25,7 +23,6 @@ from .config import settings
 from .schemas import (
     DipoleRequest,
     GeometryResponse,
-    HelixRequest,
     LoopRequest,
     LumpedElementRequest,
     RodRequest,
@@ -206,42 +203,6 @@ async def create_rod_antenna(
             element=element.model_dump(),
             mesh=mesh.model_dump(),
             message=f"Rod antenna created: {element.name}",
-        )
-    except (ValueError, ExpressionError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
-
-
-@app.post(
-    f"{settings.api_prefix}/antenna/helix",
-    response_model=GeometryResponse,
-    tags=["Antenna Builders"],
-)
-async def create_helix_antenna(
-    request: HelixRequest,
-    user: UserIdentity = Depends(get_current_user),
-    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
-):
-    """Create a helix antenna element and generate its mesh."""
-    try:
-        element = create_helix(
-            radius=request.radius,
-            pitch=request.pitch,
-            turns=request.turns,
-            start_position=request.start_position,
-            axis=request.axis,
-            wire_radius=request.wire_radius,
-            segments_per_turn=request.segments_per_turn,
-            source=_convert_source(request.source),
-            lumped_elements=_convert_lumped_elements(request.lumped_elements),
-            name=request.name,
-        )
-        mesh = helix_to_mesh(element)
-        return GeometryResponse(
-            element=element.model_dump(),
-            mesh=mesh.model_dump(),
-            message=f"Helix antenna created: {element.name}",
         )
     except (ValueError, ExpressionError) as e:
         raise HTTPException(status_code=400, detail=str(e))

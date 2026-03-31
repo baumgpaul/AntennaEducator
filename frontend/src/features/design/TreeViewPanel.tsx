@@ -32,7 +32,6 @@ import {
   MemoryOutlined,
   AccountTree,
   Radio,
-  AllInclusive,
   LinearScale,
   MoreVert,
   ContentCopy,
@@ -400,8 +399,6 @@ function TreeViewPanel({
             return <LinearScale />;
           case 'loop':
             return <Radio />;
-          case 'helix':
-            return <AllInclusive />;
           case 'rod':
             return <LinearScale />;
           default:

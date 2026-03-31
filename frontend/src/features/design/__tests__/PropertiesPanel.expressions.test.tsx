@@ -28,7 +28,6 @@ describe('PropertiesPanel — expression display', () => {
     const EXPR_TO_CONFIG_KEY: Record<string, Record<string, string>> = {
       dipole: { length: 'length', radius: 'wire_radius', gap: 'gap' },
       loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap' },
-      helix: { diameter: 'diameter', pitch: 'pitch', wire_radius: 'wire_radius' },
       rod: { radius: 'wire_radius' },
     };
 
@@ -42,12 +41,6 @@ describe('PropertiesPanel — expression display', () => {
       expect(EXPR_TO_CONFIG_KEY.loop.radius).toBe('radius');
       expect(EXPR_TO_CONFIG_KEY.loop.wireRadius).toBe('wire_radius');
       expect(EXPR_TO_CONFIG_KEY.loop.feedGap).toBe('gap');
-    });
-
-    it('maps helix expression keys correctly', () => {
-      expect(EXPR_TO_CONFIG_KEY.helix.diameter).toBe('diameter');
-      expect(EXPR_TO_CONFIG_KEY.helix.pitch).toBe('pitch');
-      expect(EXPR_TO_CONFIG_KEY.helix.wire_radius).toBe('wire_radius');
     });
 
     it('maps rod expression keys correctly', () => {

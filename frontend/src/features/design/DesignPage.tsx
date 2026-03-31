@@ -8,7 +8,6 @@ import { parseApiError } from '@/utils/errors';
 import {
   generateDipole,
   generateLoop,
-  generateHelix,
   generateRod,
   remeshElementOrientation,
   remeshElementExpressions,
@@ -50,7 +49,6 @@ import type { Scene3DHandle } from './Scene3D';
 import ViewControls from './ViewControls';
 import { DipoleDialog } from './DipoleDialog';
 import { LoopDialog } from './LoopDialog';
-import { HelixDialog } from './HelixDialog';
 import { RodDialog } from './RodDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
@@ -145,7 +143,6 @@ function DesignPage() {
   const [showResultsPanel, setShowResultsPanel] = useState(false);
   const [dipoleDialogOpen, setDipoleDialogOpen] = useState(false);
   const [loopDialogOpen, setLoopDialogOpen] = useState(false);
-  const [helixDialogOpen, setHelixDialogOpen] = useState(false);
   const [rodDialogOpen, setRodDialogOpen] = useState(false);
   const [lumpedDialogOpen, setLumpedDialogOpen] = useState(false);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
@@ -426,7 +423,6 @@ function DesignPage() {
       const EXPR_MAP: Record<string, Record<string, string>> = {
         dipole: { length: 'length', radius: 'wire_radius', gap: 'gap' },
         loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap' },
-        helix: { diameter: 'diameter', pitch: 'pitch', wire_radius: 'wire_radius' },
         rod: { radius: 'wire_radius' },
       };
       const mapping = EXPR_MAP[el.type] || {};
@@ -439,12 +435,7 @@ function DesignPage() {
           // Compare with current config value
           const configKey = mapping[key];
           if (configKey) {
-            let currentVal: number;
-            if (el.type === 'helix' && key === 'diameter') {
-              currentVal = (params.radius ?? 0) * 2;
-            } else {
-              currentVal = params[configKey];
-            }
+            const currentVal: number = params[configKey];
             if (Math.abs(newVal - currentVal) > 1e-15) {
               changed = true;
             }
@@ -478,9 +469,6 @@ function DesignPage() {
         break;
       case 'loop':
         setLoopDialogOpen(true);
-        break;
-      case 'helix':
-        setHelixDialogOpen(true);
         break;
       case 'rod':
         setRodDialogOpen(true);
@@ -533,26 +521,6 @@ function DesignPage() {
         duration: 5000,
       }));
       throw error; // Re-throw so dialog can handle it
-    }
-  };
-
-  const handleHelixGenerate = async (data: any) => {
-    try {
-      await dispatch(generateHelix(data)).unwrap();
-      dispatch(addNotification({
-        id: Date.now(),
-        message: `Helix antenna generated successfully!`,
-        severity: 'success',
-        duration: 5000,
-      }));
-    } catch (error: any) {
-      dispatch(addNotification({
-        id: Date.now(),
-        message: error || 'Failed to generate helix antenna',
-        severity: 'error',
-        duration: 5000,
-      }));
-      throw error;
     }
   };
 
@@ -1190,12 +1158,6 @@ function DesignPage() {
         open={loopDialogOpen}
         onClose={() => setLoopDialogOpen(false)}
         onGenerate={handleLoopGenerate}
-      />
-      <HelixDialog
-        open={helixDialogOpen}
-        onClose={() => setHelixDialogOpen(false)}
-        onGenerate={handleHelixGenerate}
-        loading={meshGenerating}
       />
       <RodDialog
         open={rodDialogOpen}

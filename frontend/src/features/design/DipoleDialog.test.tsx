@@ -86,7 +86,8 @@ describe('DipoleDialog — Source Configuration', () => {
         <DipoleDialog {...defaultProps} />
       </Provider>
     );
-    expect(screen.getByText('V')).toBeInTheDocument();
+    // ExpressionField renders unit in helper text (e.g. "1 V")
+    expect(screen.getByText(/\bV$/)).toBeInTheDocument();
   });
 
   it('shows unit label A for current source', async () => {
@@ -97,7 +98,7 @@ describe('DipoleDialog — Source Configuration', () => {
       </Provider>
     );
     await user.click(screen.getByRole('button', { name: /current/i }));
-    expect(screen.getByText('A')).toBeInTheDocument();
+    expect(screen.getByText(/\bA$/)).toBeInTheDocument();
   });
 
   it('passes source config to onGenerate', async () => {
@@ -151,6 +152,7 @@ describe('DipoleDialog — Source Configuration', () => {
         <DipoleDialog {...defaultProps} />
       </Provider>
     );
-    expect(screen.getByText('°')).toBeInTheDocument();
+    // ExpressionField renders unit in helper text (e.g. "0 °")
+    expect(screen.getByText(/°/)).toBeInTheDocument();
   });
 });
