@@ -14,7 +14,7 @@ import type {
   RodConfig,
   AntennaElement,
 } from '@/types/models'
-import { generateDipoleMesh, generateLoopMesh, generateRodMesh, createDipole, createLoop, createRod } from '@/api/preprocessor'
+import { generateDipoleMesh, generateLoopMesh, generateRodMesh, generateCustomMesh, createDipole, createLoop, createRod, createCustom } from '@/api/preprocessor'
 import { getNextElementColor } from '@/utils/colors'
 
 interface DesignState {
@@ -170,6 +170,48 @@ export const generateRod = createAsyncThunk(
       return { ...response, formData }
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to generate rod mesh')
+    }
+  }
+)
+
+/**
+ * Generate custom antenna mesh from explicit node/edge definitions
+ */
+export const generateCustom = createAsyncThunk(
+  'design/generateCustom',
+  async (
+    formData: {
+      name: string
+      nodes: Array<{ id: number; x: number; y: number; z: number; radius?: number }>
+      edges: Array<{ node_start: number; node_end: number; radius?: number }>
+      sources?: Array<{
+        type: 'voltage' | 'current'
+        amplitude: { real: number; imag: number }
+        node_start: number
+        node_end: number
+        series_R?: number
+        series_L?: number
+        series_C_inv?: number
+        tag?: string
+      }>
+      lumped_elements?: Array<{
+        type: string
+        R?: number
+        L?: number
+        C_inv?: number
+        node_start: number
+        node_end: number
+        tag?: string
+      }>
+      variable_context?: Array<{ name: string; expression: string; unit?: string; description?: string }>
+    },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await generateCustomMesh(formData)
+      return { ...response, formData }
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to generate custom antenna mesh')
     }
   }
 )
@@ -822,6 +864,56 @@ const designSlice = createSlice({
         state.meshError = null;
       })
       .addCase(generateRod.rejected, (state, action) => {
+        state.meshGenerating = false;
+        state.meshError = action.payload as string || 'Mesh generation failed';
+      })
+      // Generate custom antenna mesh
+      .addCase(generateCustom.pending, (state) => {
+        state.meshGenerating = true;
+        state.meshError = null;
+        state.antennaType = 'custom';
+      })
+      .addCase(generateCustom.fulfilled, (state, action) => {
+        state.meshGenerating = false;
+
+        // Auto-assign color
+        const color = getNextElementColor(state.elements);
+
+        // Normalize config: extract parameters from backend response
+        const backendCustomElement = action.payload.element;
+        const normalizedCustomConfig = backendCustomElement?.parameters
+          ? { ...backendCustomElement.parameters }
+          : (backendCustomElement?.config || backendCustomElement || {});
+
+        const formData = action.payload.formData;
+
+        const element: AntennaElement = {
+          id: `custom_${Date.now()}`,
+          type: 'custom',
+          name: formData?.name || `Custom ${state.elements.length + 1}`,
+          config: normalizedCustomConfig,
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          mesh: action.payload.mesh,
+          sources: action.payload.element?.sources || [],
+          lumped_elements: action.payload.element?.lumped_elements || [],
+          visible: true,
+          locked: false,
+          color,
+        };
+
+        // Add to elements array
+        state.elements.push(element);
+        state.selectedElementId = element.id;
+        state.isSolved = false; // Invalidate solver state
+
+        // Legacy support
+        state.mesh = action.payload.mesh;
+        state.sources = action.payload.element?.sources || [];
+        state.lumpedElements = action.payload.element?.lumped_elements || [];
+        state.meshError = null;
+      })
+      .addCase(generateCustom.rejected, (state, action) => {
         state.meshGenerating = false;
         state.meshError = action.payload as string || 'Mesh generation failed';
       })

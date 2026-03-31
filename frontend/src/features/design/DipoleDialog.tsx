@@ -23,6 +23,8 @@ import {
   parseNumericOrExpression,
   BUILTIN_CONSTANTS,
 } from '@/utils/expressionEvaluator';
+import { WirePreview3D } from '@/components/WirePreview3D';
+import { useDipolePreview } from '@/hooks/useAntennaPreview';
 
 // Validation schema — expression-capable fields store strings
 const dipoleSchema = z.object({
@@ -113,6 +115,24 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
 
   // Watch source type for dynamic unit label
   const sourceType = watch('sourceType');
+
+  // Watch all geometry fields for live 3D preview
+  const previewGeometry = useDipolePreview({
+    length: watch('length'),
+    radius: watch('radius'),
+    gap: watch('gap'),
+    segments: watch('segments'),
+    position: {
+      x: watch('position.x'),
+      y: watch('position.y'),
+      z: watch('position.z'),
+    },
+    orientation: {
+      x: orientationX,
+      y: orientationY,
+      z: orientationZ,
+    },
+  });
 
   // Determine active preset based on current values
   const getActivePreset = (): 'X' | 'Y' | 'Z' | 'Custom' => {
@@ -552,6 +572,23 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
                 </Typography>
               </Box>
             </Grid>
+
+            {/* Live 3D Preview */}
+            {previewGeometry.nodes.length >= 2 && (
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    3D Preview
+                  </Typography>
+                </Divider>
+                <WirePreview3D
+                  nodes={previewGeometry.nodes}
+                  edges={previewGeometry.edges}
+                  showLabels
+                  height={250}
+                />
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
 

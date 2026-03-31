@@ -24,6 +24,8 @@ import {
   parseNumericOrExpression,
   BUILTIN_CONSTANTS,
 } from '@/utils/expressionEvaluator';
+import { WirePreview3D } from '@/components/WirePreview3D';
+import { useLoopPreview } from '@/hooks/useAntennaPreview';
 
 // Validation schema — circular loop only
 const loopSchema = z.object({
@@ -104,6 +106,23 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
   });
 
   const sourceType = watch('sourceType');
+
+  // Live 3D preview
+  const previewGeometry = useLoopPreview({
+    radius: watch('radius'),
+    wireRadius: watch('wireRadius'),
+    segments: watch('segments'),
+    position: {
+      x: watch('position.x'),
+      y: watch('position.y'),
+      z: watch('position.z'),
+    },
+    orientation: {
+      rotX: watch('orientation.rotX'),
+      rotY: watch('orientation.rotY'),
+      rotZ: watch('orientation.rotZ'),
+    },
+  });
 
   const handleClose = () => {
     if (!isGenerating) {
@@ -493,6 +512,23 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                 </Typography>
               </Alert>
             </Grid>
+
+            {/* Live 3D Preview */}
+            {previewGeometry.nodes.length >= 3 && (
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    3D Preview
+                  </Typography>
+                </Divider>
+                <WirePreview3D
+                  nodes={previewGeometry.nodes}
+                  edges={previewGeometry.edges}
+                  showLabels={false}
+                  height={250}
+                />
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
 

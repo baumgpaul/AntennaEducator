@@ -9,6 +9,7 @@ import {
   Alert,
   CircularProgress,
   Typography,
+  Divider,
 } from '@mui/material';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,6 +18,8 @@ import ExpressionField from '@/components/ExpressionField';
 import { useAppSelector } from '@/store/hooks';
 import { selectVariableContextNumeric } from '@/store/variablesSlice';
 import { parseNumericOrExpression, BUILTIN_CONSTANTS } from '@/utils/expressionEvaluator';
+import { WirePreview3D } from '@/components/WirePreview3D';
+import { useRodPreview } from '@/hooks/useAntennaPreview';
 
 // Zod validation schema
 const rodSchema = z.object({
@@ -81,6 +84,18 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
   const endX = watch('end_x');
   const endY = watch('end_y');
   const endZ = watch('end_z');
+
+  // Live 3D preview
+  const previewGeometry = useRodPreview({
+    start_x: startX,
+    start_y: startY,
+    start_z: startZ,
+    end_x: endX,
+    end_y: endY,
+    end_z: endZ,
+    radius: watch('radius'),
+    segments: watch('segments'),
+  });
 
   // Calculate rod length from expression values
   const ctx = { ...BUILTIN_CONSTANTS, ...variableContext };
@@ -325,6 +340,23 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 • Custom wire structures
               </Alert>
             </Grid>
+
+            {/* Live 3D Preview */}
+            {previewGeometry.nodes.length >= 2 && (
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    3D Preview
+                  </Typography>
+                </Divider>
+                <WirePreview3D
+                  nodes={previewGeometry.nodes}
+                  edges={previewGeometry.edges}
+                  showLabels
+                  height={250}
+                />
+              </Grid>
+            )}
           </Grid>
         </form>
       </DialogContent>

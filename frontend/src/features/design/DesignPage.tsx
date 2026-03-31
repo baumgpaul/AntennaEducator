@@ -9,6 +9,7 @@ import {
   generateDipole,
   generateLoop,
   generateRod,
+  generateCustom,
   remeshElementOrientation,
   remeshElementExpressions,
   addLumpedElement,
@@ -50,6 +51,7 @@ import ViewControls from './ViewControls';
 import { DipoleDialog } from './DipoleDialog';
 import { LoopDialog } from './LoopDialog';
 import { RodDialog } from './RodDialog';
+import { CustomAntennaDialog } from './CustomAntennaDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
 import { FrequencySweepDialog } from './FrequencySweepDialog';
@@ -144,6 +146,7 @@ function DesignPage() {
   const [dipoleDialogOpen, setDipoleDialogOpen] = useState(false);
   const [loopDialogOpen, setLoopDialogOpen] = useState(false);
   const [rodDialogOpen, setRodDialogOpen] = useState(false);
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
   const [lumpedDialogOpen, setLumpedDialogOpen] = useState(false);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [frequencySweepDialogOpen, setFrequencySweepDialogOpen] = useState(false);
@@ -473,6 +476,9 @@ function DesignPage() {
       case 'rod':
         setRodDialogOpen(true);
         break;
+      case 'custom':
+        setCustomDialogOpen(true);
+        break;
       case 'lumped-element':
         setLumpedDialogOpen(true);
         break;
@@ -537,6 +543,26 @@ function DesignPage() {
       dispatch(addNotification({
         id: Date.now(),
         message: error || 'Failed to generate rod',
+        severity: 'error',
+        duration: 5000,
+      }));
+      throw error;
+    }
+  };
+
+  const handleCustomGenerate = async (data: any) => {
+    try {
+      await dispatch(generateCustom(data)).unwrap();
+      dispatch(addNotification({
+        id: Date.now(),
+        message: `Custom antenna "${data.name}" generated successfully!`,
+        severity: 'success',
+        duration: 5000,
+      }));
+    } catch (error: any) {
+      dispatch(addNotification({
+        id: Date.now(),
+        message: error || 'Failed to generate custom antenna',
         severity: 'error',
         duration: 5000,
       }));
@@ -1164,6 +1190,11 @@ function DesignPage() {
         onClose={() => setRodDialogOpen(false)}
         onGenerate={handleRodGenerate}
         loading={meshGenerating}
+      />
+      <CustomAntennaDialog
+        open={customDialogOpen}
+        onClose={() => setCustomDialogOpen(false)}
+        onGenerate={handleCustomGenerate}
       />
       <LumpedElementDialog
         open={lumpedDialogOpen}

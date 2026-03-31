@@ -20,7 +20,7 @@
 
 ---
 
-## Phase 0 — Bug Fixes & Stabilization
+## Phase 0 — Bug Fixes & Stabilization ✅ COMPLETE
 
 **Goal**: Fix all known issues in the existing 4 antenna types (dipole, loop, rod, helix), the design dialogs, solver integration, and postprocessing pipeline before building on top.
 
@@ -33,7 +33,7 @@
 - [x] **Dipole**: Verify balanced gap feed — ensure both source polarities are correctly signed for differential excitation. Write a unit test that checks the two source amplitudes sum to zero (balanced). *(35 tests in `test_builders_edge_cases.py`)*
 - [x] **Loop**: Test wraparound edge (edge from last node back to first) — verify it carries correct radius and is included in `edge_to_element` mapping. Test with odd and even segment counts. *(7 tests: even/odd segments, gapped no-wraparound, VS/CS wire removal)*
 - [x] **Rod**: Verify ground node (index 0) is correctly referenced in the incidence matrix. Test that a rod with N segments produces N+1 nodes where node 1 is at the base (ground). *(5 tests: N+1 nodes, ground ref, base/tip position, consecutive edges)*
-- [~] **Helix**: ~~Verify pitch/turn geometry for edge cases.~~ *Deferred — removed from Phase 0 scope (no active bugs).*
+- [x] **Helix**: ~~Verify pitch/turn geometry for edge cases.~~ *Removed — helix antenna type fully removed in Phase 1 (frontend + backend).*
 - [x] **All builders**: Add validation tests for `lumped_elements` with `node_start`/`node_end` at boundary nodes (first, last, ground). Make sure out-of-range node indices raise clear errors. *(7 tests: ground/last/boundary valid, out-of-range raises ValueError)*
 - [x] **All builders**: Verify that `source_edges` in the returned `Mesh` correctly maps to the edges where sources are placed. This is critical for solver feeding. *(4 tests: source_edges field existence + population)*
 
@@ -42,7 +42,7 @@
 - [~] **DipoleDialog**: ~~Test orientation presets (X/Y/Z), gap toggle.~~ *Deferred to Phase 3 dialog rework.*
 - [~] **LoopDialog**: ~~Verify `normal_vector` normalization, gap position mapping.~~ *Deferred to Phase 3 dialog rework.*
 - [~] **RodDialog**: ~~Verify `base_position` defaults, normalized orientation.~~ *Deferred to Phase 3 dialog rework.*
-- [~] **HelixDialog**: ~~Check `segments_per_turn` minimum.~~ *Deferred — helix removed from Phase 0 scope.*
+- [x] **HelixDialog**: ~~Check `segments_per_turn` minimum.~~ *Removed — helix fully removed in Phase 1.*
 - [x] **SourceDialog**: Fix node index input — ensure it validates against the actual element's node count (not hardcoded max). *(Dynamic Zod schema `createSourceSchema(maxNodeIndex)` with `.refine()` validators)*
 - [x] **LumpedElementDialog**: Same node validation issue. Also verify `C_inv` conversion (user enters C in Farads, backend expects 1/C). *(Dynamic Zod schema + changed field from "Inverse Capacitance (1/F)" to "Capacitance (F)" with auto C→1/C conversion)*
 - [x] **All dialogs**: Fix hooks ordering violations flagged in `.eslintrc.cjs` (hooks called after early returns in renderer components). *(Audit confirmed: no hooks ordering violations found — all dialogs clean)*
@@ -73,66 +73,110 @@
 
 ---
 
-## Phase 1 — Variable & Parameter Management
+## Phase 1 — Variable & Parameter Management ✅ COMPLETE
 
 **Goal**: Introduce named variables and expressions so antenna parameters can reference symbolic values. This is foundational for future sweeps and optimization, and makes the custom geometry designer far more useful.
 
 **Rationale**: Doing this before the custom geometry phase means the CSV import and visual editor can reference variables from the start (e.g., `arm_length = lambda/4`). It also enables parameterized element definitions in the existing 4 types.
 
-### 1.1 — Backend: Variable Store & Expression Engine
+**Status**: Implemented in PR #57 on branch `phase1/variable-parameter-management`. All CI checks pass (738 backend tests, 824+ frontend tests, tsc, ESLint, black, isort, ruff).
 
-**New files**:
-- `backend/common/models/variables.py` — Variable data model
-- `backend/common/utils/expressions.py` — Expression evaluator (safe math parser)
+**Additional work completed beyond original scope** (PR #57, second batch):
+- **Helix antenna removed**: Entire helix type removed from backend (endpoint, builders, schemas ~500 lines) and frontend (dialog, thunk, API, menu, tests). `HelixConfig` kept as `@deprecated` for old project compatibility.
+- **Expression fields expanded to ALL meaningful parameters**: DipoleDialog (12 fields: length, radius, gap, segments, amplitude, phase, position x/y/z, orientation x/y/z), LoopDialog (12 fields: radius, wireRadius, feedGap, segments, amplitude, phase, position x/y/z, orientation rotX/rotY/rotZ), RodDialog (8 fields: start x/y/z, end x/y/z, radius, segments). Segments auto-rounded to integer. Orientation/start-end validation moved to submit handler.
+- **Resizable panels**: Left panel (200-500px, default 280) and right panel (250-500px, default 320) resizable via drag handles with localStorage persistence.
+- **Sidebar reorder**: Variables panel now above Structure panel; Structure panel is collapsible.
+- **69 new expression tests**: DipoleDialog.expressions (21), LoopDialog.expressions (19), RodDialog.expressions (10), variableRemesh expanded (12), PropertiesPanel.expressions expanded (7).
 
-**Variable model**:
-```python
-class Variable(BaseModel):
-    name: str                           # e.g., "arm_length", "freq_center"
-    expression: str                     # e.g., "0.5 * C_0 / freq_center", "50e-3"
-    unit: str | None = None             # Optional display unit: "m", "Hz", "Ω"
-    description: str | None = None      # User annotation
-    
-class VariableContext(BaseModel):
-    variables: list[Variable] = []      # Ordered (can reference earlier variables)
-    
-    def evaluate(self, extra_constants: dict = {}) -> dict[str, float]:
-        """Evaluate all variables in order. Returns {name: numeric_value}."""
-```
+### 1.0 — Design Decisions Made
+
+These decisions were made during implementation and should guide future phases:
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **Variable Panel location** | Left sidebar, collapsible accordion inside `TreeViewPanel` | Consistent with existing Structure panel pattern; always visible without extra navigation |
+| **Dialog integration** | All 3 dialogs (Dipole, Loop, Rod) — Helix removed | Full coverage; same `ExpressionField` component everywhere. Helix removed entirely (frontend + backend) for simplicity. |
+| **ALL fields expression-capable** | Every numeric field in every dialog accepts expressions | Position, orientation, amplitude, phase, segments — not just geometry params. Segments auto-rounded to integer. |
+| **Resizable panels** | Left + right panels draggable with localStorage persistence | 4px resize handles, min/max bounds, smooth drag via document mousemove |
+| **Sidebar order** | Variables above Structure; Structure collapsible | Variables most-used panel, always visible first |
+| **Variable reordering** | Insertion order only (no drag-and-drop) | Simpler UX; variables evaluate top-down so order matters but rarely changes |
+| **design_state version** | Bumped to version 3 (v2 had elements only) | Projects without variables auto-reset to defaults on load |
+| **Built-in constants** | Read-only rows in VariablePanel: `C_0`, `MU_0`, `EPSILON_0`, `Z_0`, `pi` | Always available, not editable; shown in a separate section above user variables |
+| **Expression field UX** | Single unified field accepting both plain numbers and expressions (no toggle) | Fewer clicks; a plain number like `0.5` is just a trivial expression |
+| **Resolved value display** | Helper text below each expression field | Non-intrusive; updates live as user types |
+| **Default frequency variable** | `freq = 300e6 Hz` + `wavelength = C_0 / freq` | Enables `wavelength / 2` style expressions immediately; solver sweep still overrides at solve time |
+| **Variable editing** | Inline in table rows (not a separate dialog) | Faster workflow; direct manipulation in the panel |
+| **Expression persistence on elements** | `expressions?: Record<string, string>` on `AntennaElement` (field name → raw expression string) | Enables re-evaluation when variables change; stored alongside config which has resolved numeric values |
+| **PropertiesPanel display** | Expression shown in monospace primary-color text below resolved value (e.g., `= wavelength / 2`) | Clear visual distinction; only shown when expression differs from plain number |
+| **Auto-remesh on variable change** | Full re-mesh via preprocessor API (not just config number update) | Ensures mesh integrity — node/edge counts may change with parameter changes |
+| **Frontend expression parser** | Hand-written recursive-descent parser in TypeScript | No safe AST mode in JS like Python; no external dependency; same grammar as backend |
+| **Backend expression evaluator** | Python `ast` module with whitelisted node types — **no `eval()`** | Security-first; only safe math operations allowed |
+| **Circular dependency detection** | DFS with 3-color marking (white/gray/black) | Standard algorithm; detects and reports the cycle path in error messages |
+| **Column headers in VariablePanel** | Name, Expression, Value, Unit | Clear tabular layout matching the data model fields |
+
+### 1.1 — Backend: Variable Store & Expression Engine ✅
+
+**Files created**:
+- `backend/common/models/variables.py` — `Variable` + `VariableContext` Pydantic models (160 lines)
+- `backend/common/utils/expressions.py` — Safe AST-based expression evaluator (270 lines)
 
 **Expression evaluator** (`expressions.py`):
-- Safe math parser using Python `ast` module — only allow: numbers, arithmetic (`+`, `-`, `*`, `/`, `**`), math functions (`sin`, `cos`, `sqrt`, `log`, `pi`), and variable references.
+- Safe math parser using Python `ast` module — only allows: numbers, arithmetic (`+`, `-`, `*`, `/`, `**`, `//`, `%`), unary ops, math functions (`sin`, `cos`, `tan`, `sqrt`, `log`, `log10`, `exp`, `abs`, `ceil`, `floor`, `round`, `min`, `max`, `atan2`), and variable references.
 - **No `eval()`** — whitelist AST node types to prevent code injection.
-- Built-in constants: `C_0`, `MU_0`, `EPSILON_0`, `Z_0`, `pi` (from `backend/common/constants.py`).
+- Built-in constants: `C_0`, `MU_0`, `EPSILON_0`, `Z_0`, `pi`, `e`, `inf` (from `backend/common/constants.py`).
 - Variables resolve top-down (variable N can reference variables 1..N-1).
-- Circular dependency detection via topological sort.
+- Circular dependency detection via DFS with 3-color marking.
 - Error messages name the failing variable and expression.
+- `parse_numeric_or_expression(value, variables)` — unified parser for schema fields (accepts `float | str`).
 
 **Integration with preprocessor**:
-- Each antenna request schema gets an optional `variable_context: VariableContext` field.
-- Numeric fields can be either `float` or `str` (expression). If `str`, evaluate against the variable context.
-- Pydantic validator resolves expressions before builder logic runs.
+- Each antenna request schema gets an optional `variable_context: list[VariableDefinition]` field.
+- `@model_validator(mode='before')` intercepts raw data, evaluates variable context, resolves string-valued numeric fields to floats BEFORE Pydantic's `Field(gt=0)` validators run.
+- `_resolve_expressions()` helper handles resolution for specified numeric field names per antenna type.
 
-### 1.2 — Frontend: Variable Panel
+**Tests**: 141 backend tests (79 in `test_expressions.py`, 62 in `test_variables.py`)
 
-**New files**:
-- `frontend/src/features/design/VariablePanel.tsx` — Variable editor panel
-- `frontend/src/store/variablesSlice.ts` — Redux state for variables
+### 1.2 — Frontend: Variable Panel ✅
+
+**Files created**:
+- `frontend/src/features/design/VariablePanel.tsx` — Collapsible sidebar panel (240+ lines)
+- `frontend/src/store/variablesSlice.ts` — Redux state for variables (102 lines)
+- `frontend/src/utils/expressionEvaluator.ts` — TypeScript recursive-descent parser (490+ lines)
+- `frontend/src/components/ExpressionField.tsx` — Reusable expression-aware TextField (151 lines)
 
 **UI**:
-- A collapsible panel (sidebar or bottom drawer) in the designer view.
-- Table with columns: Name | Expression | Value (computed) | Unit | Description.
+- Collapsible accordion in `TreeViewPanel` (left sidebar), between "Structure" and "Solver" sections.
+- Table with column headers: **Name | Expression | Value | Unit**.
 - Inline editing — user types name and expression, value updates live.
-- Add/remove/reorder rows. Drag-and-drop reordering (since order matters for dependencies).
-- Validation: red highlight if expression fails to parse or has circular dependency.
-- Built-in constants shown as read-only rows: `C_0`, `MU_0`, `pi`, etc.
-- Copy-paste from spreadsheet support (tab-separated).
+- Add/remove rows. No drag-and-drop (insertion order only).
+- Validation: red highlight if expression fails to parse or has circular dependency; error tooltip on hover.
+- Built-in constants shown as read-only rows in a separate "Constants" section: `C_0`, `MU_0`, `EPSILON_0`, `Z_0`, `pi`.
+- Default variables on new project: `freq = 300e6 Hz`, `wavelength = C_0 / freq m`.
 
-**Integration with antenna dialogs**:
-- Numeric input fields get a toggle: "Value" / "Expression". When "Expression", the field becomes a text input that autocompletes variable names.
-- Resolved value shown as a read-only hint below the expression field.
+**Integration with antenna dialogs** (all 3 — helix removed):
+- ALL numeric input fields use `ExpressionField` component — a single text input accepting both plain numbers and expressions.
+- Covers geometry params, segments, source amplitude/phase, position x/y/z, orientation x/y/z (dipole/loop), start/end coordinates (rod).
+- Segments auto-rounded to integer via `Math.round()` after expression resolution.
+- Orientation non-zero validation (dipole) and start≠end validation (rod) moved to submit handler (post-resolution).
+- Resolved value shown as helper text below the expression field. Red helper text on error.
+- On submit: expressions are resolved to numbers via `parseNumericOrExpression()`, and raw expression strings are stored in `expressions` dict on the resolved data.
+- Pattern per dialog: Zod schema uses `z.string()` for expression-capable fields; `ResolvedXxxData` interface has numeric fields + `expressions?: Record<string, string>`.
 
-### 1.3 — Persistence
+**Expression persistence on elements**:
+- `AntennaElement.expressions` is an optional `Record<string, string>` mapping field names to expression strings.
+- All 4 generate thunks in `designSlice` pass `expressions` from formData to the created element.
+- `PropertiesPanel` shows stored expression strings below resolved numeric values in monospace primary-color text.
+
+**Auto-remesh on variable change**:
+- `DesignPage` has a `useEffect` watching `variables` state.
+- When variables change, iterates all elements with stored expressions.
+- Re-evaluates expressions with new variable context, compares with current config values.
+- If values changed, dispatches `remeshElementExpressions` thunk which calls the preprocessor API with updated parameters.
+- Expression-to-config key mapping handles type-specific field name differences (e.g., dialog's `radius` → config's `wire_radius` for dipole).
+
+**Tests**: 91 frontend tests (69 expression evaluator + 22 expression persistence/remesh/display)
+
+### 1.3 — Persistence ✅
 
 - `variable_context` stored inside `design_state` JSON blob:
   ```json
@@ -140,24 +184,51 @@ class VariableContext(BaseModel):
     "version": 3,
     "elements": [...],
     "variables": [
-      {"name": "freq_center", "expression": "300e6", "unit": "Hz"},
-      {"name": "lambda", "expression": "C_0 / freq_center", "unit": "m"},
-      {"name": "arm_length", "expression": "lambda / 4", "unit": "m"}
+      {"name": "freq", "expression": "300e6", "unit": "Hz", "description": "Frequency"},
+      {"name": "wavelength", "expression": "C_0 / freq", "unit": "m", "description": "Wavelength"}
     ]
   }
   ```
+- Auto-save triggers on variable changes (1.5s debounce, same as other auto-save triggers).
+- Loading a v2 project (no variables) resets to default variables (`freq`, `wavelength`).
+- `expressions` dict on each `AntennaElement` is persisted in `design_state.elements[].expressions`.
 
 ### 1.4 — Deliverables
 
-| Artifact | Type | Description |
-|----------|------|-------------|
-| `backend/common/models/variables.py` | Model | Variable + VariableContext models |
-| `backend/common/utils/expressions.py` | Utility | Safe AST-based expression evaluator |
-| `tests/unit/test_expressions.py` | Test | Expression parsing, evaluation, circular detection |
-| `frontend/src/store/variablesSlice.ts` | Redux | Variable state management |
-| `frontend/src/features/design/VariablePanel.tsx` | Component | Variable editor UI |
-| Updated antenna dialogs | Frontend | Expression-aware numeric fields |
-| Schema migration to version 3 | Backend+Frontend | Add `variables` to design_state |
+| Artifact | Type | Status | Description |
+|----------|------|--------|-------------|
+| `backend/common/models/variables.py` | Model | ✅ Done | Variable + VariableContext Pydantic models |
+| `backend/common/utils/expressions.py` | Utility | ✅ Done | Safe AST-based expression evaluator (270 lines) |
+| `tests/unit/test_expressions.py` | Test | ✅ Done | 79 tests: parsing, evaluation, functions, errors |
+| `tests/unit/test_variables.py` | Test | ✅ Done | 62 tests: variable context, circular detection, dependencies |
+| `frontend/src/store/variablesSlice.ts` | Redux | ✅ Done | Variable state management, selectors |
+| `frontend/src/utils/expressionEvaluator.ts` | Utility | ✅ Done | TypeScript recursive-descent parser (490+ lines) |
+| `frontend/src/utils/__tests__/expressionEvaluator.test.ts` | Test | ✅ Done | 69 frontend expression evaluator tests |
+| `frontend/src/components/ExpressionField.tsx` | Component | ✅ Done | Reusable expression-aware TextField |
+| `frontend/src/features/design/VariablePanel.tsx` | Component | ✅ Done | Collapsible panel with column headers |
+| Updated antenna dialogs (all 3) | Frontend | ✅ Done | ExpressionField for ALL numeric fields in Dipole/Loop/Rod |
+| Helix removal (backend + frontend) | Both | ✅ Done | Builders, endpoint, dialog, thunks, tests removed (~1700 lines) |
+| Resizable panels | Frontend | ✅ Done | Left/right panels draggable, localStorage persistence |
+| Sidebar reorder | Frontend | ✅ Done | Variables above Structure, Structure collapsible |
+| `frontend/src/store/designSlice.ts` updates | Redux | ✅ Done | `remeshElementExpressions` thunk, expressions stored on elements |
+| `frontend/src/features/design/PropertiesPanel.tsx` updates | Component | ✅ Done | Expression display with `GeometryRow` helper |
+| `frontend/src/features/design/DesignPage.tsx` updates | Component | ✅ Done | v3 save/load, auto-remesh on variable change |
+| Schema migration to version 3 | Backend+Frontend | ✅ Done | `variables` array + `expressions` dict in design_state |
+| `frontend/src/store/__tests__/designSlice.expressions.test.ts` | Test | ✅ Done | 6 expression persistence tests |
+| `frontend/src/store/__tests__/variableRemesh.test.ts` | Test | ✅ Done | 12 variable-change remesh detection tests (expanded with segments + rod coords) |
+| `frontend/src/features/design/__tests__/PropertiesPanel.expressions.test.tsx` | Test | ✅ Done | 7 expression display + mapping tests (expanded) |
+| `frontend/src/features/design/__tests__/DipoleDialog.expressions.test.tsx` | Test | ✅ Done | 21 expression field tests for DipoleDialog |
+| `frontend/src/features/design/__tests__/LoopDialog.expressions.test.tsx` | Test | ✅ Done | 19 expression field tests for LoopDialog |
+| `frontend/src/features/design/__tests__/RodDialog.expressions.test.tsx` | Test | ✅ Done | 10 expression field tests for RodDialog |
+| `.github/copilot-instructions.md` update | Config | ✅ Done | Added `npx vitest run` to pre-commit checks |
+
+### 1.5 — Known Limitations & Future Improvements
+
+- **No drag-and-drop reordering**: Variables are insertion-ordered. If a user needs to reorder, they must delete and re-add. Could add later if needed.
+- **No spreadsheet paste**: Copy-paste from spreadsheet (tab-separated) was planned but deferred. Add if users request it.
+- **No variable autocomplete**: Expression fields don't autocomplete variable names (just free-text). Could add a suggestion dropdown later.
+- **Remesh is sequential**: When variables change and multiple elements need remesh, they're dispatched sequentially. Could batch or parallelize if performance becomes an issue.
+- **No undo/redo for variables**: Variable changes trigger auto-save immediately. A proper undo stack would be a Phase 8 enhancement.
 
 ---
 
@@ -165,7 +236,9 @@ class VariableContext(BaseModel):
 
 **Goal**: Allow users to define arbitrary wire antenna structures by importing CSV point/connection files or using a visual sub-GUI editor, with clear node/edge labeling.
 
-**Rationale**: With variables in place (Phase 1), coordinate expressions can reference variables. This is the most impactful preprocessor feature — it unlocks any wire antenna geometry the PEEC solver can handle.
+**Rationale**: With variables in place (Phase 1 ✅), coordinate expressions can reference variables. This is the most impactful preprocessor feature — it unlocks any wire antenna geometry the PEEC solver can handle.
+
+**Prerequisites**: Phase 1 complete ✅ — `ExpressionField`, `variablesSlice`, `parseNumericOrExpression()`, and `evaluateVariableContextNumeric()` are all available for use in the custom geometry editor.
 
 ### 2.1 — CSV Format Definition
 
@@ -266,7 +339,7 @@ class CustomRequest(BaseModel):
 
 ### 2.4 — Frontend: Geometry Sub-GUI for Existing Types
 
-For the 4 existing types (dipole, loop, rod, helix), add a **read-only preview panel** to each dialog:
+For the 3 existing types (dipole, loop, rod), add a **read-only preview panel** to each dialog:
 - Small 3D viewport (300×300px) showing the wireframe with node indices.
 - Updates live as user changes parameters (length, segments, etc.).
 - Same color coding as custom dialog.
@@ -302,7 +375,7 @@ class AppendedNode(BaseModel):
     """A user-defined auxiliary node. Index is negative: -1, -2, ..."""
     index: int                          # -1, -2, ... (auto-assigned)
     label: str = ""                     # User-friendly name, e.g., "Matching network node"
-    
+
 class AntennaElement(BaseModel):
     # ... existing fields ...
     appended_nodes: list[AppendedNode] = []   # NEW
@@ -314,7 +387,7 @@ A port is a pair of nodes `(node_a, node_b)` where we measure voltage/current. F
 
 ### 3.2 — Frontend: Dialog Tests Carried Over from Phase 0
 
-The following dialog-level tests were deferred from Phase 0 (no active bugs, just verification). They belong here since Phase 3 reworks all four dialogs:
+The following dialog-level tests were deferred from Phase 0 (no active bugs, just verification). They belong here since Phase 3 reworks the dialogs:
 
 - [ ] **DipoleDialog**: Test that orientation presets (X/Y/Z) correctly set `center_position` and `orientation` vectors. Verify gap toggle enables/disables the gap-width field.
 - [ ] **LoopDialog**: Verify `normal_vector` input accepts arbitrary vectors and normalizes correctly. Test that gap position is correctly mapped when `gap=true`.
@@ -360,7 +433,6 @@ In the 3D preview (custom dialog and existing type previews):
 | `frontend/src/features/design/components/SchematicOverlay.tsx` | Component | Lumped element symbols in 3D preview |
 | `tests/unit/test_appended_nodes.py` | Test | Appended node indexing, lumped element attachment |
 | DipoleDialog / LoopDialog / RodDialog tests | Frontend | Orientation presets, gap toggle, normal vector normalization (carried from Phase 0) |
-
 ---
 
 ## Phase 4 — Solver Enhancements (Port Quantities, S11, VSWR)
@@ -567,7 +639,7 @@ Attributes:
   submission_number: int           # 1, 2, 3, ... per student per course
   submitted_at: str (ISO 8601)
   status: "submitted" | "reviewed" | "returned"
-  
+
   # Frozen project snapshot (same 4 JSON blobs)
   design_state: dict
   simulation_config: dict
@@ -722,7 +794,7 @@ Page N: Footer
 - [ ] **Rate limiting**: Add per-user rate limits (via middleware or API Gateway) — protect simulation endpoints.
 - [ ] **Request size limits**: Cap request body size in FastAPI middleware (e.g., 10MB for custom geometry).
 - [ ] **Logging**: Structured JSON logging with correlation IDs. Log all simulation requests with user_id, duration, token cost.
-- [ ] **Security**: 
+- [ ] **Security**:
   - Dependency audit (`pip-audit`, `npm audit`)
   - CORS: tighten origins in production (only CloudFront domain)
   - Input sanitization for project names, descriptions (prevent stored XSS)
@@ -760,7 +832,7 @@ Page N: Footer
   - Optional: `docker compose --profile monitoring up` — adds Prometheus + Grafana
 - [ ] **`.env.example`** with all required environment variables, sensible defaults for local.
 - [ ] **Health-check ordering**: All services depend on DynamoDB Local readiness. Frontend depends on backends.
-- [ ] **Volume mounts**: 
+- [ ] **Volume mounts**:
   - DynamoDB Local data → `./data/dynamodb/` (persist between restarts)
   - S3-compatible local storage (MinIO or local filesystem) → `./data/storage/`
 - [ ] **Init container / script**: Auto-create DynamoDB tables, seed admin user, create example course on first run.
@@ -790,10 +862,10 @@ Page N: Footer
 ## Dependency Graph
 
 ```
-Phase 0 ─── Bug Fixes & Stabilization
+Phase 0 ─── Bug Fixes & Stabilization ✅
    │
    ▼
-Phase 1 ─── Variable & Parameter Management
+Phase 1 ─── Variable & Parameter Management ✅
    │
    ├────────────────────┐
    ▼                    ▼
@@ -833,18 +905,18 @@ Phase 9 ─── Deployment Rework
 
 ## Estimated Scope per Phase
 
-| Phase | Backend | Frontend | Tests | Complexity |
-|-------|---------|----------|-------|------------|
-| 0 — Bug Fixes | Medium | Medium | High | Medium — many small fixes |
-| 1 — Variables | Medium | High | Medium | Medium — expression parser is key risk |
-| 2 — Custom Geometry | Medium | High | Medium | High — CSV parser + 3D preview + validation |
-| 3 — Lumped/Ports | Low | High | Low | Medium — UI rework, model is straightforward |
-| 4 — Solver | High | Medium | High | Medium — math is known, integration matters |
-| 5 — Plotting + Smith | Low | Very High | Medium | High — unified plot model + Smith chart SVG |
-| 6 — Submissions | Medium | High | Medium | Medium — CRUD + read-only mode |
-| 7 — PDF Export | Low | High | Low | Medium — multi-page layout orchestration |
-| 8 — Hardening | Medium | Medium | Very High | Medium — systematic, not creative |
-| 9 — Deployment | High | Low | Low | Medium — DevOps, scripting, Terraform |
+| Phase | Backend | Frontend | Tests | Complexity | Status |
+|-------|---------|----------|-------|------------|--------|
+| 0 — Bug Fixes | Medium | Medium | High | Medium — many small fixes | ✅ Complete |
+| 1 — Variables | Medium | High | Medium | Medium — expression parser is key risk | ✅ Complete (PR #57) + helix removal + all-field expressions + resizable panels |
+| 2 — Custom Geometry | Medium | High | Medium | High — CSV parser + 3D preview + validation | ⏳ Next |
+| 3 — Lumped/Ports | Low | High | Low | Medium — UI rework, model is straightforward | ⏳ Pending |
+| 4 — Solver | High | Medium | High | Medium — math is known, integration matters | ⏳ Pending (can parallel with 2/3) |
+| 5 — Plotting + Smith | Low | Very High | Medium | High — unified plot model + Smith chart SVG | ⏳ Pending |
+| 6 — Submissions | Medium | High | Medium | Medium — CRUD + read-only mode | ⏳ Pending |
+| 7 — PDF Export | Low | High | Low | Medium — multi-page layout orchestration | ⏳ Pending |
+| 8 — Hardening | Medium | Medium | Very High | Medium — systematic, not creative | ⏳ Pending |
+| 9 — Deployment | High | Low | Low | Medium — DevOps, scripting, Terraform | ⏳ Pending |
 
 ---
 
@@ -854,3 +926,21 @@ Phase 9 ─── Deployment Rework
 2. **Smith chart interactivity**: Clickable frequency markers that sync with line plots? → Nice-to-have in Phase 5, not blocking.
 3. **Submission notifications**: Email/in-app notification when a student submits? → Defer to Phase 8.
 4. **Multi-port (N>2)**: You said 1-port for now. When N-port S-parameters are needed later, the `PortDefinition` model extends naturally to `ports: list[PortDefinition]`. → Defer.
+5. **Variable autocomplete**: Expression fields currently accept free-text. Could add a suggestion dropdown showing available variable names. → Defer to post-v1.
+6. **Variable undo/redo**: Variable changes currently auto-save immediately. A proper undo stack could be added in Phase 8.
+7. **Spreadsheet paste in VariablePanel**: Planned for Phase 1 but deferred. Tab-separated paste from Excel/Google Sheets could be useful for bulk variable entry. → Add if users request.
+
+## Resolved Decisions
+
+| Decision | Phase | Resolution |
+|----------|-------|------------|
+| Expression field UX: toggle vs. unified input | Phase 1 | **Unified** — single field accepts both numbers and expressions |
+| Variable Panel location | Phase 1 | **Left sidebar** accordion in TreeViewPanel |
+| Drag-and-drop variable reordering | Phase 1 | **No** — insertion order only, simpler UX |
+| Auto-remesh vs. manual re-generate | Phase 1 | **Auto-remesh** — full preprocessor API call when variables change |
+| Frontend expression parser approach | Phase 1 | **Hand-written recursive-descent** — no external dependency, mirrors backend grammar |
+| design_state schema version | Phase 1 | **Version 3** — adds `variables` array and `expressions` dict on elements |
+| Helix antenna removal | Phase 1 | **Removed entirely** — backend builders/endpoint/schemas + frontend dialog/thunk/API/menu/tests. `HelixConfig` kept `@deprecated` for old projects. |
+| Expression scope in dialogs | Phase 1 | **ALL numeric fields** — not just geometry params; includes segments, amplitude, phase, position, orientation |
+| Resizable design panels | Phase 1 | **Both left + right** — drag handles, localStorage persistence, min/max bounds |
+| Sidebar panel ordering | Phase 1 | **Variables first, Structure below** — Variables collapsible (open by default), Structure collapsible |
