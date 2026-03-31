@@ -78,7 +78,6 @@ export type TreeNodeType =
   | 'antenna'
   | 'dipole'
   | 'loop'
-  | 'helix'
   | 'rod'
   | 'source'
   | 'lumped_element'

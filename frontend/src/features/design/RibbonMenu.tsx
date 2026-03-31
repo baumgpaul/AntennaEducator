@@ -263,14 +263,6 @@ function RibbonMenu({
                       Loop
                     </Button>
                   </Tooltip>
-                  <Tooltip title="Create helix antenna">
-                    <Button
-                      startIcon={<Widgets />}
-                      onClick={() => onAntennaTypeSelect?.('helix')}
-                    >
-                      Helix
-                    </Button>
-                  </Tooltip>
                   <Tooltip title="Create rod/wire antenna">
                     <Button
                       startIcon={<CableOutlined />}

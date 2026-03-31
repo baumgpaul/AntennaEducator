@@ -1,7 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
+import variablesReducer from '@/store/variablesSlice';
 import { LoopDialog } from '../LoopDialog';
+
+function createTestStore() {
+  return configureStore({
+    reducer: {
+      variables: variablesReducer,
+    },
+  });
+}
 
 describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
   const mockOnClose = vi.fn();
@@ -14,11 +25,13 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
   describe('Dialog Structure', () => {
     it('should render when open', () => {
       render(
-        <LoopDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <LoopDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       expect(screen.getByText(/Configure Loop Antenna/i)).toBeInTheDocument();
@@ -26,11 +39,13 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
 
     it('should not render when closed', () => {
       render(
-        <LoopDialog
-          open={false}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <LoopDialog
+            open={false}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       expect(screen.queryByText(/Loop Antenna Configuration/i)).not.toBeInTheDocument();
@@ -40,11 +55,13 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
   describe('Form Fields - WITHOUT Frequency', () => {
     beforeEach(() => {
       render(
-        <LoopDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <LoopDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
     });
 
@@ -83,11 +100,13 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
       mockOnGenerate.mockResolvedValue(undefined);
 
       render(
-        <LoopDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <LoopDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const nameInput = screen.getByLabelText(/Antenna Name/i);
@@ -112,11 +131,13 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
       mockOnGenerate.mockResolvedValue(undefined);
 
       render(
-        <LoopDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <LoopDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const generateButton = screen.getByRole('button', { name: /Generate/i });
@@ -132,11 +153,13 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
     it('should support circular loop type', async () => {
       const user = userEvent.setup();
       render(
-        <LoopDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <LoopDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       // Component is for circular loops — verify radius field exists
@@ -150,11 +173,13 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
       const user = userEvent.setup();
 
       render(
-        <LoopDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <LoopDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const cancelButton = screen.getByRole('button', { name: /Cancel/i });
@@ -167,11 +192,13 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
   describe('Default Values', () => {
     it('should have correct default values without frequency', () => {
       render(
-        <LoopDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <LoopDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const nameInput = screen.getByLabelText(/Antenna Name/i) as HTMLInputElement;

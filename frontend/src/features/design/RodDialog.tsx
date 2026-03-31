@@ -5,64 +5,55 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  TextField,
   Grid,
   Alert,
   CircularProgress,
   Typography,
-  Divider,
 } from '@mui/material';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PositionControl } from '@/components/PositionControl';
-import { parseDecimalNumber } from '@/utils/numberParser';
+import ExpressionField from '@/components/ExpressionField';
+import { useAppSelector } from '@/store/hooks';
+import { selectVariableContextNumeric } from '@/store/variablesSlice';
+import { parseNumericOrExpression, BUILTIN_CONSTANTS } from '@/utils/expressionEvaluator';
+
 // Zod validation schema
 const rodSchema = z.object({
-  start_x: z.number().min(-10, 'X too small').max(10, 'X too large'),
-  start_y: z.number().min(-10, 'Y too small').max(10, 'Y too large'),
-  start_z: z.number().min(-10, 'Z too small').max(10, 'Z too large'),
-  end_x: z.number().min(-10, 'X too small').max(10, 'X too large'),
-  end_y: z.number().min(-10, 'Y too small').max(10, 'Y too large'),
-  end_z: z.number().min(-10, 'Z too small').max(10, 'Z too large'),
-  radius: z.number().positive('Radius must be positive').max(0.1, 'Radius too large'),
-  segments: z.number().int().min(1, 'At least 1 segment required').max(200, 'Max 200 segments'),
-  position: z.object({
-    x: z.number(),
-    y: z.number(),
-    z: z.number(),
-  }),
-  orientation: z.object({
-    rotX: z.number().min(-180).max(180),
-    rotY: z.number().min(-180).max(180),
-    rotZ: z.number().min(-180).max(180),
-  }),
-}).refine(
-  (data) => {
-    // Check that start and end points are different
-    const dx = data.end_x - data.start_x;
-    const dy = data.end_y - data.start_y;
-    const dz = data.end_z - data.start_z;
-    const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    return length > 1e-6;
-  },
-  {
-    message: 'Start and end points must be different',
-    path: ['end_x'],
-  }
-);
+  start_x: z.string().min(1, 'Required'),
+  start_y: z.string().min(1, 'Required'),
+  start_z: z.string().min(1, 'Required'),
+  end_x: z.string().min(1, 'Required'),
+  end_y: z.string().min(1, 'Required'),
+  end_z: z.string().min(1, 'Required'),
+  radius: z.string().min(1, 'Required'),
+  segments: z.string().min(1, 'Required'),
+});
 
 type RodFormData = z.infer<typeof rodSchema>;
+
+interface ResolvedRodData {
+  start_x: number;
+  start_y: number;
+  start_z: number;
+  end_x: number;
+  end_y: number;
+  end_z: number;
+  radius: number;
+  segments: number;
+  expressions?: Record<string, string>;
+}
 
 interface RodDialogProps {
   open: boolean;
   onClose: () => void;
-  onGenerate: (data: RodFormData) => Promise<void>;
+  onGenerate: (data: ResolvedRodData) => Promise<void>;
   loading?: boolean;
 }
 
 export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate, loading = false }) => {
   const [generating, setGenerating] = useState(false);
+  const variableContext = useAppSelector(selectVariableContextNumeric);
 
   const {
     control,
@@ -73,24 +64,14 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
   } = useForm<RodFormData>({
     resolver: zodResolver(rodSchema),
     defaultValues: {
-      start_x: 0,
-      start_y: 0,
-      start_z: 0,
-      end_x: 0,
-      end_y: 0,
-      end_z: 1.0,
-      radius: 0.001,
-      segments: 20,
-      position: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-      orientation: {
-        rotX: 0,
-        rotY: 0,
-        rotZ: 0,
-      },
+      start_x: '0',
+      start_y: '0',
+      start_z: '0',
+      end_x: '0',
+      end_y: '0',
+      end_z: '1',
+      radius: '0.001',
+      segments: '20',
     },
   });
 
@@ -101,16 +82,53 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
   const endY = watch('end_y');
   const endZ = watch('end_z');
 
-  // Calculate rod length
-  const dx = endX - startX;
-  const dy = endY - startY;
-  const dz = endZ - startZ;
-  const rodLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  // Calculate rod length from expression values
+  const ctx = { ...BUILTIN_CONSTANTS, ...variableContext };
+  let rodLength = 0;
+  try {
+    const sx = parseNumericOrExpression(startX, ctx);
+    const sy = parseNumericOrExpression(startY, ctx);
+    const sz = parseNumericOrExpression(startZ, ctx);
+    const ex = parseNumericOrExpression(endX, ctx);
+    const ey = parseNumericOrExpression(endY, ctx);
+    const ez = parseNumericOrExpression(endZ, ctx);
+    rodLength = Math.sqrt((ex - sx) ** 2 + (ey - sy) ** 2 + (ez - sz) ** 2);
+  } catch {
+    /* keep 0 */
+  }
 
   const handleFormSubmit = async (data: RodFormData) => {
     setGenerating(true);
     try {
-      await onGenerate(data);
+      const submitCtx = { ...BUILTIN_CONSTANTS, ...variableContext };
+      const resolved: ResolvedRodData = {
+        start_x: parseNumericOrExpression(data.start_x, submitCtx),
+        start_y: parseNumericOrExpression(data.start_y, submitCtx),
+        start_z: parseNumericOrExpression(data.start_z, submitCtx),
+        end_x: parseNumericOrExpression(data.end_x, submitCtx),
+        end_y: parseNumericOrExpression(data.end_y, submitCtx),
+        end_z: parseNumericOrExpression(data.end_z, submitCtx),
+        radius: parseNumericOrExpression(data.radius, submitCtx),
+        segments: Math.round(parseNumericOrExpression(data.segments, submitCtx)),
+        expressions: {
+          start_x: data.start_x,
+          start_y: data.start_y,
+          start_z: data.start_z,
+          end_x: data.end_x,
+          end_y: data.end_y,
+          end_z: data.end_z,
+          radius: data.radius,
+          segments: data.segments,
+        },
+      };
+      // Validate start != end AFTER resolving
+      const dx = resolved.end_x - resolved.start_x;
+      const dy = resolved.end_y - resolved.start_y;
+      const dz = resolved.end_z - resolved.start_z;
+      if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 1e-6) {
+        throw new Error('Start and end points must be different');
+      }
+      await onGenerate(resolved);
       reset();
       onClose();
     } catch (error) {
@@ -144,15 +162,13 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 name="start_x"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="X"
-                    type="number"
                     fullWidth
-                    error={!!errors.start_x}
-                    helperText={errors.start_x?.message}
-                    inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
+                    unit="m"
+                    disabled={generating}
                   />
                 )}
               />
@@ -162,15 +178,13 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 name="start_y"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Y"
-                    type="number"
                     fullWidth
-                    error={!!errors.start_y}
-                    helperText={errors.start_y?.message}
-                    inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
+                    unit="m"
+                    disabled={generating}
                   />
                 )}
               />
@@ -180,15 +194,13 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 name="start_z"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Z"
-                    type="number"
                     fullWidth
-                    error={!!errors.start_z}
-                    helperText={errors.start_z?.message}
-                    inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
+                    unit="m"
+                    disabled={generating}
                   />
                 )}
               />
@@ -205,15 +217,13 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 name="end_x"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="X"
-                    type="number"
                     fullWidth
-                    error={!!errors.end_x}
-                    helperText={errors.end_x?.message}
-                    inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
+                    unit="m"
+                    disabled={generating}
                   />
                 )}
               />
@@ -223,15 +233,13 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 name="end_y"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Y"
-                    type="number"
                     fullWidth
-                    error={!!errors.end_y}
-                    helperText={errors.end_y?.message}
-                    inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
+                    unit="m"
+                    disabled={generating}
                   />
                 )}
               />
@@ -241,15 +249,13 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 name="end_z"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Z"
-                    type="number"
                     fullWidth
-                    error={!!errors.end_z}
-                    helperText={errors.end_z?.message}
-                    inputProps={{ step: 0.01 }}
-                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
+                    unit="m"
+                    disabled={generating}
                   />
                 )}
               />
@@ -261,15 +267,14 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 name="radius"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Wire Radius (m)"
-                    type="number"
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Wire Radius"
                     fullWidth
-                    error={!!errors.radius}
-                    helperText={errors.radius?.message}
-                    inputProps={{ step: 0.0001 }}
-                    onChange={(e) => field.onChange(parseDecimalNumber(e.target.value))}
+                    unit="m"
+                    validate={(v) => (v > 0 ? null : 'Radius must be positive')}
+                    disabled={generating}
                   />
                 )}
               />
@@ -281,15 +286,17 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 name="segments"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
+                  <ExpressionField
+                    value={field.value}
+                    onChange={field.onChange}
                     label="Number of Segments"
-                    type="number"
                     fullWidth
-                    error={!!errors.segments}
-                    helperText={errors.segments?.message || 'More = better accuracy'}
-                    inputProps={{ step: 1 }}
-                    onChange={(e) => field.onChange(parseInt(e.target.value))}
+                    validate={(v) =>
+                      Number.isInteger(v) && v >= 1 && v <= 200
+                        ? null
+                        : 'Must be integer 1-200'
+                    }
+                    disabled={generating}
                   />
                 )}
               />
@@ -300,19 +307,6 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
               <Alert severity="info">
                 <strong>Calculated Length:</strong> {rodLength.toFixed(4)} m ({(rodLength * 100).toFixed(2)} cm)
               </Alert>
-            </Grid>
-
-            {/* Position and Orientation Controls */}
-            <Grid item xs={12}>
-              <Divider sx={{ my: 2 }} />
-              <PositionControl
-                control={control}
-                positionPrefix="position"
-                orientationPrefix="orientation"
-                title="Global Position & Orientation"
-                subtitle="Additional offset and rotation applied to the rod after local coordinates"
-                showPresets={false}
-              />
             </Grid>
 
             {/* Usage Info */}

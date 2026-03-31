@@ -286,24 +286,3 @@ def test_integration_with_rod_mesh():
 
     error_msg = str(exc_info.value)
     assert "node_end=50" in error_msg
-
-
-def test_integration_with_helix_mesh():
-    """Integration test: Create helix and validate valid lumped element nodes."""
-    from backend.preprocessor.builders import create_helix, helix_to_mesh
-
-    # Create helix with valid lumped elements
-    element = create_helix(
-        radius=0.05,
-        pitch=0.1,
-        turns=3,
-        segments_per_turn=24,
-        lumped_elements=[
-            {"R": 50.0, "L": 0, "C_inv": 0, "node_start": 0, "node_end": 10, "tag": "R1"},
-            {"R": 0, "L": 0, "C_inv": 1e10, "node_start": 20, "node_end": 0, "tag": "C1"},
-        ],
-    )
-
-    # Should not raise
-    mesh = helix_to_mesh(element)
-    assert len(mesh.nodes) > 0

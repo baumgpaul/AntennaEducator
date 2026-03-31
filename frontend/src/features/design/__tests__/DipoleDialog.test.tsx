@@ -1,7 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
+import variablesReducer from '@/store/variablesSlice';
 import { DipoleDialog } from '../DipoleDialog';
+
+function createTestStore() {
+  return configureStore({
+    reducer: {
+      variables: variablesReducer,
+    },
+  });
+}
 
 describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
   const mockOnClose = vi.fn();
@@ -14,11 +25,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
   describe('Dialog Structure', () => {
     it('should render when open', () => {
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       expect(screen.getByText('Dipole Antenna Configuration')).toBeInTheDocument();
@@ -27,11 +40,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
 
     it('should not render when closed', () => {
       render(
-        <DipoleDialog
-          open={false}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={false}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       expect(screen.queryByText('Dipole Antenna Configuration')).not.toBeInTheDocument();
@@ -41,11 +56,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
   describe('Form Fields - WITHOUT Frequency', () => {
     beforeEach(() => {
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
     });
 
@@ -87,11 +104,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       mockOnGenerate.mockResolvedValue(undefined);
 
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const nameInput = screen.getByLabelText(/Antenna Name/i);
@@ -109,11 +128,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       const user = userEvent.setup();
 
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const lengthInput = screen.getByLabelText(/Total Length/i);
@@ -128,11 +149,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       const user = userEvent.setup();
 
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const radiusInput = screen.getByLabelText(/Wire Radius/i);
@@ -147,11 +170,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       const user = userEvent.setup();
 
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const segmentsInput = screen.getByLabelText(/Segments/i);
@@ -169,11 +194,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       mockOnGenerate.mockResolvedValue(undefined);
 
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       // Fill form fields
@@ -210,11 +237,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       mockOnGenerate.mockResolvedValue(undefined);
 
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const generateButton = screen.getByRole('button', { name: /Generate Mesh/i });
@@ -231,11 +260,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       mockOnGenerate.mockRejectedValue(new Error('Generation failed'));
 
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const generateButton = screen.getByRole('button', { name: /Generate Mesh/i });
@@ -257,11 +288,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       const user = userEvent.setup();
 
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const cancelButton = screen.getByRole('button', { name: /Cancel/i });
@@ -274,11 +307,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       const user = userEvent.setup();
 
       const { rerender } = render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       // Modify form
@@ -292,11 +327,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
 
       // Reopen dialog
       rerender(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       // Should have default value
@@ -308,11 +345,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
   describe('Default Values', () => {
     it('should have correct default values without frequency', () => {
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const nameInput = screen.getByLabelText(/Antenna Name/i) as HTMLInputElement;
@@ -322,7 +361,7 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       const segmentsInput = screen.getByLabelText(/Segments/i) as HTMLInputElement;
 
       expect(nameInput.value).toBe('Dipole');
-      expect(lengthInput.value).toBe('0.143');
+      expect(lengthInput.value).toBe('wavelength / 2');
       expect(radiusInput.value).toBe('0.001');
       expect(gapInput.value).toBe('0.001');
       expect(segmentsInput.value).toBe('21');
@@ -332,11 +371,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
   describe('Design Guidelines Section', () => {
     it('should display design guidelines without frequency references', () => {
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       expect(screen.getByText(/Design Guidelines:/i)).toBeInTheDocument();
@@ -355,11 +396,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       );
 
       render(
-        <DipoleDialog
-          open={true}
-          onClose={mockOnClose}
-          onGenerate={mockOnGenerate}
-        />
+        <Provider store={createTestStore()}>
+          <DipoleDialog
+            open={true}
+            onClose={mockOnClose}
+            onGenerate={mockOnGenerate}
+          />
+        </Provider>
       );
 
       const generateButton = screen.getByRole('button', { name: /Generate Mesh/i });

@@ -6,8 +6,19 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
+import variablesReducer from '@/store/variablesSlice';
 import TreeViewPanel from './TreeViewPanel';
 import type { AntennaElement } from '@/types/models';
+
+function createTestStore() {
+  return configureStore({
+    reducer: {
+      variables: variablesReducer,
+    },
+  });
+}
 
 const makeDipoleElement = (overrides?: Partial<AntennaElement>): AntennaElement => ({
   id: 'dipole_1',
@@ -59,22 +70,26 @@ const makeLoopElement = (): AntennaElement => ({
 describe('TreeViewPanel — Dipole mesh hiding', () => {
   it('does NOT show Mesh subtree for dipole elements', () => {
     render(
-      <TreeViewPanel
-        elements={[makeDipoleElement()]}
-        selectedElementId={null}
-        onElementSelect={vi.fn()}
-      />
+      <Provider store={createTestStore()}>
+        <TreeViewPanel
+          elements={[makeDipoleElement()]}
+          selectedElementId={null}
+          onElementSelect={vi.fn()}
+        />
+      </Provider>
     );
     expect(screen.queryByText('Mesh')).not.toBeInTheDocument();
   });
 
   it('still shows Mesh subtree for non-dipole elements (loop)', () => {
     render(
-      <TreeViewPanel
-        elements={[makeLoopElement()]}
-        selectedElementId={null}
-        onElementSelect={vi.fn()}
-      />
+      <Provider store={createTestStore()}>
+        <TreeViewPanel
+          elements={[makeLoopElement()]}
+          selectedElementId={null}
+          onElementSelect={vi.fn()}
+        />
+      </Provider>
     );
     expect(screen.getByText('Mesh')).toBeInTheDocument();
   });
@@ -83,11 +98,13 @@ describe('TreeViewPanel — Dipole mesh hiding', () => {
 describe('TreeViewPanel — Source visibility toggle removed', () => {
   it('does NOT render show/hide toggle button on source nodes', () => {
     render(
-      <TreeViewPanel
-        elements={[makeDipoleElement()]}
-        selectedElementId={null}
-        onElementSelect={vi.fn()}
-      />
+      <Provider store={createTestStore()}>
+        <TreeViewPanel
+          elements={[makeDipoleElement()]}
+          selectedElementId={null}
+          onElementSelect={vi.fn()}
+        />
+      </Provider>
     );
     // Source should be displayed
     const sourceText = screen.getByText(/voltage source/i);
@@ -105,11 +122,13 @@ describe('TreeViewPanel — Source visibility toggle removed', () => {
 describe('TreeViewPanel — Source label with value', () => {
   it('shows amplitude and phase in source label for voltage source', () => {
     render(
-      <TreeViewPanel
-        elements={[makeDipoleElement()]}
-        selectedElementId={null}
-        onElementSelect={vi.fn()}
-      />
+      <Provider store={createTestStore()}>
+        <TreeViewPanel
+          elements={[makeDipoleElement()]}
+          selectedElementId={null}
+          onElementSelect={vi.fn()}
+        />
+      </Provider>
     );
     // Should show something like "VOLTAGE Source (1V ∠ 0°)"
     expect(screen.getByText(/VOLTAGE Source.*1.*V.*0°/)).toBeInTheDocument();
@@ -128,11 +147,13 @@ describe('TreeViewPanel — Source label with value', () => {
       ],
     });
     render(
-      <TreeViewPanel
-        elements={[element]}
-        selectedElementId={null}
-        onElementSelect={vi.fn()}
-      />
+      <Provider store={createTestStore()}>
+        <TreeViewPanel
+          elements={[element]}
+          selectedElementId={null}
+          onElementSelect={vi.fn()}
+        />
+      </Provider>
     );
     expect(screen.getByText(/CURRENT Source.*0\.5.*A/)).toBeInTheDocument();
   });
@@ -150,11 +171,13 @@ describe('TreeViewPanel — Source label with value', () => {
       ],
     });
     render(
-      <TreeViewPanel
-        elements={[element]}
-        selectedElementId={null}
-        onElementSelect={vi.fn()}
-      />
+      <Provider store={createTestStore()}>
+        <TreeViewPanel
+          elements={[element]}
+          selectedElementId={null}
+          onElementSelect={vi.fn()}
+        />
+      </Provider>
     );
     expect(screen.getByText(/VOLTAGE Source.*0.*V.*0°/)).toBeInTheDocument();
   });

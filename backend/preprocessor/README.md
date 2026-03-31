@@ -7,7 +7,7 @@ The Preprocessor service handles antenna geometry definition, mesh generation, a
 - FastAPI-based REST API
 - Geometry definition and validation
 - Mesh generation
-- High-level antenna builders (dipole, loop, helix, etc.)
+- High-level antenna builders (dipole, loop, rod, etc.)
 - Project management
 
 ## Running the Service
@@ -128,7 +128,7 @@ python -m backend.preprocessor.main
 
 ## Next Steps
 
-- Add remaining antenna builders (loop, helix, rod, grid)
+- Add remaining antenna builders (grid, etc.)
 - Add geometry composition (multiple elements)
 - Add transformation functions (translate, rotate)
 - Integrate with storage backend

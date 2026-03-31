@@ -16,6 +16,7 @@ import solverReducer from '@/store/solverSlice';
 import uiReducer from '@/store/uiSlice';
 import postprocessingReducer from '@/store/postprocessingSlice';
 import documentationReducer from '@/store/documentationSlice';
+import variablesReducer from '@/store/variablesSlice';
 import type { RootState } from '@/store/store';
 
 // Mock react-router-dom
@@ -39,6 +40,7 @@ function renderWithRedux(
       ui: uiReducer,
       postprocessing: postprocessingReducer,
       documentation: documentationReducer,
+      variables: variablesReducer,
     },
     preloadedState: preloadedState as PreloadedState<RootState>,
   });

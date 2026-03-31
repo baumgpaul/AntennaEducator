@@ -151,6 +151,7 @@ pytest tests/unit/ -x -q --tb=short     # Unit tests
 cd frontend
 npx tsc --noEmit                        # TypeScript compilation
 npm run lint                            # ESLint (0 errors required; warnings OK)
+npx vitest run                          # Full frontend test suite (all must pass)
 cd ..
 ```
 
@@ -168,7 +169,7 @@ If `black` or `isort` report failures, auto-fix with `black backend/ tests/` and
 - **Lambda packaging**: Each service has a `Dockerfile.lambda` that builds a container image. Mangum wraps FastAPI for Lambda. Build context is always the repo root (`.`), Dockerfile path is `backend/<service>/Dockerfile.lambda`.
 - **AWS naming convention**: Resources follow `antenna-simulator-{service}-{environment}` (e.g., `antenna-simulator-solver-staging`).
 - **TDD principle**: Always follow Test-Driven Development — write tests first, make small incremental changes, and commit after code runs and tests pass.
-- **Pre-commit checks**: Before every `git commit`, run **all** CI/CD checks from the "Pre-Commit CI/CD Checks" section above (`black`, `isort`, `ruff`, `pytest`, `tsc`, `npm run lint`). Never commit code that hasn't passed these checks.
+- **Pre-commit checks**: Before every `git commit`, run **all** CI/CD checks from the "Pre-Commit CI/CD Checks" section above (`black`, `isort`, `ruff`, `pytest`, `tsc`, `npm run lint`, `npx vitest run`). Never commit code that hasn't passed these checks.
 
 ## Known Issues & Workarounds
 

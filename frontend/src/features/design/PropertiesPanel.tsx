@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { MuiColorInput } from 'mui-color-input';
 import { parseDecimalNumber } from '@/utils/numberParser';
+import { formatValue } from '@/utils/expressionEvaluator';
 import type { AntennaElement, Source, ComplexNumber } from '@/types/models';
 
 // Helper to convert comma to period in number inputs
@@ -25,6 +26,39 @@ const handleDecimalInput = (e: React.FormEvent<HTMLDivElement>) => {
     input.value = input.value.replace(',', '.');
   }
 };
+
+/** Render a geometry property row, showing expression if stored. */
+function GeometryRow({
+  label,
+  value,
+  unit,
+  exprKey,
+  expressions,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+  unit?: string;
+  exprKey: string;
+  expressions?: Record<string, string>;
+}) {
+  const expr = expressions?.[exprKey];
+  const hasExpr = expr !== undefined && expr !== String(value);
+  const displayVal = value != null ? (typeof value === 'number' ? formatValue(value) : String(value)) : '—';
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Typography variant="body2" color="text.secondary">{label}:</Typography>
+        <Typography variant="body2">{displayVal}{unit ? ` ${unit}` : ''}</Typography>
+      </Box>
+      {hasExpr && (
+        <Typography variant="caption" fontFamily="monospace" color="primary.main" sx={{ pl: 1 }}>
+          = {expr}
+        </Typography>
+      )}
+    </Box>
+  );
+}
 
 interface PropertyField {
   label: string;
@@ -71,8 +105,6 @@ function getElementOrientation(element: AntennaElement): [number, number, number
       return params.orientation ? toArray3(params.orientation) : [0, 0, 1];
     case 'loop':
       return params.normal_vector ? toArray3(params.normal_vector) : [0, 0, 1];
-    case 'helix':
-      return params.axis_direction ? toArray3(params.axis_direction) : [0, 0, 1];
     case 'rod':
       return params.direction ? toArray3(params.direction) : [0, 0, 1];
     default:
@@ -87,7 +119,6 @@ function getOrientationLabel(type: string): string {
   switch (type) {
     case 'dipole': return 'Orientation Vector';
     case 'loop': return 'Normal Vector';
-    case 'helix': return 'Axis Direction';
     case 'rod': return 'Direction';
     default: return 'Orientation';
   }
@@ -536,54 +567,24 @@ function PropertiesPanel({
                   <Stack spacing={1}>
                     {antennaElement.type === 'dipole' && (
                       <>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Length:</Typography>
-                          <Typography variant="body2">{((antennaElement.config as any).length ?? '—')} m</Typography>
-                        </Box>
+                        <GeometryRow label="Length" value={(antennaElement.config as any).length} unit="m" exprKey="length" expressions={antennaElement.expressions} />
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="body2" color="text.secondary">Segments:</Typography>
                           <Typography variant="body2">{(antennaElement.config as any).segments ?? '—'}</Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Wire radius:</Typography>
-                          <Typography variant="body2">{((antennaElement.config as any).wire_radius ?? '—')} m</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Feed gap:</Typography>
-                          <Typography variant="body2">{((antennaElement.config as any).gap ?? '—')} m</Typography>
-                        </Box>
+                        <GeometryRow label="Wire radius" value={(antennaElement.config as any).wire_radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
+                        <GeometryRow label="Feed gap" value={(antennaElement.config as any).gap} unit="m" exprKey="gap" expressions={antennaElement.expressions} />
                       </>
                     )}
                     {antennaElement.type === 'loop' && (
                       <>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Radius:</Typography>
-                          <Typography variant="body2">{((antennaElement.config as any).radius ?? '—')} m</Typography>
-                        </Box>
+                        <GeometryRow label="Radius" value={(antennaElement.config as any).radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="body2" color="text.secondary">Segments:</Typography>
                           <Typography variant="body2">{(antennaElement.config as any).segments ?? '—'}</Typography>
                         </Box>
-                      </>
-                    )}
-                    {antennaElement.type === 'helix' && (
-                      <>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Diameter:</Typography>
-                          <Typography variant="body2">{((antennaElement.config as any).radius ? (antennaElement.config as any).radius * 2 : '—')} m</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Pitch:</Typography>
-                          <Typography variant="body2">{((antennaElement.config as any).pitch ?? '—')} m</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Turns:</Typography>
-                          <Typography variant="body2">{(antennaElement.config as any).turns ?? '—'}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Segments/turn:</Typography>
-                          <Typography variant="body2">{(antennaElement.config as any).segments_per_turn ?? '—'}</Typography>
-                        </Box>
+                        <GeometryRow label="Wire radius" value={(antennaElement.config as any).wire_radius} unit="m" exprKey="wireRadius" expressions={antennaElement.expressions} />
+                        <GeometryRow label="Feed gap" value={(antennaElement.config as any).gap} unit="m" exprKey="feedGap" expressions={antennaElement.expressions} />
                       </>
                     )}
                     {antennaElement.type === 'rod' && (
@@ -596,6 +597,7 @@ function PropertiesPanel({
                           <Typography variant="body2" color="text.secondary">Segments:</Typography>
                           <Typography variant="body2">{(antennaElement.config as any).segments ?? '—'}</Typography>
                         </Box>
+                        <GeometryRow label="Wire radius" value={(antennaElement.config as any).wire_radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
                       </>
                     )}
                     {/* Mesh info (always shown) */}
