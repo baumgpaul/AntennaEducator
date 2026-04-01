@@ -170,8 +170,8 @@ function TreeViewPanel({
   selectedViewId,
   selectedItemId,
   onViewSelect,
-  onViewDelete,
-  onViewRename,
+  onViewDelete: _onViewDelete,
+  onViewRename: _onViewRename,
   onItemSelect,
   onItemDelete,
   onItemVisibilityToggle,
@@ -379,6 +379,7 @@ function TreeViewPanel({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleLockClick = (elementId: string, currentLocked: boolean) => {
     onElementLock?.(elementId, !currentLocked);
     handleCloseContextMenu();
@@ -432,6 +433,7 @@ function TreeViewPanel({
                       (node.type !== 'element' && selectedNodeId === node.id);
     // For element nodes, use Redux visible state; for others use local state
     const visible = node.type === 'element' ? (node.visible ?? true) : isVisible(node.id);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const element = elements?.find(el => el.id === node.elementId && node.type === 'element');
 
     if (hasChildren) {

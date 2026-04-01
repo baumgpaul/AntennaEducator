@@ -55,7 +55,7 @@ function SolutionDataPanel({
   results,
   currentDistribution,
   radiationPattern: _radiationPattern,
-  mesh,
+  mesh: _mesh,
   selectedFrequency,
   onFrequencyChange,
 }: SolutionDataPanelProps) {

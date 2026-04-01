@@ -10,7 +10,6 @@ import {
   Alert,
   CircularProgress,
   Typography,
-  Divider,
 } from '@mui/material';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -62,7 +61,8 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    formState: { errors: _errors },
     reset,
     watch,
   } = useForm<RodFormData>({

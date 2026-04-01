@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Box, Snackbar, Alert, Tabs, Tab, Typography, IconButton, Tooltip, Badge } from '@mui/material';
+import { Box, Snackbar, Alert, Tabs, Tab, IconButton, Tooltip } from '@mui/material';
 import { Description as DescriptionIcon } from '@mui/icons-material';
 import { debounce } from 'lodash';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -47,7 +47,6 @@ import TreeViewPanel from './TreeViewPanel';
 import PropertiesPanel from './PropertiesPanel';
 import RibbonMenu from './RibbonMenu';
 import type { Scene3DHandle } from './Scene3D';
-import ViewControls from './ViewControls';
 import { DipoleDialog } from './DipoleDialog';
 import { LoopDialog } from './LoopDialog';
 import { RodDialog } from './RodDialog';
@@ -140,6 +139,7 @@ function DesignPage() {
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [cameraMode, setCameraMode] = useState<'perspective' | 'orthographic'>('perspective');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
@@ -951,7 +951,7 @@ function DesignPage() {
       // Build base multi-antenna request (without frequency)
       const baseRequest = buildMultiAntennaRequest(elements, params.startFrequency) as MultiAntennaRequest;
 
-      // Remove frequency field since sweep will add it per-iteration
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { frequency: _, ...requestWithoutFreq } = baseRequest;
 
       dispatch(addNotification({

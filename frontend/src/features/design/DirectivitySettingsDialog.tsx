@@ -8,7 +8,6 @@ import {
   TextField,
   Box,
   Typography,
-  FormHelperText,
 } from '@mui/material';
 
 export interface DirectivitySettings {

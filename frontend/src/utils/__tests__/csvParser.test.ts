@@ -13,9 +13,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  type CsvParseResult,
-  type ParsedEdge,
-  type ParsedNode,
   parseCustomAntennaCSV,
 } from '../csvParser';
 

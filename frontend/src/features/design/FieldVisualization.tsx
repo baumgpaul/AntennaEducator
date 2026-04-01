@@ -658,12 +658,12 @@ function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
       // TubeGeometry has (tubularSegments + 1) rings × (radialSegments + 1) vertices per ring
       const posAttr = geom.getAttribute('position');
       const numVertices = posAttr.count;
-      const colors = new Float32Array(numVertices * 3);
+      const colors = new Float32Array(numVertices * 3); // eslint-disable-line @typescript-eslint/no-unused-vars
 
       // Create color lookup from magnitudes
       const minMag = minVal ?? arrayMin(magnitudes);
       const maxMag = maxVal ?? arrayMax(magnitudes);
-      const range = maxMag - minMag || 1;
+      const range = maxMag - minMag || 1; // eslint-disable-line @typescript-eslint/no-unused-vars
 
       // Get color map function
       const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);

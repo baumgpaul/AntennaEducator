@@ -14,7 +14,7 @@ import type {
   RodConfig,
   AntennaElement,
 } from '@/types/models'
-import { generateDipoleMesh, generateLoopMesh, generateRodMesh, generateCustomMesh, createDipole, createLoop, createRod, createCustom } from '@/api/preprocessor'
+import { generateDipoleMesh, generateLoopMesh, generateRodMesh, generateCustomMesh, createDipole, createLoop, createRod } from '@/api/preprocessor'
 import { getNextElementColor } from '@/utils/colors'
 
 interface DesignState {

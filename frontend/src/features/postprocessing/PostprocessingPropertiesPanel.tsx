@@ -119,10 +119,13 @@ const PostprocessingPropertiesPanel: React.FC = () => {
         .filter((freq) => !isNaN(freq))
         .sort((a, b) => a - b)
     : [];
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const hasMultipleFrequencies = computedFrequenciesMHz.length > 1;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const hasAnyFrequencies = computedFrequenciesMHz.length > 0;
 
   // Get current frequency, defaulting to first computed frequency if not set
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const currentFrequencyMHz = selectedView?.selectedFrequencyHz
     ? selectedView.selectedFrequencyHz / 1e6
     : (computedFrequenciesMHz.length > 0 ? computedFrequenciesMHz[0] : null);

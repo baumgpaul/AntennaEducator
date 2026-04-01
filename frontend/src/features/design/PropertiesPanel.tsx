@@ -145,7 +145,7 @@ function PropertiesPanel({
   antennaElement,
   onColorChange,
   onPositionChange,
-  onRotationChange,
+  onRotationChange: _onRotationChange,
   onOrientationChange,
   onSourceChange,
 }: PropertiesPanelProps) {
