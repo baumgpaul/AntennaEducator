@@ -14,6 +14,8 @@ export interface PreviewNode {
   y: number;
   z: number;
   radius?: number;
+  /** Whether this node is a port (feed point) */
+  isPort?: boolean;
 }
 
 export interface PreviewEdge {
@@ -47,13 +49,14 @@ export interface WirePreview3DProps {
 // Color constants
 // ---------------------------------------------------------------------------
 
-const NODE_COLOR_DEFAULT = '#4488ff';
+const NODE_COLOR_DEFAULT = '#6699cc';
 const NODE_COLOR_GROUND = '#44cc44';
 const NODE_COLOR_SOURCE = '#ff4444';
 const NODE_COLOR_LUMPED = '#ff8800';
 const NODE_COLOR_SELECTED = '#ffff00';
-const EDGE_COLOR = '#88aacc';
+const EDGE_COLOR = '#c0d0e0';
 const LABEL_COLOR = '#cccccc';
+const PORT_TORUS_COLOR = '#ff2222';
 
 // ---------------------------------------------------------------------------
 // Camera auto-fit helper (runs inside Canvas)
@@ -118,7 +121,7 @@ function NodeSpheres({
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   const nodeSize = useMemo(() => {
-    if (nodes.length < 2) return 0.02;
+    if (nodes.length < 2) return 0.01;
     let maxDist = 0;
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
@@ -128,7 +131,7 @@ function NodeSpheres({
         maxDist = Math.max(maxDist, Math.sqrt(dx * dx + dy * dy + dz * dz));
       }
     }
-    return Math.max(maxDist * 0.03, 0.005);
+    return Math.max(maxDist * 0.015, 0.003);
   }, [nodes]);
 
   const labelSize = nodeSize * 3;
@@ -143,6 +146,7 @@ function NodeSpheres({
         if (node.id === selectedNodeId) color = NODE_COLOR_SELECTED;
 
         const isHovered = hoveredId === node.id;
+        const isSource = sourceNodes.has(node.id);
 
         return (
           <group key={node.id}>
@@ -170,6 +174,20 @@ function NodeSpheres({
               />
             </mesh>
 
+            {/* Port torus marker for source nodes */}
+            {isSource && (
+              <mesh position={[node.x, node.y, node.z]} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[nodeSize * 2.5, nodeSize * 0.4, 12, 32]} />
+                <meshStandardMaterial
+                  color={PORT_TORUS_COLOR}
+                  emissive={PORT_TORUS_COLOR}
+                  emissiveIntensity={0.4}
+                  transparent
+                  opacity={0.85}
+                />
+              </mesh>
+            )}
+
             {showLabels && (
               <Text
                 position={[node.x, node.y, node.z + nodeSize * 2.5]}
@@ -178,7 +196,7 @@ function NodeSpheres({
                 anchorX="center"
                 anchorY="bottom"
               >
-                {String(node.id)}
+                {isSource ? `${node.id} (Port)` : String(node.id)}
               </Text>
             )}
           </group>
@@ -225,7 +243,10 @@ function EdgeCylinders({ nodes, edges, showEdgeLabels }: EdgeCylindersProps) {
 
         const radius = Math.max(edge.radius ?? a.radius ?? 0.001, 0.002);
 
-        return { idx, mid, length, quat, radius };
+        // Make edges visually thicker for better visibility
+        const visualRadius = Math.max(radius, length * 0.012);
+
+        return { idx, mid, length, quat, radius: visualRadius };
       })
       .filter(Boolean) as Array<{
       idx: number;
@@ -276,6 +297,83 @@ function EdgeCylinders({ nodes, edges, showEdgeLabels }: EdgeCylindersProps) {
 }
 
 // ---------------------------------------------------------------------------
+// XYZ Axes with labels
+// ---------------------------------------------------------------------------
+
+function AxesWithLabels({ size }: { size: number }) {
+  const axisLen = size * 0.4;
+  const fontSize = axisLen * 0.25;
+  const tipOffset = axisLen * 1.15;
+
+  return (
+    <group>
+      <primitive object={new THREE.AxesHelper(axisLen)} />
+      <Text position={[tipOffset, 0, 0]} fontSize={fontSize} color="#ff4444" anchorX="center">
+        X
+      </Text>
+      <Text position={[0, tipOffset, 0]} fontSize={fontSize} color="#44ff44" anchorX="center">
+        Y
+      </Text>
+      <Text position={[0, 0, tipOffset]} fontSize={fontSize} color="#4488ff" anchorX="center">
+        Z
+      </Text>
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Adaptive grid labels (always shows at least one label per axis)
+// ---------------------------------------------------------------------------
+
+function GridLabels({ gridSize }: { gridSize: number }) {
+  const { unit, scale } = useMemo(() => {
+    if (gridSize < 0.01) return { unit: 'mm', scale: 1000 };
+    if (gridSize < 1) return { unit: 'cm', scale: 100 };
+    return { unit: 'm', scale: 1 };
+  }, [gridSize]);
+
+  const step = gridSize / 4;
+  const labelVal = (step * scale).toPrecision(3);
+  const fontSize = Math.max(gridSize * 0.03, 0.003);
+  const offset = -gridSize * 0.02;
+
+  return (
+    <group>
+      {/* X-axis label */}
+      <Text
+        position={[step, offset, offset]}
+        fontSize={fontSize}
+        color="#999999"
+        anchorX="center"
+        anchorY="top"
+      >
+        {`${labelVal} ${unit}`}
+      </Text>
+      {/* Y-axis label */}
+      <Text
+        position={[offset, step, offset]}
+        fontSize={fontSize}
+        color="#999999"
+        anchorX="right"
+        anchorY="middle"
+      >
+        {`${labelVal} ${unit}`}
+      </Text>
+      {/* Z-axis label */}
+      <Text
+        position={[offset, offset, step]}
+        fontSize={fontSize}
+        color="#999999"
+        anchorX="right"
+        anchorY="middle"
+      >
+        {`${labelVal} ${unit}`}
+      </Text>
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -309,6 +407,23 @@ export const WirePreview3D: React.FC<WirePreview3DProps> = ({
       </Box>
     );
   }
+
+  // Compute geometry size for grid/axes scaling
+  const geoSize = useMemo(() => {
+    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+    for (const n of nodes) {
+      min.x = Math.min(min.x, n.x);
+      min.y = Math.min(min.y, n.y);
+      min.z = Math.min(min.z, n.z);
+      max.x = Math.max(max.x, n.x);
+      max.y = Math.max(max.y, n.y);
+      max.z = Math.max(max.z, n.z);
+    }
+    return Math.max(max.x - min.x, max.y - min.y, max.z - min.z, 0.1);
+  }, [nodes]);
+
+  const gridSize = geoSize * 2;
 
   return (
     <Box
@@ -347,8 +462,17 @@ export const WirePreview3D: React.FC<WirePreview3DProps> = ({
           showEdgeLabels={showEdgeLabels}
         />
 
-        {/* Simple ground grid */}
-        <gridHelper args={[2, 20, '#333344', '#222233']} rotation={[Math.PI / 2, 0, 0]} />
+        {/* XYZ Axes with labels */}
+        <AxesWithLabels size={geoSize} />
+
+        {/* Adaptive grid */}
+        <gridHelper
+          args={[gridSize, 20, '#333344', '#222233']}
+          rotation={[Math.PI / 2, 0, 0]}
+        />
+
+        {/* Grid dimension labels */}
+        <GridLabels gridSize={gridSize} />
       </Canvas>
     </Box>
   );

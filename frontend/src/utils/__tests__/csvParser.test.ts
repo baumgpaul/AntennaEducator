@@ -3,7 +3,7 @@
  *
  * CSV format (combined single-file):
  *   # NODES
- *   N, id, x, y, z [, radius]
+ *   N, id, x, y, z [, P]          — optional trailing P marks as port
  *   # EDGES
  *   E, node_start, node_end [, radius]
  *
@@ -35,22 +35,22 @@ E, 1, 2
     expect(result.errors).toEqual([]);
     expect(result.nodes).toHaveLength(2);
     expect(result.edges).toHaveLength(1);
-    expect(result.nodes[0]).toEqual({ id: 1, x: 0, y: 0, z: 0, radius: 0.001 });
-    expect(result.nodes[1]).toEqual({ id: 2, x: 0, y: 0, z: 0.5, radius: 0.001 });
+    expect(result.nodes[0]).toEqual({ id: 1, x: 0, y: 0, z: 0, isPort: false });
+    expect(result.nodes[1]).toEqual({ id: 2, x: 0, y: 0, z: 0.5, isPort: false });
     expect(result.edges[0]).toEqual({ node_start: 1, node_end: 2 });
   });
 
-  it('parses node with explicit radius', () => {
+  it('parses node with port flag', () => {
     const csv = `
-N, 1, 0, 0, 0, 0.005
+N, 1, 0, 0, 0, P
 N, 2, 1, 0, 0
 E, 1, 2
 `.trim();
     const result = parseCustomAntennaCSV(csv);
 
     expect(result.errors).toEqual([]);
-    expect(result.nodes[0].radius).toBe(0.005);
-    expect(result.nodes[1].radius).toBe(0.001); // default
+    expect(result.nodes[0].isPort).toBe(true);
+    expect(result.nodes[1].isPort).toBe(false); // default
   });
 
   it('parses edge with explicit radius', () => {
@@ -104,7 +104,7 @@ E ,  1 ,  2
     const result = parseCustomAntennaCSV(csv);
 
     expect(result.errors).toEqual([]);
-    expect(result.nodes[0]).toEqual({ id: 1, x: 0, y: 0, z: 0, radius: 0.001 });
+    expect(result.nodes[0]).toEqual({ id: 1, x: 0, y: 0, z: 0, isPort: false });
   });
 
   it('parses large geometry (10 nodes, 9 edges)', () => {
@@ -158,7 +158,7 @@ E, 1, 2
     const result = parseCustomAntennaCSV(csv);
 
     expect(result.errors).toEqual([]);
-    expect(result.nodes[0]).toEqual({ id: 1, x: -0.5, y: -1.0, z: -2.0, radius: 0.001 });
+    expect(result.nodes[0]).toEqual({ id: 1, x: -0.5, y: -1.0, z: -2.0, isPort: false });
   });
 
   it('parses scientific notation coordinates', () => {
@@ -318,15 +318,17 @@ E, 0, 2
     expect(result.errors.length).toBeGreaterThan(0);
   });
 
-  it('reports error for negative radius', () => {
+  it('parses legacy numeric in port field silently', () => {
     const csv = `
-N, 1, 0, 0, 0, -0.001
+N, 1, 0, 0, 0, 0.005
 N, 2, 1, 0, 0
 E, 1, 2
 `.trim();
     const result = parseCustomAntennaCSV(csv);
 
-    expect(result.errors.length).toBeGreaterThan(0);
+    // Legacy radius value is silently ignored
+    expect(result.errors).toEqual([]);
+    expect(result.nodes[0].isPort).toBe(false);
   });
 
   it('reports error for negative edge radius', () => {

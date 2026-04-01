@@ -6,6 +6,7 @@ import {
   DialogActions,
   Button,
   Grid,
+  Box,
   Alert,
   CircularProgress,
   Typography,
@@ -161,10 +162,13 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>Create Metallic Rod</DialogTitle>
       <DialogContent>
         <form id="rod-form" onSubmit={handleSubmit(handleFormSubmit)}>
+          <Box sx={{ display: 'flex', gap: 3 }}>
+            {/* Left side: form fields */}
+            <Box sx={{ flex: '1 1 50%', minWidth: 0 }}>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             {/* Start Point */}
             <Grid item xs={12}>
@@ -340,24 +344,29 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 • Custom wire structures
               </Alert>
             </Grid>
+          </Grid>
+            </Box>
 
-            {/* Live 3D Preview */}
-            {previewGeometry.nodes.length >= 2 && (
-              <Grid item xs={12}>
-                <Divider sx={{ my: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    3D Preview
-                  </Typography>
-                </Divider>
+            {/* Right side: 3D preview */}
+            <Box sx={{ flex: '1 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, mt: 1, textAlign: 'center' }}>
+                3D Preview
+              </Typography>
+              {previewGeometry.nodes.length >= 2 ? (
                 <WirePreview3D
                   nodes={previewGeometry.nodes}
                   edges={previewGeometry.edges}
                   showLabels
-                  height={250}
+                  height="100%"
+                  width="100%"
                 />
-              </Grid>
-            )}
-          </Grid>
+              ) : (
+                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#1a1a2e', borderRadius: 1, color: '#666', minHeight: 300 }}>
+                  Adjust parameters to see preview
+                </Box>
+              )}
+            </Box>
+          </Box>
         </form>
       </DialogContent>
       <DialogActions>

@@ -4,8 +4,8 @@
  * Supported format (combined single-file, comma-delimited):
  *
  *   # Comments start with '#'
- *   N, id, x, y, z [, radius]     — node definition (radius defaults to 0.001)
- *   E, node_start, node_end [, radius]  — edge definition
+ *   N, id, x, y, z [, P]           — node definition (optional trailing P marks as port)
+ *   E, node_start, node_end [, radius]  — edge definition (radius defaults to 0.001)
  *
  * Lines are case-insensitive for the prefix (N/n, E/e).
  * Blank lines and comment lines are skipped.
@@ -22,7 +22,7 @@ export interface ParsedNode {
   x: number;
   y: number;
   z: number;
-  radius: number;
+  isPort: boolean;
 }
 
 export interface ParsedEdge {
@@ -47,7 +47,7 @@ function isFiniteNum(v: number): boolean {
 }
 
 function parseNodeLine(fields: string[], lineNum: number, errors: string[]): ParsedNode | null {
-  // Expected: N, id, x, y, z [, radius]
+  // Expected: N, id, x, y, z [, P]
   if (fields.length < 5) {
     errors.push(`Line ${lineNum}: Node requires at least 5 fields (N, id, x, y, z), got ${fields.length}`);
     return null;
@@ -72,16 +72,25 @@ function parseNodeLine(fields: string[], lineNum: number, errors: string[]): Par
     return null;
   }
 
-  let radius = DEFAULT_RADIUS;
-  if (fields.length >= 6 && fields[5].trim() !== '') {
-    radius = Number(fields[5]);
-    if (!isFiniteNum(radius) || radius <= 0) {
-      errors.push(`Line ${lineNum}: Node radius must be a positive number, got '${fields[5].trim()}'`);
-      return null;
+  // Check for port flag (trailing P)
+  let isPort = false;
+  if (fields.length >= 6) {
+    const flag = fields[5].trim().toUpperCase();
+    if (flag === 'P' || flag === 'PORT') {
+      isPort = true;
+    } else if (flag !== '') {
+      // It might be an old-style radius — warn and ignore
+      const maybeNum = Number(flag);
+      if (isFiniteNum(maybeNum)) {
+        // Legacy radius field — ignore silently
+      } else {
+        errors.push(`Line ${lineNum}: Unrecognized node field '${fields[5].trim()}' (use P for port)`);
+        return null;
+      }
     }
   }
 
-  return { id, x, y, z, radius };
+  return { id, x, y, z, isPort };
 }
 
 function parseEdgeLine(fields: string[], lineNum: number, errors: string[]): ParsedEdge | null {

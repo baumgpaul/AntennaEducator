@@ -21,6 +21,7 @@ import {
   TableRow,
   Paper,
   Chip,
+  Checkbox,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -47,7 +48,7 @@ interface NodeRow {
   x: string;
   y: string;
   z: string;
-  radius: string;
+  isPort: boolean;
 }
 
 interface EdgeRow {
@@ -84,13 +85,13 @@ let nextNodeId = 1;
 function createDefaultNodes(): NodeRow[] {
   nextNodeId = 3;
   return [
-    { id: 1, x: '0', y: '0', z: '0', radius: '0.001' },
-    { id: 2, x: '0', y: '0', z: '0.5', radius: '0.001' },
+    { id: 1, x: '0', y: '0', z: '0', isPort: true },
+    { id: 2, x: '0', y: '0', z: '0.5', isPort: false },
   ];
 }
 
 function createDefaultEdges(): EdgeRow[] {
-  return [{ node_start: 1, node_end: 2, radius: '' }];
+  return [{ node_start: 1, node_end: 2, radius: '0.001' }];
 }
 
 // ---------------------------------------------------------------------------
@@ -153,7 +154,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
   // -----------------------------------------------------------------------
   const addNode = () => {
     const newId = nextNodeId++;
-    setNodes((prev) => [...prev, { id: newId, x: '0', y: '0', z: '0', radius: '0.001' }]);
+    setNodes((prev) => [...prev, { id: newId, x: '0', y: '0', z: '0', isPort: false }]);
   };
 
   const removeNode = (id: number) => {
@@ -161,7 +162,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
     setEdges((prev) => prev.filter((e) => e.node_start !== id && e.node_end !== id));
   };
 
-  const updateNode = (id: number, field: keyof NodeRow, value: string) => {
+  const updateNode = (id: number, field: keyof NodeRow, value: string | boolean) => {
     setNodes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, [field]: value } : n)),
     );
@@ -174,7 +175,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
     const ids = nodes.map((n) => n.id);
     const start = ids[0] ?? 1;
     const end = ids.length > 1 ? ids[ids.length - 1] : start;
-    setEdges((prev) => [...prev, { node_start: start, node_end: end, radius: '' }]);
+    setEdges((prev) => [...prev, { node_start: start, node_end: end, radius: '0.001' }]);
   };
 
   const removeEdge = (idx: number) => {
@@ -206,14 +207,14 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
         x: String(n.x),
         y: String(n.y),
         z: String(n.z),
-        radius: String(n.radius),
+        isPort: n.isPort ?? false,
       })),
     );
     setEdges(
       csvParsedEdges.map((e) => ({
         node_start: e.node_start,
         node_end: e.node_end,
-        radius: e.radius != null ? String(e.radius) : '',
+        radius: e.radius != null ? String(e.radius) : '0.001',
       })),
     );
     setActiveTab(1); // Switch to manual editor
@@ -264,13 +265,25 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
 
     // Try resolving expressions
     for (const n of nodes) {
-      for (const coord of ['x', 'y', 'z', 'radius'] as const) {
+      for (const coord of ['x', 'y', 'z'] as const) {
         try {
           const val = parseNumericOrExpression(n[coord], resolveCtx);
           if (!Number.isFinite(val)) errs.push(`Node ${n.id} ${coord}: non-finite value`);
-          if (coord === 'radius' && val <= 0) errs.push(`Node ${n.id} radius must be positive`);
         } catch {
           errs.push(`Node ${n.id} ${coord}: invalid expression "${n[coord]}"`);
+        }
+      }
+    }
+
+    // Validate edge radii
+    for (let i = 0; i < edges.length; i++) {
+      const e = edges[i];
+      if (e.radius) {
+        try {
+          const val = parseNumericOrExpression(e.radius, resolveCtx);
+          if (!Number.isFinite(val) || val <= 0) errs.push(`Edge ${i + 1} radius must be positive`);
+        } catch {
+          errs.push(`Edge ${i + 1} radius: invalid expression "${e.radius}"`);
         }
       }
     }
@@ -290,13 +303,13 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
             x: parseNumericOrExpression(n.x, resolveCtx),
             y: parseNumericOrExpression(n.y, resolveCtx),
             z: parseNumericOrExpression(n.z, resolveCtx),
-            radius: parseNumericOrExpression(n.radius, resolveCtx),
+            isPort: n.isPort,
           };
         } catch {
           return null;
         }
       })
-      .filter(Boolean) as Array<{ id: number; x: number; y: number; z: number; radius: number }>;
+      .filter(Boolean) as Array<{ id: number; x: number; y: number; z: number; isPort: boolean }>;
   }, [nodes, resolveCtx]);
 
   const previewEdges = useMemo(() => {
@@ -308,9 +321,14 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
         node_end: e.node_end,
         ...(e.radius
           ? { radius: parseNumericOrExpression(e.radius, resolveCtx) }
-          : {}),
+          : { radius: 0.001 }),
       }));
   }, [edges, previewNodes, resolveCtx]);
+
+  // Port nodes as sourceNodes set
+  const portNodeIds = useMemo(() => {
+    return new Set(nodes.filter((n) => n.isPort).map((n) => n.id));
+  }, [nodes]);
 
   // -----------------------------------------------------------------------
   // Submit
@@ -327,13 +345,12 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
         x: parseNumericOrExpression(n.x, resolveCtx),
         y: parseNumericOrExpression(n.y, resolveCtx),
         z: parseNumericOrExpression(n.z, resolveCtx),
-        radius: parseNumericOrExpression(n.radius, resolveCtx),
       }));
 
       const resolvedEdges = edges.map((e) => ({
         node_start: e.node_start,
         node_end: e.node_end,
-        ...(e.radius ? { radius: parseNumericOrExpression(e.radius, resolveCtx) } : {}),
+        ...(e.radius ? { radius: parseNumericOrExpression(e.radius, resolveCtx) } : { radius: 0.001 }),
       }));
 
       await onGenerate({
@@ -355,7 +372,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
   // Render
   // -----------------------------------------------------------------------
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>Custom Wire Antenna</DialogTitle>
       <DialogContent>
         <TextField
@@ -367,10 +384,12 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
           sx={{ mt: 1, mb: 2 }}
         />
 
+        <Box sx={{ display: 'flex', gap: 3, minHeight: 450 }}>
+          {/* Left side: CSV/Editor tabs */}
+          <Box sx={{ flex: '1 1 55%', minWidth: 0 }}>
         <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
           <Tab label="Import CSV" />
           <Tab label="Manual Editor" />
-          <Tab label="Preview" />
         </Tabs>
 
         {/* ── Tab 0: CSV Import ── */}
@@ -397,7 +416,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
               multiline
               rows={10}
               fullWidth
-              placeholder={`# Custom antenna CSV\n# NODES: N, id, x, y, z [, radius]\n# EDGES: E, start, end [, radius]\nN, 1, 0, 0, 0\nN, 2, 0, 0, 0.5\nE, 1, 2`}
+              placeholder={`# Custom antenna CSV\n# NODES: N, id, x, y, z [, P]\n# EDGES: E, start, end [, radius]\nN, 1, 0, 0, 0, P\nN, 2, 0, 0, 0.5\nE, 1, 2, 0.001`}
               value={csvText}
               onChange={(e) => setCsvText(e.target.value)}
               sx={{ fontFamily: 'monospace', fontSize: '0.85rem', mb: 1 }}
@@ -463,7 +482,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
                     <TableCell>X (m)</TableCell>
                     <TableCell>Y (m)</TableCell>
                     <TableCell>Z (m)</TableCell>
-                    <TableCell sx={{ width: 100 }}>Radius (m)</TableCell>
+                    <TableCell sx={{ width: 60, textAlign: 'center' }}>Port</TableCell>
                     <TableCell sx={{ width: 40 }} />
                   </TableRow>
                 </TableHead>
@@ -473,19 +492,23 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
                       <TableCell>
                         <Chip label={node.id} size="small" />
                       </TableCell>
-                      {(['x', 'y', 'z', 'radius'] as const).map((coord) => (
+                      {(['x', 'y', 'z'] as const).map((coord) => (
                         <TableCell key={coord} sx={{ p: 0.5 }}>
                           <ExpressionField
                             value={node[coord]}
                             onChange={(val) => updateNode(node.id, coord, val)}
                             size="small"
-                            validate={
-                              coord === 'radius' ? (v) => (v > 0 ? null : 'Must be > 0') : undefined
-                            }
                             sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem', py: 0.5 } }}
                           />
                         </TableCell>
                       ))}
+                      <TableCell sx={{ p: 0.5, textAlign: 'center' }}>
+                        <Checkbox
+                          size="small"
+                          checked={node.isPort}
+                          onChange={(e) => updateNode(node.id, 'isPort', e.target.checked)}
+                        />
+                      </TableCell>
                       <TableCell sx={{ p: 0 }}>
                         <IconButton
                           size="small"
@@ -518,7 +541,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
                     <TableCell sx={{ width: 40 }}>#</TableCell>
                     <TableCell>Start Node</TableCell>
                     <TableCell>End Node</TableCell>
-                    <TableCell>Radius Override (m)</TableCell>
+                    <TableCell>Radius (m)</TableCell>
                     <TableCell sx={{ width: 40 }} />
                   </TableRow>
                 </TableHead>
@@ -572,32 +595,46 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
             </TableContainer>
           </Box>
         )}
+          </Box>
 
-        {/* ── Tab 2: 3D Preview ── */}
-        {activeTab === 2 && (
-          <Box>
+          {/* Right side: always-visible 3D preview */}
+          <Box sx={{ flex: '1 1 45%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, textAlign: 'center' }}>
+              3D Preview
+            </Typography>
             {previewNodes.length >= 2 && previewEdges.length >= 1 ? (
               <WirePreview3D
                 nodes={previewNodes}
                 edges={previewEdges}
+                sourceNodes={portNodeIds}
                 showLabels
                 showEdgeLabels
-                height={350}
+                height="100%"
+                width="100%"
                 onNodeSelect={(id) => console.log('Node selected:', id)}
               />
             ) : (
-              <Alert severity="info">
-                Add at least 2 valid nodes and 1 edge to see a preview.
-              </Alert>
+              <Box sx={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: '#1a1a2e',
+                borderRadius: 1,
+                color: '#666',
+                minHeight: 300,
+              }}>
+                Add at least 2 valid nodes and 1 edge to see preview
+              </Box>
             )}
             <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Chip size="small" sx={{ bgcolor: '#4488ff', color: '#fff' }} label="Regular node" />
+              <Chip size="small" sx={{ bgcolor: '#6699cc', color: '#fff' }} label="Regular node" />
               <Chip size="small" sx={{ bgcolor: '#44cc44', color: '#fff' }} label="Ground (ID 0)" />
-              <Chip size="small" sx={{ bgcolor: '#ff4444', color: '#fff' }} label="Source node" />
+              <Chip size="small" sx={{ bgcolor: '#ff4444', color: '#fff' }} label="Port node" />
               <Chip size="small" sx={{ bgcolor: '#ff8800', color: '#fff' }} label="Lumped node" />
             </Box>
           </Box>
-        )}
+        </Box>
 
         {/* Validation errors */}
         {validationErrors.length > 0 && (

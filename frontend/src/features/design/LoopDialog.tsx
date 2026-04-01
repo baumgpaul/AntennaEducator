@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -7,6 +7,7 @@ import {
   Button,
   TextField,
   Grid,
+  Box,
   Typography,
   Divider,
   Alert,
@@ -178,8 +179,16 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
     }
   };
 
+  // Compute source node IDs for port markers (nodes at the loop feed gap)
+  const sourceNodeIds = useMemo(() => {
+    if (previewGeometry.nodes.length < 3) return new Set<number>();
+    // Loop has feed gap between node 1 and last node
+    const lastId = previewGeometry.nodes[previewGeometry.nodes.length - 1]?.id;
+    return new Set<number>([1, lastId].filter((id): id is number => id != null));
+  }, [previewGeometry.nodes]);
+
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>
         <Typography variant="h6">Configure Loop Antenna</Typography>
         <Typography variant="caption" color="text.secondary">
@@ -189,6 +198,9 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <DialogContent dividers>
+          <Box sx={{ display: 'flex', gap: 3 }}>
+            {/* Left side: form fields */}
+            <Box sx={{ flex: '1 1 50%', minWidth: 0 }}>
           <Grid container spacing={3}>
             {/* Name */}
             <Grid item xs={12}>
@@ -512,24 +524,30 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
                 </Typography>
               </Alert>
             </Grid>
+          </Grid>
+            </Box>
 
-            {/* Live 3D Preview */}
-            {previewGeometry.nodes.length >= 3 && (
-              <Grid item xs={12}>
-                <Divider sx={{ my: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    3D Preview
-                  </Typography>
-                </Divider>
+            {/* Right side: 3D preview */}
+            <Box sx={{ flex: '1 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, textAlign: 'center' }}>
+                3D Preview
+              </Typography>
+              {previewGeometry.nodes.length >= 3 ? (
                 <WirePreview3D
                   nodes={previewGeometry.nodes}
                   edges={previewGeometry.edges}
+                  sourceNodes={sourceNodeIds}
                   showLabels={false}
-                  height={250}
+                  height="100%"
+                  width="100%"
                 />
-              </Grid>
-            )}
-          </Grid>
+              ) : (
+                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#1a1a2e', borderRadius: 1, color: '#666', minHeight: 300 }}>
+                  Adjust parameters to see preview
+                </Box>
+              )}
+            </Box>
+          </Box>
         </DialogContent>
 
         <DialogActions>
