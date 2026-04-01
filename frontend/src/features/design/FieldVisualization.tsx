@@ -658,7 +658,7 @@ function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
       // TubeGeometry has (tubularSegments + 1) rings × (radialSegments + 1) vertices per ring
       const posAttr = geom.getAttribute('position');
       const numVertices = posAttr.count;
-      const colors = new Float32Array(numVertices * 3); // eslint-disable-line @typescript-eslint/no-unused-vars
+      const colors = new Float32Array(numVertices * 3);
 
       // Create color lookup from magnitudes
       const minMag = minVal ?? arrayMin(magnitudes);

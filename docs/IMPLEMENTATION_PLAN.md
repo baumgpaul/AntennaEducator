@@ -232,7 +232,7 @@ These decisions were made during implementation and should guide future phases:
 
 ---
 
-## Phase 2 — Custom Antenna Geometry (CSV Import + Visual Editor)
+## Phase 2 — Custom Antenna Geometry (CSV Import + Visual Editor) 🔧 In Progress
 
 **Goal**: Allow users to define arbitrary wire antenna structures by importing CSV point/connection files or using a visual sub-GUI editor, with clear node/edge labeling.
 
@@ -240,52 +240,41 @@ These decisions were made during implementation and should guide future phases:
 
 **Prerequisites**: Phase 1 complete ✅ — `ExpressionField`, `variablesSlice`, `parseNumericOrExpression()`, and `evaluateVariableContextNumeric()` are all available for use in the custom geometry editor.
 
-### 2.1 — CSV Format Definition
+### 2.1 — CSV Format Definition ✅ Done
 
-**Points file** (`points.csv`):
+**Implemented format**: Combined single-file CSV (`frontend/src/utils/csvParser.ts`):
+
 ```csv
-# node_id, x, y, z, radius
-1, 0.0, 0.0, 0.0, 0.001
-2, 0.0, 0.0, 0.05, 0.001
-3, 0.0, 0.0, -0.05, 0.001
-4, 0.025, 0.0, 0.0, 0.0005
+# NODES — N, id, x, y, z [, type_flag]
+# type_flag: P (port), G (ground), L (lumped), or omitted (regular)
+N, 1, 0.0, 0.0, 0.0
+N, 2, 0.0, 0.0, 0.05, P
+N, 3, 0.0, 0.0, -0.05, G
+N, 4, 0.025, 0.0, 0.0, L
+# EDGES — E, node_start, node_end [, radius]
+E, 1, 2
+E, 1, 3
+E, 1, 4, 0.0005
 ```
 
-**Connections file** (`connections.csv`):
-```csv
-# edge_id, node_start, node_end
-1, 1, 2
-2, 1, 3
-3, 1, 4
-```
+- **Node types**: `regular` (default), `port` (P), `ground` (G), `lumped` (L). Full-word flags also accepted.
+- Comments (`#`) and blank lines ignored. Case-insensitive prefixes.
+- Supports negative coordinates, scientific notation, Windows line endings.
+- Returns `CsvParseResult` with `nodes[]`, `edges[]`, `warnings[]`, `errors[]`.
+- **Validation**: duplicate node IDs, missing node references, self-loops, duplicate/reverse-duplicate edges, NaN/Inf coordinates, non-positive IDs, negative radius.
+- **37 unit tests** in `frontend/src/utils/__tests__/csvParser.test.ts`.
 
-- Node IDs are 1-based positive integers.
-- Coordinates in meters.
-- `radius` is wire radius per node (interpolated per edge, or per-edge override in connections file).
-- Optional per-edge radius column in connections: `edge_id, node_start, node_end, radius`.
-- Lines starting with `#` are comments.
-- Delimiter: comma (CSV) — also accept tab-separated.
+> **Note**: The original two-file format (separate points.csv + connections.csv) was not implemented. The combined single-file format is simpler and sufficient.
 
-**Combined single-file format** (alternative):
-```csv
-# NODES
-# id, x, y, z, radius
-N, 1, 0.0, 0.0, 0.0, 0.001
-N, 2, 0.0, 0.0, 0.05, 0.001
-# EDGES
-# id, start, end [, radius]
-E, 1, 1, 2
-E, 2, 1, 3
-```
+### 2.2 — Backend: Custom Builder ✅ Done
 
-### 2.2 — Backend: Custom Builder
+**Implemented files**:
+- `backend/preprocessor/builders.py` — `create_custom()` + `custom_to_mesh()` ✅
+- `backend/preprocessor/schemas.py` — `CustomRequest`, `CustomNodeInput`, `CustomEdgeInput` ✅
+- `backend/preprocessor/main.py` — `POST /api/antenna/custom` endpoint ✅
+- `tests/unit/test_custom_builder.py` — **21 validation tests** ✅
 
-**New/modified files**:
-- `backend/preprocessor/builders.py` — Add `create_custom()` + `custom_to_mesh()`
-- `backend/preprocessor/schemas.py` — Add `CustomRequest`
-- `backend/preprocessor/main.py` — Add `POST /api/antenna/custom` endpoint
-
-**CustomRequest schema**:
+**CustomRequest schema** (as implemented):
 ```python
 class CustomNodeInput(BaseModel):
     id: int                             # 1-based
@@ -305,57 +294,87 @@ class CustomRequest(BaseModel):
     edges: list[CustomEdgeInput]
     sources: list[SourceRequest] = []
     lumped_elements: list[LumpedElementRequest] = []
+    variable_context: dict[str, str] | None = None  # For expression evaluation
 ```
 
-**Builder validation**:
+**Builder validation** (all implemented with tests):
 - All node IDs must be unique positive integers.
 - All edge references must point to existing node IDs.
 - No duplicate edges (same start+end or end+start).
-- Graph must be connected (single connected component) — warn but don't block if disconnected.
-- At least 1 edge required.
+- No self-loop edges.
+- At least 1 edge required, at least 1 node required.
 - Node coordinates must be finite (no NaN/Inf).
+- Radius must be positive (nodes and edges).
 
 **Mesh construction**: Direct mapping — nodes → `mesh.nodes`, edges → `mesh.edges`. No interpolation or subdivision (user controls resolution). Re-index to 1-based contiguous if IDs have gaps.
 
-### 2.3 — Frontend: CSV Import
+### 2.3 — Frontend: CSV Import & Custom Antenna Dialog ✅ Done
 
-**New files**:
-- `frontend/src/features/design/CustomAntennaDialog.tsx` — Main dialog
+**Implemented files**:
+- `frontend/src/features/design/CustomAntennaDialog.tsx` — Main dialog (create + edit mode)
 - `frontend/src/utils/csvParser.ts` — CSV parsing utility
+- `frontend/src/components/WirePreview3D.tsx` — Shared 3D wireframe preview component
 
-**Dialog flow**:
+**Dialog features** (as implemented):
 1. User clicks "Custom" in ribbon menu → opens `CustomAntennaDialog`.
-2. **Tab 1: Import** — File upload (drag & drop) for CSV. Accepts single combined file or two separate files (points + connections). Parse and validate immediately. Show error messages inline.
-3. **Tab 2: Manual Editor** — Table view with editable rows for nodes and edges. Add/remove rows. Node ID auto-incremented.
-4. **Tab 3: Preview** — 3D wireframe of the imported/edited geometry with:
+2. **Tab 0: Import CSV** — File upload + paste from clipboard. Parses combined single-file CSV format. Validation errors/warnings shown inline.
+3. **Tab 1: Manual Editor** — Editable node/edge tables with Add/Remove buttons. Node ID auto-incremented.
+4. **3D Preview** (right-side panel, always visible) — `WirePreview3D` component with:
    - Node labels (IDs) rendered at each node position.
    - Edge labels (indices) at edge midpoints.
-   - Color-coded: regular nodes (blue), ground node 0 (green), source edges (red), lumped element edges (orange).
-   - Interactive orbit/zoom (reuse existing Three.js scene tech).
-5. **Source/Lumped tab**: Add sources and lumped elements referencing node IDs from the preview. Node picker — click a node in 3D to select.
-6. "Create" button → sends `CustomRequest` to backend → receives `GeometryResponse`.
+   - NodeType-based coloring: regular (blue `#6699cc`), port (red `#ff4444` + torus marker), ground (green `#44cc44`), lumped (orange `#ff8800`).
+   - Selected node highlighting (yellow `#ffff00`).
+   - Clickable node selection, interactive orbit/zoom, auto-fit camera.
+5. **Edit mode**: `initialData` prop populates name, nodes, edges, and pre-maps `sourceNodeIds`/`groundNodeIds`/`lumpedNodeIds` to node types. Triggered via "Edit Geometry" context menu in `TreeViewPanel`.
 
-**Variable integration**: Coordinate fields in the manual editor accept expressions from Phase 1's variable context.
+**Additional UI integration**:
+- `TreeViewPanel.tsx` — "Edit Geometry" context menu item for custom antenna elements (calls `onElementEdit` callback).
+- `PropertiesPanel.tsx` — Custom type guard: hides geometry/orientation controls for custom antennas (edit via dialog only, shows color picker only).
 
-### 2.4 — Frontend: Geometry Sub-GUI for Existing Types
+> **Deferred**: Source/lumped tab with 3D node picker, variable expression integration in coordinate fields.
 
-For the 3 existing types (dipole, loop, rod), add a **read-only preview panel** to each dialog:
-- Small 3D viewport (300×300px) showing the wireframe with node indices.
-- Updates live as user changes parameters (length, segments, etc.).
-- Same color coding as custom dialog.
-- This gives users visibility into node numbering before adding sources/lumped elements.
+### 2.4 — Frontend: Geometry Sub-GUI for Existing Types ✅ Done
 
-### 2.5 — Deliverables
+For the 3 existing types (dipole, loop, rod), **3D preview panels** added to each dialog:
+- `WirePreview3D` component integrated into `DipoleDialog`, `LoopDialog`, and `RodDialog`.
+- Shows wireframe with node indices, updates live as user changes parameters.
+- Same nodeType-based color coding as custom dialog.
+- Gives users visibility into node numbering before adding sources/lumped elements.
 
-| Artifact | Type | Description |
-|----------|------|-------------|
-| `backend/preprocessor/builders.py` (custom section) | Builder | `create_custom()` + validation |
-| `backend/preprocessor/schemas.py` (CustomRequest) | Schema | Custom antenna request model |
-| `backend/preprocessor/main.py` (custom route) | Route | `POST /api/antenna/custom` |
-| `frontend/src/features/design/CustomAntennaDialog.tsx` | Component | Import + edit + preview dialog |
-| `frontend/src/utils/csvParser.ts` | Utility | CSV point/edge parser |
-| `tests/unit/test_custom_builder.py` | Test | Validation, connectivity, re-indexing |
-| Preview panels in existing dialogs | Frontend | Node-labeled 3D wireframe previews |
+> **Note**: `HelixDialog` was removed (helix antenna type removed from backend). Empty stub remains for backward compatibility.
+
+### 2.5 — Code Quality & CI Fixes ✅ Done
+
+ESLint warning reduction from **355 → 261 warnings** across 47 files:
+- Fixed `@typescript-eslint/no-unused-vars` (most common — 145 cases across 47 files).
+- Fixed `@typescript-eslint/no-explicit-any` in several utility files.
+- Fixed `no-empty-pattern` destructuring in test files.
+- Removed unnecessary `eslint-disable` directives flagged by `--report-unused-disable-directives`.
+- CI now passes with 0 errors, 261 warnings (threshold: 350).
+
+### 2.6 — Deliverables
+
+| Artifact | Type | Status | Description |
+|----------|------|--------|-------------|
+| `backend/preprocessor/builders.py` (custom section) | Builder | ✅ Done | `create_custom()` + `custom_to_mesh()` + validation |
+| `backend/preprocessor/schemas.py` (CustomRequest) | Schema | ✅ Done | `CustomRequest`, `CustomNodeInput`, `CustomEdgeInput` |
+| `backend/preprocessor/main.py` (custom route) | Route | ✅ Done | `POST /api/antenna/custom` |
+| `frontend/src/features/design/CustomAntennaDialog.tsx` | Component | ✅ Done | Import CSV + manual editor + 3D preview + edit mode |
+| `frontend/src/utils/csvParser.ts` | Utility | ✅ Done | Combined single-file CSV parser with node types |
+| `frontend/src/components/WirePreview3D.tsx` | Component | ✅ Done | Shared 3D wireframe preview with nodeType coloring |
+| `frontend/src/utils/__tests__/csvParser.test.ts` | Test | ✅ Done | 37 unit tests for CSV parser |
+| `tests/unit/test_custom_builder.py` | Test | ✅ Done | 21 validation tests for custom builder |
+| `TreeViewPanel.tsx` — "Edit Geometry" menu | Frontend | ✅ Done | Context menu for editing custom antenna geometry |
+| `PropertiesPanel.tsx` — custom type guard | Frontend | ✅ Done | Hides geometry controls for custom type |
+| 3D previews in DipoleDialog, LoopDialog, RodDialog | Frontend | ✅ Done | Node-labeled wireframe previews |
+
+### 2.7 — Known Limitations & Remaining Work
+
+- **No `CustomAntennaDialog.test.tsx`**: Unit tests for the dialog component are not yet written.
+- **No source/lumped tab with node picker**: The planned 3D node-picker for assigning sources/lumped elements is deferred to Phase 3.
+- **No variable expression integration**: Coordinate fields in the manual editor do not yet accept Phase 1 variable expressions.
+- **No two-file CSV import**: Only the combined single-file format is implemented.
+- **HelixDialog removed**: Helix antenna type was removed from backend; dialog is an empty stub.
 
 ---
 
