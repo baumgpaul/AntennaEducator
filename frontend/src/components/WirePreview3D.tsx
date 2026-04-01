@@ -16,6 +16,8 @@ export interface PreviewNode {
   radius?: number;
   /** Whether this node is a port (feed point) */
   isPort?: boolean;
+  /** Node type: regular, port, ground, lumped */
+  nodeType?: 'regular' | 'port' | 'ground' | 'lumped';
 }
 
 export interface PreviewEdge {
@@ -140,13 +142,14 @@ function NodeSpheres({
     <group>
       {nodes.map((node) => {
         let color = NODE_COLOR_DEFAULT;
-        if (node.id === 0) color = NODE_COLOR_GROUND;
-        if (sourceNodes.has(node.id)) color = NODE_COLOR_SOURCE;
-        if (lumpedNodes.has(node.id)) color = NODE_COLOR_LUMPED;
+        const nt = node.nodeType ?? (node.id === 0 ? 'ground' : 'regular');
+        if (nt === 'ground' || node.id === 0) color = NODE_COLOR_GROUND;
+        if (nt === 'port' || sourceNodes.has(node.id)) color = NODE_COLOR_SOURCE;
+        if (nt === 'lumped' || lumpedNodes.has(node.id)) color = NODE_COLOR_LUMPED;
         if (node.id === selectedNodeId) color = NODE_COLOR_SELECTED;
 
         const isHovered = hoveredId === node.id;
-        const isSource = sourceNodes.has(node.id);
+        const isSource = nt === 'port' || sourceNodes.has(node.id);
 
         return (
           <group key={node.id}>

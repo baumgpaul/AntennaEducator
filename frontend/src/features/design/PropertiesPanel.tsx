@@ -420,6 +420,9 @@ function PropertiesPanel({
                   />
                 </Box>
 
+                {/* All sections below are hidden for custom antennas — edit via dialog */}
+                {antennaElement.type !== 'custom' && (
+                <>
                 {/* Position */}
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
@@ -612,7 +615,6 @@ function PropertiesPanel({
                   </Stack>
                 </Box>
 
-                {/* Feed Configuration (for elements with sources) */}
                 {primarySource && (
                   <>
                     <Divider />
@@ -679,6 +681,8 @@ function PropertiesPanel({
                       </Stack>
                     </Box>
                   </>
+                )}
+                </>
                 )}
               </>
             )}

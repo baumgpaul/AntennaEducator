@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -21,7 +21,8 @@ import {
   TableRow,
   Paper,
   Chip,
-  Checkbox,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -35,7 +36,7 @@ import {
   BUILTIN_CONSTANTS,
   parseNumericOrExpression,
 } from '@/utils/expressionEvaluator';
-import { parseCustomAntennaCSV, type ParsedNode, type ParsedEdge } from '@/utils/csvParser';
+import { parseCustomAntennaCSV, type ParsedNode, type ParsedEdge, type NodeType } from '@/utils/csvParser';
 import ExpressionField from '@/components/ExpressionField';
 import { WirePreview3D } from '@/components/WirePreview3D';
 
@@ -48,7 +49,7 @@ interface NodeRow {
   x: string;
   y: string;
   z: string;
-  isPort: boolean;
+  nodeType: NodeType;
 }
 
 interface EdgeRow {
@@ -61,6 +62,16 @@ export interface CustomAntennaDialogProps {
   open: boolean;
   onClose: () => void;
   onGenerate: (data: CustomFormData) => Promise<void>;
+  /** When provided, dialog opens in edit mode pre-populated with this data */
+  initialData?: {
+    elementId: string;
+    name: string;
+    nodes: Array<{ id: number; x: number; y: number; z: number }>;
+    edges: Array<{ node_start: number; node_end: number; radius?: number }>;
+    sourceNodeIds?: number[];
+    groundNodeIds?: number[];
+    lumpedNodeIds?: number[];
+  };
 }
 
 export interface CustomFormData {
@@ -85,8 +96,8 @@ let nextNodeId = 1;
 function createDefaultNodes(): NodeRow[] {
   nextNodeId = 3;
   return [
-    { id: 1, x: '0', y: '0', z: '0', isPort: true },
-    { id: 2, x: '0', y: '0', z: '0.5', isPort: false },
+    { id: 1, x: '0', y: '0', z: '0', nodeType: 'port' },
+    { id: 2, x: '0', y: '0', z: '0.5', nodeType: 'regular' },
   ];
 }
 
@@ -102,7 +113,9 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
   open,
   onClose,
   onGenerate,
+  initialData,
 }) => {
+  const isEditMode = !!initialData;
   const [activeTab, setActiveTab] = useState(0);
   const [name, setName] = useState('Custom Antenna');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -122,6 +135,30 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
   const [genError, setGenError] = useState<string | null>(null);
 
   const variableContext = useAppSelector(selectVariableContextNumeric);
+
+  // Populate from initialData when editing
+  useEffect(() => {
+    if (!open || !initialData) return;
+    const srcIds = new Set(initialData.sourceNodeIds ?? []);
+    const gndIds = new Set(initialData.groundNodeIds ?? []);
+    const lmpIds = new Set(initialData.lumpedNodeIds ?? []);
+    setName(initialData.name);
+    const editNodes: NodeRow[] = initialData.nodes.map((n) => {
+      let nodeType: NodeType = 'regular';
+      if (srcIds.has(n.id)) nodeType = 'port';
+      else if (gndIds.has(n.id)) nodeType = 'ground';
+      else if (lmpIds.has(n.id)) nodeType = 'lumped';
+      return { id: n.id, x: String(n.x), y: String(n.y), z: String(n.z), nodeType };
+    });
+    setNodes(editNodes);
+    nextNodeId = Math.max(...initialData.nodes.map((n) => n.id), 0) + 1;
+    setEdges(initialData.edges.map((e) => ({
+      node_start: e.node_start,
+      node_end: e.node_end,
+      radius: e.radius != null ? String(e.radius) : '0.001',
+    })));
+    setActiveTab(1); // Start on manual editor for edit mode
+  }, [open, initialData]);
 
   const resolveCtx = useMemo(
     () => ({ ...BUILTIN_CONSTANTS, ...variableContext }),
@@ -154,7 +191,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
   // -----------------------------------------------------------------------
   const addNode = () => {
     const newId = nextNodeId++;
-    setNodes((prev) => [...prev, { id: newId, x: '0', y: '0', z: '0', isPort: false }]);
+    setNodes((prev) => [...prev, { id: newId, x: '0', y: '0', z: '0', nodeType: 'regular' as NodeType }]);
   };
 
   const removeNode = (id: number) => {
@@ -162,7 +199,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
     setEdges((prev) => prev.filter((e) => e.node_start !== id && e.node_end !== id));
   };
 
-  const updateNode = (id: number, field: keyof NodeRow, value: string | boolean) => {
+  const updateNode = (id: number, field: keyof NodeRow, value: string | NodeType) => {
     setNodes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, [field]: value } : n)),
     );
@@ -207,7 +244,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
         x: String(n.x),
         y: String(n.y),
         z: String(n.z),
-        isPort: n.isPort ?? false,
+        nodeType: n.nodeType ?? 'regular' as NodeType,
       })),
     );
     setEdges(
@@ -303,13 +340,13 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
             x: parseNumericOrExpression(n.x, resolveCtx),
             y: parseNumericOrExpression(n.y, resolveCtx),
             z: parseNumericOrExpression(n.z, resolveCtx),
-            isPort: n.isPort,
+            nodeType: n.nodeType,
           };
         } catch {
           return null;
         }
       })
-      .filter(Boolean) as Array<{ id: number; x: number; y: number; z: number; isPort: boolean }>;
+      .filter(Boolean) as Array<{ id: number; x: number; y: number; z: number; nodeType: NodeType }>;
   }, [nodes, resolveCtx]);
 
   const previewEdges = useMemo(() => {
@@ -325,9 +362,13 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
       }));
   }, [edges, previewNodes, resolveCtx]);
 
-  // Port nodes as sourceNodes set
+  // Node type sets for preview
   const portNodeIds = useMemo(() => {
-    return new Set(nodes.filter((n) => n.isPort).map((n) => n.id));
+    return new Set(nodes.filter((n) => n.nodeType === 'port').map((n) => n.id));
+  }, [nodes]);
+
+  const lumpedNodeIds = useMemo(() => {
+    return new Set(nodes.filter((n) => n.nodeType === 'lumped').map((n) => n.id));
   }, [nodes]);
 
   // -----------------------------------------------------------------------
@@ -373,7 +414,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
   // -----------------------------------------------------------------------
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
-      <DialogTitle>Custom Wire Antenna</DialogTitle>
+      <DialogTitle>{isEditMode ? 'Edit Custom Wire Antenna' : 'Custom Wire Antenna'}</DialogTitle>
       <DialogContent>
         <TextField
           label="Antenna Name"
@@ -416,7 +457,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
               multiline
               rows={10}
               fullWidth
-              placeholder={`# Custom antenna CSV\n# NODES: N, id, x, y, z [, P]\n# EDGES: E, start, end [, radius]\nN, 1, 0, 0, 0, P\nN, 2, 0, 0, 0.5\nE, 1, 2, 0.001`}
+              placeholder={`# Custom antenna CSV\n# NODES: N, id, x, y, z [, P|G|L]\n# EDGES: E, start, end [, radius]\nN, 1, 0, 0, 0, P\nN, 2, 0, 0, 0.5\nE, 1, 2, 0.001`}
               value={csvText}
               onChange={(e) => setCsvText(e.target.value)}
               sx={{ fontFamily: 'monospace', fontSize: '0.85rem', mb: 1 }}
@@ -482,7 +523,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
                     <TableCell>X (m)</TableCell>
                     <TableCell>Y (m)</TableCell>
                     <TableCell>Z (m)</TableCell>
-                    <TableCell sx={{ width: 60, textAlign: 'center' }}>Port</TableCell>
+                    <TableCell sx={{ width: 110 }}>Type</TableCell>
                     <TableCell sx={{ width: 40 }} />
                   </TableRow>
                 </TableHead>
@@ -502,12 +543,19 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
                           />
                         </TableCell>
                       ))}
-                      <TableCell sx={{ p: 0.5, textAlign: 'center' }}>
-                        <Checkbox
+                      <TableCell sx={{ p: 0.5 }}>
+                        <Select
                           size="small"
-                          checked={node.isPort}
-                          onChange={(e) => updateNode(node.id, 'isPort', e.target.checked)}
-                        />
+                          value={node.nodeType}
+                          onChange={(e) => updateNode(node.id, 'nodeType', e.target.value as NodeType)}
+                          sx={{ fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.5 } }}
+                          fullWidth
+                        >
+                          <MenuItem value="regular">Regular</MenuItem>
+                          <MenuItem value="port">Port</MenuItem>
+                          <MenuItem value="ground">Ground</MenuItem>
+                          <MenuItem value="lumped">Lumped</MenuItem>
+                        </Select>
                       </TableCell>
                       <TableCell sx={{ p: 0 }}>
                         <IconButton
@@ -607,6 +655,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
                 nodes={previewNodes}
                 edges={previewEdges}
                 sourceNodes={portNodeIds}
+                lumpedNodes={lumpedNodeIds}
                 showLabels
                 showEdgeLabels
                 height="100%"
@@ -661,7 +710,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
           onClick={handleSubmit}
           disabled={isGenerating || validationErrors.length > 0}
         >
-          {isGenerating ? 'Generating…' : 'Generate'}
+          {isGenerating ? 'Generating…' : isEditMode ? 'Update' : 'Generate'}
         </Button>
       </DialogActions>
     </Dialog>

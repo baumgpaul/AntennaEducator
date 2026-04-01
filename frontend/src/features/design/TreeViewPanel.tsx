@@ -89,6 +89,7 @@ interface TreeViewPanelProps {
   onElementDelete?: (elementId: string) => void;
   onElementDuplicate?: (elementId: string) => void;
   onElementRename?: (elementId: string, newName: string) => void;
+  onElementEdit?: (elementId: string) => void;
   onElementLock?: (elementId: string, locked: boolean) => void;
   onElementVisibilityToggle?: (elementId: string, visible: boolean) => void;
 
@@ -150,6 +151,7 @@ function TreeViewPanel({
   onElementDelete,
   onElementDuplicate,
   onElementRename,
+  onElementEdit,
   onElementLock,
   onElementVisibilityToggle,
   mode = 'designer',
@@ -362,6 +364,11 @@ function TreeViewPanel({
 
   const handleDuplicateClick = (elementId: string) => {
     onElementDuplicate?.(elementId);
+    handleCloseContextMenu();
+  };
+
+  const handleEditClick = (elementId: string) => {
+    onElementEdit?.(elementId);
     handleCloseContextMenu();
   };
 
@@ -1044,6 +1051,15 @@ function TreeViewPanel({
           contextMenu ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined
         }
       >
+        {contextMenu && elements?.find(el => el.id === contextMenu.elementId)?.type === 'custom' && (
+          <MenuItem
+            onClick={() => contextMenu && handleEditClick(contextMenu.elementId)}
+            sx={{ gap: 1 }}
+          >
+            <Edit fontSize="small" />
+            Edit Geometry
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => contextMenu && handleRenameClick(contextMenu.elementId)}
           sx={{ gap: 1 }}

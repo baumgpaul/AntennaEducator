@@ -3,7 +3,7 @@
  *
  * CSV format (combined single-file):
  *   # NODES
- *   N, id, x, y, z [, P]          — optional trailing P marks as port
+ *   N, id, x, y, z [, P|G|L]      — optional trailing flag (P=port, G=ground, L=lumped)
  *   # EDGES
  *   E, node_start, node_end [, radius]
  *
@@ -35,8 +35,8 @@ E, 1, 2
     expect(result.errors).toEqual([]);
     expect(result.nodes).toHaveLength(2);
     expect(result.edges).toHaveLength(1);
-    expect(result.nodes[0]).toEqual({ id: 1, x: 0, y: 0, z: 0, isPort: false });
-    expect(result.nodes[1]).toEqual({ id: 2, x: 0, y: 0, z: 0.5, isPort: false });
+    expect(result.nodes[0]).toEqual({ id: 1, x: 0, y: 0, z: 0, nodeType: 'regular' });
+    expect(result.nodes[1]).toEqual({ id: 2, x: 0, y: 0, z: 0.5, nodeType: 'regular' });
     expect(result.edges[0]).toEqual({ node_start: 1, node_end: 2 });
   });
 
@@ -49,8 +49,48 @@ E, 1, 2
     const result = parseCustomAntennaCSV(csv);
 
     expect(result.errors).toEqual([]);
-    expect(result.nodes[0].isPort).toBe(true);
-    expect(result.nodes[1].isPort).toBe(false); // default
+    expect(result.nodes[0].nodeType).toBe('port');
+    expect(result.nodes[1].nodeType).toBe('regular'); // default
+  });
+
+  it('parses node with ground flag', () => {
+    const csv = `
+N, 1, 0, 0, 0, G
+N, 2, 1, 0, 0
+E, 1, 2
+`.trim();
+    const result = parseCustomAntennaCSV(csv);
+
+    expect(result.errors).toEqual([]);
+    expect(result.nodes[0].nodeType).toBe('ground');
+  });
+
+  it('parses node with lumped flag', () => {
+    const csv = `
+N, 1, 0, 0, 0, L
+N, 2, 1, 0, 0
+E, 1, 2
+`.trim();
+    const result = parseCustomAntennaCSV(csv);
+
+    expect(result.errors).toEqual([]);
+    expect(result.nodes[0].nodeType).toBe('lumped');
+  });
+
+  it('parses full-word flags (GROUND, LUMPED, PORT)', () => {
+    const csv = `
+N, 1, 0, 0, 0, PORT
+N, 2, 1, 0, 0, GROUND
+N, 3, 2, 0, 0, LUMPED
+E, 1, 2
+E, 2, 3
+`.trim();
+    const result = parseCustomAntennaCSV(csv);
+
+    expect(result.errors).toEqual([]);
+    expect(result.nodes[0].nodeType).toBe('port');
+    expect(result.nodes[1].nodeType).toBe('ground');
+    expect(result.nodes[2].nodeType).toBe('lumped');
   });
 
   it('parses edge with explicit radius', () => {
@@ -104,7 +144,7 @@ E ,  1 ,  2
     const result = parseCustomAntennaCSV(csv);
 
     expect(result.errors).toEqual([]);
-    expect(result.nodes[0]).toEqual({ id: 1, x: 0, y: 0, z: 0, isPort: false });
+    expect(result.nodes[0]).toEqual({ id: 1, x: 0, y: 0, z: 0, nodeType: 'regular' });
   });
 
   it('parses large geometry (10 nodes, 9 edges)', () => {
@@ -158,7 +198,7 @@ E, 1, 2
     const result = parseCustomAntennaCSV(csv);
 
     expect(result.errors).toEqual([]);
-    expect(result.nodes[0]).toEqual({ id: 1, x: -0.5, y: -1.0, z: -2.0, isPort: false });
+    expect(result.nodes[0]).toEqual({ id: 1, x: -0.5, y: -1.0, z: -2.0, nodeType: 'regular' });
   });
 
   it('parses scientific notation coordinates', () => {
@@ -328,7 +368,7 @@ E, 1, 2
 
     // Legacy radius value is silently ignored
     expect(result.errors).toEqual([]);
-    expect(result.nodes[0].isPort).toBe(false);
+    expect(result.nodes[0].nodeType).toBe('regular');
   });
 
   it('reports error for negative edge radius', () => {
