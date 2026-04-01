@@ -169,6 +169,7 @@ If `black` or `isort` report failures, auto-fix with `black backend/ tests/` and
 - **Lambda packaging**: Each service has a `Dockerfile.lambda` that builds a container image. Mangum wraps FastAPI for Lambda. Build context is always the repo root (`.`), Dockerfile path is `backend/<service>/Dockerfile.lambda`.
 - **AWS naming convention**: Resources follow `antenna-simulator-{service}-{environment}` (e.g., `antenna-simulator-solver-staging`).
 - **TDD principle**: Always follow Test-Driven Development — write tests first, make small incremental changes, and commit after code runs and tests pass.
+- **Test file convention**: Every `*.test.tsx` / `*.test.ts` file **must** contain at least one `describe` block with at least one `it` (or `it.todo`). Vitest fails the entire suite if a test file is empty or contains no tests. When creating a stub test file for a feature that is not yet implemented, use `it.todo("…")` placeholders.
 - **Pre-commit checks**: Before every `git commit`, run **all** CI/CD checks from the "Pre-Commit CI/CD Checks" section above (`black`, `isort`, `ruff`, `pytest`, `tsc`, `npm run lint`, `npx vitest run`). Never commit code that hasn't passed these checks.
 
 ## Known Issues & Workarounds
