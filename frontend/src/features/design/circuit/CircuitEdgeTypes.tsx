@@ -4,7 +4,7 @@
  * Each edge represents a circuit component (R, L, C, V, I) and
  * renders its schematic symbol + value label on the connection.
  */
-import React, { memo } from 'react';
+import React, { memo, useRef, useState, useCallback } from 'react';
 import {
   getBezierPath,
   EdgeLabelRenderer,
@@ -124,28 +124,81 @@ const CircuitEdgeComponent: React.FC<EdgeProps> = ({
   const defaults = COMPONENT_DEFAULTS[edgeData.componentType];
   const offset = edgeData.parallelOffset ?? 0;
 
-  // Offset the control points perpendicular to the edge direction
-  // to separate parallel edges visually
+  // For parallel edges, compute a curved detour via a midpoint offset
+  // perpendicular to the straight line between source and target
   const dx = targetX - sourceX;
   const dy = targetY - sourceY;
   const len = Math.sqrt(dx * dx + dy * dy) || 1;
-  const perpX = (-dy / len) * offset * 40;
-  const perpY = (dx / len) * offset * 40;
+  // Perpendicular unit vector
+  const perpX = -dy / len;
+  const perpY = dx / len;
+  // Midpoint
+  const midX = (sourceX + targetX) / 2;
+  const midY = (sourceY + targetY) / 2;
 
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX: sourceX + perpX * 0.3,
-    sourceY: sourceY + perpY * 0.3,
-    targetX: targetX + perpX * 0.3,
-    targetY: targetY + perpY * 0.3,
-    sourcePosition,
-    targetPosition,
-    curvature: 0.25 + Math.abs(offset) * 0.15,
-  });
+  let edgePath: string;
+  let labelX: number;
+  let labelY: number;
+
+  if (offset === 0) {
+    // Straight bezier for the primary (or only) edge
+    [edgePath, labelX, labelY] = getBezierPath({
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      sourcePosition,
+      targetPosition,
+      curvature: 0.25,
+    });
+  } else {
+    // Offset edge: route through a control point perpendicular to the line
+    const detour = offset * 60; // 60px separation per parallel index
+    const cpX = midX + perpX * detour;
+    const cpY = midY + perpY * detour;
+    edgePath = `M ${sourceX} ${sourceY} Q ${cpX} ${cpY} ${targetX} ${targetY}`;
+    // Place label at the apex of the curve (the control point projected onto the curve)
+    labelX = midX + perpX * detour * 0.5;
+    labelY = midY + perpY * detour * 0.5;
+  }
 
   const valueStr = formatComponentValue(edgeData.value, defaults.unit);
   const phaseStr = edgeData.phase !== 0
     ? ` ∠${edgeData.phase.toFixed(0)}°`
     : '';
+
+  // Draggable label offset (local to this edge instance)
+  const [labelDragOffset, setLabelDragOffset] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+
+  const onLabelMouseDown = useCallback((e: React.MouseEvent) => {
+    // Right-click or middle-click to drag the label
+    if (e.button === 2 || e.altKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragStartRef.current = { x: e.clientX, y: e.clientY, ox: labelDragOffset.x, oy: labelDragOffset.y };
+      const onMove = (me: MouseEvent) => {
+        if (!dragStartRef.current) return;
+        setLabelDragOffset({
+          x: dragStartRef.current.ox + (me.clientX - dragStartRef.current.x),
+          y: dragStartRef.current.oy + (me.clientY - dragStartRef.current.y),
+        });
+      };
+      const onUp = () => {
+        dragStartRef.current = null;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    }
+  }, [labelDragOffset]);
+
+  // Double-right-click resets label position
+  const onLabelContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setLabelDragOffset({ x: 0, y: 0 });
+  }, []);
 
   return (
     <>
@@ -162,7 +215,7 @@ const CircuitEdgeComponent: React.FC<EdgeProps> = ({
         <Box
           sx={{
             position: 'absolute',
-            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+            transform: `translate(-50%, -50%) translate(${labelX + labelDragOffset.x}px,${labelY + labelDragOffset.y}px)`,
             pointerEvents: 'all',
             display: 'flex',
             alignItems: 'center',
@@ -173,12 +226,15 @@ const CircuitEdgeComponent: React.FC<EdgeProps> = ({
             px: 0.75,
             py: 0.25,
             cursor: 'pointer',
+            userSelect: 'none',
             '&:hover': {
               bgcolor: '#2a2a3e',
               border: `1px solid ${color}80`,
             },
           }}
           onClick={() => edgeData.onEdit?.(id)}
+          onMouseDown={onLabelMouseDown}
+          onContextMenu={onLabelContextMenu}
         >
           <SchematicIcon type={edgeData.componentType} size={14} />
           <Typography

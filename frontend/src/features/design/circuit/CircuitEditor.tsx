@@ -239,7 +239,9 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
       }
     }
 
-    const initial = backendToCircuit(sources, lumpedElements, terminalNodeIndices, existingAppended);
+    const initial = backendToCircuit(
+      sources, lumpedElements, terminalNodeIndices, existingAppended, element.mesh,
+    );
     setCircuit(initial);
 
     // Convert to ReactFlow state
@@ -631,7 +633,26 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
         </Box>
 
         {/* React Flow Canvas */}
-        <Box sx={{ flex: 1, height: '100%' }}>
+        <Box sx={{
+          flex: 1,
+          height: '100%',
+          // Dark mode overrides for React Flow controls
+          '& .react-flow__controls': {
+            border: '1px solid #444',
+          },
+          '& .react-flow__controls-button': {
+            background: '#1a1a24',
+            borderBottom: '1px solid #333',
+            fill: '#e0e0e0',
+            color: '#e0e0e0',
+            '&:hover': {
+              background: '#2a2a3a',
+            },
+          },
+          '& .react-flow__controls-button svg': {
+            fill: '#e0e0e0',
+          },
+        }}>
           <ReactFlow
             nodes={rfNodes}
             edges={rfEdgesWithOffsets}
@@ -654,7 +675,12 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#333" />
             <Controls
               position="bottom-right"
-              style={{ background: '#1a1a24', borderColor: '#333' }}
+              style={{
+                background: '#1a1a24',
+                borderColor: '#444',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+              }}
+              className="react-flow-dark-controls"
             />
             <MiniMap
               position="bottom-left"

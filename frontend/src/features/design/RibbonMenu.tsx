@@ -295,23 +295,7 @@ function RibbonMenu({
                       startIcon={<AccountTree />}
                       onClick={() => onAntennaTypeSelect?.('circuit-editor')}
                     >
-                      Circuit
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title="Add voltage source (legacy)">
-                    <Button
-                      startIcon={<RadioButtonChecked />}
-                      onClick={() => onAntennaTypeSelect?.('voltage-source')}
-                    >
-                      Source
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title="Add lumped element (R/L/C) (legacy)">
-                    <Button
-                      startIcon={<Widgets />}
-                      onClick={() => onAntennaTypeSelect?.('lumped-element')}
-                    >
-                      R/L/C
+                      Edit Circuitry
                     </Button>
                   </Tooltip>
                 </ButtonGroup>

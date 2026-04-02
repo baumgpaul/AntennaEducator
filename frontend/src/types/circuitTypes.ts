@@ -94,7 +94,7 @@ export const COMPONENT_TYPE_LABELS: Record<CircuitComponentType, string> = {
 // Conversions: CircuitState ↔ Sources + LumpedElements
 // ============================================================================
 
-import type { Source, LumpedElement, ComplexNumber } from '@/types/models';
+import type { Source, LumpedElement, ComplexNumber, Mesh, Vector3D } from '@/types/models';
 
 /**
  * Convert circuit components into Source[] and LumpedElement[] for the backend.
@@ -151,8 +151,10 @@ export function backendToCircuit(
   lumpedElements: LumpedElement[],
   terminalNodeIndices: number[],
   existingAppendedNodes?: Array<{ index: number; label: string }>,
+  mesh?: Mesh,
 ): CircuitState {
   const nodeSet = new Set<number>();
+  const terminalSet = new Set<number>(terminalNodeIndices);
   const components: CircuitComponent[] = [];
 
   // Always include GND
@@ -236,8 +238,17 @@ export function backendToCircuit(
   const nodes: CircuitNode[] = [];
   const sortedIndices = Array.from(nodeSet).sort((a, b) => a - b);
 
-  // Auto-layout: terminal nodes at top, GND at bottom, appended in between
-  const terminalNodes = sortedIndices.filter(i => i > 0);
+  // Helper: generate coordinate hint for a mesh node index
+  const coordHint = (idx: number): string => {
+    if (!mesh?.nodes || idx <= 0 || idx > mesh.nodes.length) return '';
+    const pos: Vector3D = mesh.nodes[idx - 1]; // mesh nodes are 0-indexed, indices are 1-based
+    const fmt = (v: number) => (Math.abs(v) < 0.001 && v !== 0 ? v.toExponential(1) : v.toFixed(3));
+    return ` [${fmt(pos[0])}, ${fmt(pos[1])}, ${fmt(pos[2])}]`;
+  };
+
+  // Classify nodes into terminal (from terminalNodeIndices), other mesh nodes, appended, and GND
+  const terminalNodes = sortedIndices.filter(i => terminalSet.has(i));
+  const otherMeshNodes = sortedIndices.filter(i => i > 0 && !terminalSet.has(i));
   const gndNode = sortedIndices.includes(0) ? [0] : [];
   const appendedNodes = sortedIndices.filter(i => i < 0);
 
@@ -250,13 +261,27 @@ export function backendToCircuit(
     nodes.push({
       index: idx,
       kind: 'terminal',
-      label: `Node ${idx}`,
+      label: `Feed ${i + 1}${coordHint(idx)}`,
       positionX: 100 + i * 200,
       positionY: y,
     });
   }
 
-  y += 200;
+  y += 150;
+
+  // Other mesh nodes (referenced by components but not terminal)
+  for (let i = 0; i < otherMeshNodes.length; i++) {
+    const idx = otherMeshNodes[i];
+    nodes.push({
+      index: idx,
+      kind: 'terminal',
+      label: `Node ${idx}${coordHint(idx)}`,
+      positionX: 100 + i * 200,
+      positionY: y,
+    });
+  }
+
+  if (otherMeshNodes.length > 0) y += 150;
 
   // Appended nodes in the middle
   for (let i = 0; i < appendedNodes.length; i++) {
@@ -271,7 +296,8 @@ export function backendToCircuit(
     });
   }
 
-  y += 200;
+  if (appendedNodes.length > 0) y += 150;
+  else y += 200;
 
   // GND at the bottom center
   if (gndNode.length > 0) {

@@ -158,6 +158,10 @@ describe('backendToCircuit', () => {
     expect(terminalNodes.map(n => n.index)).toContain(1);
     expect(terminalNodes.map(n => n.index)).toContain(5);
     expect(terminalNodes.map(n => n.index)).toContain(10);
+    // Terminal labels are now 'Feed N' format
+    expect(terminalNodes.map(n => n.label)).toContain('Feed 1');
+    expect(terminalNodes.map(n => n.label)).toContain('Feed 2');
+    expect(terminalNodes.map(n => n.label)).toContain('Feed 3');
   });
 
   it('converts a voltage source back to component', () => {
@@ -241,7 +245,7 @@ describe('backendToCircuit', () => {
   it('roundtrip: circuitToBackend → backendToCircuit preserves component types', () => {
     const original: CircuitState = {
       nodes: [
-        { index: 1, kind: 'terminal', label: 'Node 1', positionX: 0, positionY: 0 },
+        { index: 1, kind: 'terminal', label: 'Feed 1', positionX: 0, positionY: 0 },
         { index: 0, kind: 'gnd', label: 'GND', positionX: 0, positionY: 200 },
       ],
       components: [
