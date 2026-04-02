@@ -16,8 +16,8 @@ export interface PreviewNode {
   radius?: number;
   /** Whether this node is a port (feed point) */
   isPort?: boolean;
-  /** Node type: regular, port, ground, lumped */
-  nodeType?: 'regular' | 'port' | 'ground' | 'lumped';
+  /** Node type: regular, port */
+  nodeType?: 'regular' | 'port';
 }
 
 export interface PreviewEdge {
@@ -31,8 +31,6 @@ export interface WirePreview3DProps {
   edges: PreviewEdge[];
   /** Set of node IDs used as source endpoints */
   sourceNodes?: Set<number>;
-  /** Set of node IDs used as lumped element endpoints */
-  lumpedNodes?: Set<number>;
   /** Currently selected node ID */
   selectedNodeId?: number | null;
   /** Called when a node sphere is clicked */
@@ -52,9 +50,7 @@ export interface WirePreview3DProps {
 // ---------------------------------------------------------------------------
 
 const NODE_COLOR_DEFAULT = '#6699cc';
-const NODE_COLOR_GROUND = '#44cc44';
 const NODE_COLOR_SOURCE = '#ff4444';
-const NODE_COLOR_LUMPED = '#ff8800';
 const NODE_COLOR_SELECTED = '#ffff00';
 const EDGE_COLOR = '#c0d0e0';
 const LABEL_COLOR = '#cccccc';
@@ -106,7 +102,6 @@ function CameraFit({ nodes }: { nodes: PreviewNode[] }) {
 interface NodeSpheresProps {
   nodes: PreviewNode[];
   sourceNodes: Set<number>;
-  lumpedNodes: Set<number>;
   selectedNodeId: number | null;
   onNodeSelect?: (id: number) => void;
   showLabels: boolean;
@@ -115,7 +110,6 @@ interface NodeSpheresProps {
 function NodeSpheres({
   nodes,
   sourceNodes,
-  lumpedNodes,
   selectedNodeId,
   onNodeSelect,
   showLabels,
@@ -142,10 +136,8 @@ function NodeSpheres({
     <group>
       {nodes.map((node) => {
         let color = NODE_COLOR_DEFAULT;
-        const nt = node.nodeType ?? (node.id === 0 ? 'ground' : 'regular');
-        if (nt === 'ground' || node.id === 0) color = NODE_COLOR_GROUND;
+        const nt = node.nodeType ?? 'regular';
         if (nt === 'port' || sourceNodes.has(node.id)) color = NODE_COLOR_SOURCE;
-        if (nt === 'lumped' || lumpedNodes.has(node.id)) color = NODE_COLOR_LUMPED;
         if (node.id === selectedNodeId) color = NODE_COLOR_SELECTED;
 
         const isHovered = hoveredId === node.id;
@@ -384,7 +376,6 @@ export const WirePreview3D: React.FC<WirePreview3DProps> = ({
   nodes,
   edges,
   sourceNodes = new Set(),
-  lumpedNodes = new Set(),
   selectedNodeId = null,
   onNodeSelect,
   showLabels = true,
@@ -453,7 +444,6 @@ export const WirePreview3D: React.FC<WirePreview3DProps> = ({
         <NodeSpheres
           nodes={nodes}
           sourceNodes={sourceNodes}
-          lumpedNodes={lumpedNodes}
           selectedNodeId={selectedNodeId}
           onNodeSelect={onNodeSelect}
           showLabels={showLabels}

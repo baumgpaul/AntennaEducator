@@ -245,24 +245,23 @@ These decisions were made during implementation and should guide future phases:
 **Implemented format**: Combined single-file CSV (`frontend/src/utils/csvParser.ts`):
 
 ```csv
-# NODES — N, id, x, y, z [, type_flag]
-# type_flag: P (port), G (ground), L (lumped), or omitted (regular)
+# NODES — N, id, x, y, z [, P]
+# P = port node (feed point), omitted = regular node
 N, 1, 0.0, 0.0, 0.0
 N, 2, 0.0, 0.0, 0.05, P
-N, 3, 0.0, 0.0, -0.05, G
-N, 4, 0.025, 0.0, 0.0, L
+N, 3, 0.0, 0.0, -0.05
 # EDGES — E, node_start, node_end [, radius]
 E, 1, 2
-E, 1, 3
-E, 1, 4, 0.0005
+E, 1, 3, 0.0005
 ```
 
-- **Node types**: `regular` (default), `port` (P), `ground` (G), `lumped` (L). Full-word flags also accepted.
+- **Node types**: `regular` (default) and `port` (P). Full-word `PORT` flag also accepted.
+- Ground and lumped node types are **deferred to Phase 3** (lumped element & port system).
 - Comments (`#`) and blank lines ignored. Case-insensitive prefixes.
 - Supports negative coordinates, scientific notation, Windows line endings.
 - Returns `CsvParseResult` with `nodes[]`, `edges[]`, `warnings[]`, `errors[]`.
 - **Validation**: duplicate node IDs, missing node references, self-loops, duplicate/reverse-duplicate edges, NaN/Inf coordinates, non-positive IDs, negative radius.
-- **37 unit tests** in `frontend/src/utils/__tests__/csvParser.test.ts`.
+- **35 unit tests** in `frontend/src/utils/__tests__/csvParser.test.ts`.
 
 > **Note**: The original two-file format (separate points.csv + connections.csv) was not implemented. The combined single-file format is simpler and sufficient.
 
@@ -322,10 +321,10 @@ class CustomRequest(BaseModel):
 4. **3D Preview** (right-side panel, always visible) — `WirePreview3D` component with:
    - Node labels (IDs) rendered at each node position.
    - Edge labels (indices) at edge midpoints.
-   - NodeType-based coloring: regular (blue `#6699cc`), port (red `#ff4444` + torus marker), ground (green `#44cc44`), lumped (orange `#ff8800`).
+   - NodeType-based coloring: regular (blue `#6699cc`), port (red `#ff4444` + torus marker).
    - Selected node highlighting (yellow `#ffff00`).
    - Clickable node selection, interactive orbit/zoom, auto-fit camera.
-5. **Edit mode**: `initialData` prop populates name, nodes, edges, and pre-maps `sourceNodeIds`/`groundNodeIds`/`lumpedNodeIds` to node types. Triggered via "Edit Geometry" context menu in `TreeViewPanel`.
+5. **Edit mode**: `initialData` prop populates name, nodes, edges, and pre-maps `sourceNodeIds` to port node type. Triggered via "Edit Geometry" context menu in `TreeViewPanel`.
 
 **Additional UI integration**:
 - `TreeViewPanel.tsx` — "Edit Geometry" context menu item for custom antenna elements (calls `onElementEdit` callback).
@@ -371,10 +370,10 @@ ESLint warning reduction from **355 → 261 warnings** across 47 files:
 ### 2.7 — Known Limitations & Remaining Work
 
 - **No `CustomAntennaDialog.test.tsx`**: Unit tests for the dialog component are not yet written.
-- **No source/lumped tab with node picker**: The planned 3D node-picker for assigning sources/lumped elements is deferred to Phase 3.
 - **No variable expression integration**: Coordinate fields in the manual editor do not yet accept Phase 1 variable expressions.
 - **No two-file CSV import**: Only the combined single-file format is implemented.
 - **HelixDialog removed**: Helix antenna type was removed from backend; dialog is an empty stub.
+- **Ground/lumped node types deferred**: Only `regular` and `port` node types are supported in Phase 2. Ground (`G`) and lumped (`L`) node types will be added in Phase 3 when the lumped element & port system is implemented.
 
 ---
 

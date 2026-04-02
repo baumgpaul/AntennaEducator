@@ -69,8 +69,6 @@ export interface CustomAntennaDialogProps {
     nodes: Array<{ id: number; x: number; y: number; z: number }>;
     edges: Array<{ node_start: number; node_end: number; radius?: number }>;
     sourceNodeIds?: number[];
-    groundNodeIds?: number[];
-    lumpedNodeIds?: number[];
   };
 }
 
@@ -140,14 +138,9 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
   useEffect(() => {
     if (!open || !initialData) return;
     const srcIds = new Set(initialData.sourceNodeIds ?? []);
-    const gndIds = new Set(initialData.groundNodeIds ?? []);
-    const lmpIds = new Set(initialData.lumpedNodeIds ?? []);
     setName(initialData.name);
     const editNodes: NodeRow[] = initialData.nodes.map((n) => {
-      let nodeType: NodeType = 'regular';
-      if (srcIds.has(n.id)) nodeType = 'port';
-      else if (gndIds.has(n.id)) nodeType = 'ground';
-      else if (lmpIds.has(n.id)) nodeType = 'lumped';
+      const nodeType: NodeType = srcIds.has(n.id) ? 'port' : 'regular';
       return { id: n.id, x: String(n.x), y: String(n.y), z: String(n.z), nodeType };
     });
     setNodes(editNodes);
@@ -367,10 +360,6 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
     return new Set(nodes.filter((n) => n.nodeType === 'port').map((n) => n.id));
   }, [nodes]);
 
-  const lumpedNodeIds = useMemo(() => {
-    return new Set(nodes.filter((n) => n.nodeType === 'lumped').map((n) => n.id));
-  }, [nodes]);
-
   // -----------------------------------------------------------------------
   // Submit
   // -----------------------------------------------------------------------
@@ -457,7 +446,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
               multiline
               rows={10}
               fullWidth
-              placeholder={`# Custom antenna CSV\n# NODES: N, id, x, y, z [, P|G|L]\n# EDGES: E, start, end [, radius]\nN, 1, 0, 0, 0, P\nN, 2, 0, 0, 0.5\nE, 1, 2, 0.001`}
+              placeholder={`# Custom antenna CSV\n# NODES: N, id, x, y, z [, P]\n# EDGES: E, start, end [, radius]\nN, 1, 0, 0, 0, P\nN, 2, 0, 0, 0.5\nE, 1, 2, 0.001`}
               value={csvText}
               onChange={(e) => setCsvText(e.target.value)}
               sx={{ fontFamily: 'monospace', fontSize: '0.85rem', mb: 1 }}
@@ -553,8 +542,6 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
                         >
                           <MenuItem value="regular">Regular</MenuItem>
                           <MenuItem value="port">Port</MenuItem>
-                          <MenuItem value="ground">Ground</MenuItem>
-                          <MenuItem value="lumped">Lumped</MenuItem>
                         </Select>
                       </TableCell>
                       <TableCell sx={{ p: 0 }}>
@@ -655,7 +642,6 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
                 nodes={previewNodes}
                 edges={previewEdges}
                 sourceNodes={portNodeIds}
-                lumpedNodes={lumpedNodeIds}
                 showLabels
                 showEdgeLabels
                 height="100%"
@@ -678,9 +664,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
             )}
             <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Chip size="small" sx={{ bgcolor: '#6699cc', color: '#fff' }} label="Regular node" />
-              <Chip size="small" sx={{ bgcolor: '#44cc44', color: '#fff' }} label="Ground (ID 0)" />
               <Chip size="small" sx={{ bgcolor: '#ff4444', color: '#fff' }} label="Port node" />
-              <Chip size="small" sx={{ bgcolor: '#ff8800', color: '#fff' }} label="Lumped node" />
             </Box>
           </Box>
         </Box>

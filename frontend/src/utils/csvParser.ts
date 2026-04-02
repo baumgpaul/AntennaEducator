@@ -4,7 +4,7 @@
  * Supported format (combined single-file, comma-delimited):
  *
  *   # Comments start with '#'
- *   N, id, x, y, z [, P|G|L]      — node definition (P=port, G=ground, L=lumped)
+ *   N, id, x, y, z [, P]             — node definition (P=port)
  *   E, node_start, node_end [, radius]  — edge definition (radius defaults to 0.001)
  *
  * Lines are case-insensitive for the prefix (N/n, E/e).
@@ -15,7 +15,7 @@
 // Public types
 // ---------------------------------------------------------------------------
 
-export type NodeType = 'regular' | 'port' | 'ground' | 'lumped';
+export type NodeType = 'regular' | 'port';
 
 export interface ParsedNode {
   id: number;
@@ -78,17 +78,13 @@ function parseNodeLine(fields: string[], lineNum: number, errors: string[]): Par
     const flag = fields[5].trim().toUpperCase();
     if (flag === 'P' || flag === 'PORT') {
       nodeType = 'port';
-    } else if (flag === 'G' || flag === 'GROUND') {
-      nodeType = 'ground';
-    } else if (flag === 'L' || flag === 'LUMPED') {
-      nodeType = 'lumped';
     } else if (flag !== '') {
       // It might be an old-style radius — warn and ignore
       const maybeNum = Number(flag);
       if (isFiniteNum(maybeNum)) {
         // Legacy radius field — ignore silently
       } else {
-        errors.push(`Line ${lineNum}: Unrecognized node field '${fields[5].trim()}' (use P for port, G for ground, L for lumped)`);
+        errors.push(`Line ${lineNum}: Unrecognized node field '${fields[5].trim()}' (use P for port)`);
         return null;
       }
     }

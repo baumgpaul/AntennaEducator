@@ -3,7 +3,7 @@
  *
  * CSV format (combined single-file):
  *   # NODES
- *   N, id, x, y, z [, P|G|L]      — optional trailing flag (P=port, G=ground, L=lumped)
+ *   N, id, x, y, z [, P]             — optional trailing flag (P=port)
  *   # EDGES
  *   E, node_start, node_end [, radius]
  *
@@ -50,44 +50,17 @@ E, 1, 2
     expect(result.nodes[1].nodeType).toBe('regular'); // default
   });
 
-  it('parses node with ground flag', () => {
-    const csv = `
-N, 1, 0, 0, 0, G
-N, 2, 1, 0, 0
-E, 1, 2
-`.trim();
-    const result = parseCustomAntennaCSV(csv);
-
-    expect(result.errors).toEqual([]);
-    expect(result.nodes[0].nodeType).toBe('ground');
-  });
-
-  it('parses node with lumped flag', () => {
-    const csv = `
-N, 1, 0, 0, 0, L
-N, 2, 1, 0, 0
-E, 1, 2
-`.trim();
-    const result = parseCustomAntennaCSV(csv);
-
-    expect(result.errors).toEqual([]);
-    expect(result.nodes[0].nodeType).toBe('lumped');
-  });
-
-  it('parses full-word flags (GROUND, LUMPED, PORT)', () => {
+  it('parses full-word PORT flag', () => {
     const csv = `
 N, 1, 0, 0, 0, PORT
-N, 2, 1, 0, 0, GROUND
-N, 3, 2, 0, 0, LUMPED
+N, 2, 1, 0, 0
 E, 1, 2
-E, 2, 3
 `.trim();
     const result = parseCustomAntennaCSV(csv);
 
     expect(result.errors).toEqual([]);
     expect(result.nodes[0].nodeType).toBe('port');
-    expect(result.nodes[1].nodeType).toBe('ground');
-    expect(result.nodes[2].nodeType).toBe('lumped');
+    expect(result.nodes[1].nodeType).toBe('regular');
   });
 
   it('parses edge with explicit radius', () => {
