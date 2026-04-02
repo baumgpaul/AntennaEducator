@@ -64,16 +64,18 @@ const CircuitNodeComponent: React.FC<NodeProps> = ({ data, selected }) => {
         },
       }}
     >
-      {/* Connection handles: top and bottom */}
+      {/* Single connector point — overlapping source+target handles */}
       <Handle
         type="source"
-        position={Position.Top}
-        style={{ background: style.border, width: 8, height: 8 }}
+        position={Position.Bottom}
+        id="out"
+        style={{ background: style.border, width: 10, height: 10, bottom: -5 }}
       />
       <Handle
         type="target"
         position={Position.Bottom}
-        style={{ background: style.border, width: 8, height: 8 }}
+        id="in"
+        style={{ background: 'transparent', width: 10, height: 10, bottom: -5 }}
       />
 
       {/* GND symbol */}

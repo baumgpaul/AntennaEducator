@@ -687,16 +687,11 @@ function DesignPage() {
           .map((n: any) => n.id);
       }
     }
-    // For built-in types: use source nodes as terminals
+    // For built-in types: use source nodes as terminals (the feed gap nodes)
     const indices = new Set<number>();
     for (const src of element.sources || []) {
-      if (src.node_start != null) indices.add(src.node_start);
-      if (src.node_end != null) indices.add(src.node_end);
-    }
-    // Also include endpoints (node 1 and max node)
-    if (element.mesh?.nodes?.length) {
-      indices.add(1);
-      indices.add(element.mesh.nodes.length);
+      if (src.node_start != null && src.node_start > 0) indices.add(src.node_start);
+      if (src.node_end != null && src.node_end > 0) indices.add(src.node_end);
     }
     return Array.from(indices);
   };

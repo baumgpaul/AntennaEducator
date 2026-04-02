@@ -25,6 +25,8 @@ export interface CircuitEdgeData {
   label: string;
   onEdit?: (edgeId: string) => void;
   onDelete?: (edgeId: string) => void;
+  /** Offset for parallel edges between same node pair (-1, 0, 1, ...) */
+  parallelOffset?: number;
 }
 
 // ============================================================================
@@ -120,14 +122,24 @@ const CircuitEdgeComponent: React.FC<EdgeProps> = ({
   const edgeData = data as unknown as CircuitEdgeData;
   const color = COMPONENT_COLORS[edgeData.componentType];
   const defaults = COMPONENT_DEFAULTS[edgeData.componentType];
+  const offset = edgeData.parallelOffset ?? 0;
+
+  // Offset the control points perpendicular to the edge direction
+  // to separate parallel edges visually
+  const dx = targetX - sourceX;
+  const dy = targetY - sourceY;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  const perpX = (-dy / len) * offset * 40;
+  const perpY = (dx / len) * offset * 40;
 
   const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
+    sourceX: sourceX + perpX * 0.3,
+    sourceY: sourceY + perpY * 0.3,
+    targetX: targetX + perpX * 0.3,
+    targetY: targetY + perpY * 0.3,
     sourcePosition,
     targetPosition,
+    curvature: 0.25 + Math.abs(offset) * 0.15,
   });
 
   const valueStr = formatComponentValue(edgeData.value, defaults.unit);

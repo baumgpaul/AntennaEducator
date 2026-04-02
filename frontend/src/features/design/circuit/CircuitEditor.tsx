@@ -13,7 +13,7 @@
  * - Inline component value editing
  * - Expression support via variable context
  */
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -110,6 +110,8 @@ function circuitComponentsToRF(
     id: comp.id,
     source: `node-${comp.nodeA}`,
     target: `node-${comp.nodeB}`,
+    sourceHandle: 'out',
+    targetHandle: 'in',
     type: 'circuitEdge',
     data: {
       componentType: comp.type,
@@ -172,6 +174,10 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
 
+  // Keep a ref to latest circuit so edge callbacks always see current data
+  const circuitRef = useRef(circuit);
+  circuitRef.current = circuit;
+
   // Component editing dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingComponent, setEditingComponent] = useState<CircuitComponent | null>(null);
@@ -180,6 +186,29 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
   // Appended node label input
   const [newNodeLabel, setNewNodeLabel] = useState('');
 
+  // Stable edge callbacks via refs (no stale closures)
+  const handleEditComponent = useCallback(
+    (edgeId: string) => {
+      const comp = circuitRef.current.components.find((c) => c.id === edgeId);
+      if (comp) {
+        setEditingComponent(comp);
+        setEditDialogOpen(true);
+      }
+    },
+    [],
+  );
+
+  const handleDeleteComponent = useCallback(
+    (edgeId: string) => {
+      setRfEdges((edges) => edges.filter((e) => e.id !== edgeId));
+      setCircuit((prev) => ({
+        ...prev,
+        components: prev.components.filter((c) => c.id !== edgeId),
+      }));
+    },
+    [setRfEdges],
+  );
+
   // Initialize circuit from element data
   useEffect(() => {
     if (!open || !element) return;
@@ -187,22 +216,27 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     const sources = element.sources ?? [];
     const lumpedElements = element.lumped_elements ?? [];
 
-    // Get appended node info from element config if it's a custom type
-    // or from the element's parameters
-    const existingAppended: Array<{ index: number; label: string }> = [];
+    // Get appended nodes from element (stored from previous circuit editor sessions)
+    const existingAppended: Array<{ index: number; label: string }> =
+      (element.appended_nodes ?? []).map((an) => ({ index: an.index, label: an.label }));
 
-    // Collect all negative node indices from sources and lumped elements
-    const negativeIndices = new Set<number>();
+    // Also collect any negative node indices from sources/lumped elements not yet in appended_nodes
+    const knownIndices = new Set(existingAppended.map((n) => n.index));
     for (const src of sources) {
-      if (src.node_start != null && src.node_start < 0) negativeIndices.add(src.node_start);
-      if (src.node_end != null && src.node_end < 0) negativeIndices.add(src.node_end);
+      if (src.node_start != null && src.node_start < 0 && !knownIndices.has(src.node_start)) {
+        existingAppended.push({ index: src.node_start, label: `Aux ${Math.abs(src.node_start)}` });
+      }
+      if (src.node_end != null && src.node_end < 0 && !knownIndices.has(src.node_end)) {
+        existingAppended.push({ index: src.node_end, label: `Aux ${Math.abs(src.node_end)}` });
+      }
     }
     for (const le of lumpedElements) {
-      if (le.node_start < 0) negativeIndices.add(le.node_start);
-      if (le.node_end < 0) negativeIndices.add(le.node_end);
-    }
-    for (const idx of negativeIndices) {
-      existingAppended.push({ index: idx, label: `Aux ${Math.abs(idx)}` });
+      if (le.node_start < 0 && !knownIndices.has(le.node_start)) {
+        existingAppended.push({ index: le.node_start, label: `Aux ${Math.abs(le.node_start)}` });
+      }
+      if (le.node_end < 0 && !knownIndices.has(le.node_end)) {
+        existingAppended.push({ index: le.node_end, label: `Aux ${Math.abs(le.node_end)}` });
+      }
     }
 
     const initial = backendToCircuit(sources, lumpedElements, terminalNodeIndices, existingAppended);
@@ -222,30 +256,6 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     const updatedComponents = circuit.components.filter((c) => componentIds.has(c.id));
     setCircuit({ nodes: updatedNodes, components: updatedComponents });
   }, [rfNodes, rfEdges, circuit.components]);
-
-  // Handle edge deletion
-  const handleDeleteComponent = useCallback(
-    (edgeId: string) => {
-      setRfEdges((edges) => edges.filter((e) => e.id !== edgeId));
-      setCircuit((prev) => ({
-        ...prev,
-        components: prev.components.filter((c) => c.id !== edgeId),
-      }));
-    },
-    [setRfEdges],
-  );
-
-  // Handle component edit
-  const handleEditComponent = useCallback(
-    (edgeId: string) => {
-      const comp = circuit.components.find((c) => c.id === edgeId);
-      if (comp) {
-        setEditingComponent(comp);
-        setEditDialogOpen(true);
-      }
-    },
-    [circuit.components],
-  );
 
   // Handle new connection (drag from node to node)
   const onConnect = useCallback(
@@ -278,6 +288,8 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
         id: newId,
         source: params.source,
         target: params.target,
+        sourceHandle: 'out',
+        targetHandle: 'in',
         type: 'circuitEdge',
         data: {
           componentType: compType,
@@ -351,6 +363,8 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
                 ...e,
                 source: `node-${compData.nodeA}`,
                 target: `node-${compData.nodeB}`,
+                sourceHandle: 'out',
+                targetHandle: 'in',
                 data: {
                   componentType: compData.type,
                   value: compData.value,
@@ -378,6 +392,8 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
           id: newId,
           source: `node-${compData.nodeA}`,
           target: `node-${compData.nodeB}`,
+          sourceHandle: 'out',
+          targetHandle: 'in',
           type: 'circuitEdge',
           data: {
             componentType: compData.type,
@@ -410,6 +426,37 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     onApply({ sources, lumped_elements, appended_nodes });
     onClose();
   }, [rfNodes, circuit.components, onApply, onClose]);
+
+  // Compute parallel edge offsets so overlapping edges are visually separated
+  const rfEdgesWithOffsets = useMemo(() => {
+    // Group edges by unordered node pair
+    const pairMap = new Map<string, string[]>();
+    for (const edge of rfEdges) {
+      const nodes = [edge.source, edge.target].sort();
+      const key = `${nodes[0]}||${nodes[1]}`;
+      if (!pairMap.has(key)) pairMap.set(key, []);
+      pairMap.get(key)!.push(edge.id);
+    }
+
+    // Assign offsets for groups with multiple edges
+    const offsetMap = new Map<string, number>();
+    for (const [, ids] of pairMap) {
+      if (ids.length <= 1) {
+        offsetMap.set(ids[0], 0);
+      } else {
+        const half = (ids.length - 1) / 2;
+        ids.forEach((id, i) => offsetMap.set(id, i - half));
+      }
+    }
+
+    return rfEdges.map((edge) => ({
+      ...edge,
+      data: {
+        ...(edge.data as object),
+        parallelOffset: offsetMap.get(edge.id) ?? 0,
+      },
+    }));
+  }, [rfEdges]);
 
   // Component summary for the info panel
   const summary = useMemo(() => {
@@ -587,7 +634,7 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
         <Box sx={{ flex: 1, height: '100%' }}>
           <ReactFlow
             nodes={rfNodes}
-            edges={rfEdges}
+            edges={rfEdgesWithOffsets}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
