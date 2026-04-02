@@ -224,7 +224,7 @@ const authSlice = createSlice({
         state.loading = true
         state.error = null
       })
-      .addCase(registerAsync.fulfilled, (state, action) => {
+      .addCase(registerAsync.fulfilled, (state, _action) => {
         // Don't authenticate user immediately - they must verify email first
         state.isAuthenticated = false
         state.user = null

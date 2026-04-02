@@ -1,12 +1,15 @@
 """Antenna builders for creating high-level antenna geometries."""
 
-from typing import List, Optional, Tuple
+import logging
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 import numpy as np
 
 from backend.common.models.geometry import AntennaElement, LumpedElement, Mesh, Source
 from backend.common.utils import validate_lumped_element_nodes
+
+logger = logging.getLogger(__name__)
 
 
 def create_dipole(
@@ -722,5 +725,299 @@ def rod_to_mesh(element: AntennaElement) -> Mesh:
     # Validate lumped element node references
     if element.lumped_elements:
         validate_lumped_element_nodes(element.lumped_elements, len(nodes), element.name)
+
+    return mesh
+
+
+# ---------------------------------------------------------------------------
+# Custom antenna builder
+# ---------------------------------------------------------------------------
+
+
+def _validate_custom_nodes(nodes: List[Dict[str, Any]]) -> None:
+    """Validate custom node definitions."""
+    if not nodes:
+        raise ValueError("At least one node is required")
+
+    ids_seen: set[int] = set()
+    for node in nodes:
+        nid = node["id"]
+        if nid <= 0:
+            raise ValueError(f"Node ID must be a positive integer, got {nid}")
+        if nid in ids_seen:
+            raise ValueError(f"Duplicate node ID: {nid}")
+        ids_seen.add(nid)
+
+        radius = node.get("radius", 0.001)
+        if radius <= 0:
+            raise ValueError(f"Radius must be positive for node {nid}, got {radius}")
+
+        for coord_name in ("x", "y", "z"):
+            val = node[coord_name]
+            if not np.isfinite(val):
+                raise ValueError(f"Non-finite coordinate {coord_name}={val} in node {nid}")
+
+
+def _validate_custom_edges(edges: List[Dict[str, Any]], valid_ids: set[int]) -> None:
+    """Validate custom edge definitions."""
+    if not edges:
+        raise ValueError("At least one edge is required")
+
+    seen_pairs: set[tuple[int, int]] = set()
+    for edge in edges:
+        ns, ne = edge["node_start"], edge["node_end"]
+        if ns == ne:
+            raise ValueError(f"Self-loop edge not allowed: node {ns}")
+        if ns not in valid_ids:
+            raise ValueError(f"Edge references non-existent node {ns}")
+        if ne not in valid_ids:
+            raise ValueError(f"Edge references non-existent node {ne}")
+        canonical = (min(ns, ne), max(ns, ne))
+        if canonical in seen_pairs:
+            raise ValueError(f"Duplicate edge between nodes {canonical[0]} and {canonical[1]}")
+        seen_pairs.add(canonical)
+
+        edge_radius = edge.get("radius")
+        if edge_radius is not None and edge_radius <= 0:
+            raise ValueError(f"Edge radius must be positive, got {edge_radius}")
+
+
+def _check_connectivity(node_ids: List[int], edges: List[Dict[str, Any]]) -> None:
+    """Warn if the graph is disconnected (does not raise)."""
+    if len(node_ids) <= 1:
+        return
+    adj: dict[int, set[int]] = {nid: set() for nid in node_ids}
+    for edge in edges:
+        ns, ne = edge["node_start"], edge["node_end"]
+        adj[ns].add(ne)
+        adj[ne].add(ns)
+
+    visited: set[int] = set()
+    stack = [node_ids[0]]
+    while stack:
+        current = stack.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+        stack.extend(adj[current] - visited)
+
+    if len(visited) < len(node_ids):
+        n_components = 1  # the visited set is component 1
+        remaining = set(node_ids) - visited
+        while remaining:
+            seed = next(iter(remaining))
+            comp: set[int] = set()
+            stack2 = [seed]
+            while stack2:
+                cur = stack2.pop()
+                if cur in comp:
+                    continue
+                comp.add(cur)
+                stack2.extend(adj[cur] - comp)
+            remaining -= comp
+            n_components += 1
+        logger.warning(
+            "Custom geometry has %d disconnected components " "(expected 1 connected graph)",
+            n_components,
+        )
+
+
+def create_custom(
+    nodes: List[Dict[str, Any]],
+    edges: List[Dict[str, Any]],
+    sources: Optional[List[Dict[str, Any]]] = None,
+    lumped_elements: Optional[List[Dict[str, Any]]] = None,
+    name: str = "Custom Antenna",
+) -> AntennaElement:
+    """
+    Create a custom antenna element from explicit node/edge definitions.
+
+    Node IDs may have gaps (e.g. 1, 5, 10) and are re-indexed to contiguous
+    1-based integers (1, 2, 3) for the mesh. Source and lumped element node
+    references are updated accordingly.
+
+    Args:
+        nodes: List of dicts with keys: id, x, y, z, radius (default 0.001)
+        edges: List of dicts with keys: node_start, node_end, radius (optional)
+        sources: Optional list of source dicts (type, amplitude, node_start, node_end, ...)
+        lumped_elements: Optional list of lumped element dicts
+        name: Human-readable name
+
+    Returns:
+        AntennaElement with type="custom"
+
+    Raises:
+        ValueError: On invalid geometry
+    """
+    _validate_custom_nodes(nodes)
+    valid_ids = {n["id"] for n in nodes}
+    _validate_custom_edges(edges, valid_ids)
+
+    # Sort node IDs and build re-index map: old_id -> new_1_based
+    sorted_ids = sorted(valid_ids)
+    reindex: Dict[int, int] = {
+        old_id: new_idx for new_idx, old_id in enumerate(sorted_ids, start=1)
+    }
+    reindex[0] = 0  # ground maps to itself
+
+    _check_connectivity(sorted_ids, edges)
+
+    node_by_id: Dict[int, Dict[str, Any]] = {n["id"]: n for n in nodes}
+
+    reindexed_edges = []
+    for edge in edges:
+        reindexed_edges.append(
+            {
+                "node_start": reindex[edge["node_start"]],
+                "node_end": reindex[edge["node_end"]],
+                "radius": edge.get("radius"),
+            }
+        )
+
+    reindexed_nodes = []
+    for old_id in sorted_ids:
+        n = node_by_id[old_id]
+        reindexed_nodes.append(
+            {
+                "id": reindex[old_id],
+                "x": float(n["x"]),
+                "y": float(n["y"]),
+                "z": float(n["z"]),
+                "radius": float(n.get("radius", 0.001)),
+            }
+        )
+
+    # Build source objects with re-indexed nodes
+    source_objs: List[Source] = []
+    if sources:
+        for src in sources:
+            amp = src["amplitude"]
+            if isinstance(amp, dict):
+                amplitude_complex = complex(amp["real"], amp["imag"])
+            else:
+                amplitude_complex = complex(amp)
+
+            src_ns = src.get("node_start")
+            src_ne = src.get("node_end")
+            if src_ns is not None and src_ns != 0:
+                if src_ns not in reindex:
+                    raise ValueError(f"Source references non-existent node {src_ns}")
+                src_ns = reindex[src_ns]
+            if src_ne is not None and src_ne != 0:
+                if src_ne not in reindex:
+                    raise ValueError(f"Source references non-existent node {src_ne}")
+                src_ne = reindex[src_ne]
+
+            source_objs.append(
+                Source(
+                    type=src["type"],
+                    amplitude=amplitude_complex,
+                    node_start=src_ns,
+                    node_end=src_ne,
+                    series_R=src.get("series_R", 0.0),
+                    series_L=src.get("series_L", 0.0),
+                    series_C_inv=src.get("series_C_inv", 0.0),
+                    tag=src.get("tag", ""),
+                )
+            )
+
+    # Build lumped element objects with re-indexed nodes
+    lumped_objs: List[LumpedElement] = []
+    if lumped_elements:
+        for le in lumped_elements:
+            le_ns = le["node_start"]
+            le_ne = le["node_end"]
+            if le_ns != 0 and le_ns not in reindex:
+                raise ValueError(f"Lumped element references non-existent node {le_ns}")
+            if le_ne != 0 and le_ne not in reindex:
+                raise ValueError(f"Lumped element references non-existent node {le_ne}")
+            le_ns = reindex.get(le_ns, le_ns)
+            le_ne = reindex.get(le_ne, le_ne)
+            lumped_objs.append(
+                LumpedElement(
+                    type=le["type"],
+                    R=le.get("R", 0.0),
+                    L=le.get("L", 0.0),
+                    C_inv=le.get("C_inv", 0.0),
+                    node_start=le_ns,
+                    node_end=le_ne,
+                    tag=le.get("tag", ""),
+                )
+            )
+
+    return AntennaElement(
+        name=name,
+        type="custom",
+        parameters={
+            "nodes": reindexed_nodes,
+            "edges": reindexed_edges,
+        },
+        sources=source_objs,
+        lumped_elements=lumped_objs,
+    )
+
+
+def custom_to_mesh(element: AntennaElement) -> Mesh:
+    """
+    Convert a custom antenna element to a computational mesh.
+
+    Args:
+        element: AntennaElement with type="custom"
+
+    Returns:
+        Mesh with nodes, edges, radii, edge_to_element, source_edges
+
+    Raises:
+        ValueError: If element type is wrong or lumped element nodes invalid
+    """
+    if element.type != "custom":
+        raise ValueError(f"Element must be type 'custom', got '{element.type}'")
+
+    param_nodes = element.parameters["nodes"]
+    param_edges = element.parameters["edges"]
+
+    node_by_new_id: Dict[int, Dict[str, Any]] = {n["id"]: n for n in param_nodes}
+
+    mesh_nodes: List[List[float]] = []
+    for i in range(1, len(param_nodes) + 1):
+        n = node_by_new_id[i]
+        mesh_nodes.append([n["x"], n["y"], n["z"]])
+
+    mesh_edges: List[List[int]] = []
+    mesh_radii: List[float] = []
+    for edge in param_edges:
+        ns, ne = edge["node_start"], edge["node_end"]
+        mesh_edges.append([ns, ne])
+
+        edge_radius = edge.get("radius")
+        if edge_radius is not None:
+            mesh_radii.append(edge_radius)
+        else:
+            r_start = node_by_new_id[ns]["radius"]
+            r_end = node_by_new_id[ne]["radius"]
+            mesh_radii.append((r_start + r_end) / 2.0)
+
+    edge_to_element: Dict[int, str] = {i: str(element.id) for i in range(len(mesh_edges))}
+
+    source_edges: List[int] = []
+    edge_lookup: Dict[tuple[int, int], int] = {}
+    for idx, edge_pair in enumerate(mesh_edges):
+        edge_lookup[(edge_pair[0], edge_pair[1])] = idx
+        edge_lookup[(edge_pair[1], edge_pair[0])] = idx
+    for src in element.sources:
+        key = (src.node_start, src.node_end)
+        if key in edge_lookup:
+            source_edges.append(edge_lookup[key])
+
+    mesh = Mesh(
+        nodes=mesh_nodes,
+        edges=mesh_edges,
+        radii=mesh_radii,
+        edge_to_element=edge_to_element,
+        source_edges=source_edges,
+    )
+
+    if element.lumped_elements:
+        validate_lumped_element_nodes(element.lumped_elements, len(mesh_nodes), element.name)
 
     return mesh

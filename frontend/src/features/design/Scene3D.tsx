@@ -123,7 +123,7 @@ function CameraController({ bounds }: { bounds: ReturnType<typeof calculateBound
  */
 const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeof calculateBounds> }>(
   function SceneControlsHelper({ bounds }, ref) {
-    const { camera, controls, gl } = useThree();
+    const { camera, controls } = useThree();
 
     useImperativeHandle(ref, () => ({
       zoomIn: () => {
@@ -177,7 +177,7 @@ const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeo
  * Automatically scales to fit antenna geometry
  */
 const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
-  function Scene3D({ children, showScale = true, showAxisLabels = true, elements, mesh, gridVisible = true, onGridVisibilityChange, cameraMode = 'perspective' }, ref) {
+  function Scene3D({ children, showScale: _showScale = true, showAxisLabels = true, elements, mesh, gridVisible = true, onGridVisibilityChange: _onGridVisibilityChange, cameraMode = 'perspective' }, ref) {
   const controlsRef = useRef<any>(null);
 
   // Calculate scene bounds based on antenna geometry

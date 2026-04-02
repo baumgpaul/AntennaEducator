@@ -89,6 +89,7 @@ interface TreeViewPanelProps {
   onElementDelete?: (elementId: string) => void;
   onElementDuplicate?: (elementId: string) => void;
   onElementRename?: (elementId: string, newName: string) => void;
+  onElementEdit?: (elementId: string) => void;
   onElementLock?: (elementId: string, locked: boolean) => void;
   onElementVisibilityToggle?: (elementId: string, visible: boolean) => void;
 
@@ -150,6 +151,7 @@ function TreeViewPanel({
   onElementDelete,
   onElementDuplicate,
   onElementRename,
+  onElementEdit,
   onElementLock,
   onElementVisibilityToggle,
   mode = 'designer',
@@ -168,8 +170,8 @@ function TreeViewPanel({
   selectedViewId,
   selectedItemId,
   onViewSelect,
-  onViewDelete,
-  onViewRename,
+  onViewDelete: _onViewDelete,
+  onViewRename: _onViewRename,
   onItemSelect,
   onItemDelete,
   onItemVisibilityToggle,
@@ -365,6 +367,11 @@ function TreeViewPanel({
     handleCloseContextMenu();
   };
 
+  const handleEditClick = (elementId: string) => {
+    onElementEdit?.(elementId);
+    handleCloseContextMenu();
+  };
+
   const handleDeleteClick = (elementId: string) => {
     if (window.confirm('Are you sure you want to delete this element?')) {
       onElementDelete?.(elementId);
@@ -372,6 +379,7 @@ function TreeViewPanel({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleLockClick = (elementId: string, currentLocked: boolean) => {
     onElementLock?.(elementId, !currentLocked);
     handleCloseContextMenu();
@@ -425,6 +433,7 @@ function TreeViewPanel({
                       (node.type !== 'element' && selectedNodeId === node.id);
     // For element nodes, use Redux visible state; for others use local state
     const visible = node.type === 'element' ? (node.visible ?? true) : isVisible(node.id);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const element = elements?.find(el => el.id === node.elementId && node.type === 'element');
 
     if (hasChildren) {
@@ -1044,6 +1053,15 @@ function TreeViewPanel({
           contextMenu ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined
         }
       >
+        {contextMenu && elements?.find(el => el.id === contextMenu.elementId)?.type === 'custom' && (
+          <MenuItem
+            onClick={() => contextMenu && handleEditClick(contextMenu.elementId)}
+            sx={{ gap: 1 }}
+          >
+            <Edit fontSize="small" />
+            Edit Geometry
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => contextMenu && handleRenameClick(contextMenu.elementId)}
           sx={{ gap: 1 }}

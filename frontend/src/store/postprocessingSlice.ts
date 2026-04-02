@@ -12,7 +12,6 @@ import type {
   ViewConfiguration,
   ViewItem,
   ViewType,
-  ViewItemType,
 } from '../types/postprocessing';
 import {
   DEFAULT_VIEW_CONFIG,

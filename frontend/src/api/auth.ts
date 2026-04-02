@@ -4,7 +4,7 @@
  */
 
 import { authClient } from './client'
-import type { User, AuthTokens } from '@/types/models'
+import type { User } from '@/types/models'
 
 // ============================================================================
 // Request/Response Types

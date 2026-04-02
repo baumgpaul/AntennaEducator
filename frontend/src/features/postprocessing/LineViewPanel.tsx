@@ -4,10 +4,6 @@
  */
 
 import { Box, Typography, Divider } from '@mui/material';
-import { useAppSelector } from '@/store/hooks';
-import ImpedancePlot from './plots/ImpedancePlot';
-import VoltagePlot from './plots/VoltagePlot';
-import CurrentPlot from './plots/CurrentPlot';
 import type { ViewConfiguration } from '@/types/postprocessing';
 
 interface LineViewPanelProps {
@@ -15,12 +11,7 @@ interface LineViewPanelProps {
 }
 
 function LineViewPanel({ view }: LineViewPanelProps) {
-  // Get solver results from Redux
-  const results = useAppSelector((state) => state.solver.results);
-  const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
-  const elements = useAppSelector((state) => state.design.elements);
-
-  // Filter visible items
+  // Render each plot type
   const visibleItems = view.items.filter((item) => item.visible);
 
   if (visibleItems.length === 0) {
@@ -42,7 +33,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
   }
 
   // Render each plot type
-  const renderPlot = (item: ViewConfiguration['items'][0], index: number) => {
+  const renderPlot = (item: ViewConfiguration['items'][0], _index: number) => {
     // Note: impedance/voltage/current plots are deprecated and need implementation
     // They require restructuring FrequencySweepResult to include these data
     return (

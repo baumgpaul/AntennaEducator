@@ -21,7 +21,6 @@ import { AddFieldDialog } from './AddFieldDialog';
 import DirectivitySettingsDialog from './DirectivitySettingsDialog';
 import type { AntennaElement } from '@/types/models';
 import type { AppDispatch, RootState } from '@/store/store';
-import { useAppStore } from '@/store/hooks';
 import {
   addFieldRegion,
   deleteFieldRegion,
@@ -62,9 +61,8 @@ interface SolverTabProps {
   solverStatus?: 'idle' | 'preparing' | 'running' | 'completed' | 'error' | 'postprocessing-ready';
 }
 
-export function SolverTab({ elements, selectedElementId, onElementSelect, onElementVisibilityToggle, solverStatus = 'idle' }: SolverTabProps) {
+export function SolverTab({ elements, selectedElementId, onElementSelect, onElementVisibilityToggle, solverStatus: _solverStatus = 'idle' }: SolverTabProps) {
   const dispatch = useDispatch<AppDispatch>();
-  const store = useAppStore();
 
   // Redux state
   const requestedFields = useSelector((state: RootState) => state.solver.requestedFields) as FieldDefinition[];

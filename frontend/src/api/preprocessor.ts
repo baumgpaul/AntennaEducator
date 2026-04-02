@@ -8,6 +8,7 @@ import type {
   DipoleConfig,
   LoopConfig,
   RodConfig,
+  CustomConfig,
   PreprocessorResponse,
   LumpedElement,
   Source,
@@ -49,6 +50,14 @@ export const createLoop = async (config: LoopConfig): Promise<PreprocessorRespon
  */
 export const createRod = async (config: RodConfig): Promise<PreprocessorResponse> => {
   const response = await preprocessorClient.post('/api/antenna/rod', config)
+  return handleApiResponse(response)
+}
+
+/**
+ * Create a custom antenna from explicit node/edge definitions
+ */
+export const createCustom = async (config: CustomConfig): Promise<PreprocessorResponse> => {
+  const response = await preprocessorClient.post('/api/antenna/custom', config)
   return handleApiResponse(response)
 }
 
@@ -180,6 +189,45 @@ export async function generateRodMesh(formData: any): Promise<PreprocessorRespon
   return createRod(config)
 }
 
+/**
+ * Generate custom antenna mesh from dialog form data
+ */
+export const generateCustomMesh = async (formData: {
+  name: string
+  nodes: Array<{ id: number; x: number; y: number; z: number; radius?: number }>
+  edges: Array<{ node_start: number; node_end: number; radius?: number }>
+  sources?: Array<{
+    type: 'voltage' | 'current'
+    amplitude: { real: number; imag: number }
+    node_start: number
+    node_end: number
+    series_R?: number
+    series_L?: number
+    series_C_inv?: number
+    tag?: string
+  }>
+  lumped_elements?: Array<{
+    type: string
+    R?: number
+    L?: number
+    C_inv?: number
+    node_start: number
+    node_end: number
+    tag?: string
+  }>
+  variable_context?: Array<{ name: string; expression: string; unit?: string; description?: string }>
+}): Promise<PreprocessorResponse> => {
+  const config: CustomConfig = {
+    name: formData.name,
+    nodes: formData.nodes,
+    edges: formData.edges,
+    sources: formData.sources,
+    lumped_elements: formData.lumped_elements,
+    variable_context: formData.variable_context,
+  }
+  return createCustom(config)
+}
+
 // Wrapper function for lumped element dialog
 export async function addLumpedElementToMesh(formData: any): Promise<LumpedElement> {
   // Convert dialog data to LumpedElement shape
@@ -246,9 +294,11 @@ const preprocessorApi = {
   createDipole,
   createLoop,
   createRod,
+  createCustom,
   generateDipoleMesh,
   generateLoopMesh,
   generateRodMesh,
+  generateCustomMesh,
   addLumpedElementToMesh,
   addSourceToMesh,
 }

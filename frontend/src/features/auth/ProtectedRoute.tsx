@@ -15,7 +15,7 @@ interface ProtectedRouteProps {
  * user from briefly seeing the app and then being kicked to login.
  */
 function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, sessionValidated, loading } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, sessionValidated } = useAppSelector((state) => state.auth);
   const location = useLocation();
   const dispatch = useAppDispatch();
 

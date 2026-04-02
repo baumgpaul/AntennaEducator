@@ -122,14 +122,14 @@ export class LocalAuthService implements IAuthService {
   /**
    * Password reset (not implemented for local auth)
    */
-  async forgotPassword(email: string): Promise<void> {
+  async forgotPassword(_email: string): Promise<void> {
     throw new Error('Password reset not implemented for local authentication')
   }
 
   /**
    * Confirm password reset (not implemented for local auth)
    */
-  async confirmPasswordReset(email: string, code: string, newPassword: string): Promise<void> {
+  async confirmPasswordReset(_email: string, _code: string, _newPassword: string): Promise<void> {
     throw new Error('Password reset not implemented for local authentication')
   }
 }

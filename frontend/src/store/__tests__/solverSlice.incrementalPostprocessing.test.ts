@@ -7,7 +7,7 @@ import solverReducer, {
   addFieldRegion,
   updateFieldResult,
 } from '../solverSlice';
-import type { FieldDefinition2D, FieldDefinition3D } from '@/types/fieldDefinitions';
+import type { FieldDefinition2D } from '@/types/fieldDefinitions';
 
 // Mock API calls
 vi.mock('@/api/postprocessor', () => ({

@@ -141,17 +141,43 @@ export interface RodConfig {
   end_point?: Vector3D
 }
 
+export interface CustomConfig {
+  name?: string
+  nodes: Array<{ id: number; x: number; y: number; z: number; radius?: number }>
+  edges: Array<{ node_start: number; node_end: number; radius?: number }>
+  sources?: Array<{
+    type: 'voltage' | 'current'
+    amplitude: { real: number; imag: number }
+    node_start: number
+    node_end: number
+    series_R?: number
+    series_L?: number
+    series_C_inv?: number
+    tag?: string
+  }>
+  lumped_elements?: Array<{
+    type: string
+    R?: number
+    L?: number
+    C_inv?: number
+    node_start: number
+    node_end: number
+    tag?: string
+  }>
+  variable_context?: Array<{ name: string; expression: string; unit?: string; description?: string }>
+}
+
 // ============================================================================
 // Multi-Element System Types
 // ============================================================================
 
-export type AntennaType = 'dipole' | 'loop' | 'rod'
+export type AntennaType = 'dipole' | 'loop' | 'rod' | 'custom'
 
 export interface AntennaElement {
   id: string
   type: AntennaType
   name: string
-  config: DipoleConfig | LoopConfig | RodConfig
+  config: DipoleConfig | LoopConfig | RodConfig | CustomConfig
   position: Vector3D
   rotation: Vector3D  // Euler angles (rx, ry, rz) in radians
   mesh: Mesh

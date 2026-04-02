@@ -3,7 +3,7 @@
  * Tests for projects list, filtering, search, create, update, delete
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
@@ -91,7 +91,7 @@ describe('ProjectsPage', () => {
       })
     );
 
-    const { store } = renderWithRedux(<ProjectsPage />);
+    renderWithRedux(<ProjectsPage />);
 
     // Error alert should appear after fetch fails
     const alert = await screen.findByRole('alert', {}, { timeout: 3000 });

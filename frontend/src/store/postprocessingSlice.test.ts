@@ -21,12 +21,8 @@ import postprocessingReducer, {
   clearViewConfigurations,
   setAddViewDialogOpen,
   selectViewConfigurations,
-  selectSelectedViewId,
   selectSelectedView,
   selectSelectedViewItems,
-  selectViewById,
-  selectItemById,
-  selectSelectedItemId,
   selectSelectedItem,
 } from './postprocessingSlice';
 import type { PostprocessingState, ViewConfiguration, ViewItem } from '../types/postprocessing';

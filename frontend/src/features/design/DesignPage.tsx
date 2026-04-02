@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Box, Snackbar, Alert, Tabs, Tab, Typography, IconButton, Tooltip, Badge } from '@mui/material';
+import { Box, Snackbar, Alert, Tabs, Tab, IconButton, Tooltip } from '@mui/material';
 import { Description as DescriptionIcon } from '@mui/icons-material';
 import { debounce } from 'lodash';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ import {
   generateDipole,
   generateLoop,
   generateRod,
+  generateCustom,
   remeshElementOrientation,
   remeshElementExpressions,
   addLumpedElement,
@@ -46,10 +47,10 @@ import TreeViewPanel from './TreeViewPanel';
 import PropertiesPanel from './PropertiesPanel';
 import RibbonMenu from './RibbonMenu';
 import type { Scene3DHandle } from './Scene3D';
-import ViewControls from './ViewControls';
 import { DipoleDialog } from './DipoleDialog';
 import { LoopDialog } from './LoopDialog';
 import { RodDialog } from './RodDialog';
+import { CustomAntennaDialog } from './CustomAntennaDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
 import { FrequencySweepDialog } from './FrequencySweepDialog';
@@ -138,12 +139,15 @@ function DesignPage() {
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [cameraMode, setCameraMode] = useState<'perspective' | 'orthographic'>('perspective');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
   const [dipoleDialogOpen, setDipoleDialogOpen] = useState(false);
   const [loopDialogOpen, setLoopDialogOpen] = useState(false);
   const [rodDialogOpen, setRodDialogOpen] = useState(false);
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
+  const [editingCustomElement, setEditingCustomElement] = useState<string | null>(null);
   const [lumpedDialogOpen, setLumpedDialogOpen] = useState(false);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [frequencySweepDialogOpen, setFrequencySweepDialogOpen] = useState(false);
@@ -473,6 +477,9 @@ function DesignPage() {
       case 'rod':
         setRodDialogOpen(true);
         break;
+      case 'custom':
+        setCustomDialogOpen(true);
+        break;
       case 'lumped-element':
         setLumpedDialogOpen(true);
         break;
@@ -542,6 +549,38 @@ function DesignPage() {
       }));
       throw error;
     }
+  };
+
+  const handleCustomGenerate = async (data: any) => {
+    try {
+      // If editing, remove the old element first
+      if (editingCustomElement) {
+        dispatch(removeElement(editingCustomElement));
+        setEditingCustomElement(null);
+      }
+      await dispatch(generateCustom(data)).unwrap();
+      dispatch(addNotification({
+        id: Date.now(),
+        message: `Custom antenna "${data.name}" ${editingCustomElement ? 'updated' : 'generated'} successfully!`,
+        severity: 'success',
+        duration: 5000,
+      }));
+    } catch (error: any) {
+      dispatch(addNotification({
+        id: Date.now(),
+        message: error || 'Failed to generate custom antenna',
+        severity: 'error',
+        duration: 5000,
+      }));
+      throw error;
+    }
+  };
+
+  const handleEditElement = (elementId: string) => {
+    const element = elements.find((el) => el.id === elementId);
+    if (!element || element.type !== 'custom') return;
+    setEditingCustomElement(elementId);
+    setCustomDialogOpen(true);
   };
 
   const handleAddLumpedElement = async (data: any) => {
@@ -912,7 +951,7 @@ function DesignPage() {
       // Build base multi-antenna request (without frequency)
       const baseRequest = buildMultiAntennaRequest(elements, params.startFrequency) as MultiAntennaRequest;
 
-      // Remove frequency field since sweep will add it per-iteration
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { frequency: _, ...requestWithoutFreq } = baseRequest;
 
       dispatch(addNotification({
@@ -1031,6 +1070,7 @@ function DesignPage() {
             onElementDelete={handleElementDelete}
             onElementDuplicate={handleElementDuplicate}
             onElementRename={handleElementRename}
+            onElementEdit={handleEditElement}
             onElementLock={handleElementLock}
             onElementVisibilityToggle={handleElementVisibilityToggle}
             // Legacy props for backward compatibility
@@ -1164,6 +1204,38 @@ function DesignPage() {
         onClose={() => setRodDialogOpen(false)}
         onGenerate={handleRodGenerate}
         loading={meshGenerating}
+      />
+      <CustomAntennaDialog
+        open={customDialogOpen}
+        onClose={() => { setCustomDialogOpen(false); setEditingCustomElement(null); }}
+        onGenerate={handleCustomGenerate}
+        initialData={(() => {
+          if (!editingCustomElement) return undefined;
+          const el = elements.find((e) => e.id === editingCustomElement);
+          if (!el || el.type !== 'custom') return undefined;
+          const cfg = (el.config as any)?.parameters || el.config as any;
+          const meshNodes = el.mesh?.nodes ?? [];
+          const meshEdges = el.mesh?.edges ?? [];
+          const sourceIds = (el.sources ?? []).flatMap((s: any) =>
+            [s.node_start, s.node_end].filter((id: number) => id != null && id > 0)
+          );
+          return {
+            elementId: el.id,
+            name: el.name,
+            nodes: (cfg.nodes ?? meshNodes).map((n: any) => ({
+              id: n.id ?? n.index,
+              x: n.x ?? n.position?.[0] ?? 0,
+              y: n.y ?? n.position?.[1] ?? 0,
+              z: n.z ?? n.position?.[2] ?? 0,
+            })),
+            edges: (cfg.edges ?? meshEdges).map((e: any) => ({
+              node_start: e.node_start ?? e.start,
+              node_end: e.node_end ?? e.end,
+              radius: e.radius,
+            })),
+            sourceNodeIds: sourceIds,
+          };
+        })()}
       />
       <LumpedElementDialog
         open={lumpedDialogOpen}

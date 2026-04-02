@@ -20,7 +20,6 @@ import documentationReducer, {
   saveDocumentation,
   uploadImage,
   deleteImage,
-  type DocumentationState,
 } from './documentationSlice';
 
 function createStore() {

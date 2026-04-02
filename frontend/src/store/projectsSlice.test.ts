@@ -14,7 +14,7 @@ import projectsReducer, {
   clearError
 } from './projectsSlice';
 
-import type { Project, ProjectsState } from '../../types/models';
+import type { Project } from '../../types/models';
 
 describe('projectsSlice', () => {
   let store: ReturnType<typeof configureStore>;

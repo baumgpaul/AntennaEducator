@@ -12,15 +12,18 @@ from backend.common.auth.token_dependency import TokenCheckResult, require_simul
 from backend.common.utils.expressions import ExpressionError
 
 from .builders import (
+    create_custom,
     create_dipole,
     create_loop,
     create_rod,
+    custom_to_mesh,
     dipole_to_mesh,
     loop_to_mesh,
     rod_to_mesh,
 )
 from .config import settings
 from .schemas import (
+    CustomRequest,
     DipoleRequest,
     GeometryResponse,
     LoopRequest,
@@ -203,6 +206,76 @@ async def create_rod_antenna(
             element=element.model_dump(),
             mesh=mesh.model_dump(),
             message=f"Rod antenna created: {element.name}",
+        )
+    except (ValueError, ExpressionError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+
+@app.post(
+    f"{settings.api_prefix}/antenna/custom",
+    response_model=GeometryResponse,
+    tags=["Antenna Builders"],
+)
+async def create_custom_antenna(
+    request: CustomRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
+):
+    """Create a custom antenna element from explicit node/edge definitions."""
+    try:
+        # Convert nodes and edges to builder dict format
+        nodes_dicts = [
+            {
+                "id": n.id,
+                "x": n.x,
+                "y": n.y,
+                "z": n.z,
+                "radius": n.radius,
+            }
+            for n in request.nodes
+        ]
+        edges_dicts = [
+            {
+                "node_start": e.node_start,
+                "node_end": e.node_end,
+                "radius": e.radius,
+            }
+            for e in request.edges
+        ]
+
+        # Convert sources (custom uses explicit node_start/node_end, not position)
+        sources_dicts = None
+        if request.sources:
+            sources_dicts = [
+                {
+                    "type": s.type,
+                    "amplitude": {"real": s.amplitude.real, "imag": s.amplitude.imag},
+                    "node_start": s.node_start if hasattr(s, "node_start") else None,
+                    "node_end": s.node_end if hasattr(s, "node_end") else None,
+                    "series_R": s.series_R,
+                    "series_L": s.series_L,
+                    "series_C_inv": s.series_C_inv,
+                    "tag": s.tag,
+                }
+                for s in request.sources
+            ]
+
+        lumped_dicts = _convert_lumped_elements(request.lumped_elements)
+
+        element = create_custom(
+            nodes=nodes_dicts,
+            edges=edges_dicts,
+            sources=sources_dicts,
+            lumped_elements=lumped_dicts,
+            name=request.name,
+        )
+        mesh = custom_to_mesh(element)
+        return GeometryResponse(
+            element=element.model_dump(),
+            mesh=mesh.model_dump(),
+            message=f"Custom antenna created: {element.name}",
         )
     except (ValueError, ExpressionError) as e:
         raise HTTPException(status_code=400, detail=str(e))

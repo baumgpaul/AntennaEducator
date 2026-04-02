@@ -58,6 +58,13 @@ class SourceRequest(BaseModel):
         default="center",
         description="Source position: 'center' for dipole, 'base' for rod, or segment index (int) for loop/rod",
     )
+    # Explicit node references for custom antennas
+    node_start: Optional[int] = Field(
+        default=None, description="Starting node index (for custom antennas)"
+    )
+    node_end: Optional[int] = Field(
+        default=None, description="Ending node index (for custom antennas)"
+    )
     # Series impedance for voltage sources (matches enhanced Source model)
     series_R: float = Field(default=0.0, ge=0, description="Series resistance in Ohms")
     series_L: float = Field(default=0.0, ge=0, description="Series inductance in Henries")
@@ -203,6 +210,59 @@ class RodRequest(BaseModel):
     def resolve_expressions(cls, data: Any) -> Any:
         if isinstance(data, dict) and data.get("variable_context"):
             _resolve_expressions(data, _ROD_NUMERIC, data["variable_context"])
+        return data
+
+
+class CustomNodeInput(BaseModel):
+    """A single node in a custom antenna geometry."""
+
+    id: int = Field(gt=0, description="Node ID (positive integer, 1-based)")
+    x: float = Field(description="X coordinate in meters")
+    y: float = Field(description="Y coordinate in meters")
+    z: float = Field(description="Z coordinate in meters")
+    radius: float = Field(default=0.001, gt=0, description="Wire radius at this node in meters")
+
+
+class CustomEdgeInput(BaseModel):
+    """An edge connecting two nodes in a custom antenna geometry."""
+
+    node_start: int = Field(description="Start node ID")
+    node_end: int = Field(description="End node ID")
+    radius: Optional[float] = Field(
+        default=None, gt=0, description="Per-edge radius override (uses node avg if None)"
+    )
+
+
+# Numeric fields in custom node coordinates that accept expressions
+_CUSTOM_NODE_NUMERIC = ["x", "y", "z", "radius"]
+
+
+class CustomRequest(BaseModel):
+    """Request to create a custom wire antenna from explicit nodes and edges."""
+
+    name: str = Field(default="Custom Antenna", description="Name for the element")
+    nodes: List["CustomNodeInput"] = Field(min_length=1, description="Node definitions")
+    edges: List["CustomEdgeInput"] = Field(min_length=1, description="Edge connectivity")
+    sources: List[SourceRequest] = Field(
+        default_factory=list, description="Source excitations with explicit node indices"
+    )
+    lumped_elements: List[LumpedElementRequest] = Field(
+        default_factory=list, description="Lumped circuit elements with explicit node indices"
+    )
+    variable_context: Optional[List[VariableDefinition]] = Field(
+        default=None, description="Optional variable definitions for expression evaluation"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_expressions(cls, data: Any) -> Any:
+        """Resolve expressions in node coordinates using variable context."""
+        if isinstance(data, dict) and data.get("variable_context"):
+            variables = data["variable_context"]
+            nodes = data.get("nodes", [])
+            for node in nodes:
+                if isinstance(node, dict):
+                    _resolve_expressions(node, _CUSTOM_NODE_NUMERIC, variables)
         return data
 
 

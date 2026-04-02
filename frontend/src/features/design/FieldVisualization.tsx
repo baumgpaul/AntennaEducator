@@ -663,7 +663,7 @@ function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
       // Create color lookup from magnitudes
       const minMag = minVal ?? arrayMin(magnitudes);
       const maxMag = maxVal ?? arrayMax(magnitudes);
-      const range = maxMag - minMag || 1;
+      const range = maxMag - minMag || 1; // eslint-disable-line @typescript-eslint/no-unused-vars
 
       // Get color map function
       const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);

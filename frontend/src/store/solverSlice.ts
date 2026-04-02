@@ -11,7 +11,7 @@ import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { solveMultiAntenna } from '@/api/solver';
 import { computeFarField, computeNearField } from '@/api/postprocessor';
 import { generateObservationPoints } from '@/utils/fieldGeneration';
-import { extractComplexValue, convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
+import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
 import { getCurrentUserAsync } from '@/store/authSlice';
 
 // ============================================================================
@@ -1438,7 +1438,7 @@ const solverSlice = createSlice({
     });
 
     // computeRadiationPattern
-    builder.addCase(computeRadiationPattern.pending, (state) => {
+    builder.addCase(computeRadiationPattern.pending, (_state) => {
       // No-op: progress tracked by parent workflow
     });
 
@@ -1446,7 +1446,7 @@ const solverSlice = createSlice({
       state.radiationPattern = action.payload;
     });
 
-    builder.addCase(computeRadiationPattern.rejected, (state, action) => {
+    builder.addCase(computeRadiationPattern.rejected, (state, _action) => {
       state.radiationPattern = null;
     });
 
@@ -1503,7 +1503,7 @@ const solverSlice = createSlice({
       state.error = null;
     });
 
-    builder.addCase(solveSingleFrequencyWorkflow.fulfilled, (state, action) => {
+    builder.addCase(solveSingleFrequencyWorkflow.fulfilled, (state, _action) => {
       state.status = 'completed';
       state.progress = 100;
     });
@@ -1570,7 +1570,7 @@ const solverSlice = createSlice({
           action.type === 'design/deleteLumpedElement'
         );
       },
-      (state, action) => {
+      (state, _action) => {
         // Only mark stale if we have results
         if (state.results || state.multiAntennaResults || state.frequencySweep) {
           state.resultsStale = true;

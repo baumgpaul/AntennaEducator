@@ -151,7 +151,7 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
 
   describe('Loop Type Switching', () => {
     it('should support circular loop type', async () => {
-      const user = userEvent.setup();
+      userEvent.setup();
       render(
         <Provider store={createTestStore()}>
           <LoopDialog

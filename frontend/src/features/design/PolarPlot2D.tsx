@@ -243,7 +243,7 @@ const PolarPlot2D: React.FC<PolarPlot2DProps> = ({
     centerY: number,
     radius: number,
     scaleType: string,
-    normalize: boolean
+    _normalize: boolean
   ) => {
     ctx.fillStyle = '#888'
     ctx.font = '11px sans-serif'
@@ -260,7 +260,7 @@ const PolarPlot2D: React.FC<PolarPlot2DProps> = ({
     }
   }
 
-  const drawLegend = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+  const drawLegend = (ctx: CanvasRenderingContext2D, width: number, _height: number) => {
     const legendX = width - 120
     const legendY = 20
 

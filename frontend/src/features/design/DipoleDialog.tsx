@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -23,6 +23,8 @@ import {
   parseNumericOrExpression,
   BUILTIN_CONSTANTS,
 } from '@/utils/expressionEvaluator';
+import { WirePreview3D } from '@/components/WirePreview3D';
+import { useDipolePreview } from '@/hooks/useAntennaPreview';
 
 // Validation schema — expression-capable fields store strings
 const dipoleSchema = z.object({
@@ -114,6 +116,24 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
   // Watch source type for dynamic unit label
   const sourceType = watch('sourceType');
 
+  // Watch all geometry fields for live 3D preview
+  const previewGeometry = useDipolePreview({
+    length: watch('length'),
+    radius: watch('radius'),
+    gap: watch('gap'),
+    segments: watch('segments'),
+    position: {
+      x: watch('position.x'),
+      y: watch('position.y'),
+      z: watch('position.z'),
+    },
+    orientation: {
+      x: orientationX,
+      y: orientationY,
+      z: orientationZ,
+    },
+  });
+
   // Determine active preset based on current values
   const getActivePreset = (): 'X' | 'Y' | 'Z' | 'Custom' => {
     if (orientationX === '1' && orientationY === '0' && orientationZ === '0') return 'X';
@@ -198,8 +218,19 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
     }
   };
 
+  // Compute source node IDs for port markers (nodes adjacent to the feed gap)
+  const sourceNodeIds = useMemo(() => {
+    if (previewGeometry.nodes.length < 2) return new Set<number>();
+    // For a dipole, the source is at the gap: last node of lower arm and first node of upper arm
+    const segCount = Math.max(Math.round(parseFloat(watch('segments')) || 21), 2);
+    const armSegments = Math.max(Math.floor(segCount / 2), 1);
+    const lowerEnd = armSegments + 1;    // last node of lower arm
+    const upperStart = armSegments + 2;   // first node of upper arm
+    return new Set<number>([lowerEnd, upperStart]);
+  }, [previewGeometry.nodes.length, watch]);
+
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>
         Dipole Antenna Configuration
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -209,6 +240,9 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent dividers>
+          <Box sx={{ display: 'flex', gap: 3 }}>
+            {/* Left side: form fields */}
+            <Box sx={{ flex: '1 1 50%', minWidth: 0 }}>
           <Grid container spacing={3}>
             {/* Name */}
             <Grid item xs={12}>
@@ -553,6 +587,29 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               </Box>
             </Grid>
           </Grid>
+            </Box>
+
+            {/* Right side: 3D preview */}
+            <Box sx={{ flex: '1 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, textAlign: 'center' }}>
+                3D Preview
+              </Typography>
+              {previewGeometry.nodes.length >= 2 ? (
+                <WirePreview3D
+                  nodes={previewGeometry.nodes}
+                  edges={previewGeometry.edges}
+                  sourceNodes={sourceNodeIds}
+                  showLabels
+                  height="100%"
+                  width="100%"
+                />
+              ) : (
+                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#1a1a2e', borderRadius: 1, color: '#666', minHeight: 300 }}>
+                  Adjust parameters to see preview
+                </Box>
+              )}
+            </Box>
+          </Box>
         </DialogContent>
 
         <DialogActions>
