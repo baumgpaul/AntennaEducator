@@ -3,7 +3,7 @@
  *
  * CSV format (combined single-file):
  *   # NODES
- *   N, id, x, y, z [, P]             — optional trailing flag (P=port)
+ *   N, id, x, y, z [, T]             — optional trailing flag (T=terminal, P=backward compat)
  *   # EDGES
  *   E, node_start, node_end [, radius]
  *
@@ -37,7 +37,7 @@ E, 1, 2
     expect(result.edges[0]).toEqual({ node_start: 1, node_end: 2 });
   });
 
-  it('parses node with port flag', () => {
+  it('parses node with terminal flag (P for backward compatibility)', () => {
     const csv = `
 N, 1, 0, 0, 0, P
 N, 2, 1, 0, 0
@@ -46,11 +46,11 @@ E, 1, 2
     const result = parseCustomAntennaCSV(csv);
 
     expect(result.errors).toEqual([]);
-    expect(result.nodes[0].nodeType).toBe('port');
+    expect(result.nodes[0].nodeType).toBe('terminal');
     expect(result.nodes[1].nodeType).toBe('regular'); // default
   });
 
-  it('parses full-word PORT flag', () => {
+  it('parses full-word PORT flag as terminal', () => {
     const csv = `
 N, 1, 0, 0, 0, PORT
 N, 2, 1, 0, 0
@@ -59,7 +59,7 @@ E, 1, 2
     const result = parseCustomAntennaCSV(csv);
 
     expect(result.errors).toEqual([]);
-    expect(result.nodes[0].nodeType).toBe('port');
+    expect(result.nodes[0].nodeType).toBe('terminal');
     expect(result.nodes[1].nodeType).toBe('regular');
   });
 

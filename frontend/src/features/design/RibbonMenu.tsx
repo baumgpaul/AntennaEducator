@@ -290,7 +290,15 @@ function RibbonMenu({
                   Edit Circuitry
                 </Box>
                 <ButtonGroup variant="outlined" size="small">
-                  <Tooltip title="Add voltage source">
+                  <Tooltip title="Open circuit editor (sources + loads)">
+                    <Button
+                      startIcon={<AccountTree />}
+                      onClick={() => onAntennaTypeSelect?.('circuit-editor')}
+                    >
+                      Circuit
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Add voltage source (legacy)">
                     <Button
                       startIcon={<RadioButtonChecked />}
                       onClick={() => onAntennaTypeSelect?.('voltage-source')}
@@ -298,7 +306,7 @@ function RibbonMenu({
                       Source
                     </Button>
                   </Tooltip>
-                  <Tooltip title="Add lumped element (R/L/C)">
+                  <Tooltip title="Add lumped element (R/L/C) (legacy)">
                     <Button
                       startIcon={<Widgets />}
                       onClick={() => onAntennaTypeSelect?.('lumped-element')}
