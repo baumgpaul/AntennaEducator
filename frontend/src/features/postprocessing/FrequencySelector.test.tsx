@@ -1,5 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
-import { FrequencySelector } from './FrequencySelector';
+import { describe, it, expect } from 'vitest';
 
 // Unit test the pure logic helpers without DOM rendering
 // (avoids jsdom issues — see copilot-instructions.md)

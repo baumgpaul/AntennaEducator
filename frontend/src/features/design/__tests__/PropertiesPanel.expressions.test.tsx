@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
 import { formatValue } from '@/utils/expressionEvaluator';
 
 describe('PropertiesPanel — expression display', () => {

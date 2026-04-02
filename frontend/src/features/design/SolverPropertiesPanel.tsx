@@ -13,7 +13,6 @@ import {
   InputLabel,
   Button,
   FormHelperText,
-  FormGroup,
   RadioGroup,
   Radio,
   Dialog,
@@ -239,6 +238,7 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
   };
 
   const clearLocalValue = (key: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { [key]: _removed, ...rest } = localValues;
     setLocalValues(rest);
   };

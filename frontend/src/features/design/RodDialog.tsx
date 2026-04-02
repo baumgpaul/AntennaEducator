@@ -6,6 +6,7 @@ import {
   DialogActions,
   Button,
   Grid,
+  Box,
   Alert,
   CircularProgress,
   Typography,
@@ -17,6 +18,8 @@ import ExpressionField from '@/components/ExpressionField';
 import { useAppSelector } from '@/store/hooks';
 import { selectVariableContextNumeric } from '@/store/variablesSlice';
 import { parseNumericOrExpression, BUILTIN_CONSTANTS } from '@/utils/expressionEvaluator';
+import { WirePreview3D } from '@/components/WirePreview3D';
+import { useRodPreview } from '@/hooks/useAntennaPreview';
 
 // Zod validation schema
 const rodSchema = z.object({
@@ -58,7 +61,8 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    formState: { errors: _errors },
     reset,
     watch,
   } = useForm<RodFormData>({
@@ -81,6 +85,18 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
   const endX = watch('end_x');
   const endY = watch('end_y');
   const endZ = watch('end_z');
+
+  // Live 3D preview
+  const previewGeometry = useRodPreview({
+    start_x: startX,
+    start_y: startY,
+    start_z: startZ,
+    end_x: endX,
+    end_y: endY,
+    end_z: endZ,
+    radius: watch('radius'),
+    segments: watch('segments'),
+  });
 
   // Calculate rod length from expression values
   const ctx = { ...BUILTIN_CONSTANTS, ...variableContext };
@@ -146,10 +162,13 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>Create Metallic Rod</DialogTitle>
       <DialogContent>
         <form id="rod-form" onSubmit={handleSubmit(handleFormSubmit)}>
+          <Box sx={{ display: 'flex', gap: 3 }}>
+            {/* Left side: form fields */}
+            <Box sx={{ flex: '1 1 50%', minWidth: 0 }}>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             {/* Start Point */}
             <Grid item xs={12}>
@@ -326,6 +345,28 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
               </Alert>
             </Grid>
           </Grid>
+            </Box>
+
+            {/* Right side: 3D preview */}
+            <Box sx={{ flex: '1 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, mt: 1, textAlign: 'center' }}>
+                3D Preview
+              </Typography>
+              {previewGeometry.nodes.length >= 2 ? (
+                <WirePreview3D
+                  nodes={previewGeometry.nodes}
+                  edges={previewGeometry.edges}
+                  showLabels
+                  height="100%"
+                  width="100%"
+                />
+              ) : (
+                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#1a1a2e', borderRadius: 1, color: '#666', minHeight: 300 }}>
+                  Adjust parameters to see preview
+                </Box>
+              )}
+            </Box>
+          </Box>
         </form>
       </DialogContent>
       <DialogActions>

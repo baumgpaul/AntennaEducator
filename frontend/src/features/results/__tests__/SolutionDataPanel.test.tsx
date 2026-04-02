@@ -62,6 +62,7 @@ describe('SolutionDataPanel', () => {
 
   const mockCurrentDistribution = [1.0, 0.8, 0.6];
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const mockRadiationPattern = {
     frequency: 300e6,
     theta_angles: [0, 30, 60, 90],

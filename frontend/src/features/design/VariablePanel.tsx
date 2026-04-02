@@ -5,7 +5,7 @@
  * with inline editing of name, expression, unit, and description.
  */
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import {
   Box,
   Typography,
@@ -20,14 +20,12 @@ import {
   TextField,
   IconButton,
   Tooltip,
-  Chip,
   Divider,
 } from '@mui/material'
 import {
   ExpandMore,
   Add as AddIcon,
   Delete as DeleteIcon,
-  Functions as FunctionsIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {

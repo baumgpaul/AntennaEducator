@@ -22,6 +22,7 @@ import { z } from 'zod';
 // Zod Validation Schemas
 // ============================================================================
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const Point3DSchema = z.object({
   x: z.number().min(-10000).max(10000),
   y: z.number().min(-10000).max(10000),

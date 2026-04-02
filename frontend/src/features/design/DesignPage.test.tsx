@@ -4,8 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore, PreloadedState } from '@reduxjs/toolkit';
@@ -96,7 +95,7 @@ describe('DesignPage - Autosave', () => {
       },
     };
 
-    const { store } = renderWithRedux(<DesignPage />, { preloadedState });
+    renderWithRedux(<DesignPage />, { preloadedState });
 
     // DesignPage mounts and dispatches fetchProject — verify component renders
     expect(screen.getByRole('tab', { name: /Designer/i })).toBeInTheDocument();

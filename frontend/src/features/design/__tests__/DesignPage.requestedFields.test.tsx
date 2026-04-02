@@ -2,10 +2,10 @@
  * Tests for requested fields persistence in DesignPage
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, waitFor, cleanup } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
-import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import DesignPage from '../DesignPage';
 import designReducer from '@/store/designSlice';
 import solverReducer from '@/store/solverSlice';
