@@ -256,6 +256,23 @@ const CircuitEdgeComponent: React.FC<EdgeProps> = ({
               ({edgeData.label})
             </Typography>
           )}
+          <Box
+            component="span"
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation();
+              edgeData.onDelete?.(id);
+            }}
+            sx={{
+              ml: 0.5,
+              cursor: 'pointer',
+              color: '#666',
+              fontSize: '0.7rem',
+              lineHeight: 1,
+              '&:hover': { color: '#f44336' },
+            }}
+          >
+            ×
+          </Box>
         </Box>
       </EdgeLabelRenderer>
     </>

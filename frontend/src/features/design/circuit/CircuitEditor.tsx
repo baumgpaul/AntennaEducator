@@ -209,6 +209,39 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     [setRfEdges],
   );
 
+  // Handle node deletion via Delete key or UI action
+  const handleNodesDelete = useCallback(
+    (deletedNodes: RFNode[]) => {
+      const deletedIds = new Set(deletedNodes.map((n) => n.id));
+      // Remove from circuit state (only appended nodes are deletable)
+      setCircuit((prev) => ({
+        ...prev,
+        nodes: prev.nodes.filter((n) => !deletedIds.has(`node-${n.index}`)),
+        // Also remove any components connected to deleted nodes
+        components: prev.components.filter(
+          (c) => !deletedIds.has(`node-${c.nodeA}`) && !deletedIds.has(`node-${c.nodeB}`),
+        ),
+      }));
+      // Remove edges connected to deleted nodes
+      setRfEdges((edges) =>
+        edges.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target)),
+      );
+    },
+    [setRfEdges],
+  );
+
+  // Handle edge deletion via Delete key
+  const handleEdgesDelete = useCallback(
+    (deletedEdges: RFEdge[]) => {
+      const deletedIds = new Set(deletedEdges.map((e) => e.id));
+      setCircuit((prev) => ({
+        ...prev,
+        components: prev.components.filter((c) => !deletedIds.has(c.id)),
+      }));
+    },
+    [],
+  );
+
   // Initialize circuit from element data
   useEffect(() => {
     if (!open || !element) return;
@@ -628,7 +661,8 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
 
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, lineHeight: 1.4 }}>
             Drag between nodes to connect. Select a component type first, then drag.
-            Click edge label to edit. Press Delete to remove selected.
+            Click edge label to edit. Select a node or edge and press <b>Delete</b> to remove.
+            Alt+click label to drag it, double-click to reset.
           </Typography>
         </Box>
 
@@ -658,6 +692,8 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
             edges={rfEdgesWithOffsets}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
+            onNodesDelete={handleNodesDelete}
+            onEdgesDelete={handleEdgesDelete}
             onConnect={onConnect}
             nodeTypes={circuitNodeTypes}
             edgeTypes={circuitEdgeTypes}
