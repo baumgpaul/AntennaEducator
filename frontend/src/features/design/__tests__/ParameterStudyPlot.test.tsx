@@ -106,6 +106,7 @@ describe('ParameterStudyPlot', () => {
     expect(screen.getByRole('tab', { name: /Impedance/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /VSWR/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Return Loss/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Smith Chart/i })).toBeInTheDocument();
   });
 
   it('shows summary info (total time, point count)', () => {

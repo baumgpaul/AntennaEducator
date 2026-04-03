@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 import type { ParameterStudyResult } from '@/types/parameterStudy';
 import { extractPortQuantities, type PortQuantityRow } from '@/types/parameterStudyExtract';
+import { SmithChart, type SmithChartPoint } from './SmithChart';
 
 // ============================================================================
 // Helpers
@@ -49,12 +50,13 @@ const COLORS = [
 // Tab definitions
 // ============================================================================
 
-type QuantityTab = 'impedance' | 'vswr' | 'returnLoss';
+type QuantityTab = 'impedance' | 'vswr' | 'returnLoss' | 'smith';
 
 const TAB_LABELS: Record<QuantityTab, string> = {
   impedance: 'Impedance',
   vswr: 'VSWR',
   returnLoss: 'Return Loss',
+  smith: 'Smith Chart',
 };
 
 // ============================================================================
@@ -96,8 +98,10 @@ export function ParameterStudyPlot({ study }: ParameterStudyPlotProps) {
 
   const is2D = secondaryVar !== null;
 
-  // Build chart data keyed by primary variable
-  const chartData = buildChartData(rows, primaryVar, secondaryVar, activeTab);
+  // Build chart data keyed by primary variable (only for line chart tabs)
+  const chartData = activeTab !== 'smith'
+    ? buildChartData(rows, primaryVar, secondaryVar, activeTab)
+    : [];
 
   // Title: describe the sweep
   const varDesc = is2D ? `${primaryVar} × ${secondaryVar}` : primaryVar;
@@ -122,13 +126,31 @@ export function ParameterStudyPlot({ study }: ParameterStudyPlotProps) {
         <Tab label="Impedance" value="impedance" />
         <Tab label="VSWR" value="vswr" />
         <Tab label="Return Loss" value="returnLoss" />
+        <Tab label="Smith Chart" value="smith" />
       </Tabs>
 
       {/* Chart */}
       <Box sx={{ flex: 1, minHeight: 250, px: 1, pb: 1 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          {renderChart(chartData, primaryVar, activeTab, is2D)}
-        </ResponsiveContainer>
+        {activeTab === 'smith' ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <SmithChart
+              data={rows.map((r) => ({
+                zReal: r.zReal,
+                zImag: r.zImag,
+                label: Object.entries(r.sweepValues)
+                  .map(([k, v]) => `${k}=${fmtAxis(v)}`)
+                  .join(', '),
+              }))}
+              z0={study.config.referenceImpedance}
+              size={Math.min(400, 350)}
+              title={`Smith Chart — Z₀ = ${study.config.referenceImpedance} Ω`}
+            />
+          </Box>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            {renderChart(chartData, primaryVar, activeTab, is2D)}
+          </ResponsiveContainer>
+        )}
       </Box>
     </Box>
   );
