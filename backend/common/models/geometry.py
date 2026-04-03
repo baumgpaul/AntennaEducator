@@ -10,6 +10,30 @@ import numpy as np
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 
+class AppendedNode(BaseModel):
+    """
+    A user-defined auxiliary node for circuit connections.
+
+    Appended nodes extend the PEEC mesh with extra nodes that don't correspond
+    to physical wire segments. They enable lumped element networks (matching
+    circuits, loading networks) between mesh terminal nodes and ground.
+
+    Index must be negative: -1, -2, -3, ...
+    Index 0 is reserved for GND/reference.
+    Positive indices are mesh nodes.
+    """
+
+    index: int = Field(description="Negative index: -1, -2, -3, ...")
+    label: str = Field(default="", description="Human-readable label")
+
+    @field_validator("index")
+    @classmethod
+    def validate_negative_index(cls, v: int) -> int:
+        if v >= 0:
+            raise ValueError("Appended node index must be negative (e.g., -1, -2, -3)")
+        return v
+
+
 class Source(BaseModel):
     """
     Source definition for antenna excitation.
@@ -142,7 +166,19 @@ class AntennaElement(BaseModel):
     lumped_elements: List[LumpedElement] = Field(
         default_factory=list, description="Lumped circuit elements (R, L, C) attached between nodes"
     )
+    appended_nodes: List[AppendedNode] = Field(
+        default_factory=list,
+        description="User-defined auxiliary nodes for circuit networks (indices -1, -2, ...)",
+    )
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @field_validator("appended_nodes")
+    @classmethod
+    def validate_unique_appended_indices(cls, v: List[AppendedNode]) -> List[AppendedNode]:
+        indices = [node.index for node in v]
+        if len(indices) != len(set(indices)):
+            raise ValueError("Duplicate appended node indices are not allowed")
+        return v
 
 
 class Mesh(BaseModel):

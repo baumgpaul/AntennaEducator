@@ -94,7 +94,7 @@ let nextNodeId = 1;
 function createDefaultNodes(): NodeRow[] {
   nextNodeId = 3;
   return [
-    { id: 1, x: '0', y: '0', z: '0', nodeType: 'port' },
+    { id: 1, x: '0', y: '0', z: '0', nodeType: 'terminal' },
     { id: 2, x: '0', y: '0', z: '0.5', nodeType: 'regular' },
   ];
 }
@@ -140,7 +140,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
     const srcIds = new Set(initialData.sourceNodeIds ?? []);
     setName(initialData.name);
     const editNodes: NodeRow[] = initialData.nodes.map((n) => {
-      const nodeType: NodeType = srcIds.has(n.id) ? 'port' : 'regular';
+      const nodeType: NodeType = srcIds.has(n.id) ? 'terminal' : 'regular';
       return { id: n.id, x: String(n.x), y: String(n.y), z: String(n.z), nodeType };
     });
     setNodes(editNodes);
@@ -356,8 +356,8 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
   }, [edges, previewNodes, resolveCtx]);
 
   // Node type sets for preview
-  const portNodeIds = useMemo(() => {
-    return new Set(nodes.filter((n) => n.nodeType === 'port').map((n) => n.id));
+  const terminalNodeIds = useMemo(() => {
+    return new Set(nodes.filter((n) => n.nodeType === 'terminal').map((n) => n.id));
   }, [nodes]);
 
   // -----------------------------------------------------------------------
@@ -541,7 +541,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
                           fullWidth
                         >
                           <MenuItem value="regular">Regular</MenuItem>
-                          <MenuItem value="port">Port</MenuItem>
+                          <MenuItem value="terminal">Terminal</MenuItem>
                         </Select>
                       </TableCell>
                       <TableCell sx={{ p: 0 }}>
@@ -641,7 +641,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
               <WirePreview3D
                 nodes={previewNodes}
                 edges={previewEdges}
-                sourceNodes={portNodeIds}
+                sourceNodes={terminalNodeIds}
                 showLabels
                 showEdgeLabels
                 height="100%"
@@ -664,7 +664,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
             )}
             <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Chip size="small" sx={{ bgcolor: '#6699cc', color: '#fff' }} label="Regular node" />
-              <Chip size="small" sx={{ bgcolor: '#ff4444', color: '#fff' }} label="Port node" />
+              <Chip size="small" sx={{ bgcolor: '#ff4444', color: '#fff' }} label="Terminal node" />
             </Box>
           </Box>
         </Box>

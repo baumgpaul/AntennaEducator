@@ -4,7 +4,7 @@
  * Supported format (combined single-file, comma-delimited):
  *
  *   # Comments start with '#'
- *   N, id, x, y, z [, P]             — node definition (P=port)
+ *   N, id, x, y, z [, T]             — node definition (T=terminal, circuit node)
  *   E, node_start, node_end [, radius]  — edge definition (radius defaults to 0.001)
  *
  * Lines are case-insensitive for the prefix (N/n, E/e).
@@ -15,7 +15,7 @@
 // Public types
 // ---------------------------------------------------------------------------
 
-export type NodeType = 'regular' | 'port';
+export type NodeType = 'regular' | 'terminal';
 
 export interface ParsedNode {
   id: number;
@@ -76,15 +76,15 @@ function parseNodeLine(fields: string[], lineNum: number, errors: string[]): Par
   let nodeType: NodeType = 'regular';
   if (fields.length >= 6) {
     const flag = fields[5].trim().toUpperCase();
-    if (flag === 'P' || flag === 'PORT') {
-      nodeType = 'port';
+    if (flag === 'P' || flag === 'PORT' || flag === 'T' || flag === 'TERMINAL') {
+      nodeType = 'terminal';
     } else if (flag !== '') {
       // It might be an old-style radius — warn and ignore
       const maybeNum = Number(flag);
       if (isFiniteNum(maybeNum)) {
         // Legacy radius field — ignore silently
       } else {
-        errors.push(`Line ${lineNum}: Unrecognized node field '${fields[5].trim()}' (use P for port)`);
+        errors.push(`Line ${lineNum}: Unrecognized node field '${fields[5].trim()}' (use T for terminal or P for backward compatibility)`);
         return null;
       }
     }

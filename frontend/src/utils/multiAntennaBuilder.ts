@@ -350,17 +350,17 @@ export function validateGeometry(
       })
     }
 
-    // Check lumped elements have valid node connections (1-based, 0 = ground)
+    // Check lumped elements have valid node connections (1-based, 0 = ground, negative = appended)
     if (el.lumped_elements) {
       for (const le of el.lumped_elements) {
-        if (le.node_start < 0 || le.node_start > numNodes) {
+        if (le.node_start > numNodes) {
           issues.push({
             severity: 'error',
             element: name,
             message: `Lumped element has invalid node_start: ${le.node_start}`,
           })
         }
-        if (le.node_end < 0 || le.node_end > numNodes) {
+        if (le.node_end > numNodes) {
           issues.push({
             severity: 'error',
             element: name,

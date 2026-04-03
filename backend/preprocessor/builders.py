@@ -32,7 +32,7 @@ def create_dipole(
         orientation: Direction vector [dx, dy, dz] (will be normalized)
         wire_radius: Wire radius in meters
         gap: Gap between dipole halves in meters (creates two separate poles)
-        segments: Number of segments per dipole half (total will be 2*segments if gap > 0)
+        segments: Total number of segments (split equally between halves if gap > 0)
         source: Optional source configuration dict with keys:
                 - type: "voltage" or "current"
                 - amplitude: complex number (real or dict with real/imag)
@@ -127,9 +127,9 @@ def create_dipole(
 def dipole_to_mesh(element: AntennaElement) -> Mesh:
     """
     Convert a dipole antenna element to a computational mesh.
-    Creates two separate poles if gap > 0, matching the reference PEEC implementation.
-    Upper half: from gap/2 to (length-gap)/2
-    Lower half: from -gap/2 to -(length-gap)/2
+    Creates two separate poles if gap > 0.
+    Node ordering: lower arm first (tip → gap), then upper arm (gap → tip).
+    This matches the frontend preview node numbering.
 
     Args:
         element: AntennaElement with type="dipole"
@@ -146,70 +146,72 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
     orientation = np.array(params["orientation"])
     radius = params["wire_radius"]
     gap = params.get("gap", 0.0)
-    n_segments_per_half = params["segments"]
+    # segments parameter is TOTAL segments (frontend convention).
+    # For gap dipoles this is split equally between the two arms.
+    total_segments_param = params["segments"]
 
     nodes = []
     edges = []
 
     if gap > 0:
-        # Create two separate poles with gap in between (symmetric about center)
-        # Upper half: nodes from gap/2 to (length-gap)/2
-        # Lower half: nodes from -gap/2 to -(length-gap)/2
-        # Each half has length (length - gap) / 2
-        z_start_upper = gap / 2.0
-        z_end_upper = (length - gap) / 2.0
+        # Create two separate poles with gap in between (symmetric about center).
+        # Node ordering matches the frontend preview: lower arm first
+        # (tip → gap), then upper arm (gap → tip).
+        n_seg = max(total_segments_param // 2, 1)
 
-        # Create nodes for upper half
-        for i in range(n_segments_per_half + 1):
-            t = i / n_segments_per_half
-            z = z_start_upper + t * (z_end_upper - z_start_upper)
-            node = center + z * orientation
-            nodes.append(node.tolist())
+        # Lower arm: from -(length-gap)/2 (tip) to -gap/2 (gap edge)
+        z_start_lower = -(length - gap) / 2.0
+        z_end_lower = -gap / 2.0
 
-        # Create edges for upper half (1-based node indexing)
-        for i in range(n_segments_per_half):
-            edges.append([i + 1, i + 2])
-
-        # Lower half: nodes from -gap/2 to -(length-gap)/2 (symmetric)
-        # Create nodes for lower half (mirrored)
-        node_offset = n_segments_per_half + 1
-        z_start_lower = -gap / 2.0
-        z_end_lower = -(length - gap) / 2.0
-
-        for i in range(n_segments_per_half + 1):
-            t = i / n_segments_per_half
+        for i in range(n_seg + 1):
+            t = i / n_seg
             z = z_start_lower + t * (z_end_lower - z_start_lower)
             node = center + z * orientation
             nodes.append(node.tolist())
 
-        # Create edges for lower half (1-based node indexing)
-        for i in range(n_segments_per_half):
+        # Edges for lower arm (1-based node indexing)
+        for i in range(n_seg):
+            edges.append([i + 1, i + 2])
+
+        # Upper arm: from +gap/2 (gap edge) to +(length-gap)/2 (tip)
+        node_offset = n_seg + 1
+        z_start_upper = gap / 2.0
+        z_end_upper = (length - gap) / 2.0
+
+        for i in range(n_seg + 1):
+            t = i / n_seg
+            z = z_start_upper + t * (z_end_upper - z_start_upper)
+            node = center + z * orientation
+            nodes.append(node.tolist())
+
+        # Edges for upper arm (1-based node indexing)
+        for i in range(n_seg):
             edges.append([node_offset + i + 1, node_offset + i + 2])
 
-        # Total segments
-        total_segments = 2 * n_segments_per_half
+        total_segments = 2 * n_seg
+
+        # Feed nodes are at the gap: last lower node and first upper node.
+        # For segments=6 (3 per arm, 8 nodes): feed_lower=4, feed_upper=5.
+        feed_lower = n_seg + 1  # Last node of lower arm (at gap)
+        feed_upper = node_offset + 1  # First node of upper arm (at gap)
 
         # Source is at the gap (balanced/differential feed for gap dipoles)
-        # Matching the reference createDipole implementation:
-        # - Voltage sources: ground→upper (+V) and ground→lower (-V)
-        # - Current sources: inject at upper node (+I) and lower node (-I)
+        # - Voltage sources: ground→feed_lower (+V) and ground→feed_upper (-V)
+        # - Current sources: inject at feed_lower (+I) and feed_upper (-I)
         if len(element.sources) > 0:
             source_type = element.sources[0].type
 
             if source_type == "voltage":
-                # First source: ground to first node of upper half
                 element.sources[0].node_start = 0  # Ground
-                element.sources[0].node_end = 1  # First upper node
+                element.sources[0].node_end = feed_lower
 
                 # For gap dipoles, create second source with opposite polarity
-                # This creates a balanced feed matching the golden standard
                 if len(element.sources) == 1:
-                    # Clone first source but with opposite polarity
                     second_source = Source(
                         type=element.sources[0].type,
-                        amplitude=-element.sources[0].amplitude,  # Opposite polarity
-                        node_start=0,  # Ground
-                        node_end=node_offset + 1,  # First lower node (node 7 for 5 segments)
+                        amplitude=-element.sources[0].amplitude,
+                        node_start=0,
+                        node_end=feed_upper,
                         series_R=element.sources[0].series_R,
                         series_L=element.sources[0].series_L,
                         series_C_inv=element.sources[0].series_C_inv,
@@ -218,41 +220,39 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
                     element.sources.append(second_source)
 
             elif source_type == "current":
-                # Current sources: inject at node (no node_start/node_end)
-                # Reference: Current_Source(1).node=1, Current_Source(2).node=N_p/2+1
-                element.sources[0].node_start = 1  # First node of upper half
-                element.sources[0].node_end = None  # Not used for current sources
+                element.sources[0].node_start = feed_lower
+                element.sources[0].node_end = None
 
-                # For gap dipoles, create second current source with opposite polarity
                 if len(element.sources) == 1:
                     second_source = Source(
                         type="current",
-                        amplitude=-element.sources[0].amplitude,  # Opposite polarity
-                        node_start=node_offset + 1,  # First lower node (node 7 for 5 segments)
+                        amplitude=-element.sources[0].amplitude,
+                        node_start=feed_upper,
                         node_end=None,
                         tag=element.sources[0].tag + "_lower" if element.sources[0].tag else "",
                     )
                     element.sources.append(second_source)
     else:
         # Original continuous dipole (no gap)
+        n_total = total_segments_param
         start_point = center - (length / 2.0) * orientation
 
-        # Create n_segments+1 nodes uniformly distributed
-        for i in range(n_segments_per_half + 1):
-            t = i / n_segments_per_half
+        # Create n_total+1 nodes uniformly distributed
+        for i in range(n_total + 1):
+            t = i / n_total
             node = start_point + t * length * orientation
             nodes.append(node.tolist())
 
         # Create edges connecting consecutive nodes (1-based indexing)
-        for i in range(n_segments_per_half):
+        for i in range(n_total):
             edges.append([i + 1, i + 2])
 
-        total_segments = n_segments_per_half
+        total_segments = n_total
 
         # Source at center (for continuous dipole without gap)
         # Between the two center nodes (1-based indexing)
         if len(element.sources) > 0:
-            center_node = n_segments_per_half // 2
+            center_node = n_total // 2
             element.sources[0].node_start = center_node + 1
             element.sources[0].node_end = center_node + 2
 

@@ -130,7 +130,7 @@ class DipoleRequest(BaseModel):
     segments: int = Field(
         default=21,
         ge=2,
-        description="Number of segments per dipole half (total will be 2*segments)",
+        description="Total number of segments (split equally between halves if gap > 0)",
     )
     source: Optional[SourceRequest] = Field(default=None, description="Optional source excitation")
     lumped_elements: List[LumpedElementRequest] = Field(

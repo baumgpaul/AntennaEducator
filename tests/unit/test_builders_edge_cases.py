@@ -77,8 +77,8 @@ class TestDipoleBalancedFeed:
         assert element.sources[1].amplitude == complex(-2.0, 1.5)
 
     def test_gap_dipole_source_nodes_reference_correct_halves(self):
-        """VS node_start=0 (ground), node_end points to first node of each half."""
-        segments = 5
+        """VS node_start=0 (ground), node_end points to gap node of each half."""
+        segments = 10  # 10 total → 5 per arm
         element = create_dipole(
             length=1.0,
             gap=0.01,
@@ -87,11 +87,13 @@ class TestDipoleBalancedFeed:
         )
         dipole_to_mesh(element)
 
-        # Upper half: nodes 1..6, lower half: nodes 7..12 (for 5 segments per half)
+        n_per_arm = segments // 2  # 5
+        # Lower arm: nodes 1..6 (tip→gap), upper arm: nodes 7..12 (gap→tip)
+        # Feed at gap: node 6 (last lower) and node 7 (first upper)
         assert element.sources[0].node_start == 0  # ground
-        assert element.sources[0].node_end == 1  # first upper node
+        assert element.sources[0].node_end == n_per_arm + 1  # gap node of lower arm
         assert element.sources[1].node_start == 0  # ground
-        assert element.sources[1].node_end == segments + 2  # first lower node
+        assert element.sources[1].node_end == n_per_arm + 2  # gap node of upper arm
 
     def test_no_gap_dipole_single_source(self):
         """A continuous dipole (gap=0) should keep a single source at center."""

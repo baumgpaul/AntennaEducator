@@ -173,6 +173,11 @@ export interface CustomConfig {
 
 export type AntennaType = 'dipole' | 'loop' | 'rod' | 'custom'
 
+export interface AppendedNode {
+  index: number  // Negative integer
+  label: string
+}
+
 export interface AntennaElement {
   id: string
   type: AntennaType
@@ -183,6 +188,7 @@ export interface AntennaElement {
   mesh: Mesh
   sources?: Source[]  // Voltage/current sources
   lumped_elements?: LumpedElement[]  // Loads (R, L, C)
+  appended_nodes?: AppendedNode[]  // User-created auxiliary circuit nodes
   visible: boolean
   locked: boolean
   color?: string  // Hex color string (e.g., '#FF8C00')

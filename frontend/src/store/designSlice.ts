@@ -13,6 +13,7 @@ import type {
   LoopConfig,
   RodConfig,
   AntennaElement,
+  AppendedNode,
 } from '@/types/models'
 import { generateDipoleMesh, generateLoopMesh, generateRodMesh, generateCustomMesh, createDipole, createLoop, createRod } from '@/api/preprocessor'
 import { getNextElementColor } from '@/utils/colors'
@@ -657,6 +658,36 @@ const designSlice = createSlice({
       state.lumpedElements.splice(action.payload, 1)
     },
 
+    // Batch-replace circuit data (sources + lumped elements + appended nodes) on an element
+    setElementCircuit: (
+      state,
+      action: PayloadAction<{
+        elementId: string
+        sources: Source[]
+        lumped_elements: LumpedElement[]
+        appended_nodes: AppendedNode[]
+      }>
+    ) => {
+      const index = state.elements.findIndex(el => el.id === action.payload.elementId)
+      if (index >= 0) {
+        state.elements[index].sources = action.payload.sources
+        state.elements[index].lumped_elements = action.payload.lumped_elements
+        state.elements[index].appended_nodes = action.payload.appended_nodes
+        state.isSolved = false
+      }
+      // Also update global arrays for backward compatibility
+      // Remove old entries for this element, then add new ones
+      // (simplification: just replace entirely since circuit editor is per-element)
+      const otherSources = state.elements
+        .filter((_, i) => i !== index)
+        .flatMap(el => el.sources || [])
+      state.sources = [...otherSources, ...action.payload.sources]
+      const otherLumped = state.elements
+        .filter((_, i) => i !== index)
+        .flatMap(el => el.lumped_elements || [])
+      state.lumpedElements = [...otherLumped, ...action.payload.lumped_elements]
+    },
+
     // Solver
     solverStart: (state) => {
       state.solving = true
@@ -1028,6 +1059,7 @@ export const {
   addLumpedElementToElement,
   updateLumpedElement,
   removeLumpedElement,
+  setElementCircuit,
   solverStart,
   solverSuccess,
   solverFailure,

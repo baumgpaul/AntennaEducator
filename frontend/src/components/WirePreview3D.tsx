@@ -14,10 +14,10 @@ export interface PreviewNode {
   y: number;
   z: number;
   radius?: number;
-  /** Whether this node is a port (feed point) */
-  isPort?: boolean;
-  /** Node type: regular, port */
-  nodeType?: 'regular' | 'port';
+  /** Whether this node is a terminal (circuit connection point) */
+  isTerminal?: boolean;
+  /** Node type: regular, terminal */
+  nodeType?: 'regular' | 'terminal';
 }
 
 export interface PreviewEdge {
@@ -54,7 +54,7 @@ const NODE_COLOR_SOURCE = '#ff4444';
 const NODE_COLOR_SELECTED = '#ffff00';
 const EDGE_COLOR = '#c0d0e0';
 const LABEL_COLOR = '#cccccc';
-const PORT_TORUS_COLOR = '#ff2222';
+const TERMINAL_TORUS_COLOR = '#ff2222';
 
 // ---------------------------------------------------------------------------
 // Camera auto-fit helper (runs inside Canvas)
@@ -137,11 +137,11 @@ function NodeSpheres({
       {nodes.map((node) => {
         let color = NODE_COLOR_DEFAULT;
         const nt = node.nodeType ?? 'regular';
-        if (nt === 'port' || sourceNodes.has(node.id)) color = NODE_COLOR_SOURCE;
+        if (nt === 'terminal' || sourceNodes.has(node.id)) color = NODE_COLOR_SOURCE;
         if (node.id === selectedNodeId) color = NODE_COLOR_SELECTED;
 
         const isHovered = hoveredId === node.id;
-        const isSource = nt === 'port' || sourceNodes.has(node.id);
+        const isSource = nt === 'terminal' || sourceNodes.has(node.id);
 
         return (
           <group key={node.id}>
@@ -169,13 +169,13 @@ function NodeSpheres({
               />
             </mesh>
 
-            {/* Port torus marker for source nodes */}
+            {/* Terminal torus marker for source/terminal nodes */}
             {isSource && (
               <mesh position={[node.x, node.y, node.z]} rotation={[Math.PI / 2, 0, 0]}>
                 <torusGeometry args={[nodeSize * 2.5, nodeSize * 0.4, 12, 32]} />
                 <meshStandardMaterial
-                  color={PORT_TORUS_COLOR}
-                  emissive={PORT_TORUS_COLOR}
+                  color={TERMINAL_TORUS_COLOR}
+                  emissive={TERMINAL_TORUS_COLOR}
                   emissiveIntensity={0.4}
                   transparent
                   opacity={0.85}
@@ -191,7 +191,7 @@ function NodeSpheres({
                 anchorX="center"
                 anchorY="bottom"
               >
-                {isSource ? `${node.id} (Port)` : String(node.id)}
+                {isSource ? `${node.id} (Terminal)` : String(node.id)}
               </Text>
             )}
           </group>
