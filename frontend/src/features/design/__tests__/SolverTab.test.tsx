@@ -59,6 +59,10 @@ vi.mock('../AddFieldDialog', () => ({
     ) : null,
 }));
 
+vi.mock('../ParameterStudyDialog', () => ({
+  ParameterStudyDialog: () => null,
+}));
+
 describe('SolverTab', () => {
   const mockElements: AntennaElement[] = [
     {
@@ -98,9 +102,17 @@ describe('SolverTab', () => {
         postprocessingStatus: 'idle',
         postprocessingProgress: null,
         resultsStale: false,
+        parameterStudy: null,
+        parameterStudyConfig: null,
       },
       design: {
         isSolved: false,
+      },
+      variables: {
+        variables: [
+          { name: 'freq', expression: '300e6', unit: 'Hz', description: '' },
+          { name: 'wavelength', expression: 'C_0 / freq', unit: 'm', description: '' },
+        ],
       },
     };
   });

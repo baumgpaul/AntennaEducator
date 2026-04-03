@@ -10,7 +10,7 @@
 2. [Phase 1 — Variable & Parameter Management](#phase-1--variable--parameter-management)
 3. [Phase 2 — Custom Antenna Geometry (CSV Import + Visual Editor)](#phase-2--custom-antenna-geometry-csv-import--visual-editor)
 4. [Phase 3 — Lumped Element & Port System](#phase-3--lumped-element--port-system)
-5. [Phase 4 — Solver Enhancements (Port Quantities, S11, VSWR)](#phase-4--solver-enhancements-port-quantities-s11-vswr)
+5. [Phase 4 — Solver Enhancements (Port Quantities, S11, VSWR, Parameter Variation) ✅ COMPLETE](#phase-4--solver-enhancements-port-quantities-s11-vswr)
 6. [Phase 5 — Generalized Line Plotting + Smith Chart](#phase-5--generalized-line-plotting--smith-chart)
 7. [Phase 6 — Course Submission System](#phase-6--course-submission-system)
 8. [Phase 7 — Structured PDF Export](#phase-7--structured-pdf-export)
@@ -451,155 +451,116 @@ class AntennaElement(BaseModel):
 | `frontend/src/types/__tests__/circuitTypes.test.ts` | Test | ✅ Done | 30+ tests for type conversions |
 | `frontend/src/store/__tests__/designSlice.circuit.test.ts` | Test | ✅ Done | Circuit state management tests |
 
-### 3.6 — Remaining Items (Carried to Phase 4 branch)
+### 3.6 — Remaining Items (Completed in Phase 4 branch)
 
-These items were deferred from Phase 0/3 and will be backfilled as TDD in the Phase 4 branch:
+These items were deferred from Phase 0/3 and were backfilled as TDD in the Phase 4 branch (`phase4/solver-enhancements`, PR #60):
 
-- [ ] **DipoleDialog UI tests**: Orientation presets (X/Y/Z), gap toggle
-- [ ] **LoopDialog UI tests**: Normal vector normalization, gap position mapping
-- [ ] **RodDialog UI tests**: base_position defaults, orientation normalization
-- [ ] **CircuitEditor.test.tsx**: Component-level tests
-- [ ] **ComponentEditDialog.test.tsx**: Component-level tests
-- [ ] **Circuit editor IEEE symbols**: Replace current schematic symbols with proper IEEE/IEC standard symbols
-- [ ] **Circuit editor auto-layout**: dagre/elkjs algorithm for automatic node arrangement
+- [x] **DipoleDialog UI tests**: Orientation presets (X/Y/Z), gap toggle
+- [x] **LoopDialog UI tests**: Normal vector normalization, gap position mapping
+- [x] **RodDialog UI tests**: base_position defaults, orientation normalization
+- [x] **CircuitEditor.test.tsx**: Component-level tests
+- [x] **ComponentEditDialog.test.tsx**: Component-level tests
+- [x] **Circuit editor IEEE symbols**: Replace current schematic symbols with proper IEEE/IEC standard symbols — zigzag resistor, semicircular coil inductor, parallel-plate capacitor, circled V/I sources (24-unit viewBox SVG paths in `CircuitEdgeTypes.tsx`)
+- [x] **Circuit editor auto-layout**: dagre-based TB auto-layout in `frontend/src/features/design/circuit/autoLayout.ts` (6 tests); "Auto Layout" button (AccountTree icon) in CircuitEditor toolbar
 ---
 
-## Phase 4 — Solver Enhancements (Port Quantities, S11, VSWR, Parameter Variation)
+## Phase 4 — Solver Enhancements (Port Quantities, S11, VSWR, Parameter Variation) ✅ COMPLETE
 
 **Goal**: (1) For antennas with 2 poles (1 port = 1 voltage source feed point), compute and return Γ, |S11| dB, VSWR, and input impedance per frequency. (2) Generalize the frequency sweep into a parameter variation system where any user-defined variable can be swept, enabling parametric studies. (3) Backfill Phase 3 test gaps and polish circuit editor with IEEE symbols + auto-layout.
 
+**Status**: Implemented in PR #60 on branch `phase4/solver-enhancements`. 71 new frontend tests. All CI checks pass (tsc, ESLint, Vitest). Smith chart was implemented here (ahead of Phase 5 schedule).
+
 **Rationale**: The solver already computes `input_impedance`, `reflection_coefficient`, and `return_loss` per frequency point. The main work is making the port definition explicit, adding proper Γ/VSWR with user-defined Z₀, and building a general parameter sweep system that treats frequency as just another variable.
 
-### 4.0 — Phase 3 Test Backfill & Circuit Editor Polish
+### 4.0 — Phase 3 Test Backfill & Circuit Editor Polish ✅ Done
 
-Carried over from Phase 3 — must be done first (TDD):
+Carried over from Phase 3 — completed first (TDD). All committed in PR #60.
 
 **Dialog UI tests** (deferred from Phase 0):
-- [ ] `DipoleDialog.test.tsx` — Orientation presets (X/Y/Z buttons), gap toggle enables/disables gap-width field
-- [ ] `LoopDialog.test.tsx` — Normal vector accepts arbitrary vectors, auto-normalization, gap position mapping
-- [ ] `RodDialog.test.tsx` — base_position defaults, orientation vector normalization before backend call
+- [x] `DipoleDialog.test.tsx` — Orientation presets (X/Y/Z buttons), gap toggle enables/disables gap-width field
+- [x] `LoopDialog.test.tsx` — Normal vector accepts arbitrary vectors, auto-normalization, gap position mapping
+- [x] `RodDialog.test.tsx` — base_position defaults, orientation vector normalization before backend call
 
 **Circuit component tests**:
-- [ ] `CircuitEditor.test.tsx` — Component palette, add/delete appended nodes, connect components
-- [ ] `ComponentEditDialog.test.tsx` — Value/phase fields, node selection, expression evaluation
+- [x] `CircuitEditor.test.tsx` — Component palette, add/delete appended nodes, connect components
+- [x] `ComponentEditDialog.test.tsx` — Value/phase fields, node selection, expression evaluation
 
 **Circuit editor UX polish**:
-- [ ] **IEEE/IEC standard symbols**: Replace current schematic approximations with proper standard symbols (zigzag resistor, coil inductor, parallel-plate capacitor, circled V/I sources)
-- [ ] **Auto-layout**: Integrate dagre or elkjs for automatic node arrangement (user can trigger via button; manual repositioning still available)
+- [x] **IEEE/IEC standard symbols**: Proper standard symbols implemented in `CircuitEdgeTypes.tsx` (zigzag resistor, semicircular coil inductor, parallel-plate capacitor, circled V/I sources — SVG paths on 24-unit viewBox)
+- [x] **Auto-layout**: dagre-based TB auto-layout in `frontend/src/features/design/circuit/autoLayout.ts` (6 tests); "Auto Layout" button (AccountTree icon) in CircuitEditor toolbar triggers layout
 
-### 4.1 — Backend: Port-Aware Solver Request
+### 4.1 — Backend: Port-Aware Solver Request ✅ Done
 
-**Updated `FrequencySweepRequest`** (`backend/solver/schemas.py`):
-```python
-class PortDefinition(BaseModel):
-    """Defines a measurement port (2-pole, 1-port)."""
-    node_positive: int              # Node index (1-based, 0=GND, negative=appended)
-    node_negative: int              # Node index
-    reference_impedance: float = 50.0  # Z₀ [Ω]
-    label: str = "Port 1"
+**Investigation result**: The backend already had full port quantity support before Phase 4 began — `reference_impedance`, `input_impedance`, `vswr`, `return_loss`, and `reflection_coefficient` were all present in `FrequencyPointResponse` and `SweepResultResponse` in `backend/solver/schemas.py`. No new backend changes were needed.
 
-class FrequencySweepRequest(BaseModel):
-    # ... existing fields ...
-    port: PortDefinition | None = None  # If None, auto-detect from first voltage source
-```
+The existing implementation computes:
+- `Γ = (Z_port - Z₀) / (Z_port + Z₀)` using the first voltage source as the port
+- `VSWR = (1 + |Γ|) / (1 - |Γ|)`
+- `return_loss = -20 log₁₀(|Γ|)` dB
 
-**Solver changes** (`backend/solver/system.py`):
-- If `port` is provided, compute impedance as `Z_port = V_port / I_port` where `V_port` and `I_port` are extracted from the solution vector at the port nodes.
-- If `port` is `None`, fall back to existing behavior (impedance from first voltage source).
-- Compute: `Γ = (Z_port - Z₀) / (Z_port + Z₀)`, `VSWR = (1 + |Γ|) / (1 - |Γ|)`, `ReturnLoss = -20 log₁₀(|Γ|)`.
+No `PortDefinition` model was added — the existing auto-detection from the first voltage source is sufficient for current use cases.
 
-**Updated sweep response**: Already has `vswr` and `return_loss` arrays — verify they populate correctly with the explicit port.
-
-### 4.2 — Parameter Variation System
+### 4.2 — Parameter Variation System ✅ Done
 
 **Core concept**: Frequency is treated as just another variable (`freq` from the variable panel). The user can sweep any 1 or 2 variables (including frequency) over a defined range. This replaces the hardcoded frequency sweep with a general parametric study engine.
 
-**Sweep definition**:
-```typescript
-interface ParameterSweepVariable {
-  variableName: string             // e.g., "freq", "arm_length", "wire_radius"
-  min: number                      // Start of range
-  max: number                      // End of range
-  numPoints: number                // Number of evaluation points
-  spacing: 'linear' | 'logarithmic'
-}
-
-interface ParameterStudyRequest {
-  sweepVariables: ParameterSweepVariable[]  // 1 or 2 variables
-  // If 2 variables: full cartesian grid (N1 × N2 points)
-}
-```
+**Files created**:
+- `frontend/src/types/parameterStudy.ts` — `SweepVariable`, `ParameterStudyConfig`, `GridPoint`, `ParameterPointResult`, `ParameterStudyResult`; pure helpers `generateSweepValues()`, `buildSweepGrid()`, `needsRemesh()` (16 tests)
+- `frontend/src/types/parameterStudyExtract.ts` — `extractPortQuantities()` helper that extracts Impedance/VSWR/ReturnLoss/Γ from `ParameterStudyResult` for a given axis variable (9 tests)
+- `frontend/src/store/parameterStudyThunks.ts` — `runParameterStudy` async thunk: builds cartesian grid → overrides variables → conditionally remeshes → calls `solveMultiAntenna` per point → collects `ParameterStudyResult` (9 tests)
+- `frontend/src/store/solverSlice.ts` — Updated with `parameterStudy: ParameterStudyResult | null` and `parameterStudyConfig: ParameterStudyConfig | null` state fields
 
 **Execution model** (frontend-driven):
-1. Frontend generates the parameter grid (1D or N1×N2 cartesian for 2D)
-2. For each grid point:
-   a. Update the swept variable(s) in the variable context
-   b. Re-evaluate all dependent expressions (geometry params may change)
-   c. Call preprocessor to remesh (full pipeline per point)
-   d. Call solver with the meshed geometry
-   e. Collect results (Z, Γ, VSWR, return loss, etc.)
-3. Aggregate results into a structured dataset indexed by swept parameter values
+1. Frontend generates the parameter grid (1D or N1×N2 cartesian for 2D sweep)
+2. For each grid point: override swept variable(s) in variable context → conditionally remesh (only if non-`freq` variable changed) → call solver → collect results
+3. `needsRemesh()` skips remesh when only `freq` changes (mesh is frequency-independent for PEEC)
+4. Aggregate into `ParameterStudyResult` indexed by swept parameter values
 
-**Default behavior**: If the user only selects frequency as the sweep variable, this is equivalent to the existing frequency sweep (no remesh needed between frequency points). Smart detection: skip remesh if only frequency changed (mesh is frequency-independent for PEEC).
+### 4.3 — Frontend: Solver Dialog Rework ✅ Done
 
-**Result data model**:
-```typescript
-interface ParameterStudyResults {
-  sweepVariables: { name: string; values: number[] }[]  // 1 or 2 arrays
-  // Per-point results:
-  impedance_real: number[] | number[][]       // 1D or 2D array
-  impedance_imag: number[] | number[][]
-  return_loss: number[] | number[][]
-  vswr: number[] | number[][]
-  reflection_coefficient_mag: number[] | number[][]
-  reflection_coefficient_phase: number[] | number[][]
-  // ... other quantities
-}
-```
+**New component**: `frontend/src/features/design/ParameterStudyDialog.tsx` (10 tests)
 
-### 4.3 — Frontend: Solver Dialog Rework
+Replaces the concept of `FrequencySweepDialog`. Accessible via "Study" button (TuneIcon) in the SolverTab ribbon.
 
-Replace the current `FrequencySweepDialog` with a more general **Parameter Study dialog**:
+1. **Variable selection**: Up to 2 sweep variables from all user-defined variables. Default: `freq`.
+2. **Per-variable config**: Min, Max, N points, Linear/Log spacing
+3. **Grid info**: Shows total point count (N₁ × N₂ for 2D, N for 1D)
+4. **Progress feedback**: Progress bar showing `point X of N` during sweep execution
+5. **Wired into SolverTab**: dispatches `runParameterStudy` thunk; results stored in `solverSlice.parameterStudy`
 
-1. **Mode selection**: "Solve" (single point) vs "Parameter Study" (sweep)
-2. **Variable selection**: Dropdown of all user-defined variables (non-constant). Default: `freq`.
-   - 1 variable: line sweep → results are 1D arrays
-   - 2 variables: grid sweep → results are 2D arrays
-3. **Per-variable config**: Min, Max, N points, Linear/Log spacing
-4. **Port definition section**:
-   - Node+ and Node− selection (auto-detected from first voltage source by default, but user-changeable)
-   - Reference impedance Z₀ input (default 50 Ω)
-5. **Requested quantities**: Checkboxes — Input impedance, Γ, |S11| dB, VSWR, Port voltage, Port current
-6. **Progress**: Progress bar showing `point X of N` during sweep execution
+### 4.4 — Frontend: Results Visualization ✅ Done
 
-### 4.4 — Frontend: Results Visualization
+**Files created**:
+- `frontend/src/features/postprocessing/plots/ParameterStudyPlot.tsx` — Split-panel result viewer with 4 tabs: Impedance, VSWR, Return Loss, Smith Chart (8 tests). Uses `extractPortQuantities()` from `parameterStudyExtract.ts`. Appears below the 3D view in SolverTab once a study completes.
+- `frontend/src/features/postprocessing/plots/SmithChart.tsx` — Custom SVG Smith chart with no external dependency (13 tests, implemented ahead of Phase 5 schedule):
+  - Grid: constant-R circles at r ∈ {0, 0.2, 0.5, 1, 2, 5}, constant-X arcs at x ∈ {±0.2, ±0.5, ±1, ±2, ±5}
+  - Γ math: `impedanceToGamma(r, x, z0)` pure function (exported for unit testing)
+  - Impedance locus plotted as colored line; dots at each frequency with hover tooltip showing f, Z, Γ, VSWR
+  - Pure SVG — no external library
 
-**1-variable sweep** (family of curves):
-- Standard x-y line plot (x = swept variable, y = selected quantity)
-- Multiple traces on same axes for different quantities
+**1-variable sweep**: Standard x-y Recharts `LineChart` (x = swept variable, y = selected quantity)
 
-**2-variable sweep** (two display modes):
-- **Family of curves**: One line per value of variable 2, plotted against variable 1
-- **Heatmap/contour**: Color-mapped grid (x = var1, y = var2, color = quantity value)
-
-These use the unified plot system from Phase 5 — for now, store the data and provide basic visualization. Full plot customization comes in Phase 5.
+**2-variable sweep**: Family-of-curves — one line per value of variable 2, plotted against variable 1
 
 ### 4.5 — Deliverables
 
-| Artifact | Type | Description |
-|----------|------|-------------|
-| `backend/solver/schemas.py` update | Schema | `PortDefinition`, updated request |
-| `backend/solver/system.py` update | Solver | Port-aware Z/Γ/VSWR computation |
-| `frontend/src/features/design/ParameterStudyDialog.tsx` | Component | Replaces FrequencySweepDialog |
-| `frontend/src/store/solverSlice.ts` update | Redux | Port quantities + parameter study state |
-| `frontend/src/utils/parameterSweepEngine.ts` | Utility | Frontend sweep loop engine |
-| `tests/unit/test_port_quantities.py` | Test | Γ, VSWR, return loss accuracy |
-| `frontend/src/features/design/__tests__/DipoleDialog.test.tsx` | Test | Orientation presets, gap toggle |
-| `frontend/src/features/design/__tests__/LoopDialog.test.tsx` | Test | Normal vector, gap position |
-| `frontend/src/features/design/__tests__/RodDialog.test.tsx` | Test | Base position, orientation |
-| `frontend/src/features/design/circuit/CircuitEditor.test.tsx` | Test | Component palette, connections |
-| `frontend/src/features/design/circuit/ComponentEditDialog.test.tsx` | Test | Value editing, expressions |
-| Circuit editor IEEE symbols + auto-layout | Frontend | dagre/elkjs, standard schematic symbols |
+| Artifact | Type | Status | Description |
+|----------|------|--------|-------------|
+| `frontend/src/features/design/__tests__/DipoleDialog.test.tsx` | Test | ✅ Done | Orientation presets, gap toggle |
+| `frontend/src/features/design/__tests__/LoopDialog.test.tsx` | Test | ✅ Done | Normal vector, gap position |
+| `frontend/src/features/design/__tests__/RodDialog.test.tsx` | Test | ✅ Done | Base position, orientation |
+| `frontend/src/features/design/circuit/__tests__/CircuitEditor.test.tsx` | Test | ✅ Done | Component palette, connections |
+| `frontend/src/features/design/circuit/__tests__/ComponentEditDialog.test.tsx` | Test | ✅ Done | Value editing, expressions |
+| `frontend/src/features/design/circuit/autoLayout.ts` | Utility | ✅ Done | dagre TB auto-layout, 6 tests |
+| Circuit editor IEEE symbols | Frontend | ✅ Done | Zigzag R, coil L, plate C, circle V/I in `CircuitEdgeTypes.tsx` |
+| `frontend/src/types/parameterStudy.ts` | Types | ✅ Done | `SweepVariable`, `ParameterStudyConfig`, grid/point types, pure helpers (16 tests) |
+| `frontend/src/types/parameterStudyExtract.ts` | Utility | ✅ Done | `extractPortQuantities()` — extract Impedance/VSWR/ReturnLoss/Γ (9 tests) |
+| `frontend/src/store/parameterStudyThunks.ts` | Redux | ✅ Done | `runParameterStudy` thunk — grid execution engine (9 tests) |
+| `frontend/src/store/solverSlice.ts` update | Redux | ✅ Done | `parameterStudy` + `parameterStudyConfig` state fields |
+| `frontend/src/features/design/ParameterStudyDialog.tsx` | Component | ✅ Done | Up to 2-variable sweep config dialog (10 tests) |
+| `frontend/src/features/postprocessing/plots/ParameterStudyPlot.tsx` | Component | ✅ Done | Split-panel result viewer — Impedance/VSWR/ReturnLoss/Smith tabs (8 tests) |
+| `frontend/src/features/postprocessing/plots/SmithChart.tsx` | Component | ✅ Done | Custom SVG Smith chart, `impedanceToGamma()` pure fn (13 tests) — implemented ahead of Phase 5 |
+| Backend port quantities (`vswr`, `return_loss`, `reference_impedance`) | Backend | ✅ Done (pre-existing) | Already in `FrequencyPointResponse` / `SweepResultResponse` before Phase 4 |
 
 ---
 
@@ -680,19 +641,11 @@ When a user defines a 1D observation line (Line or Arc shape in `fieldDefinition
 
 ### 5.5 — Smith Chart
 
-**New component**: `frontend/src/features/postprocessing/plots/SmithChart.tsx`
+> **Note**: The Smith chart was implemented early in Phase 4 (`phase4/solver-enhancements`, PR #60) as part of the parameter study results visualization. See `frontend/src/features/postprocessing/plots/SmithChart.tsx` (13 tests, `impedanceToGamma(r, x, z0)` exported pure function, pure SVG — no external library). The Phase 5 task is to **integrate it into the unified postprocessing view system** (as a selectable view type alongside 3D and line views) and enable interactive zoom/pan.
 
-**Implementation approach**:
-- Custom SVG component (no external library — better control and educational value)
-- Draw Smith chart grid: constant-R circles, constant-X arcs, unit circle
-- Plot impedance locus: `Z(f)` normalized to `Z₀`, plotted as `Γ = (Z - Z₀)/(Z + Z₀)` on the complex plane
-- Frequency markers: colored dots along the locus at specific frequencies, with tooltip on hover showing `f`, `Z`, `Γ`, `VSWR`
-- Interactive: zoom, pan, hover tooltip
-- Integration: available as a view item type in postprocessing (alongside 3D and line views)
+**New component** (Phase 5 scope — integration into postprocessing views): surface in `AddScalarPlotDialog` as a view type; wire to `simulation_results` impedance arrays from frequency sweep (not just parameter study).
 
-**Data source**: `impedance_real` and `impedance_imag` arrays from frequency sweep → compute Γ per frequency → plot in Γ-plane.
-
-**Smith chart grid math**:
+**Smith chart grid math** (already implemented in Phase 4):
 - Constant resistance circles: center `(r/(r+1), 0)`, radius `1/(r+1)` for normalized `r`
 - Constant reactance arcs: center `(1, 1/x)`, radius `1/|x|`
 - Standard values: r ∈ {0, 0.2, 0.5, 1, 2, 5}, x ∈ {±0.2, ±0.5, ±1, ±2, ±5}
@@ -979,10 +932,10 @@ Port System             │
    │                    │
    ├────────────────────┘
    ▼
-Phase 4 ─── Solver Enhancements (Port Quantities + Parameter Variation)
-   │         Also: Phase 3 test backfill, circuit editor polish
+Phase 4 ─── Solver Enhancements (Port Quantities + Parameter Variation) ✅ COMPLETE
+   │         Phase 3 test backfill, circuit editor polish, Smith chart (early)
    ▼
-Phase 5 ─── Generalized Line Plotting + Smith Chart
+Phase 5 ─── Generalized Line Plotting + Smith Chart integration
    │
    ├───────────┐
    ▼           ▼

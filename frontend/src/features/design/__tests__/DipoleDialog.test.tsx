@@ -473,8 +473,10 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
 
       await user.click(screen.getByRole('button', { name: /Y-axis/i }));
 
-      const orientationYFields = screen.getAllByLabelText('Y');
-      expect((orientationYFields[1] as HTMLInputElement).value).toBe('1');
+      await waitFor(() => {
+        const orientationYFields = screen.getAllByLabelText('Y');
+        expect((orientationYFields[1] as HTMLInputElement).value).toBe('1');
+      });
     });
 
     it('should set orientation to (0,0,1) when Z-axis preset is clicked', async () => {
@@ -489,8 +491,10 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       await user.click(screen.getByRole('button', { name: /X-axis/i }));
       await user.click(screen.getByRole('button', { name: /Z-axis/i }));
 
-      const orientationZFields = screen.getAllByLabelText('Z');
-      expect((orientationZFields[1] as HTMLInputElement).value).toBe('1');
+      await waitFor(() => {
+        const orientationZFields = screen.getAllByLabelText('Z');
+        expect((orientationZFields[1] as HTMLInputElement).value).toBe('1');
+      });
     });
 
     it('should submit with correct orientation after preset change', async () => {
