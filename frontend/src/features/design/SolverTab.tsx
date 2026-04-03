@@ -48,6 +48,8 @@ import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 import type { ParameterStudyConfig } from '@/types/parameterStudy';
 import { runParameterStudy } from '@/store/parameterStudyThunks';
 import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
+import { ParameterStudyPlot } from '../postprocessing/plots/ParameterStudyPlot';
+import { selectParameterStudy } from '@/store/solverSlice';
 
 /**
  * SolverTab - New 3-panel layout for solver workflow
@@ -86,6 +88,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const postprocessingProgress = useSelector((state: RootState) => state.solver.postprocessingProgress);
   const resultsStale = useSelector(selectResultsStale);
   const isSolved = useSelector(selectIsSolved);
+  const parameterStudy = useSelector(selectParameterStudy);
 
   // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
@@ -629,27 +632,53 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         sx={{
           flex: 1,
           height: '100%',
-          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
           overflow: 'hidden',
-          backgroundColor: '#1a1a1a',
         }}
       >
-        <Scene3D elements={elements}>
-          {/* Render antenna elements */}
-          <WireGeometry
-            elements={elements}
-            selectedElementId={selectedElementId}
-            onElementSelect={onElementSelect}
-            showNodes={false}
-          />
+        <Box
+          sx={{
+            flex: parameterStudy ? '1 1 50%' : '1 1 100%',
+            position: 'relative',
+            overflow: 'hidden',
+            backgroundColor: '#1a1a1a',
+            minHeight: 200,
+          }}
+        >
+          <Scene3D elements={elements}>
+            {/* Render antenna elements */}
+            <WireGeometry
+              elements={elements}
+              selectedElementId={selectedElementId}
+              onElementSelect={onElementSelect}
+              showNodes={false}
+            />
 
-          {/* Render field regions */}
-          <FieldRegionVisualization
-            fieldDefinitions={requestedFields}
-            selectedFieldId={selectedFieldId}
-            visible={fieldRegionsVisible}
-          />
-        </Scene3D>
+            {/* Render field regions */}
+            <FieldRegionVisualization
+              fieldDefinitions={requestedFields}
+              selectedFieldId={selectedFieldId}
+              visible={fieldRegionsVisible}
+            />
+          </Scene3D>
+        </Box>
+
+        {/* Parameter Study Results Panel */}
+        {parameterStudy && parameterStudy.results.length > 0 && (
+          <Box
+            sx={{
+              flex: '1 1 50%',
+              minHeight: 200,
+              borderTop: 1,
+              borderColor: 'divider',
+              overflow: 'auto',
+              backgroundColor: 'background.paper',
+            }}
+          >
+            <ParameterStudyPlot study={parameterStudy} />
+          </Box>
+        )}
       </Box>
 
       {/* RIGHT PANEL - Properties Panel (300px, collapsible) */}
