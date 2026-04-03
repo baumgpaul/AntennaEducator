@@ -7,6 +7,8 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from './store';
 import type { SolverRequest, SolverResult } from '@/types/models';
 import type { AntennaSolution, MultiAntennaRequest, MultiAntennaSolutionResponse, FrequencySweepParams, FrequencySweepResult } from '@/types/api';
+import type { ParameterStudyConfig, ParameterStudyResult } from '@/types/parameterStudy';
+import { runParameterStudy } from '@/store/parameterStudyThunks';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { solveMultiAntenna } from '@/api/solver';
 import { computeFarField, computeNearField } from '@/api/postprocessor';
@@ -204,6 +206,10 @@ interface SolverState {
 
   // Results validity tracking
   resultsStale: boolean; // True when geometry/sources changed and results are outdated
+
+  // Parameter study
+  parameterStudy: ParameterStudyResult | null;
+  parameterStudyConfig: ParameterStudyConfig | null;
 }
 
 const initialState: SolverState = {
@@ -231,6 +237,8 @@ const initialState: SolverState = {
   radiationPatterns: null,
   selectedFrequencyHz: null,
   resultsStale: false,
+  parameterStudy: null,
+  parameterStudyConfig: null,
 };
 
 // ============================================================================
@@ -1553,6 +1561,30 @@ const solverSlice = createSlice({
     });
 
     // ========================================================================
+    // Parameter Study
+    // ========================================================================
+    builder.addCase(runParameterStudy.pending, (state) => {
+      state.status = 'running';
+      state.error = null;
+      state.sweepInProgress = true;
+      state.parameterStudy = null;
+    });
+    builder.addCase(runParameterStudy.fulfilled, (state, action) => {
+      state.status = 'completed';
+      state.parameterStudy = action.payload;
+      state.parameterStudyConfig = action.payload.config;
+      state.sweepInProgress = false;
+      state.solverState = 'solved';
+      state.progress = 100;
+    });
+    builder.addCase(runParameterStudy.rejected, (state, action) => {
+      state.status = 'failed';
+      state.error = action.payload as string || 'Parameter study failed';
+      state.sweepInProgress = false;
+      state.progress = 0;
+    });
+
+    // ========================================================================
     // Listen to design changes to mark results as stale
     // ========================================================================
     builder.addMatcher(
@@ -1637,5 +1669,9 @@ export const selectFieldData = (state: RootState) => state.solver.fieldData;
 export const selectResultsStale = (state: RootState) => state.solver.resultsStale;
 export const selectSelectedFrequencyHz = (state: RootState) => state.solver.selectedFrequencyHz;
 export const selectRadiationPatterns = (state: RootState) => state.solver.radiationPatterns;
+
+// Parameter study selectors
+export const selectParameterStudy = (state: RootState) => state.solver.parameterStudy;
+export const selectParameterStudyConfig = (state: RootState) => state.solver.parameterStudyConfig;
 
 export default solverSlice.reducer;
