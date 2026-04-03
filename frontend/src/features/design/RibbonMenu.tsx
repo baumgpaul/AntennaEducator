@@ -61,6 +61,7 @@ function RibbonMenu({
   const dispatch = useAppDispatch();
   const store = useAppStore();
   const selectedViewId = useAppSelector((state) => state.postprocessing.selectedViewId);
+  const selectedElementId = useAppSelector((state) => state.design.selectedElementId);
   const viewConfigurations = useAppSelector((state) => state.postprocessing.viewConfigurations);
   const currentFrequency = useAppSelector((state) => state.solver.currentFrequency);
   const selectedViewData = useAppSelector((state) =>
@@ -290,13 +291,16 @@ function RibbonMenu({
                   Edit Circuitry
                 </Box>
                 <ButtonGroup variant="outlined" size="small">
-                  <Tooltip title="Open circuit editor (sources + loads)">
+                  <Tooltip title={selectedElementId ? "Open circuit editor (sources + loads)" : "Select an antenna element first"}>
+                    <span>
                     <Button
                       startIcon={<AccountTree />}
                       onClick={() => onAntennaTypeSelect?.('circuit-editor')}
+                      disabled={!selectedElementId}
                     >
                       Edit Circuitry
                     </Button>
+                    </span>
                   </Tooltip>
                 </ButtonGroup>
               </Box>

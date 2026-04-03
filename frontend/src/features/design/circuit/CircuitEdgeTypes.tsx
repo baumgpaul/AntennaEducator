@@ -172,8 +172,8 @@ const CircuitEdgeComponent: React.FC<EdgeProps> = ({
   const dragStartRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
 
   const onLabelMouseDown = useCallback((e: React.MouseEvent) => {
-    // Right-click or middle-click to drag the label
-    if (e.button === 2 || e.altKey) {
+    // Alt+left-click to drag the label
+    if (e.altKey && e.button === 0) {
       e.preventDefault();
       e.stopPropagation();
       dragStartRef.current = { x: e.clientX, y: e.clientY, ox: labelDragOffset.x, oy: labelDragOffset.y };
@@ -194,8 +194,8 @@ const CircuitEdgeComponent: React.FC<EdgeProps> = ({
     }
   }, [labelDragOffset]);
 
-  // Double-right-click resets label position
-  const onLabelContextMenu = useCallback((e: React.MouseEvent) => {
+  // Double-click resets label position
+  const onLabelDoubleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     setLabelDragOffset({ x: 0, y: 0 });
   }, []);
@@ -234,7 +234,7 @@ const CircuitEdgeComponent: React.FC<EdgeProps> = ({
           }}
           onClick={() => edgeData.onEdit?.(id)}
           onMouseDown={onLabelMouseDown}
-          onContextMenu={onLabelContextMenu}
+          onDoubleClick={onLabelDoubleClick}
         >
           <SchematicIcon type={edgeData.componentType} size={14} />
           <Typography
