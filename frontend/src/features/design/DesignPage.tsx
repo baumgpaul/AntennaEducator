@@ -18,6 +18,7 @@ import {
   addSourceToElement,
   updateElementSource,
   setSelectedElement,
+  setElementCircuit,
   setElementColor,
   setElementPosition,
   setElementRotation,
@@ -54,6 +55,7 @@ import { CustomAntennaDialog } from './CustomAntennaDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
 import { FrequencySweepDialog } from './FrequencySweepDialog';
+import { CircuitEditor } from './circuit';
 import ResultsPanel from './ResultsPanel';
 import { SolverTab } from './SolverTab';
 import PostprocessingTab from './PostprocessingTab';
@@ -150,6 +152,7 @@ function DesignPage() {
   const [editingCustomElement, setEditingCustomElement] = useState<string | null>(null);
   const [lumpedDialogOpen, setLumpedDialogOpen] = useState(false);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [circuitEditorOpen, setCircuitEditorOpen] = useState(false);
   const [frequencySweepDialogOpen, setFrequencySweepDialogOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
@@ -486,6 +489,9 @@ function DesignPage() {
       case 'voltage-source':
         setSourceDialogOpen(true);
         break;
+      case 'circuit-editor':
+        setCircuitEditorOpen(true);
+        break;
       default:
         console.log('Unknown antenna type:', type);
     }
@@ -646,6 +652,50 @@ function DesignPage() {
       throw error;
     }
   };
+
+  // Circuit editor handler — batch-replace sources + lumped elements + appended nodes
+  const handleCircuitApply = (data: {
+    sources: any[];
+    lumped_elements: any[];
+    appended_nodes: Array<{ index: number; label: string }>;
+  }) => {
+    const elementId = selectedElementId;
+    if (!elementId) return;
+    dispatch(setElementCircuit({
+      elementId,
+      sources: data.sources,
+      lumped_elements: data.lumped_elements,
+      appended_nodes: data.appended_nodes,
+    }));
+    dispatch(addNotification({
+      id: Date.now(),
+      message: 'Circuit updated',
+      severity: 'success',
+      duration: 3000,
+    }));
+    // Trigger auto-save
+    setTriggerSave(prev => prev + 1);
+  };
+
+  // Get terminal node indices for the selected element
+  const getTerminalNodeIndices = (element: typeof elements[number]): number[] => {
+    if (element.type === 'custom') {
+      const cfg = element.config as any;
+      if (cfg?.nodes) {
+        return cfg.nodes
+          .filter((n: any) => n.nodeType === 'terminal' || n.type === 'terminal')
+          .map((n: any) => n.id);
+      }
+    }
+    // For built-in types: use source nodes as terminals (the feed gap nodes)
+    const indices = new Set<number>();
+    for (const src of element.sources || []) {
+      if (src.node_start != null && src.node_start > 0) indices.add(src.node_start);
+      if (src.node_end != null && src.node_end > 0) indices.add(src.node_end);
+    }
+    return Array.from(indices);
+  };
+
   // Element selection handler
   const handleElementSelect = (elementId: string) => {
     dispatch(setSelectedElement(elementId));
@@ -1252,6 +1302,17 @@ function DesignPage() {
         loading={false}
         maxNodeIndex={mesh?.nodes ? mesh.nodes.length - 1 : 0}
         elements={elements}
+      />
+      <CircuitEditor
+        open={circuitEditorOpen}
+        onClose={() => setCircuitEditorOpen(false)}
+        onApply={handleCircuitApply}
+        element={elements.find(el => el.id === selectedElementId) ?? null}
+        terminalNodeIndices={
+          selectedElementId
+            ? getTerminalNodeIndices(elements.find(el => el.id === selectedElementId)!)
+            : []
+        }
       />
       <FrequencySweepDialog
         open={frequencySweepDialogOpen}

@@ -886,7 +886,7 @@ def merge_antennas(antennas: List, config: SolverConfiguration) -> MergedAntenna
                     node_end=node_end,
                     R=getattr(ld, "R", 0.0),
                     L=getattr(ld, "L", 0.0),
-                    C=getattr(ld, "C", 0.0),
+                    C_inv=getattr(ld, "C_inv", 0.0),
                 )
             )
 

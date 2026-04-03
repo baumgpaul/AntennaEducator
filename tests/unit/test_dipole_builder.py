@@ -130,26 +130,26 @@ class TestDipoleToMesh:
 
     def test_dipole_to_mesh_with_gap(self):
         """Test dipole to mesh conversion with gap between halves."""
-        element = create_dipole(length=1.0, gap=0.01, segments=5)
+        element = create_dipole(length=1.0, gap=0.01, segments=10)
         mesh = dipole_to_mesh(element)
 
-        # Should have 2*(5+1) = 12 nodes (two separate halves)
+        # segments=10 total → 5 per arm → 2*(5+1) = 12 nodes
         assert len(mesh.nodes) == 12
-        # Should have 2*5 = 10 edges (5 per half)
+        # 2*5 = 10 edges
         assert len(mesh.edges) == 10
         assert len(mesh.radii) == 10
 
-        # Check upper half nodes (from gap/2 to (length-gap)/2)
-        # First node of upper half should be at +gap/2 in z
-        assert np.allclose(mesh.nodes[0], [0.0, 0.0, 0.005])
-        # Last node of upper half: (length-gap)/2 = 0.495
-        assert np.allclose(mesh.nodes[5], [0.0, 0.0, 0.495])
+        # Lower arm first (tip → gap): nodes 0..5
+        # First node of lower arm at -(length-gap)/2 = -0.495
+        assert np.allclose(mesh.nodes[0], [0.0, 0.0, -0.495])
+        # Last node of lower arm at -gap/2 = -0.005
+        assert np.allclose(mesh.nodes[5], [0.0, 0.0, -0.005])
 
-        # Check lower half nodes (from -gap/2 to -(length-gap)/2)
-        # First node of lower half should be at -gap/2 in z
-        assert np.allclose(mesh.nodes[6], [0.0, 0.0, -0.005])
-        # Last node of lower half: -(length-gap)/2 = -0.495
-        assert np.allclose(mesh.nodes[11], [0.0, 0.0, -0.495])
+        # Upper arm (gap → tip): nodes 6..11
+        # First node of upper arm at +gap/2 = +0.005
+        assert np.allclose(mesh.nodes[6], [0.0, 0.0, 0.005])
+        # Last node of upper arm at +(length-gap)/2 = 0.495
+        assert np.allclose(mesh.nodes[11], [0.0, 0.0, 0.495])
 
     def test_dipole_to_mesh_positions(self):
         """Test that mesh nodes are positioned correctly."""
@@ -182,21 +182,21 @@ class TestDipoleToMesh:
         assert element.sources[0].node_end == 7
 
     def test_dipole_to_mesh_with_gap_voltage_source(self):
-        """Test that voltage source with gap is at gap (ground to first node)."""
+        """Test that voltage source with gap is at gap nodes."""
         source_dict = {
             "type": "voltage",
             "amplitude": {"real": 1.0, "imag": 0.0},
         }
-        element = create_dipole(length=1.0, gap=0.01, segments=5, source=source_dict)
+        element = create_dipole(length=1.0, gap=0.01, segments=10, source=source_dict)
         mesh = dipole_to_mesh(element)
 
-        # segments=5 means 5 segments per half (stored in params["segments"])
-        # Upper half: 6 nodes (1-6), lower half: 6 nodes (7-12)
-        # Dual voltage sources for balanced feed (matching golden standard)
+        # segments=10 total → 5 per arm
+        # Lower arm: nodes 1-6 (tip→gap), upper arm: nodes 7-12 (gap→tip)
+        # Feed at gap: node 6 (last lower) and node 7 (first upper)
         assert len(element.sources) == 2
-        assert element.sources[0].node_start == 0  # Ground to upper
-        assert element.sources[0].node_end == 1
-        assert element.sources[1].node_start == 0  # Ground to lower
+        assert element.sources[0].node_start == 0  # Ground to lower gap
+        assert element.sources[0].node_end == 6
+        assert element.sources[1].node_start == 0  # Ground to upper gap
         assert element.sources[1].node_end == 7
         assert element.sources[1].amplitude == -element.sources[0].amplitude  # Opposite polarity
 
@@ -206,23 +206,23 @@ class TestDipoleToMesh:
             "type": "current",
             "amplitude": {"real": 1.0, "imag": 0.0},
         }
-        element = create_dipole(length=1.0, gap=0.01, segments=5, source=source_dict)
+        element = create_dipole(length=1.0, gap=0.01, segments=10, source=source_dict)
         mesh = dipole_to_mesh(element)
 
-        # Current sources: dual node injection for balanced feed
+        # segments=10 total → 5 per arm; feed at gap nodes 6 and 7
         assert len(element.sources) == 2
-        assert element.sources[0].node_start == 1  # First node of upper half
+        assert element.sources[0].node_start == 6  # Gap node of lower arm
         assert element.sources[0].node_end is None  # Current source (single node)
-        assert element.sources[1].node_start == 7  # First node of lower half
+        assert element.sources[1].node_start == 7  # Gap node of upper arm
         assert element.sources[1].node_end is None  # Current source (single node)
         assert element.sources[1].amplitude == -element.sources[0].amplitude  # Opposite polarity
 
     def test_dipole_to_mesh_edge_mapping(self):
         """Test that edge to element mapping is correct."""
-        element = create_dipole(length=1.0, segments=5, gap=0.01)
+        element = create_dipole(length=1.0, segments=10, gap=0.01)
         mesh = dipole_to_mesh(element)
 
-        # With gap, we have two halves: 2*segments = 10 edges
+        # segments=10 total → 5 per arm → 2*5 = 10 edges
         assert len(mesh.edge_to_element) == 10
         element_id_str = str(element.id)
         for edge_id, elem_id in mesh.edge_to_element.items():
@@ -260,18 +260,18 @@ class TestDipoleToMesh:
             gap=0.1,
             center_position=(0.0, 0.0, 0.0),
             orientation=(1.0, 0.0, 0.0),
-            segments=5,
+            segments=10,
         )
         mesh = dipole_to_mesh(element)
 
-        # Upper half: from gap/2 to (length-gap)/2
-        # First node: center + gap/2 * orientation = [0,0,0] + 0.05*[1,0,0] = [0.05,0,0]
-        assert np.allclose(mesh.nodes[0], [0.05, 0.0, 0.0])
-        # Last node of upper half: (length-gap)/2 = 0.45 in x direction
-        assert np.allclose(mesh.nodes[5], [0.45, 0.0, 0.0])
+        # Lower arm first (tip → gap): nodes 0..5
+        # First node (lower tip): center - (length-gap)/2 * orientation = [-0.45,0,0]
+        assert np.allclose(mesh.nodes[0], [-0.45, 0.0, 0.0])
+        # Last node (lower gap): center - gap/2 * orientation = [-0.05,0,0]
+        assert np.allclose(mesh.nodes[5], [-0.05, 0.0, 0.0])
 
-        # Lower half: from -gap/2 to -(length-gap)/2
-        # First node of lower half: [0,0,0] - 0.05*[1,0,0] = [-0.05,0,0]
-        assert np.allclose(mesh.nodes[6], [-0.05, 0.0, 0.0])
-        # Last node of lower half: -(length-gap)/2 = -0.45 in x direction
-        assert np.allclose(mesh.nodes[11], [-0.45, 0.0, 0.0])
+        # Upper arm (gap → tip): nodes 6..11
+        # First node (upper gap): center + gap/2 * orientation = [0.05,0,0]
+        assert np.allclose(mesh.nodes[6], [0.05, 0.0, 0.0])
+        # Last node (upper tip): center + (length-gap)/2 * orientation = [0.45,0,0]
+        assert np.allclose(mesh.nodes[11], [0.45, 0.0, 0.0])
