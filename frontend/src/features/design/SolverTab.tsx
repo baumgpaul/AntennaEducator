@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
+import TuneIcon from '@mui/icons-material/Tune';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import CalculateIcon from '@mui/icons-material/Calculate';
@@ -17,6 +18,7 @@ import { FieldRegionVisualization } from './FieldRegionVisualization';
 import { SolverPropertiesPanel } from './SolverPropertiesPanel';
 import { FrequencyInputDialog } from './FrequencyInputDialog';
 import { FrequencySweepDialog } from './FrequencySweepDialog';
+import { ParameterStudyDialog } from './ParameterStudyDialog';
 import { AddFieldDialog } from './AddFieldDialog';
 import DirectivitySettingsDialog from './DirectivitySettingsDialog';
 import type { AntennaElement } from '@/types/models';
@@ -43,6 +45,8 @@ import {
 import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
+import type { ParameterStudyConfig } from '@/types/parameterStudy';
+import { runParameterStudy } from '@/store/parameterStudyThunks';
 import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
 
 /**
@@ -91,6 +95,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const [selectedFieldId, setSelectedFieldId] = useState<string | undefined>(undefined);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [lastSweepParams, setLastSweepParams] = useState<FrequencySweepParams | null>(null);
+  const [parameterStudyDialogOpen, setParameterStudyDialogOpen] = useState(false);
 
   // Auto-open properties panel when a field is selected
   useEffect(() => {
@@ -126,6 +131,26 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
 
   const handleSweep = () => {
     setSweepDialogOpen(true);
+  };
+
+  const handleParameterStudy = () => {
+    setParameterStudyDialogOpen(true);
+  };
+
+  const handleParameterStudySubmit = async (config: ParameterStudyConfig) => {
+    setParameterStudyDialogOpen(false);
+    try {
+      await dispatch(runParameterStudy(config)).unwrap();
+      dispatch(markAsSolved());
+      const totalPts = config.sweepVariables.reduce((acc, v) => acc * v.numPoints, 1);
+      setSnackbarMessage(`Parameter study complete! ${totalPts} points solved.`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error: any) {
+      setSnackbarMessage(error || 'Parameter study failed');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
   };
 
   const handleFrequencySweepSubmit = async (params: FrequencySweepParams) => {
@@ -442,6 +467,13 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             >
               Sweep
             </Button>
+            <Button
+              startIcon={<TuneIcon />}
+              onClick={handleParameterStudy}
+              disabled={simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
+            >
+              Study
+            </Button>
           </ButtonGroup>
         </Box>
 
@@ -723,6 +755,13 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         onClose={() => setDirectivityDialogOpen(false)}
         onConfirm={handleDirectivityConfirm}
         initialSettings={directivitySettings}
+      />
+
+      <ParameterStudyDialog
+        open={parameterStudyDialogOpen}
+        onClose={() => setParameterStudyDialogOpen(false)}
+        onSubmit={handleParameterStudySubmit}
+        isLoading={simulationStatus === 'running' || simulationStatus === 'preparing'}
       />
 
       {/* FEEDBACK SNACKBAR */}
