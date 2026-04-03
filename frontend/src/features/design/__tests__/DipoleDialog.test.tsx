@@ -420,4 +420,158 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       resolveGenerate!();
     });
   });
+
+  describe('Orientation Presets', () => {
+    it('should default to Z-axis orientation', () => {
+      render(
+        <Provider store={createTestStore()}>
+          <DipoleDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      // Z-axis button should be active (default orientation is 0,0,1)
+      const orientationXFields = screen.getAllByLabelText('X');
+      const orientationYFields = screen.getAllByLabelText('Y');
+      const orientationZFields = screen.getAllByLabelText('Z');
+
+      // Orientation fields are the second set (first set is position)
+      const oriX = orientationXFields[1] as HTMLInputElement;
+      const oriY = orientationYFields[1] as HTMLInputElement;
+      const oriZ = orientationZFields[1] as HTMLInputElement;
+
+      expect(oriX.value).toBe('0');
+      expect(oriY.value).toBe('0');
+      expect(oriZ.value).toBe('1');
+    });
+
+    it('should set orientation to (1,0,0) when X-axis preset is clicked', async () => {
+      const user = userEvent.setup();
+      render(
+        <Provider store={createTestStore()}>
+          <DipoleDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      await user.click(screen.getByRole('button', { name: /X-axis/i }));
+
+      const orientationXFields = screen.getAllByLabelText('X');
+      const orientationYFields = screen.getAllByLabelText('Y');
+      const orientationZFields = screen.getAllByLabelText('Z');
+
+      expect((orientationXFields[1] as HTMLInputElement).value).toBe('1');
+      expect((orientationYFields[1] as HTMLInputElement).value).toBe('0');
+      expect((orientationZFields[1] as HTMLInputElement).value).toBe('0');
+    });
+
+    it('should set orientation to (0,1,0) when Y-axis preset is clicked', async () => {
+      const user = userEvent.setup();
+      render(
+        <Provider store={createTestStore()}>
+          <DipoleDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      await user.click(screen.getByRole('button', { name: /Y-axis/i }));
+
+      const orientationYFields = screen.getAllByLabelText('Y');
+      expect((orientationYFields[1] as HTMLInputElement).value).toBe('1');
+    });
+
+    it('should set orientation to (0,0,1) when Z-axis preset is clicked', async () => {
+      const user = userEvent.setup();
+      render(
+        <Provider store={createTestStore()}>
+          <DipoleDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      // Click X first to change, then Z to restore
+      await user.click(screen.getByRole('button', { name: /X-axis/i }));
+      await user.click(screen.getByRole('button', { name: /Z-axis/i }));
+
+      const orientationZFields = screen.getAllByLabelText('Z');
+      expect((orientationZFields[1] as HTMLInputElement).value).toBe('1');
+    });
+
+    it('should submit with correct orientation after preset change', async () => {
+      const user = userEvent.setup();
+      mockOnGenerate.mockResolvedValue(undefined);
+
+      render(
+        <Provider store={createTestStore()}>
+          <DipoleDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      await user.click(screen.getByRole('button', { name: /X-axis/i }));
+      await user.click(screen.getByRole('button', { name: /Generate Mesh/i }));
+
+      await waitFor(() => {
+        expect(mockOnGenerate).toHaveBeenCalledTimes(1);
+      });
+
+      const submittedData = mockOnGenerate.mock.calls[0][0];
+      expect(submittedData.orientation).toEqual({ x: 1, y: 0, z: 0 });
+    });
+  });
+
+  describe('Feed Gap Field', () => {
+    it('should render feed gap field', () => {
+      render(
+        <Provider store={createTestStore()}>
+          <DipoleDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      const gapInput = screen.getByLabelText(/Feed Gap/i) as HTMLInputElement;
+      expect(gapInput).toBeInTheDocument();
+      expect(gapInput.value).toBe('0.001');
+    });
+
+    it('should accept zero gap value', async () => {
+      const user = userEvent.setup();
+      mockOnGenerate.mockResolvedValue(undefined);
+
+      render(
+        <Provider store={createTestStore()}>
+          <DipoleDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      const gapInput = screen.getByLabelText(/Feed Gap/i);
+      await user.clear(gapInput);
+      await user.type(gapInput, '0');
+
+      await user.click(screen.getByRole('button', { name: /Generate Mesh/i }));
+
+      await waitFor(() => {
+        expect(mockOnGenerate).toHaveBeenCalledTimes(1);
+      });
+
+      expect(mockOnGenerate.mock.calls[0][0].gap).toBe(0);
+    });
+
+    it('should submit gap value with form data', async () => {
+      const user = userEvent.setup();
+      mockOnGenerate.mockResolvedValue(undefined);
+
+      render(
+        <Provider store={createTestStore()}>
+          <DipoleDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      const gapInput = screen.getByLabelText(/Feed Gap/i);
+      await user.clear(gapInput);
+      await user.type(gapInput, '0.005');
+
+      await user.click(screen.getByRole('button', { name: /Generate Mesh/i }));
+
+      await waitFor(() => {
+        expect(mockOnGenerate).toHaveBeenCalledTimes(1);
+      });
+
+      expect(mockOnGenerate.mock.calls[0][0].gap).toBe(0.005);
+    });
+  });
 });
