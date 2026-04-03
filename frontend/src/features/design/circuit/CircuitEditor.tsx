@@ -48,10 +48,12 @@ import {
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import SaveIcon from '@mui/icons-material/Save';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 
 import { circuitNodeTypes, type CircuitNodeData } from './CircuitNodeTypes';
 import { circuitEdgeTypes, type CircuitEdgeData } from './CircuitEdgeTypes';
 import { ComponentEditDialog } from './ComponentEditDialog';
+import { computeAutoLayout } from './autoLayout';
 import type {
   CircuitState,
   CircuitComponent,
@@ -378,6 +380,23 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     setEditDialogOpen(true);
   }, []);
 
+  // Auto-layout: reposition nodes using dagre
+  const handleAutoLayout = useCallback(() => {
+    const currentNodes = rfNodesToCircuit(rfNodes);
+    const layouted = computeAutoLayout(currentNodes, circuit.components);
+
+    setCircuit((prev) => ({ ...prev, nodes: layouted }));
+    setRfNodes((prev) =>
+      prev.map((rfn) => {
+        const updated = layouted.find(
+          (n) => `node-${n.index}` === rfn.id,
+        );
+        if (!updated) return rfn;
+        return { ...rfn, position: { x: updated.positionX, y: updated.positionY } };
+      }),
+    );
+  }, [rfNodes, circuit.components, setRfNodes]);
+
   // Save component from edit dialog
   const handleSaveComponent = useCallback(
     (compData: Omit<CircuitComponent, 'id'> & { id?: string }) => {
@@ -609,6 +628,19 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
             sx={{ textTransform: 'none', fontSize: '0.75rem' }}
           >
             Add Component
+          </Button>
+
+          {/* Auto Layout Button */}
+          <Button
+            startIcon={<AccountTreeIcon />}
+            onClick={handleAutoLayout}
+            size="small"
+            variant="outlined"
+            color="secondary"
+            fullWidth
+            sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+          >
+            Auto Layout
           </Button>
 
           <Divider sx={{ borderColor: '#333' }} />

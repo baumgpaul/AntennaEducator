@@ -47,58 +47,78 @@ const COMPONENT_COLORS: Record<CircuitComponentType, string> = {
 
 function SchematicIcon({ type, size = 16 }: { type: CircuitComponentType; size?: number }) {
   const color = COMPONENT_COLORS[type];
-  const half = size / 2;
-  const s = size;
+  // Use wider viewBox for better detail; render at given height
+  const w = Math.round(size * 1.5);
+  const h = size;
 
   switch (type) {
     case 'resistor':
-      // Zigzag resistor
+      // IEEE zigzag resistor with lead wires
       return (
-        <svg width={s} height={s} viewBox="0 0 16 16">
-          <polyline
-            points="0,8 2,4 4,12 6,4 8,12 10,4 12,12 14,8 16,8"
+        <svg width={w} height={h} viewBox="0 0 24 12">
+          <path
+            d="M0,6 L4,6 L5.5,1 L8.5,11 L11.5,1 L14.5,11 L17.5,1 L20,6 L24,6"
             fill="none"
             stroke={color}
             strokeWidth={1.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
         </svg>
       );
     case 'inductor':
-      // Coil
+      // IEEE coil — three semicircular humps
       return (
-        <svg width={s} height={s} viewBox="0 0 16 16">
+        <svg width={w} height={h} viewBox="0 0 24 14">
           <path
-            d="M0,10 C2,2 4,2 6,10 C8,2 10,2 12,10 C14,2 16,2 16,10"
+            d="M0,11 L3,11 A3,3 0 0,1 9,11 A3,3 0 0,1 15,11 A3,3 0 0,1 21,11 L24,11"
             fill="none"
             stroke={color}
             strokeWidth={1.5}
+            strokeLinecap="round"
           />
         </svg>
       );
     case 'capacitor':
-      // Parallel plates
+      // IEEE capacitor — two parallel plates with lead wires
       return (
-        <svg width={s} height={s} viewBox="0 0 16 16">
-          <line x1="0" y1={half} x2="6" y2={half} stroke={color} strokeWidth={1.5} />
-          <line x1="6" y1="2" x2="6" y2="14" stroke={color} strokeWidth={2} />
-          <line x1="10" y1="2" x2="10" y2="14" stroke={color} strokeWidth={2} />
-          <line x1="10" y1={half} x2="16" y2={half} stroke={color} strokeWidth={1.5} />
+        <svg width={w} height={h} viewBox="0 0 24 12">
+          <line x1="0" y1="6" x2="10" y2="6" stroke={color} strokeWidth={1.5} />
+          <line x1="10" y1="1" x2="10" y2="11" stroke={color} strokeWidth={2} />
+          <line x1="14" y1="1" x2="14" y2="11" stroke={color} strokeWidth={2} />
+          <line x1="14" y1="6" x2="24" y2="6" stroke={color} strokeWidth={1.5} />
         </svg>
       );
     case 'voltage_source':
-      // Circle with +/-
+      // IEEE independent voltage source — circle with + and − polarity marks
       return (
-        <svg width={s} height={s} viewBox="0 0 16 16">
-          <circle cx={half} cy={half} r={half - 1} fill="none" stroke={color} strokeWidth={1.5} />
-          <text x="3" y="10" fontSize="8" fill={color} fontWeight="bold">V</text>
+        <svg width={w} height={h} viewBox="0 0 24 16">
+          <line x1="0" y1="8" x2="7" y2="8" stroke={color} strokeWidth={1.5} />
+          <circle cx="12" cy="8" r="5" fill="none" stroke={color} strokeWidth={1.5} />
+          {/* Plus sign */}
+          <line x1="9" y1="8" x2="11" y2="8" stroke={color} strokeWidth={1.2} />
+          <line x1="10" y1="7" x2="10" y2="9" stroke={color} strokeWidth={1.2} />
+          {/* Minus sign */}
+          <line x1="13" y1="8" x2="15" y2="8" stroke={color} strokeWidth={1.2} />
+          <line x1="17" y1="8" x2="24" y2="8" stroke={color} strokeWidth={1.5} />
         </svg>
       );
     case 'current_source':
-      // Circle with arrow
+      // IEEE independent current source — circle with directional arrow
       return (
-        <svg width={s} height={s} viewBox="0 0 16 16">
-          <circle cx={half} cy={half} r={half - 1} fill="none" stroke={color} strokeWidth={1.5} />
-          <text x="4" y="10" fontSize="8" fill={color} fontWeight="bold">I</text>
+        <svg width={w} height={h} viewBox="0 0 24 16">
+          <line x1="0" y1="8" x2="7" y2="8" stroke={color} strokeWidth={1.5} />
+          <circle cx="12" cy="8" r="5" fill="none" stroke={color} strokeWidth={1.5} />
+          {/* Arrow pointing right inside circle */}
+          <line x1="9" y1="8" x2="15" y2="8" stroke={color} strokeWidth={1.5} />
+          <polyline
+            points="13,5.5 15,8 13,10.5"
+            fill="none"
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+          />
+          <line x1="17" y1="8" x2="24" y2="8" stroke={color} strokeWidth={1.5} />
         </svg>
       );
   }
