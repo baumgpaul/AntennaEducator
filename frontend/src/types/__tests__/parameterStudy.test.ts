@@ -89,7 +89,6 @@ describe('buildSweepGrid', () => {
   it('returns empty for no sweep variables', () => {
     const config: ParameterStudyConfig = {
       sweepVariables: [],
-      referenceImpedance: 50,
     };
     expect(buildSweepGrid(config)).toEqual([]);
   });
@@ -99,7 +98,6 @@ describe('buildSweepGrid', () => {
       sweepVariables: [
         { variableName: 'freq', min: 100e6, max: 300e6, numPoints: 3, spacing: 'linear' },
       ],
-      referenceImpedance: 50,
     };
     const grid = buildSweepGrid(config);
     expect(grid).toHaveLength(3);
@@ -116,7 +114,6 @@ describe('buildSweepGrid', () => {
         { variableName: 'freq', min: 100e6, max: 200e6, numPoints: 2, spacing: 'linear' },
         { variableName: 'length', min: 0.1, max: 0.3, numPoints: 3, spacing: 'linear' },
       ],
-      referenceImpedance: 50,
     };
     const grid = buildSweepGrid(config);
     // 2 × 3 = 6 points
@@ -147,7 +144,6 @@ describe('buildSweepGrid', () => {
         { variableName: 'a', min: 1, max: 5, numPoints: 5, spacing: 'linear' },
         { variableName: 'b', min: 10, max: 30, numPoints: 3, spacing: 'linear' },
       ],
-      referenceImpedance: 50,
     };
     expect(buildSweepGrid(config)).toHaveLength(15);
   });

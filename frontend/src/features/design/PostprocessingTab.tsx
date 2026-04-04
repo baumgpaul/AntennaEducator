@@ -16,7 +16,7 @@ import SettingsInputComponentIcon from '@mui/icons-material/SettingsInputCompone
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import type { SolverWorkflowState } from '@/store/solverSlice';
-import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields, requestPortQuantities, selectPortResults } from '@/store/solverSlice';
+import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields, requestPortQuantities, selectPortResults, selectParameterStudy } from '@/store/solverSlice';
 import { selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
@@ -32,6 +32,8 @@ import { ViewItemRenderer } from '../postprocessing/ViewItemRenderer';
 import { Colorbar } from '../postprocessing/Colorbar';
 import TimeAnimationOverlay from '../postprocessing/TimeAnimationOverlay';
 import FrequencySelector from '../postprocessing/FrequencySelector';
+import { SweepVariableSelector } from '../postprocessing/SweepVariableSelector';
+import { ParameterStudyPlot } from '../postprocessing/plots/ParameterStudyPlot';
 import ExportPDFDialog from './dialogs/ExportPDFDialog';
 import { exportToPDF } from '@/utils/exportToPDF';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -201,6 +203,15 @@ function PostprocessingTab({
 
   const portResults = useAppSelector(selectPortResults);
   const portComputing = useAppSelector((state) => state.solver.postprocessingStatus === 'running');
+  const parameterStudy = useAppSelector(selectParameterStudy);
+
+  // Derive z0 from first element's first port (used for Smith chart)
+  const portZ0 = useMemo(() => {
+    for (const el of elements) {
+      if (el.ports && el.ports.length > 0) return el.ports[0].z0;
+    }
+    return 50;
+  }, [elements]);
 
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
 
@@ -415,6 +426,8 @@ function PostprocessingTab({
             backgroundColor: 'background.paper',
           }}
         >
+          {/* SweepVariableSelector — shown when parameter study results available */}
+          <SweepVariableSelector />
           {/* FrequencySelector — shown above tree when sweep results available */}
           <FrequencySelector />
           <TreeViewPanel
@@ -434,13 +447,22 @@ function PostprocessingTab({
           />
         </Box>
 
-      {/* MIDDLE PANEL - 3D Visualization OR Line View (flex, remaining space) */}
+      {/* MIDDLE PANEL - 3D Visualization OR Line View + Parameter Study (flex, remaining space) */}
       <Box
         sx={{
           flex: 1,
           height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+      <Box
+        sx={{
+          flex: parameterStudy ? '1 1 50%' : '1 1 100%',
           position: 'relative',
           overflow: 'hidden',
+          minHeight: 200,
           backgroundColor: selectedViewId && viewConfigurations.find(v => v.id === selectedViewId)?.viewType === 'Line'
             ? 'background.default'
             : '#1a1a1a',
@@ -571,6 +593,23 @@ function PostprocessingTab({
             );
           });
         })()}
+      </Box>
+
+      {/* Parameter Study Results — shown below 3D view when sweep exists */}
+      {parameterStudy && parameterStudy.results.length > 0 && (
+        <Box
+          sx={{
+            flex: '1 1 50%',
+            minHeight: 200,
+            borderTop: 1,
+            borderColor: 'divider',
+            overflow: 'auto',
+            backgroundColor: 'background.paper',
+          }}
+        >
+          <ParameterStudyPlot study={parameterStudy} z0={portZ0} />
+        </Box>
+      )}
       </Box>
 
       {/* RIGHT PANEL - Properties Panel (320px, collapsible) */}

@@ -43,7 +43,6 @@ function make1DStudy(): ParameterStudyResult {
     sweepVariables: [
       { variableName: 'freq', min: 100e6, max: 300e6, numPoints: 3, spacing: 'linear' },
     ],
-    referenceImpedance: 50,
   };
   const values = [100e6, 200e6, 300e6];
   const impedances = [

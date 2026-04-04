@@ -32,8 +32,6 @@ export interface SweepVariable {
 export interface ParameterStudyConfig {
   /** 1 or 2 sweep variables. */
   sweepVariables: SweepVariable[];
-  /** Reference impedance Z₀ for port quantities [Ω]. */
-  referenceImpedance: number;
 }
 
 // ============================================================================

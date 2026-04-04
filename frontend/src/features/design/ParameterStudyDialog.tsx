@@ -87,7 +87,6 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
   const [sweepVars, setSweepVars] = useState<SweepVarState[]>([
     { ...DEFAULT_VAR_STATE, variableName: 'freq' },
   ]);
-  const [referenceImpedance, setReferenceImpedance] = useState(50);
 
   // ========================================================================
   // Handlers
@@ -140,8 +139,8 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
     for (const sv of svs) {
       if (sv.min >= sv.max) return null;
     }
-    return { sweepVariables: svs, referenceImpedance };
-  }, [sweepVars, referenceImpedance, numericContext]);
+    return { sweepVariables: svs };
+  }, [sweepVars, numericContext]);
 
   const totalPoints = config ? buildSweepGrid(config).length : 0;
 
@@ -298,19 +297,6 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
           )}
 
           <Divider />
-
-          {/* Reference Impedance */}
-          <TextField
-            label="Reference Impedance Z₀ (Ω)"
-            size="small"
-            type="number"
-            value={referenceImpedance}
-            onChange={(e) =>
-              setReferenceImpedance(parseFloat(e.target.value) || 50)
-            }
-            inputProps={{ min: 1, step: 1 }}
-            sx={{ width: 200 }}
-          />
 
           {/* Grid Summary */}
           <Alert severity="info" sx={{ py: 0.5 }}>

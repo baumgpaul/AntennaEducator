@@ -43,7 +43,6 @@ import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { ParameterStudyConfig } from '@/types/parameterStudy';
 import { runParameterStudy } from '@/store/parameterStudyThunks';
-import { ParameterStudyPlot } from '../postprocessing/plots/ParameterStudyPlot';
 import { selectParameterStudy } from '@/store/solverSlice';
 
 /**
@@ -583,7 +582,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
       >
         <Box
           sx={{
-            flex: parameterStudy ? '1 1 50%' : '1 1 100%',
+            flex: '1 1 100%',
             position: 'relative',
             overflow: 'hidden',
             backgroundColor: '#1a1a1a',
@@ -608,20 +607,32 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           </Scene3D>
         </Box>
 
-        {/* Parameter Study Results Panel */}
+        {/* Parameter Study Summary — compact chip when sweep results exist */}
         {parameterStudy && parameterStudy.results.length > 0 && (
-          <Box
+          <Paper
+            elevation={0}
             sx={{
-              flex: '1 1 50%',
-              minHeight: 200,
+              px: 2,
+              py: 0.5,
               borderTop: 1,
               borderColor: 'divider',
-              overflow: 'auto',
-              backgroundColor: 'background.paper',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              flexShrink: 0,
             }}
           >
-            <ParameterStudyPlot study={parameterStudy} />
-          </Box>
+            <Chip
+              icon={<CheckCircleIcon />}
+              label={`Sweep complete: ${parameterStudy.results.length} points, ${(parameterStudy.totalTimeMs / 1000).toFixed(1)}s`}
+              size="small"
+              color="success"
+              variant="outlined"
+            />
+            <Typography variant="caption" color="text.secondary">
+              View results in the Postprocessing tab
+            </Typography>
+          </Paper>
         )}
       </Box>
 

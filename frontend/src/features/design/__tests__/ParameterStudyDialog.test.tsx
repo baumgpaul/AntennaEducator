@@ -80,9 +80,9 @@ describe('ParameterStudyDialog', () => {
       expect(screen.getByLabelText(/Points/)).toBeInTheDocument();
     });
 
-    it('shows reference impedance field', () => {
+    it('does not show reference impedance field (z0 comes from port)', () => {
       renderDialog();
-      expect(screen.getByLabelText(/Reference Impedance|Z₀/i)).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Reference Impedance|Z₀/i)).not.toBeInTheDocument();
     });
 
     it('shows Run button', () => {

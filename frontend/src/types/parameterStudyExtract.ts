@@ -61,12 +61,13 @@ function parseComplex(v: unknown): ComplexLike {
  *
  * @param study   The full ParameterStudyResult from the Redux store.
  * @param antennaIndex  Which antenna to extract (default: 0 = first).
+ * @param z0  Reference impedance [Ω] (default: 50).
  */
 export function extractPortQuantities(
   study: ParameterStudyResult,
   antennaIndex = 0,
+  z0 = 50,
 ): PortQuantityRow[] {
-  const z0 = study.config.referenceImpedance;
 
   return study.results.map((pr, idx) => {
     const resp = pr.solverResponse as any;

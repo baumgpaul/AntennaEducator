@@ -104,6 +104,7 @@ describe('SolverTab', () => {
         resultsStale: false,
         parameterStudy: null,
         parameterStudyConfig: null,
+        selectedSweepPointIndex: 0,
         portResults: null,
       },
       design: {

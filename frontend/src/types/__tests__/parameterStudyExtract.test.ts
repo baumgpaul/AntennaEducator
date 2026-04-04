@@ -46,13 +46,11 @@ function make1DResult(
   varName: string,
   values: number[],
   impedances: { real: number; imag: number }[],
-  z0 = 50,
 ): ParameterStudyResult {
   const config: ParameterStudyConfig = {
     sweepVariables: [
       { variableName: varName, min: values[0], max: values[values.length - 1], numPoints: values.length, spacing: 'linear' },
     ],
-    referenceImpedance: z0,
   };
   const gridPoints: GridPoint[] = values.map((v, i) => ({
     values: { [varName]: v },
@@ -147,7 +145,7 @@ describe('extractPortQuantities', () => {
   });
 
   it('clamps return loss for perfect match', () => {
-    const study = make1DResult('freq', [300e6], [{ real: 50, imag: 0 }], 50);
+    const study = make1DResult('freq', [300e6], [{ real: 50, imag: 0 }]);
     const rows = extractPortQuantities(study);
     // Should be clamped (not -Infinity)
     expect(Number.isFinite(rows[0].returnLoss)).toBe(true);

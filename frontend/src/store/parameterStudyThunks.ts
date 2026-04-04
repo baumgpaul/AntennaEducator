@@ -128,6 +128,8 @@ export const runParameterStudy = createAsyncThunk<
               }
             }
           }
+          // Yield to the event loop so React can repaint the updated geometry
+          await new Promise((r) => setTimeout(r, 0));
         }
 
         // 5. Build solver request

@@ -211,6 +211,9 @@ interface SolverState {
   parameterStudy: ParameterStudyResult | null;
   parameterStudyConfig: ParameterStudyConfig | null;
 
+  // Selected sweep point index (for postprocessing slider navigation)
+  selectedSweepPointIndex: number;
+
   // Port quantity results (per antenna_id)
   portResults: Record<string, import('@/api/postprocessor').PortQuantitiesResponseOutput> | null;
 }
@@ -242,6 +245,7 @@ const initialState: SolverState = {
   resultsStale: false,
   parameterStudy: null,
   parameterStudyConfig: null,
+  selectedSweepPointIndex: 0,
   portResults: null,
 };
 
@@ -1340,6 +1344,11 @@ const solverSlice = createSlice({
       }
     },
 
+    /** Set the selected sweep point index for postprocessing slider navigation */
+    setSweepPointIndex: (state, action: PayloadAction<number>) => {
+      state.selectedSweepPointIndex = action.payload;
+    },
+
   updateFieldResult: (state, action: PayloadAction<{ fieldId: string; computed: boolean; num_points: number }>) => {
     if (!state.fieldResults) {
       state.fieldResults = {};
@@ -1734,6 +1743,7 @@ export const {
   clearResultsStaleFlag,
   setSelectedFrequency,
   setRadiationPatternForFrequency,
+  setSweepPointIndex,
 } = solverSlice.actions;
 
 // Selectors
@@ -1766,6 +1776,7 @@ export const selectRadiationPatterns = (state: RootState) => state.solver.radiat
 // Parameter study selectors
 export const selectParameterStudy = (state: RootState) => state.solver.parameterStudy;
 export const selectParameterStudyConfig = (state: RootState) => state.solver.parameterStudyConfig;
+export const selectSweepPointIndex = (state: RootState) => state.solver.selectedSweepPointIndex;
 
 // Port quantity selectors
 export const selectPortResults = (state: RootState) => state.solver.portResults;

@@ -18,6 +18,7 @@ import type {
 } from '@/types/models'
 import { generateDipoleMesh, generateLoopMesh, generateRodMesh, generateCustomMesh, createDipole, createLoop, createRod } from '@/api/preprocessor'
 import { getNextElementColor } from '@/utils/colors'
+import { runParameterStudy } from '@/store/parameterStudyThunks'
 
 interface DesignState {
   // Multi-element system
@@ -1075,6 +1076,12 @@ const designSlice = createSlice({
       .addCase(remeshElementExpressions.rejected, (state, action) => {
         state.meshGenerating = false;
         state.meshError = action.payload as string || 'Failed to re-mesh with updated expressions';
+      })
+      // Mark as solved when a parameter study completes (the nominal restore
+      // step dispatches remeshElementExpressions which sets isSolved=false;
+      // this overrides that so the user can compute fields afterwards).
+      .addCase(runParameterStudy.fulfilled, (state) => {
+        state.isSolved = true;
       });
   },
 })

@@ -65,16 +65,18 @@ const TAB_LABELS: Record<QuantityTab, string> = {
 
 export interface ParameterStudyPlotProps {
   study: ParameterStudyResult;
+  /** Reference impedance for Smith chart [Ω]. Falls back to 50. */
+  z0?: number;
 }
 
 // ============================================================================
 // Component
 // ============================================================================
 
-export function ParameterStudyPlot({ study }: ParameterStudyPlotProps) {
+export function ParameterStudyPlot({ study, z0 = 50 }: ParameterStudyPlotProps) {
   const [activeTab, setActiveTab] = useState<QuantityTab>('impedance');
 
-  const rows = useMemo(() => extractPortQuantities(study), [study]);
+  const rows = useMemo(() => extractPortQuantities(study, 0, z0), [study, z0]);
   const sweepVars = study.config.sweepVariables;
   const primaryVar = sweepVars[0]?.variableName ?? 'x';
   const secondaryVar = sweepVars.length > 1 ? sweepVars[1]?.variableName : null;
@@ -141,9 +143,9 @@ export function ParameterStudyPlot({ study }: ParameterStudyPlotProps) {
                   .map(([k, v]) => `${k}=${fmtAxis(v)}`)
                   .join(', '),
               }))}
-              z0={study.config.referenceImpedance}
+              z0={z0}
               size={Math.min(400, 350)}
-              title={`Smith Chart — Z₀ = ${study.config.referenceImpedance} Ω`}
+              title={`Smith Chart — Z₀ = ${z0} Ω`}
             />
           </Box>
         ) : (
