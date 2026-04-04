@@ -763,7 +763,19 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     if (totalFieldDataSizeMB > 50) {
       console.warn(`⚠️ Large field dataset: ${totalFieldDataSizeMB.toFixed(1)} MB stored in memory`);
       console.warn('Consider reducing sampling resolution or exporting to ParaView for large datasets');
-      // Note: Snackbar notification will be shown in the UI (handled by fulfilled case)
+    }
+
+    // Compute port quantities automatically (if ports are defined)
+    const portElements = elements.filter(
+      (el) => el.ports && el.ports.length > 0 && el.visible && !el.locked,
+    );
+    if (portElements.length > 0) {
+      try {
+        await dispatch(requestPortQuantities()).unwrap();
+      } catch (portErr) {
+        console.warn('[Postprocessing] Port quantities failed:', portErr);
+        // Non-fatal — don't abort the workflow
+      }
     }
 
     // Update workflow state
@@ -773,9 +785,6 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     if (!getState().solver.selectedFrequencyHz && frequencies.length > 0) {
       dispatch(setSelectedFrequency(frequencies[0]));
     }
-
-    // TODO: In the future, highlight selectedFrequencyHz on impedance/S-parameter charts
-    // (vertical marker line on return loss, VSWR, impedance vs frequency plots)
 
     // Refresh token balance after postprocessing
     dispatch(getCurrentUserAsync());
@@ -1662,6 +1671,40 @@ const solverSlice = createSlice({
       state.sweepInProgress = false;
       state.solverState = 'solved';
       state.progress = 100;
+
+      // Build frequencySweep from parameter study results so the postprocessing
+      // and FrequencySelector infrastructure can iterate over all frequencies.
+      const studyResults = action.payload.results;
+      if (studyResults.length > 0) {
+        // Extract unique frequencies in order of appearance
+        const seenFreqs = new Set<number>();
+        const frequencies: number[] = [];
+        const sweepResultsByFreq: Record<number, MultiAntennaSolutionResponse> = {};
+
+        for (const r of studyResults) {
+          const resp = r.solverResponse as MultiAntennaSolutionResponse;
+          const f = resp.frequency;
+          if (!seenFreqs.has(f)) {
+            seenFreqs.add(f);
+            frequencies.push(f);
+            sweepResultsByFreq[f] = resp;
+          }
+        }
+
+        state.frequencySweep = {
+          frequencies,
+          results: frequencies.map((f) => sweepResultsByFreq[f]),
+          completedCount: frequencies.length,
+          totalCount: frequencies.length,
+          isComplete: true,
+          currentDistributions: [],
+        };
+
+        // Set the nominal frequency (last solve) as the selected frequency
+        if (state.multiAntennaResults) {
+          state.currentFrequency = state.multiAntennaResults.frequency / 1e6;
+        }
+      }
     });
     builder.addCase(runParameterStudy.rejected, (state, action) => {
       state.status = 'failed';

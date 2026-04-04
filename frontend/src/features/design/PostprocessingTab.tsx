@@ -8,15 +8,13 @@ import {
   IconButton,
   Tooltip,
   Paper,
-  Button,
   Chip,
-  CircularProgress,
 } from '@mui/material';
 import SettingsInputComponentIcon from '@mui/icons-material/SettingsInputComponent';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import type { SolverWorkflowState } from '@/store/solverSlice';
-import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields, requestPortQuantities, selectPortResults, selectParameterStudy } from '@/store/solverSlice';
+import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields, selectPortResults, selectParameterStudy } from '@/store/solverSlice';
 import { selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
@@ -202,7 +200,6 @@ function PostprocessingTab({
   const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
 
   const portResults = useAppSelector(selectPortResults);
-  const portComputing = useAppSelector((state) => state.solver.postprocessingStatus === 'running');
   const parameterStudy = useAppSelector(selectParameterStudy);
 
   // Derive z0 from first element's first port (used for Smith chart)
@@ -226,13 +223,6 @@ function PostprocessingTab({
 
   const hasPortElements = elements.some((el) => el.ports && el.ports.length > 0);
 
-  const handleComputePortQuantities = async () => {
-    try {
-      await dispatch(requestPortQuantities()).unwrap();
-    } catch {
-      // errors surfaced via portResults state
-    }
-  };
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [isAnimationPlaying, setIsAnimationPlaying] = useState(false);
@@ -368,8 +358,8 @@ function PostprocessingTab({
         </Alert>
       )}
 
-      {/* PORT QUANTITIES STRIP — visible when ports are defined */}
-      {isSolved && hasPortElements && (
+      {/* PORT QUANTITIES STRIP — visible when port results are available */}
+      {isSolved && hasPortElements && portResults && (
         <Paper
           elevation={0}
           sx={{
@@ -384,32 +374,23 @@ function PostprocessingTab({
             flexShrink: 0,
           }}
         >
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={portComputing ? <CircularProgress size={14} /> : <SettingsInputComponentIcon />}
-            onClick={handleComputePortQuantities}
-            disabled={portComputing}
-          >
-            Port Quantities
-          </Button>
-          {portResults &&
-            Object.entries(portResults).map(([, result]: [string, PortQuantitiesResponseOutput]) =>
-              result.port_results.map((pr) => {
-                const zr = pr.z_in.real.toFixed(1);
-                const zi = pr.z_in.imag >= 0 ? `+j${pr.z_in.imag.toFixed(1)}` : `-j${Math.abs(pr.z_in.imag).toFixed(1)}`;
-                return (
-                  <Box key={pr.port_id} sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-                      {pr.port_id}:
-                    </Typography>
-                    <Chip label={`Z = (${zr}${zi}) Ω`} size="small" variant="outlined" />
-                    <Chip label={`VSWR = ${pr.vswr.toFixed(2)}`} size="small" variant="outlined" />
-                    <Chip label={`S₁₁ = ${pr.s11_db.toFixed(1)} dB`} size="small" variant="outlined" />
-                  </Box>
-                );
-              }),
-            )}
+          <SettingsInputComponentIcon fontSize="small" color="action" />
+          {Object.entries(portResults).map(([, result]: [string, PortQuantitiesResponseOutput]) =>
+            result.port_results.map((pr) => {
+              const zr = pr.z_in.real.toFixed(1);
+              const zi = pr.z_in.imag >= 0 ? `+j${pr.z_in.imag.toFixed(1)}` : `-j${Math.abs(pr.z_in.imag).toFixed(1)}`;
+              return (
+                <Box key={pr.port_id} sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+                    {pr.port_id}:
+                  </Typography>
+                  <Chip label={`Z = (${zr}${zi}) Ω`} size="small" variant="outlined" />
+                  <Chip label={`VSWR = ${pr.vswr.toFixed(2)}`} size="small" variant="outlined" />
+                  <Chip label={`S₁₁ = ${pr.s11_db.toFixed(1)} dB`} size="small" variant="outlined" />
+                </Box>
+              );
+            }),
+          )}
         </Paper>
       )}
 
