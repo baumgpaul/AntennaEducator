@@ -295,7 +295,11 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               const hasResults = !!(results || (solveMode === 'sweep' && parameterStudy));
               const isSolving = simulationStatus === 'running' || sweepInProgress;
               const isError = simulationStatus === 'failed';
-              const isOutdated = resultsStale || (!isSolved && hasResults);
+              // In sweep mode, the nominal-restore remesh briefly sets isSolved=false;
+              // only use resultsStale (explicit design changes) to determine outdated.
+              const isOutdated = solveMode === 'sweep'
+                ? resultsStale
+                : resultsStale || (!isSolved && hasResults);
 
               // Solving: show 'Unsolved' label with loading animation
               if (isSolving) {

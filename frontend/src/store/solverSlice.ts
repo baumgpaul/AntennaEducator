@@ -1954,6 +1954,7 @@ const solverSlice = createSlice({
       state.solverState = 'solved';
       state.solveMode = 'sweep';
       state.progress = 100;
+      state.resultsStale = false; // Sweep results are fresh
 
       // Build frequencySweep from parameter study results so the postprocessing
       // and FrequencySelector infrastructure can iterate over all frequencies.
