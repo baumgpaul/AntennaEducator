@@ -48,6 +48,8 @@ export interface ParameterStudyDialogProps {
   onClose: () => void;
   onSubmit: (config: ParameterStudyConfig) => void;
   isLoading?: boolean;
+  /** Pre-populate from a previous parameter study config (e.g. last sweep). */
+  initialConfig?: ParameterStudyConfig | null;
 }
 
 // ============================================================================
@@ -79,14 +81,35 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
   onClose,
   onSubmit,
   isLoading = false,
+  initialConfig,
 }) => {
   const variables = useAppSelector(selectVariables);
   const numericContext = useAppSelector(selectVariableContextNumeric);
 
+  // Derive initial sweep-var state from initialConfig (or fresh default)
+  const buildInitialState = (): SweepVarState[] => {
+    if (initialConfig && initialConfig.sweepVariables.length > 0) {
+      return initialConfig.sweepVariables.map((sv) => ({
+        variableName: sv.variableName,
+        min: String(sv.min),
+        max: String(sv.max),
+        numPoints: sv.numPoints,
+        spacing: sv.spacing,
+      }));
+    }
+    return [{ ...DEFAULT_VAR_STATE, variableName: 'freq' }];
+  };
+
   // Per-variable sweep configuration (1 or 2)
-  const [sweepVars, setSweepVars] = useState<SweepVarState[]>([
-    { ...DEFAULT_VAR_STATE, variableName: 'freq' },
-  ]);
+  const [sweepVars, setSweepVars] = useState<SweepVarState[]>(buildInitialState);
+
+  // Re-initialize when the dialog opens with a (possibly new) initialConfig
+  React.useEffect(() => {
+    if (open) {
+      setSweepVars(buildInitialState());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // ========================================================================
   // Handlers

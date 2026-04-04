@@ -328,8 +328,16 @@ export const remeshElementOrientation = createAsyncThunk(
  * Used when re-evaluating expressions to update element configs.
  */
 const EXPR_TO_CONFIG_KEY: Record<string, Record<string, string>> = {
-  dipole: { length: 'length', radius: 'wire_radius', gap: 'gap', segments: 'segments' },
-  loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap', segments: 'segments' },
+  dipole: {
+    length: 'length', radius: 'wire_radius', gap: 'gap', segments: 'segments',
+    positionX: 'positionX', positionY: 'positionY', positionZ: 'positionZ',
+    orientationX: 'orientationX', orientationY: 'orientationY', orientationZ: 'orientationZ',
+  },
+  loop: {
+    radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap', segments: 'segments',
+    positionX: 'positionX', positionY: 'positionY', positionZ: 'positionZ',
+    normalX: 'normalX', normalY: 'normalY', normalZ: 'normalZ',
+  },
   rod: {
     radius: 'wire_radius', segments: 'segments',
     start_x: 'start_x', start_y: 'start_y', start_z: 'start_z',
@@ -377,14 +385,25 @@ export const remeshElementExpressions = createAsyncThunk(
       let response
       switch (element.type) {
         case 'dipole': {
+          // Reassemble position/orientation arrays from individual X/Y/Z values
+          const dipPos = params.center_position || [0, 0, 0]
+          const dipOri = params.orientation || [0, 0, 1]
           const config: DipoleConfig = {
             length: updatedParams.length,
             wire_radius: updatedParams.wire_radius,
             gap: updatedParams.gap,
             segments: Math.round(updatedParams.segments ?? params.segments),
             balanced_feed: updatedParams.balanced_feed ?? params.balanced_feed,
-            center_position: updatedParams.center_position || [0, 0, 0],
-            orientation: updatedParams.orientation || [0, 0, 1],
+            center_position: [
+              updatedParams.positionX ?? dipPos[0],
+              updatedParams.positionY ?? dipPos[1],
+              updatedParams.positionZ ?? dipPos[2],
+            ],
+            orientation: [
+              updatedParams.orientationX ?? dipOri[0],
+              updatedParams.orientationY ?? dipOri[1],
+              updatedParams.orientationZ ?? dipOri[2],
+            ],
             // Pass existing source so the backend regenerates correct feed node
             // indices for the updated mesh geometry.
             source: element.sources?.[0],
@@ -393,11 +412,22 @@ export const remeshElementExpressions = createAsyncThunk(
           break
         }
         case 'loop': {
+          // Reassemble position/normal arrays from individual X/Y/Z values
+          const loopPos = params.center_position || [0, 0, 0]
+          const loopNorm = params.normal_vector || [0, 0, 1]
           const config: LoopConfig = {
             ...updatedParams,
             segments: Math.round(updatedParams.segments ?? params.segments),
-            center_position: updatedParams.center_position || [0, 0, 0],
-            normal_vector: updatedParams.normal_vector || [0, 0, 1],
+            center_position: [
+              updatedParams.positionX ?? loopPos[0],
+              updatedParams.positionY ?? loopPos[1],
+              updatedParams.positionZ ?? loopPos[2],
+            ],
+            normal_vector: [
+              updatedParams.normalX ?? loopNorm[0],
+              updatedParams.normalY ?? loopNorm[1],
+              updatedParams.normalZ ?? loopNorm[2],
+            ],
             source: element.sources?.[0],
           }
           response = await createLoop(config)

@@ -43,7 +43,7 @@ import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { ParameterStudyConfig } from '@/types/parameterStudy';
 import { runParameterStudy } from '@/store/parameterStudyThunks';
-import { selectParameterStudy } from '@/store/solverSlice';
+import { selectParameterStudy, selectParameterStudyConfig } from '@/store/solverSlice';
 
 /**
  * SolverTab - New 3-panel layout for solver workflow
@@ -83,6 +83,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const resultsStale = useSelector(selectResultsStale);
   const isSolved = useSelector(selectIsSolved);
   const parameterStudy = useSelector(selectParameterStudy);
+  const parameterStudyConfig = useSelector(selectParameterStudyConfig);
 
   // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
@@ -526,6 +527,16 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         />
       )}
 
+      {/* Postprocessing (field computation) progress */}
+      {postprocessingStatus === 'running' && postprocessingProgress && postprocessingProgress.total > 0 && (
+        <LinearProgress
+          variant="determinate"
+          value={Math.round((postprocessingProgress.completed / postprocessingProgress.total) * 100)}
+          color="info"
+          sx={{ flexShrink: 0, height: 4 }}
+        />
+      )}
+
       {/* 3-PANEL LAYOUT */}
       <Box
         sx={{
@@ -733,6 +744,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         onClose={() => setParameterStudyDialogOpen(false)}
         onSubmit={handleParameterStudySubmit}
         isLoading={simulationStatus === 'running' || simulationStatus === 'preparing'}
+        initialConfig={parameterStudyConfig}
       />
 
       {/* FEEDBACK SNACKBAR */}

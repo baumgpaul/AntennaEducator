@@ -428,11 +428,34 @@ function DesignPage() {
 
       // Map from expression keys to config keys per type
       const EXPR_MAP: Record<string, Record<string, string>> = {
-        dipole: { length: 'length', radius: 'wire_radius', gap: 'gap' },
-        loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap' },
-        rod: { radius: 'wire_radius' },
+        dipole: {
+          length: 'length', radius: 'wire_radius', gap: 'gap', segments: 'segments',
+          positionX: 'positionX', positionY: 'positionY', positionZ: 'positionZ',
+          orientationX: 'orientationX', orientationY: 'orientationY', orientationZ: 'orientationZ',
+        },
+        loop: {
+          radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap', segments: 'segments',
+          positionX: 'positionX', positionY: 'positionY', positionZ: 'positionZ',
+          normalX: 'normalX', normalY: 'normalY', normalZ: 'normalZ',
+        },
+        rod: {
+          radius: 'wire_radius', segments: 'segments',
+          start_x: 'start_x', start_y: 'start_y', start_z: 'start_z',
+          end_x: 'end_x', end_y: 'end_y', end_z: 'end_z',
+        },
       };
       const mapping = EXPR_MAP[el.type] || {};
+
+      // Extract individual position/orientation/normal values from config arrays
+      // so the comparison works for these decomposed expression keys too.
+      const pos = (params as any).center_position || el.position || [0, 0, 0];
+      const ori = (params as any).orientation || (params as any).normal_vector || [0, 0, 1];
+      const extendedParams: Record<string, number> = {
+        ...params,
+        positionX: pos[0], positionY: pos[1], positionZ: pos[2],
+        orientationX: ori[0], orientationY: ori[1], orientationZ: ori[2],
+        normalX: ori[0], normalY: ori[1], normalZ: ori[2],
+      };
 
       for (const [key, expr] of Object.entries(el.expressions)) {
         try {
@@ -442,8 +465,8 @@ function DesignPage() {
           // Compare with current config value
           const configKey = mapping[key];
           if (configKey) {
-            const currentVal: number = params[configKey];
-            if (Math.abs(newVal - currentVal) > 1e-15) {
+            const currentVal: number = extendedParams[configKey];
+            if (currentVal === undefined || Math.abs(newVal - currentVal) > 1e-15) {
               changed = true;
             }
           }

@@ -28,7 +28,7 @@ import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
 import { remeshElementExpressions } from '@/store/designSlice';
 import { evaluateExpression } from '@/utils/expressionEvaluator';
 import type { VariableDefinition } from '@/utils/expressionEvaluator';
-import { setProgress, setSweepProgress } from '@/store/solverSlice';
+import { setProgress, setSweepProgress, runMultiAntennaSimulation } from '@/store/solverSlice';
 
 // ============================================================================
 // Helpers
@@ -192,7 +192,30 @@ export const runParameterStudy = createAsyncThunk<
         }
       }
 
-      // 7. Final progress
+      // 7. Final nominal solve — populate state.results / state.multiAntennaResults
+      //    so that postprocessing (field computation, directivity) can work after a sweep.
+      const nominalFrequency = nominalCtx.freq;
+      if (nominalFrequency && nominalFrequency > 0) {
+        const finalState = getState();
+        const nominalInputs = finalState.design.elements
+          .filter(
+            (el) =>
+              el.visible &&
+              !el.locked &&
+              el.mesh &&
+              el.mesh.nodes.length > 0 &&
+              el.mesh.edges.length > 0,
+          )
+          .map(convertElementToAntennaInput);
+
+        if (nominalInputs.length > 0) {
+          await dispatch(
+            runMultiAntennaSimulation({ frequency: nominalFrequency, antennas: nominalInputs }),
+          ).unwrap();
+        }
+      }
+
+      // 8. Final progress
       dispatch(setProgress(100));
 
       return {
