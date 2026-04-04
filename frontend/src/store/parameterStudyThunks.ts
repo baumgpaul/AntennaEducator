@@ -173,6 +173,23 @@ export const runParameterStudy = createAsyncThunk<
         prevPoint = point;
       }
 
+      // Restore all expression-linked elements to the nominal variable context.
+      // After the sweep the mesh may reflect the last swept geometry; bring it
+      // back to the current user-set variable values so the 3D view is correct.
+      const postSweepState = getState();
+      const nominalCtx = buildOverriddenContext(postSweepState.variables.variables, {});
+      for (const element of postSweepState.design.elements) {
+        if (!element.visible || element.locked) continue;
+        if (element.expressions && Object.keys(element.expressions).length > 0) {
+          const resolved = resolveElementExpressions(element.expressions, nominalCtx);
+          if (Object.keys(resolved).length > 0) {
+            await dispatch(
+              remeshElementExpressions({ elementId: element.id, resolvedValues: resolved }),
+            ).unwrap();
+          }
+        }
+      }
+
       // 7. Final progress
       dispatch(setProgress(100));
 

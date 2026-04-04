@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
+import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, LinearProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import TuneIcon from '@mui/icons-material/Tune';
-import SettingsInputComponentIcon from '@mui/icons-material/SettingsInputComponent';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import CalculateIcon from '@mui/icons-material/Calculate';
@@ -30,7 +29,6 @@ import {
   setDirectivitySettings,
   solveSingleFrequencyWorkflow,
   computePostprocessingWorkflow,
-  requestPortQuantities,
   selectSolverStatus,
   selectSolverError,
   selectSolverProgress,
@@ -39,7 +37,6 @@ import {
   selectSweepInProgress,
   selectSweepProgress,
   selectResultsStale,
-  selectPortResults,
   cancelPostprocessing,
 } from '@/store/solverSlice';
 import { markAsSolved, selectIsSolved } from '@/store/designSlice';
@@ -87,7 +84,6 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const resultsStale = useSelector(selectResultsStale);
   const isSolved = useSelector(selectIsSolved);
   const parameterStudy = useSelector(selectParameterStudy);
-  const portResults = useSelector(selectPortResults);
 
   // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
@@ -212,20 +208,6 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
     setSnackbarMessage('Postprocessing cancelled');
     setSnackbarSeverity('info');
     setSnackbarOpen(true);
-  };
-
-  const handlePortQuantities = async () => {
-    if (solverWorkflowState !== 'solved' && solverWorkflowState !== 'postprocessing-ready') return;
-    try {
-      await dispatch(requestPortQuantities()).unwrap();
-      setSnackbarMessage('Port quantities computed!');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-    } catch (error: any) {
-      setSnackbarMessage(error || 'Port quantities computation failed');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-    }
   };
 
   const handleFrequencySolve = async (frequency: number, unit: 'MHz' | 'GHz') => {
@@ -520,16 +502,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             >
               Compute Fields
             </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<SettingsInputComponentIcon />}
-              onClick={handlePortQuantities}
-              disabled={!canComputePostprocessing || !isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running' || !elements.some(el => el.ports && el.ports.length > 0)}
-              title={!elements.some(el => el.ports && el.ports.length > 0) ? 'Add ports in the circuit editor first' : !isSolved ? 'Run solver first' : undefined}
-            >
-              Port Quantities
-            </Button>
+
             {postprocessingStatus === 'running' && (
               <IconButton
                 size="small"
@@ -544,6 +517,15 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           </Box>
         </Box>
       </Paper>
+
+      {/* Parameter sweep progress */}
+      {sweepInProgress && sweepProgress && (
+        <LinearProgress
+          variant="determinate"
+          value={Math.round((sweepProgress.current / sweepProgress.total) * 100)}
+          sx={{ flexShrink: 0, height: 4 }}
+        />
+      )}
 
       {/* 3-PANEL LAYOUT */}
       <Box

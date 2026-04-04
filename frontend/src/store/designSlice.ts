@@ -82,6 +82,45 @@ const initialState: DesignState = {
 }
 
 // ============================================================================
+// ============================================================================
+// Helpers
+// ============================================================================
+
+/**
+ * Derive a default port from the element's generated sources.
+ * For a balanced/gap feed the backend produces two center-tap voltage sources
+ * (node_start=0).  The port sits between their respective node_end values.
+ * For any other source configuration the port mirrors the first source.
+ */
+function createDefaultPort(sources: Source[]): Port | null {
+  if (!sources || sources.length === 0) return null;
+  const centerTap = sources.filter(
+    (s) => s.type === 'voltage' && s.node_start === 0 && s.node_end != null && s.node_end !== 0,
+  );
+  if (centerTap.length >= 2) {
+    return {
+      id: `port_${Date.now()}`,
+      node_start: centerTap[0].node_end as number,
+      node_end: centerTap[1].node_end as number,
+      z0: 50,
+      label: 'Port 1',
+    };
+  }
+  const s = sources[0];
+  const ne = s.node_end;
+  if (ne != null && ne !== 0) {
+    return {
+      id: `port_${Date.now()}`,
+      node_start: s.node_start ?? 0,
+      node_end: ne,
+      z0: 50,
+      label: 'Port 1',
+    };
+  }
+  return null;
+}
+
+// ============================================================================
 // Async Thunks
 // ============================================================================
 
@@ -766,6 +805,8 @@ const designSlice = createSlice({
 
         // Create AntennaElement from response (use backend sources — they handle
         // balanced feed, current excitation, and correct node indexing)
+        const dipSources = action.payload.element?.sources || [];
+        const dipDefaultPort = createDefaultPort(dipSources);
         const element: AntennaElement = {
           id: `dipole_${Date.now()}`,
           type: 'dipole',
@@ -774,8 +815,9 @@ const designSlice = createSlice({
           position,
           rotation,
           mesh: action.payload.mesh,
-          sources: action.payload.element?.sources || [],
+          sources: dipSources,
           lumped_elements: action.payload.element?.lumped_elements || [],
+          ports: dipDefaultPort ? [dipDefaultPort] : [],
           visible: true,
           locked: false,
           color,
@@ -826,6 +868,8 @@ const designSlice = createSlice({
           : (backendLoopElement?.config || backendLoopElement || {});
 
         // Create AntennaElement from response (include backend sources)
+        const loopSources = action.payload.element?.sources || [];
+        const loopDefaultPort = createDefaultPort(loopSources);
         const element: AntennaElement = {
           id: `loop_${Date.now()}`,
           type: 'loop',
@@ -834,8 +878,9 @@ const designSlice = createSlice({
           position,
           rotation,
           mesh: action.payload.mesh,
-          sources: action.payload.element?.sources || [],
+          sources: loopSources,
           lumped_elements: action.payload.element?.lumped_elements || [],
+          ports: loopDefaultPort ? [loopDefaultPort] : [],
           visible: true,
           locked: false,
           color,
