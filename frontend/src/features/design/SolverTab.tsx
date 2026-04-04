@@ -425,7 +425,11 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             </Typography>
             {postprocessingStatus === 'completed' && fieldResults && (() => {
               const anyFieldOutdated = Object.values(fieldResults).some(r => r && !r.computed);
-              const isOutdated = !isSolved || anyFieldOutdated;
+              // In sweep mode, navigating sweep points remeshes (setting isSolved=false)
+              // which is purely visual — don't treat it as outdated.
+              const isOutdated = solveMode === 'sweep'
+                ? (resultsStale || anyFieldOutdated)
+                : (!isSolved || anyFieldOutdated);
               return (
                 <>
                   {isOutdated ? (

@@ -383,22 +383,21 @@ export const remeshElementExpressions = createAsyncThunk(
       }
 
       let response
+      let newPosition: [number, number, number] | undefined
       switch (element.type) {
         case 'dipole': {
           // Reassemble position/orientation arrays from individual X/Y/Z values
           const dipPos = params.center_position || [0, 0, 0]
           const dipOri = params.orientation || [0, 0, 1]
+          // Always generate at origin — element.position carries the offset
+          // (consistent with initial creation in generateDipoleMesh)
           const config: DipoleConfig = {
             length: updatedParams.length,
             wire_radius: updatedParams.wire_radius,
             gap: updatedParams.gap,
             segments: Math.round(updatedParams.segments ?? params.segments),
             balanced_feed: updatedParams.balanced_feed ?? params.balanced_feed,
-            center_position: [
-              updatedParams.positionX ?? dipPos[0],
-              updatedParams.positionY ?? dipPos[1],
-              updatedParams.positionZ ?? dipPos[2],
-            ],
+            center_position: [0, 0, 0],
             orientation: [
               updatedParams.orientationX ?? dipOri[0],
               updatedParams.orientationY ?? dipOri[1],
@@ -408,6 +407,11 @@ export const remeshElementExpressions = createAsyncThunk(
             // indices for the updated mesh geometry.
             source: element.sources?.[0],
           }
+          newPosition = [
+            updatedParams.positionX ?? dipPos[0],
+            updatedParams.positionY ?? dipPos[1],
+            updatedParams.positionZ ?? dipPos[2],
+          ] as [number, number, number]
           response = await createDipole(config)
           break
         }
@@ -415,14 +419,11 @@ export const remeshElementExpressions = createAsyncThunk(
           // Reassemble position/normal arrays from individual X/Y/Z values
           const loopPos = params.center_position || [0, 0, 0]
           const loopNorm = params.normal_vector || [0, 0, 1]
+          // Always generate at origin — element.position carries the offset
           const config: LoopConfig = {
             ...updatedParams,
             segments: Math.round(updatedParams.segments ?? params.segments),
-            center_position: [
-              updatedParams.positionX ?? loopPos[0],
-              updatedParams.positionY ?? loopPos[1],
-              updatedParams.positionZ ?? loopPos[2],
-            ],
+            center_position: [0, 0, 0],
             normal_vector: [
               updatedParams.normalX ?? loopNorm[0],
               updatedParams.normalY ?? loopNorm[1],
@@ -430,6 +431,11 @@ export const remeshElementExpressions = createAsyncThunk(
             ],
             source: element.sources?.[0],
           }
+          newPosition = [
+            updatedParams.positionX ?? loopPos[0],
+            updatedParams.positionY ?? loopPos[1],
+            updatedParams.positionZ ?? loopPos[2],
+          ] as [number, number, number]
           response = await createLoop(config)
           break
         }
@@ -461,7 +467,7 @@ export const remeshElementExpressions = createAsyncThunk(
           return rejectWithValue(`Unknown element type: ${element.type}`)
       }
 
-      return { elementId, mesh: response.mesh, updatedParams, sources: response.element?.sources }
+      return { elementId, mesh: response.mesh, updatedParams, sources: response.element?.sources, newPosition }
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to re-mesh element with updated expressions')
     }
@@ -1080,7 +1086,7 @@ const designSlice = createSlice({
       })
       .addCase(remeshElementExpressions.fulfilled, (state, action) => {
         state.meshGenerating = false;
-        const { elementId, mesh, updatedParams, sources } = action.payload;
+        const { elementId, mesh, updatedParams, sources, newPosition } = action.payload;
         const index = state.elements.findIndex(el => el.id === elementId);
         if (index >= 0) {
           const element = state.elements[index];
@@ -1097,6 +1103,11 @@ const designSlice = createSlice({
           // existing sources (e.g. when the remesh request omits source config).
           if (sources && sources.length > 0) {
             element.sources = sources;
+          }
+
+          // Update position from resolved expression values
+          if (newPosition) {
+            element.position = newPosition;
           }
 
           state.isSolved = false;
