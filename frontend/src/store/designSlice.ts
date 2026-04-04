@@ -345,6 +345,9 @@ export const remeshElementExpressions = createAsyncThunk(
             balanced_feed: updatedParams.balanced_feed ?? params.balanced_feed,
             center_position: updatedParams.center_position || [0, 0, 0],
             orientation: updatedParams.orientation || [0, 0, 1],
+            // Pass existing source so the backend regenerates correct feed node
+            // indices for the updated mesh geometry.
+            source: element.sources?.[0],
           }
           response = await createDipole(config)
           break
@@ -355,6 +358,7 @@ export const remeshElementExpressions = createAsyncThunk(
             segments: Math.round(updatedParams.segments ?? params.segments),
             center_position: updatedParams.center_position || [0, 0, 0],
             normal_vector: updatedParams.normal_vector || [0, 0, 1],
+            source: element.sources?.[0],
           }
           response = await createLoop(config)
           break
@@ -378,6 +382,7 @@ export const remeshElementExpressions = createAsyncThunk(
             segments: Math.round(updatedParams.segments ?? params.segments),
             start_point: [sx, sy, sz],
             end_point: [ex, ey, ez],
+            source: element.sources?.[0],
           }
           response = await createRod(config)
           break
@@ -1011,8 +1016,10 @@ const designSlice = createSlice({
           const target = cfg.parameters || cfg;
           Object.assign(target, updatedParams);
 
-          // Update sources if returned (they may reference new geometry)
-          if (sources) {
+          // Update sources if returned (they may reference new geometry).
+          // Guard against empty arrays: an empty response should never clear
+          // existing sources (e.g. when the remesh request omits source config).
+          if (sources && sources.length > 0) {
             element.sources = sources;
           }
 
