@@ -1713,6 +1713,7 @@ const solverSlice = createSlice({
       state.frequencySweep = null;
       state.fieldResults = null;
       state.fieldData = null;
+      state.portResults = null;
       state.resultsStale = false; // New results incoming
     });
 

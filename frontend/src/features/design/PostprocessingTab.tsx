@@ -380,7 +380,8 @@ function PostprocessingTab({
         >
           <SettingsInputComponentIcon fontSize="small" color="action" />
           {Object.entries(portResults).map(([, result]: [string, PortQuantitiesResponseOutput]) =>
-            result.port_results.map((pr) => {
+            result.port_results?.map((pr) => {
+              if (!pr.z_in) return null;
               const zr = pr.z_in.real.toFixed(1);
               const zi = pr.z_in.imag >= 0 ? `+j${pr.z_in.imag.toFixed(1)}` : `-j${Math.abs(pr.z_in.imag).toFixed(1)}`;
               return (
@@ -389,8 +390,8 @@ function PostprocessingTab({
                     {pr.port_id}:
                   </Typography>
                   <Chip label={`Z = (${zr}${zi}) Ω`} size="small" variant="outlined" />
-                  <Chip label={`VSWR = ${pr.vswr.toFixed(2)}`} size="small" variant="outlined" />
-                  <Chip label={`S₁₁ = ${pr.s11_db.toFixed(1)} dB`} size="small" variant="outlined" />
+                  <Chip label={`VSWR = ${pr.vswr?.toFixed(2) ?? '—'}`} size="small" variant="outlined" />
+                  <Chip label={`S₁₁ = ${pr.s11_db?.toFixed(1) ?? '—'} dB`} size="small" variant="outlined" />
                 </Box>
               );
             }),
