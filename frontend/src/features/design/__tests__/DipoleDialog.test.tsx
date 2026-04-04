@@ -454,11 +454,13 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
 
       await user.click(screen.getByRole('button', { name: /X-axis/i }));
 
-      const orientationXFields = screen.getAllByLabelText('X');
+      await waitFor(() => {
+        const orientationXFields = screen.getAllByLabelText('X');
+        expect((orientationXFields[1] as HTMLInputElement).value).toBe('1');
+      });
+
       const orientationYFields = screen.getAllByLabelText('Y');
       const orientationZFields = screen.getAllByLabelText('Z');
-
-      expect((orientationXFields[1] as HTMLInputElement).value).toBe('1');
       expect((orientationYFields[1] as HTMLInputElement).value).toBe('0');
       expect((orientationZFields[1] as HTMLInputElement).value).toBe('0');
     });
