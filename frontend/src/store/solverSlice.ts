@@ -1946,6 +1946,7 @@ const solverSlice = createSlice({
       state.parameterStudy = null;
     });
     builder.addCase(runParameterStudy.fulfilled, (state, action) => {
+      console.log('[solverSlice] runParameterStudy.fulfilled — setting solveMode to sweep');
       state.status = 'completed';
       state.parameterStudy = action.payload;
       state.parameterStudyConfig = action.payload.config;
@@ -1989,6 +1990,7 @@ const solverSlice = createSlice({
       }
     });
     builder.addCase(runParameterStudy.rejected, (state, action) => {
+      console.error('[solverSlice] runParameterStudy.rejected:', action.payload);
       state.status = 'failed';
       state.error = action.payload as string || 'Parameter study failed';
       state.sweepInProgress = false;

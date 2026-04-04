@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 
 class FieldRequest(BaseModel):
@@ -98,6 +98,11 @@ class PortResult(BaseModel):
     voltage: complex = Field(..., description="Port voltage [V]")
     current: complex = Field(..., description="Port current [A]")
     power_in: float = Field(..., description="Input power [W]")
+
+    @field_serializer("z_in", "gamma", "voltage", "current")
+    @classmethod
+    def serialize_complex(cls, v: complex) -> dict:
+        return {"real": float(v.real), "imag": float(v.imag)}
 
 
 class PortQuantitiesResponse(BaseModel):
