@@ -210,6 +210,9 @@ interface SolverState {
   // Parameter study
   parameterStudy: ParameterStudyResult | null;
   parameterStudyConfig: ParameterStudyConfig | null;
+
+  // Port quantity results (per antenna_id)
+  portResults: Record<string, import('@/api/postprocessor').PortQuantitiesResponseOutput> | null;
 }
 
 const initialState: SolverState = {
@@ -239,6 +242,7 @@ const initialState: SolverState = {
   resultsStale: false,
   parameterStudy: null,
   parameterStudyConfig: null,
+  portResults: null,
 };
 
 // ============================================================================
@@ -1101,6 +1105,79 @@ export const computeRadiationPatternForFrequency = createAsyncThunk<
 });
 
 // ============================================================================
+// Port Quantities
+// ============================================================================
+
+import { computePortQuantities } from '@/api/postprocessor';
+import type { PortQuantitiesRequestInput, PortQuantitiesResponseOutput } from '@/api/postprocessor';
+
+/**
+ * Request port quantities for antennas that have ports defined.
+ * Uses solver results + port definitions from AntennaElement.ports.
+ */
+export const requestPortQuantities = createAsyncThunk<
+  Record<string, PortQuantitiesResponseOutput>,
+  void,
+  { state: RootState }
+>('solver/requestPortQuantities', async (_, { getState, rejectWithValue }) => {
+  try {
+    const state = getState();
+    const { results, multiAntennaResults } = state.solver;
+    const { elements } = state.design;
+
+    if (!multiAntennaResults && !results) {
+      return rejectWithValue('No solver results available. Run solver first.');
+    }
+
+    // Collect elements that have ports
+    const elementsWithPorts = elements.filter(
+      (el) => el.ports && el.ports.length > 0 && el.visible && !el.locked
+    );
+
+    if (elementsWithPorts.length === 0) {
+      return rejectWithValue('No elements have ports defined. Add ports in the circuit editor.');
+    }
+
+    const portResultsMap: Record<string, PortQuantitiesResponseOutput> = {};
+
+    // Get frequency from results
+    const frequency = multiAntennaResults?.frequency || results?.frequency || 0;
+
+    for (const element of elementsWithPorts) {
+      // Find matching antenna solution
+      const solution = multiAntennaResults?.antenna_solutions?.find(
+        (s) => s.antenna_id === element.id
+      );
+
+      if (!solution) continue;
+
+      const request: PortQuantitiesRequestInput = {
+        frequency,
+        antenna_id: element.id,
+        node_voltages: parseComplexArray(solution.node_voltages),
+        branch_currents: parseComplexArray(solution.branch_currents),
+        appended_voltages: parseComplexArray(solution.appended_voltages || []),
+        voltage_source_currents: parseComplexArray(solution.voltage_source_currents || []),
+        edges: element.mesh?.edges || [],
+        ports: element.ports!.map((p) => ({
+          port_id: p.id,
+          node_start: p.node_start,
+          node_end: p.node_end,
+          z0: p.z0,
+        })),
+      };
+
+      const result = await computePortQuantities(request);
+      portResultsMap[element.id] = result;
+    }
+
+    return portResultsMap;
+  } catch (error: any) {
+    return rejectWithValue(extractErrorMessage(error, 'Port quantities computation failed'));
+  }
+});
+
+// ============================================================================
 // Slice
 // ============================================================================
 
@@ -1585,6 +1662,22 @@ const solverSlice = createSlice({
     });
 
     // ========================================================================
+    // Port Quantities
+    // ========================================================================
+    builder.addCase(requestPortQuantities.pending, (state) => {
+      state.postprocessingStatus = 'running';
+      state.error = null;
+    });
+    builder.addCase(requestPortQuantities.fulfilled, (state, action) => {
+      state.postprocessingStatus = 'idle';
+      state.portResults = action.payload;
+    });
+    builder.addCase(requestPortQuantities.rejected, (state, action) => {
+      state.postprocessingStatus = 'idle';
+      state.error = action.payload as string || 'Port quantities failed';
+    });
+
+    // ========================================================================
     // Listen to design changes to mark results as stale
     // ========================================================================
     builder.addMatcher(
@@ -1673,5 +1766,8 @@ export const selectRadiationPatterns = (state: RootState) => state.solver.radiat
 // Parameter study selectors
 export const selectParameterStudy = (state: RootState) => state.solver.parameterStudy;
 export const selectParameterStudyConfig = (state: RootState) => state.solver.parameterStudyConfig;
+
+// Port quantity selectors
+export const selectPortResults = (state: RootState) => state.solver.portResults;
 
 export default solverSlice.reducer;

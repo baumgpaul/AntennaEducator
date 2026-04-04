@@ -8,6 +8,7 @@ import type {
   Mesh,
   Source,
   LumpedElement,
+  Port,
   SolverResult,
   DipoleConfig,
   LoopConfig,
@@ -658,13 +659,14 @@ const designSlice = createSlice({
       state.lumpedElements.splice(action.payload, 1)
     },
 
-    // Batch-replace circuit data (sources + lumped elements + appended nodes) on an element
+    // Batch-replace circuit data (sources + lumped elements + ports + appended nodes) on an element
     setElementCircuit: (
       state,
       action: PayloadAction<{
         elementId: string
         sources: Source[]
         lumped_elements: LumpedElement[]
+        ports?: Port[]
         appended_nodes: AppendedNode[]
       }>
     ) => {
@@ -672,6 +674,7 @@ const designSlice = createSlice({
       if (index >= 0) {
         state.elements[index].sources = action.payload.sources
         state.elements[index].lumped_elements = action.payload.lumped_elements
+        state.elements[index].ports = action.payload.ports || []
         state.elements[index].appended_nodes = action.payload.appended_nodes
         state.isSolved = false
       }

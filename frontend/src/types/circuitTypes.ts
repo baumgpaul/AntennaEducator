@@ -37,7 +37,7 @@ export interface CircuitNode {
 // Circuit Component Types
 // ============================================================================
 
-export type CircuitComponentType = 'resistor' | 'inductor' | 'capacitor' | 'voltage_source' | 'current_source';
+export type CircuitComponentType = 'resistor' | 'inductor' | 'capacitor' | 'voltage_source' | 'current_source' | 'port';
 
 export interface CircuitComponent {
   /** Unique identifier for this component */
@@ -79,6 +79,7 @@ export const COMPONENT_DEFAULTS: Record<CircuitComponentType, { value: number; u
   capacitor: { value: 1e-12, unit: 'F', symbol: 'C' },
   voltage_source: { value: 1, unit: 'V', symbol: 'V' },
   current_source: { value: 1, unit: 'A', symbol: 'I' },
+  port: { value: 50, unit: 'Ω', symbol: 'P' },
 };
 
 /** Human-readable label for component type */
@@ -88,23 +89,26 @@ export const COMPONENT_TYPE_LABELS: Record<CircuitComponentType, string> = {
   capacitor: 'Capacitor',
   voltage_source: 'Voltage Source',
   current_source: 'Current Source',
+  port: 'Port',
 };
 
 // ============================================================================
 // Conversions: CircuitState ↔ Sources + LumpedElements
 // ============================================================================
 
-import type { Source, LumpedElement, ComplexNumber, Mesh, Vector3D } from '@/types/models';
+import type { Source, LumpedElement, Port, ComplexNumber, Mesh, Vector3D } from '@/types/models';
 
 /**
- * Convert circuit components into Source[] and LumpedElement[] for the backend.
+ * Convert circuit components into Source[], LumpedElement[], and Port[] for the backend.
  */
 export function circuitToBackend(circuit: CircuitState): {
   sources: Source[];
   lumped_elements: LumpedElement[];
+  ports: Port[];
 } {
   const sources: Source[] = [];
   const lumped_elements: LumpedElement[] = [];
+  const ports: Port[] = [];
 
   for (const comp of circuit.components) {
     if (comp.type === 'voltage_source' || comp.type === 'current_source') {
@@ -119,6 +123,14 @@ export function circuitToBackend(circuit: CircuitState): {
         node_start: comp.nodeA,
         node_end: comp.nodeB,
         tag: comp.label || undefined,
+      });
+    } else if (comp.type === 'port') {
+      ports.push({
+        id: comp.id,
+        node_start: comp.nodeA,
+        node_end: comp.nodeB,
+        z0: comp.value,
+        label: comp.label || undefined,
       });
     } else {
       const R = comp.type === 'resistor' ? comp.value : 0;
@@ -139,7 +151,7 @@ export function circuitToBackend(circuit: CircuitState): {
     }
   }
 
-  return { sources, lumped_elements };
+  return { sources, lumped_elements, ports };
 }
 
 /**
@@ -152,6 +164,7 @@ export function backendToCircuit(
   terminalNodeIndices: number[],
   existingAppendedNodes?: Array<{ index: number; label: string }>,
   mesh?: Mesh,
+  existingPorts?: Port[],
 ): CircuitState {
   const nodeSet = new Set<number>();
   const terminalSet = new Set<number>(terminalNodeIndices);
@@ -232,6 +245,23 @@ export function backendToCircuit(
       phase: 0,
       label: le.tag || '',
     });
+  }
+
+  // Convert ports
+  if (existingPorts) {
+    for (const port of existingPorts) {
+      nodeSet.add(port.node_start);
+      nodeSet.add(port.node_end);
+      components.push({
+        id: port.id || `comp-${compId++}`,
+        type: 'port',
+        nodeA: port.node_start,
+        nodeB: port.node_end,
+        value: port.z0,
+        phase: 0,
+        label: port.label || '',
+      });
+    }
   }
 
   // Build nodes

@@ -10,7 +10,7 @@
 2. [Phase 1 — Variable & Parameter Management](#phase-1--variable--parameter-management)
 3. [Phase 2 — Custom Antenna Geometry (CSV Import + Visual Editor)](#phase-2--custom-antenna-geometry-csv-import--visual-editor)
 4. [Phase 3 — Lumped Element & Port System](#phase-3--lumped-element--port-system)
-5. [Phase 4 — Solver Enhancements (Port Quantities, S11, VSWR, Parameter Variation) ✅ COMPLETE](#phase-4--solver-enhancements-port-quantities-s11-vswr)
+5. [Phase 4 — Solver Enhancements & On-Demand Postprocessing](#phase-4--solver-enhancements-port-quantities-s11-vswr)
 6. [Phase 5 — Generalized Line Plotting + Smith Chart](#phase-5--generalized-line-plotting--smith-chart)
 7. [Phase 6 — Course Submission System](#phase-6--course-submission-system)
 8. [Phase 7 — Structured PDF Export](#phase-7--structured-pdf-export)
@@ -464,11 +464,11 @@ These items were deferred from Phase 0/3 and were backfilled as TDD in the Phase
 - [x] **Circuit editor auto-layout**: dagre-based TB auto-layout in `frontend/src/features/design/circuit/autoLayout.ts` (6 tests); "Auto Layout" button (AccountTree icon) in CircuitEditor toolbar
 ---
 
-## Phase 4 — Solver Enhancements (Port Quantities, S11, VSWR, Parameter Variation) ✅ COMPLETE
+## Phase 4 — Solver Enhancements & On-Demand Postprocessing
 
-**Goal**: (1) For antennas with 2 poles (1 port = 1 voltage source feed point), compute and return Γ, |S11| dB, VSWR, and input impedance per frequency. (2) Generalize the frequency sweep into a parameter variation system where any user-defined variable can be swept, enabling parametric studies. (3) Backfill Phase 3 test gaps and polish circuit editor with IEEE symbols + auto-layout.
+**Goal**: (1) Port quantities (Γ, S11, VSWR, Z_in) with explicit port definitions. (2) Parameter variation system. (3) On-demand postprocessing — solve returns currents only, user explicitly requests port quantities and field computations. (4) Merge frequency sweep and parameter study into unified "Parameter Sweep". (5) Circuit editor: ports as components + IEEE symbols + auto-layout.
 
-**Status**: Implemented in PR #60 on branch `phase4/solver-enhancements`. 71 new frontend tests. All CI checks pass (tsc, ESLint, Vitest). Smith chart was implemented here (ahead of Phase 5 schedule).
+**Status**: Sections 4.0–4.4 complete (PR #60). Sections 4.6–4.9 in progress.
 
 **Rationale**: The solver already computes `input_impedance`, `reflection_coefficient`, and `return_loss` per frequency point. The main work is making the port definition explicit, adding proper Γ/VSWR with user-defined Z₀, and building a general parameter sweep system that treats frequency as just another variable.
 
@@ -561,6 +561,138 @@ Replaces the concept of `FrequencySweepDialog`. Accessible via "Study" button (T
 | `frontend/src/features/postprocessing/plots/ParameterStudyPlot.tsx` | Component | ✅ Done | Split-panel result viewer — Impedance/VSWR/ReturnLoss/Smith tabs (8 tests) |
 | `frontend/src/features/postprocessing/plots/SmithChart.tsx` | Component | ✅ Done | Custom SVG Smith chart, `impedanceToGamma()` pure fn (13 tests) — implemented ahead of Phase 5 |
 | Backend port quantities (`vswr`, `return_loss`, `reference_impedance`) | Backend | ✅ Done (pre-existing) | Already in `FrequencyPointResponse` / `SweepResultResponse` before Phase 4 |
+
+### 4.6 — Port as Circuit Component ✅ Done
+
+**Concept**: A *port* is a 2-terminal measurement probe placed between two nodes of an antenna — analogous to connecting a VNA probe. Defined in the circuit editor alongside R/L/C/VS/CS. Each port has a characteristic impedance Z₀ (default 50 Ω). Ports are persisted on the `AntennaElement` (like `sources` and `lumped_elements`).
+
+**Frontend model** (`frontend/src/types/models.ts`):
+```typescript
+export interface Port {
+  id: string            // UUID
+  node_start: number    // 1-based mesh node index
+  node_end: number      // 1-based mesh node index (0 = ground)
+  z0: number            // Characteristic impedance [Ω], default 50
+  label?: string        // User label, e.g. "Port 1"
+}
+```
+
+**Type extension** (`frontend/src/types/circuitTypes.ts`):
+- Added `'port'` to `CircuitComponentType` union
+- Added port to `COMPONENT_DEFAULTS` (symbol `P`, unit `Ω`, default 50) and `COMPONENT_TYPE_LABELS`
+- Updated `circuitToBackend()` to extract and return `ports: Port[]` alongside sources/lumped_elements
+- Updated `backendToCircuit()` to accept `existingPorts?: Port[]` and reconstruct port edges in the circuit graph
+
+**Circuit editor**:
+- `CircuitEdgeTypes.tsx`: Port SVG symbol — dashed circle with "P" label, purple color (`#9c27b0`)
+- `CircuitEditor.tsx`: `onApply` callback now includes `ports` in its data; `PALETTE_ITEMS` and `PALETTE_COLORS` include `'port'`
+- `DesignPage.tsx`: `handleCircuitApply` accepts and dispatches `ports`
+- `designSlice.ts`: `setElementCircuit` reducer persists `ports?: Port[]` onto the element
+
+**Persistence**: `AntennaElement.ports?: Port[]` stored in `design_state` JSON blob.
+
+### 4.7 — On-Demand Postprocessing ✅ Done
+
+**Principle**: `Solve Single` returns currents/voltages only — no automatic far-field, near-field, or port quantity computation. The user explicitly requests postprocessing via separate buttons.
+
+**Investigation result**: `solveSingleFrequencyWorkflow` already did NOT auto-dispatch any postprocessing — the on-demand model was already in place. No changes to the solve flow were needed.
+
+**UI (SolverTab ribbon)** — implemented changes:
+- **"Solve Single"** — unchanged (opens FrequencyInputDialog, dispatches `solveSingleFrequencyWorkflow`)
+- **"Parameter Sweep"** — replaces both "Sweep" and "Study" buttons (see §4.8)
+- **"Compute Fields"** — renamed from "Compute Postprocessing" for clarity (same handler, triggers `computePostprocessingWorkflow`)
+- **"Port Quantities"** — new button next to "Compute Fields"; enabled when solver state is `'solved'` or `'postprocessing-ready'` AND at least one element has ports; disabled with tooltip if no ports defined; dispatches `requestPortQuantities` thunk → results stored in `solverSlice.portResults`; uses `SettingsInputComponentIcon`
+
+### 4.8 — Merge Sweep into Parameter Sweep ✅ Done
+
+**Concept**: Remove the separate "Sweep" button and `FrequencySweepDialog`. The existing `ParameterStudyDialog` already treats frequency as just another variable. Rename "Study" → "Parameter Sweep".
+
+**Changes made**:
+- Removed `FrequencySweepDialog` import, `sweepDialogOpen` state, `lastSweepParams` state, `handleSweep` handler, and `handleFrequencySweepSubmit` handler from `SolverTab.tsx`
+- Removed `FrequencySweepDialog` JSX from dialogs section
+- Removed "Sweep" button from ribbon `ButtonGroup`
+- Renamed "Study" button label to "Parameter Sweep" (keeps `TuneIcon`)
+- Removed unused imports: `ShowChartIcon`, `runFrequencySweep`, `convertElementToAntennaInput`, `FrequencySweepParams`, `MultiAntennaRequest` from `SolverTab.tsx`
+- `runFrequencySweep` thunk in `solverSlice.ts` retained (still used internally by `parameterStudyThunks.ts`); `FrequencySweepParams` type retained for backward compat
+- `ParameterStudyDialog` unchanged — already fully functional
+
+### 4.9 — Backend: Port Quantities Endpoint ✅ Done
+
+**New endpoint** on the **postprocessor** service:
+
+```
+POST /api/port-quantities
+```
+
+**Request schema** (`PortQuantitiesRequest`):
+```python
+class PortDefinition(BaseModel):
+    port_id: str
+    node_start: int       # 1-based
+    node_end: int          # 0 = ground
+    z0: float = 50.0       # Reference impedance [Ω]
+
+class PortQuantitiesRequest(BaseModel):
+    frequency: float                              # Hz
+    antenna_id: str
+    node_voltages: List[complex]                  # From solver result
+    branch_currents: List[complex]                # From solver result
+    appended_voltages: List[complex] = []
+    voltage_source_currents: List[complex] = []
+    edges: List[List[int]]                        # Mesh edges for current lookup
+    ports: List[PortDefinition]
+```
+
+**Response schema** (`PortQuantitiesResponse`):
+```python
+class PortResult(BaseModel):
+    port_id: str
+    z_in: complex            # Input impedance [Ω]
+    gamma: complex           # Reflection coefficient
+    s11_db: float            # Return loss [dB]
+    vswr: float              # VSWR
+    voltage: complex         # Port voltage [V]
+    current: complex         # Port current [A]
+    power_in: float          # Input power [W]
+
+class PortQuantitiesResponse(BaseModel):
+    antenna_id: str
+    frequency: float
+    port_results: List[PortResult]
+```
+
+**Computation logic**:
+- `V_port = V(node_start) - V(node_end)` (node_end=0 → V=0 for ground)
+- `I_port` = current through the edge connecting the two port nodes (or sum of currents into node_start)
+- `Z_in = V_port / I_port`
+- `Γ = (Z_in - Z₀) / (Z_in + Z₀)`
+- `S11 = 20 * log10(|Γ|)` [dB]
+- `VSWR = (1 + |Γ|) / (1 - |Γ|)`
+- `P_in = 0.5 * Re(V_port * conj(I_port))`
+
+**Export**: Results can be exported as VTK/CSV via existing export infrastructure.
+
+### 4.10 — Deliverables (§4.6–4.9)
+
+| Artifact | Type | Status | Description |
+|----------|------|--------|-------------|
+| `Port` interface in `models.ts` | Types | ✅ Done | Port model (id, node_start, node_end, z0, label) |
+| `AntennaElement.ports` field | Types | ✅ Done | Persisted port definitions on antenna elements |
+| `'port'` in `CircuitComponentType` | Types | ✅ Done | Port type, COMPONENT_DEFAULTS, COMPONENT_TYPE_LABELS |
+| Port symbol in `CircuitEdgeTypes.tsx` | Frontend | ✅ Done | Dashed circle with "P" label, purple (#9c27b0) |
+| `circuitToBackend()` / `backendToCircuit()` updated | Frontend | ✅ Done | Extract/restore `ports: Port[]` in conversion functions |
+| `CircuitEditor.tsx` palette + `onApply` updated | Frontend | ✅ Done | `PALETTE_ITEMS`/`PALETTE_COLORS` include port; `onApply` passes `ports` |
+| `DesignPage.tsx` + `designSlice.ts` updated | Frontend | ✅ Done | `handleCircuitApply` and `setElementCircuit` reducer persist ports |
+| `POST /api/port-quantities` | Backend | ✅ Done | `postprocessor/main.py`: `_compute_port_quantities()` logic + auth endpoint |
+| `PortDefinition` / `PortQuantitiesRequest` / `PortResult` / `PortQuantitiesResponse` | Backend | ✅ Done | `postprocessor/models.py`: Pydantic schemas |
+| `computePortQuantities()` API function | Frontend | ✅ Done | `frontend/src/api/postprocessor.ts`: typed API client |
+| `requestPortQuantities` thunk + `portResults` state | Redux | ✅ Done | `solverSlice.ts`: thunk + reducers + `selectPortResults` selector |
+| "Port Quantities" button in SolverTab | Frontend | ✅ Done | Ribbon button; enabled when solved + ports exist; dispatches `requestPortQuantities` |
+| "Compute Fields" rename (was "Compute Postprocessing") | Frontend | ✅ Done | Clearer UI label in SolverTab ribbon |
+| Remove "Sweep" button + `FrequencySweepDialog` | Frontend | ✅ Done | Replaced by "Parameter Sweep" (§4.8) |
+| Rename "Study" → "Parameter Sweep" | Frontend | ✅ Done | Button label update in SolverTab |
+| SolverTab tests updated | Test | ✅ Done | Button text assertions updated; `portResults: null` added to mock state |
+| `PortQuantitiesDialog.tsx` | Frontend | ⏳ Deferred | Not needed — "Port Quantities" button fires directly without a config dialog |
 
 ---
 
@@ -932,8 +1064,9 @@ Port System             │
    │                    │
    ├────────────────────┘
    ▼
-Phase 4 ─── Solver Enhancements (Port Quantities + Parameter Variation) ✅ COMPLETE
-   │         Phase 3 test backfill, circuit editor polish, Smith chart (early)
+Phase 4 ─── Solver Enhancements & On-Demand Postprocessing
+   │         4.0–4.4 ✅ (param study, Smith chart, circuit editor polish)
+   │         4.6–4.9 ⬜ (ports, on-demand postprocessing, Parameter Sweep merge)
    ▼
 Phase 5 ─── Generalized Line Plotting + Smith Chart integration
    │

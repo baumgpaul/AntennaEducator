@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import ShowChartIcon from '@mui/icons-material/ShowChart';
 import TuneIcon from '@mui/icons-material/Tune';
+import SettingsInputComponentIcon from '@mui/icons-material/SettingsInputComponent';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import CalculateIcon from '@mui/icons-material/Calculate';
@@ -17,7 +17,6 @@ import WireGeometry from './WireGeometry';
 import { FieldRegionVisualization } from './FieldRegionVisualization';
 import { SolverPropertiesPanel } from './SolverPropertiesPanel';
 import { FrequencyInputDialog } from './FrequencyInputDialog';
-import { FrequencySweepDialog } from './FrequencySweepDialog';
 import { ParameterStudyDialog } from './ParameterStudyDialog';
 import { AddFieldDialog } from './AddFieldDialog';
 import DirectivitySettingsDialog from './DirectivitySettingsDialog';
@@ -31,7 +30,7 @@ import {
   setDirectivitySettings,
   solveSingleFrequencyWorkflow,
   computePostprocessingWorkflow,
-  runFrequencySweep,
+  requestPortQuantities,
   selectSolverStatus,
   selectSolverError,
   selectSolverProgress,
@@ -40,14 +39,13 @@ import {
   selectSweepInProgress,
   selectSweepProgress,
   selectResultsStale,
+  selectPortResults,
   cancelPostprocessing,
 } from '@/store/solverSlice';
 import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
-import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 import type { ParameterStudyConfig } from '@/types/parameterStudy';
 import { runParameterStudy } from '@/store/parameterStudyThunks';
-import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
 import { ParameterStudyPlot } from '../postprocessing/plots/ParameterStudyPlot';
 import { selectParameterStudy } from '@/store/solverSlice';
 
@@ -89,15 +87,14 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const resultsStale = useSelector(selectResultsStale);
   const isSolved = useSelector(selectIsSolved);
   const parameterStudy = useSelector(selectParameterStudy);
+  const portResults = useSelector(selectPortResults);
 
   // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
-  const [sweepDialogOpen, setSweepDialogOpen] = useState(false);
   const [addFieldDialogOpen, setAddFieldDialogOpen] = useState(false);
   const [directivityDialogOpen, setDirectivityDialogOpen] = useState(false);
   const [selectedFieldId, setSelectedFieldId] = useState<string | undefined>(undefined);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
-  const [lastSweepParams, setLastSweepParams] = useState<FrequencySweepParams | null>(null);
   const [parameterStudyDialogOpen, setParameterStudyDialogOpen] = useState(false);
 
   // Auto-open properties panel when a field is selected
@@ -132,10 +129,6 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
     setFrequencyDialogOpen(true);
   };
 
-  const handleSweep = () => {
-    setSweepDialogOpen(true);
-  };
-
   const handleParameterStudy = () => {
     setParameterStudyDialogOpen(true);
   };
@@ -151,53 +144,6 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
       setSnackbarOpen(true);
     } catch (error: any) {
       setSnackbarMessage(error || 'Parameter study failed');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-    }
-  };
-
-  const handleFrequencySweepSubmit = async (params: FrequencySweepParams) => {
-    try {
-      if (!elements || elements.length === 0) {
-        setSnackbarMessage('No antenna elements in design');
-        setSnackbarSeverity('error');
-        setSnackbarOpen(true);
-        return;
-      }
-
-      // Build antenna requests using canonical builder (handles balanced feed, position offsets)
-      const antennaRequests = elements
-        .filter((el: AntennaElement) => el.visible && !el.locked && el.mesh && el.mesh.nodes.length > 0 && el.mesh.edges.length > 0)
-        .map((element: AntennaElement) => convertElementToAntennaInput(element));
-
-      if (antennaRequests.length === 0) {
-        setSnackbarMessage('No valid elements for simulation');
-        setSnackbarSeverity('error');
-        setSnackbarOpen(true);
-        return;
-      }
-
-      // Base request without frequency (will be set per sweep point)
-      const baseRequest: Omit<MultiAntennaRequest, 'frequency'> = {
-        antennas: antennaRequests,
-      };
-
-      // Close dialog immediately and save params for next open
-      setSweepDialogOpen(false);
-      setLastSweepParams(params);
-
-      await dispatch(runFrequencySweep({
-        params,
-        request: baseRequest as MultiAntennaRequest,
-      })).unwrap();
-
-      dispatch(markAsSolved());
-
-      setSnackbarMessage(`Frequency sweep complete! ${params.numPoints} frequencies solved.`);
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-    } catch (error: any) {
-      setSnackbarMessage(error || 'Frequency sweep failed');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     }
@@ -266,6 +212,20 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
     setSnackbarMessage('Postprocessing cancelled');
     setSnackbarSeverity('info');
     setSnackbarOpen(true);
+  };
+
+  const handlePortQuantities = async () => {
+    if (solverWorkflowState !== 'solved' && solverWorkflowState !== 'postprocessing-ready') return;
+    try {
+      await dispatch(requestPortQuantities()).unwrap();
+      setSnackbarMessage('Port quantities computed!');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error: any) {
+      setSnackbarMessage(error || 'Port quantities computation failed');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
   };
 
   const handleFrequencySolve = async (frequency: number, unit: 'MHz' | 'GHz') => {
@@ -464,18 +424,11 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               Solve Single
             </Button>
             <Button
-              startIcon={<ShowChartIcon />}
-              onClick={handleSweep}
-              disabled={simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
-            >
-              Sweep
-            </Button>
-            <Button
               startIcon={<TuneIcon />}
               onClick={handleParameterStudy}
               disabled={simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
             >
-              Study
+              Parameter Sweep
             </Button>
           </ButtonGroup>
         </Box>
@@ -563,10 +516,19 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               startIcon={postprocessingStatus === 'running' ? <CircularProgress size={16} /> : <CalculateIcon />}
               onClick={handleComputePostprocessing}
               disabled={!canComputePostprocessing || !isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
-              sx={{ flex: 1 }}
               title={!isSolved ? 'Run solver first before computing postprocessing' : undefined}
             >
-              Compute Postprocessing
+              Compute Fields
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<SettingsInputComponentIcon />}
+              onClick={handlePortQuantities}
+              disabled={!canComputePostprocessing || !isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running' || !elements.some(el => el.ports && el.ports.length > 0)}
+              title={!elements.some(el => el.ports && el.ports.length > 0) ? 'Add ports in the circuit editor first' : !isSolved ? 'Run solver first' : undefined}
+            >
+              Port Quantities
             </Button>
             {postprocessingStatus === 'running' && (
               <IconButton
@@ -758,19 +720,6 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         onSolve={handleFrequencySolve}
         isLoading={simulationStatus === 'running' || simulationStatus === 'preparing'}
         initialFrequency={currentFrequency ?? undefined}
-      />
-
-      <FrequencySweepDialog
-        open={sweepDialogOpen}
-        onClose={() => setSweepDialogOpen(false)}
-        onSubmit={handleFrequencySweepSubmit}
-        isLoading={simulationStatus === 'running' || simulationStatus === 'preparing'}
-        initialValues={lastSweepParams ? {
-          startFrequency: lastSweepParams.startFrequency,
-          stopFrequency: lastSweepParams.stopFrequency,
-          numPoints: lastSweepParams.numPoints,
-          spacing: lastSweepParams.spacing,
-        } : undefined}
       />
 
       <AddFieldDialog

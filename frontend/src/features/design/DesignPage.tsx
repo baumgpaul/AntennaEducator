@@ -653,10 +653,11 @@ function DesignPage() {
     }
   };
 
-  // Circuit editor handler — batch-replace sources + lumped elements + appended nodes
+  // Circuit editor handler — batch-replace sources + lumped elements + ports + appended nodes
   const handleCircuitApply = (data: {
     sources: any[];
     lumped_elements: any[];
+    ports: any[];
     appended_nodes: Array<{ index: number; label: string }>;
   }) => {
     const elementId = selectedElementId;
@@ -665,6 +666,7 @@ function DesignPage() {
       elementId,
       sources: data.sources,
       lumped_elements: data.lumped_elements,
+      ports: data.ports,
       appended_nodes: data.appended_nodes,
     }));
     dispatch(addNotification({

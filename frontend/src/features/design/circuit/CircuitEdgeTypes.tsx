@@ -39,6 +39,7 @@ const COMPONENT_COLORS: Record<CircuitComponentType, string> = {
   capacitor: '#4caf50',
   voltage_source: '#f44336',
   current_source: '#e91e63',
+  port: '#9c27b0',
 };
 
 // ============================================================================
@@ -118,6 +119,16 @@ function SchematicIcon({ type, size = 16 }: { type: CircuitComponentType; size?:
             strokeWidth={1.5}
             strokeLinejoin="round"
           />
+          <line x1="17" y1="8" x2="24" y2="8" stroke={color} strokeWidth={1.5} />
+        </svg>
+      );
+    case 'port':
+      // Port probe — circle with P label and lead wires
+      return (
+        <svg width={w} height={h} viewBox="0 0 24 16">
+          <line x1="0" y1="8" x2="7" y2="8" stroke={color} strokeWidth={1.5} />
+          <circle cx="12" cy="8" r="5" fill="none" stroke={color} strokeWidth={1.5} strokeDasharray="2,1" />
+          <text x="12" y="11" textAnchor="middle" fontSize="8" fill={color} fontWeight="bold">P</text>
           <line x1="17" y1="8" x2="24" y2="8" stroke={color} strokeWidth={1.5} />
         </svg>
       );

@@ -76,10 +76,11 @@ import type { AntennaElement } from '@/types/models';
 export interface CircuitEditorProps {
   open: boolean;
   onClose: () => void;
-  /** Apply changes — receives sources + lumped_elements + appended_nodes */
+  /** Apply changes — receives sources + lumped_elements + ports + appended_nodes */
   onApply: (data: {
     sources: ReturnType<typeof circuitToBackend>['sources'];
     lumped_elements: ReturnType<typeof circuitToBackend>['lumped_elements'];
+    ports: ReturnType<typeof circuitToBackend>['ports'];
     appended_nodes: Array<{ index: number; label: string }>;
   }) => void;
   /** The antenna element being edited */
@@ -150,6 +151,7 @@ const PALETTE_ITEMS: CircuitComponentType[] = [
   'capacitor',
   'voltage_source',
   'current_source',
+  'port',
 ];
 
 const PALETTE_COLORS: Record<CircuitComponentType, string> = {
@@ -158,6 +160,7 @@ const PALETTE_COLORS: Record<CircuitComponentType, string> = {
   capacitor: '#4caf50',
   voltage_source: '#f44336',
   current_source: '#e91e63',
+  port: '#9c27b0',
 };
 
 // ============================================================================
@@ -275,7 +278,7 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     }
 
     const initial = backendToCircuit(
-      sources, lumpedElements, terminalNodeIndices, existingAppended, element.mesh,
+      sources, lumpedElements, terminalNodeIndices, existingAppended, element.mesh, element.ports,
     );
     setCircuit(initial);
 
@@ -472,12 +475,12 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     const finalNodes = rfNodesToCircuit(rfNodes);
     const finalCircuit: CircuitState = { nodes: finalNodes, components: circuit.components };
 
-    const { sources, lumped_elements } = circuitToBackend(finalCircuit);
+    const { sources, lumped_elements, ports } = circuitToBackend(finalCircuit);
     const appended_nodes = finalNodes
       .filter((n) => n.kind === 'appended')
       .map((n) => ({ index: n.index, label: n.label }));
 
-    onApply({ sources, lumped_elements, appended_nodes });
+    onApply({ sources, lumped_elements, ports, appended_nodes });
     onClose();
   }, [rfNodes, circuit.components, onApply, onClose]);
 
