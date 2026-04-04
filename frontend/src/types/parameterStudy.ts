@@ -46,6 +46,22 @@ export interface GridPoint {
   indices: number[];
 }
 
+/** Snapshot of an element's mesh at one sweep point. */
+export interface MeshSnapshot {
+  nodes: number[][];
+  edges: [number, number][];
+  radii: number[];
+  /** Sources snapshot — needed for VS/CS edge detection in postprocessing. */
+  sources?: Array<{
+    type?: string;
+    node_start?: number | null;
+    node_end?: number | null;
+    amplitude?: number;
+  }>;
+  /** Element position snapshot — needed for far-field position offset. */
+  position?: [number, number, number];
+}
+
 /** Collected result at one grid point. */
 export interface ParameterPointResult {
   /** The grid point. */
@@ -54,6 +70,8 @@ export interface ParameterPointResult {
   solverResponse: unknown; // MultiAntennaSolutionResponse at runtime
   /** Whether the solver converged. */
   converged: boolean;
+  /** Mesh snapshot per visible element (same order as elements used for solver request). */
+  meshSnapshots?: MeshSnapshot[];
 }
 
 /** Aggregate result of a full parameter study. */

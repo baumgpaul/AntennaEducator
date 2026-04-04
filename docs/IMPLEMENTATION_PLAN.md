@@ -694,6 +694,91 @@ class PortQuantitiesResponse(BaseModel):
 | SolverTab tests updated | Test | ✅ Done | Button text assertions updated; `portResults: null` added to mock state |
 | `PortQuantitiesDialog.tsx` | Frontend | ⏳ Deferred | Not needed — "Port Quantities" button fires directly without a config dialog |
 
+### 4.11 — Unified Solver/Sweep Refactor
+
+**Goal**: Eliminate the confused mix of single-solve vs sweep state. Enforce a clean "one active solution" model where the same postprocessing workflow handles both cases uniformly.
+
+**Root cause of current bugs**:
+- `isSweepMode` checked `frequencySweep.frequencies.length > 1` — FALSE for geometry-only sweeps (1 unique frequency), so fields were only computed once
+- `computePostprocessingWorkflow` iterated unique *frequencies*, not sweep *points* — geometry sweeps at a fixed frequency were treated as single-solve
+- Field data keyed by `frequencyHz` — can't distinguish two sweep points at the same frequency but different geometry
+- After nominal solve inside `runParameterStudy`, the `runMultiAntennaSimulation.pending` handler cleared sweep state (the `.fulfilled` on the study rebuilt it, but only with unique frequencies)
+
+**Design decisions** (confirmed with user):
+
+| Decision | Choice |
+|----------|--------|
+| Solve mode label | "Solved" for single, "Solved (Sweep)" for any parameter sweep |
+| Bottom summary chip | Remove entirely — top label is sufficient |
+| Solve mutual exclusivity | Single solve clears sweep, sweep clears single. One active solution at a time |
+| Mesh per sweep point | Store `meshSnapshot` (nodes, edges, radii per element) in `ParameterPointResult` |
+| Compute Fields scope | Compute for ALL sweep points at once (not just current slider position) |
+| Slider interaction | Show pre-computed results when slider moves — no re-compute |
+| Slider unification | `SweepVariableSelector` handles ALL swept variables including freq; `FrequencySelector` hidden during sweeps |
+| Geometry sweep postprocessing | All solutions kept. Compute Fields uses per-point mesh + currents. Full postprocessing for every sweep point. |
+
+**State model changes** (`solverSlice.ts`):
+
+New field: `solveMode: 'single' | 'sweep' | null` — set in reducers, replaces all `frequencySweep.length > 1` checks.
+
+Single solve: populates `multiAntennaResults`, `results`, `currentFrequency`. Clears `parameterStudy`, `frequencySweep`.
+
+Sweep: populates `parameterStudy` (with per-point meshes). Still synthesizes `frequencySweep` for backward compat (plots). Clears `results`.
+
+**Field data re-keying**: `fieldData[fieldId][sweepPointIndex]` for sweep mode, `fieldData[fieldId][0]` for single solve. `displayFrequencyHz` replaced by `selectedSweepPointIndex` for sweep-mode field lookup.
+
+**`computePostprocessingWorkflow` refactor**:
+- Single mode: 1 iteration, uses current mesh + `multiAntennaResults`
+- Sweep mode: N iterations (one per `parameterStudy.results[]`), each using that point's `meshSnapshot` + `solverResponse.branch_currents` + frequency. Progress: `point × fields` work units.
+
+**`ParameterPointResult` extension** (`parameterStudy.ts`):
+```typescript
+export interface MeshSnapshot {
+  nodes: number[][];
+  edges: [number, number][];
+  radii: number[];
+}
+
+export interface ParameterPointResult {
+  point: GridPoint;
+  solverResponse: unknown;
+  converged: boolean;
+  meshSnapshots: MeshSnapshot[];  // One per visible element, in element order
+}
+```
+
+**`parameterStudyThunks.ts`**: After remesh + before solve at each grid point, capture `elements[].mesh` → `meshSnapshots[]`.
+
+**UI changes**:
+- SolverTab Solve Control chip: uses `solveMode` — `null` → "Unsolved", `'single'` → "Solved", `'sweep'` → "Solved (Sweep)"
+- Remove bottom "Sweep complete: N points" chip from SolverTab
+- PostprocessingTab: `SweepVariableSelector` shown when `solveMode === 'sweep'`; `FrequencySelector` hidden when `solveMode === 'sweep'`
+- Field data lookup in postprocessing: `fieldData[fieldId][selectedSweepPointIndex]` when sweep, `fieldData[fieldId][0]` when single
+
+**Files touched**:
+1. `frontend/src/types/parameterStudy.ts` — add `MeshSnapshot`, update `ParameterPointResult`
+2. `frontend/src/store/parameterStudyThunks.ts` — capture mesh at each point
+3. `frontend/src/store/solverSlice.ts` — add `solveMode`, refactor `computePostprocessingWorkflow`, update reducers
+4. `frontend/src/features/design/SolverTab.tsx` — labels + remove bottom chip
+5. `frontend/src/features/design/PostprocessingTab.tsx` — use sweep point index for field lookup
+6. `frontend/src/features/postprocessing/SweepVariableSelector.tsx` — dispatch frequency update for freq-axis points
+7. `frontend/src/features/postprocessing/FrequencySelector.tsx` — hide when `solveMode === 'sweep'`
+
+### 4.12 — Deliverables (§4.11)
+
+| Artifact | Type | Status | Description |
+|----------|------|--------|-------------|
+| `MeshSnapshot` type in `parameterStudy.ts` | Types | ⏳ | Per-point mesh storage |
+| `ParameterPointResult.meshSnapshots` field | Types | ⏳ | Mesh captured at each sweep point |
+| `parameterStudyThunks.ts` mesh capture | Redux | ⏳ | Snapshot `elements[].mesh` per point |
+| `solveMode` field in `SolverState` | Redux | ⏳ | `'single' \| 'sweep' \| null` |
+| `computePostprocessingWorkflow` refactor | Redux | ⏳ | Iterate all sweep points with per-point mesh |
+| `fieldData` keyed by sweep point index | Redux | ⏳ | `fieldData[fieldId][pointIndex]` for sweep |
+| SolverTab label refactor | Frontend | ⏳ | "Solved" / "Solved (Sweep)" + remove bottom chip |
+| PostprocessingTab field lookup refactor | Frontend | ⏳ | Use `selectedSweepPointIndex` for sweep mode |
+| `SweepVariableSelector` freq dispatch | Frontend | ⏳ | Update `selectedFrequencyHz` when freq slider moves |
+| `FrequencySelector` hide in sweep mode | Frontend | ⏳ | Conditional render based on `solveMode` |
+
 ---
 
 ## Phase 5 — Generalized Line Plotting + Smith Chart

@@ -12,6 +12,7 @@ import {
   selectParameterStudy,
   selectSweepPointIndex,
   setSweepPointIndex,
+  setSelectedFrequency,
 } from '@/store/solverSlice';
 import { remeshElementExpressions } from '@/store/designSlice';
 import {
@@ -84,6 +85,14 @@ export const SweepVariableSelector: React.FC = () => {
       // Clamp to valid range
       const clampedIdx = Math.max(0, Math.min(flatIdx, study.gridPoints.length - 1));
       dispatch(setSweepPointIndex(clampedIdx));
+
+      // Also update selectedFrequency from the sweep point's solver response
+      // so backward-compat consumers (port quantities strip, etc.) see the right freq
+      const ptResult = study.results[clampedIdx];
+      if (ptResult?.solverResponse) {
+        const freq = (ptResult.solverResponse as { frequency?: number }).frequency;
+        if (freq) dispatch(setSelectedFrequency(freq));
+      }
 
       // Re-mesh geometry to match the swept variable values
       const point = study.gridPoints[clampedIdx];

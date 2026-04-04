@@ -7,7 +7,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from './store';
 import type { SolverRequest, SolverResult } from '@/types/models';
 import type { AntennaSolution, MultiAntennaRequest, MultiAntennaSolutionResponse, FrequencySweepParams, FrequencySweepResult } from '@/types/api';
-import type { ParameterStudyConfig, ParameterStudyResult } from '@/types/parameterStudy';
+import type { ParameterStudyConfig, ParameterStudyResult, MeshSnapshot } from '@/types/parameterStudy';
 import { runParameterStudy } from '@/store/parameterStudyThunks';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { solveMultiAntenna } from '@/api/solver';
@@ -127,12 +127,92 @@ function calculateFieldDataSize(fieldData: SolverState['fieldData']): number {
   return totalBytes / (1024 * 1024); // Convert to MB
 }
 
+/**
+ * Build a combined mesh from MeshSnapshot[] (for sweep-mode postprocessing).
+ * Handles VS/CS edge insertion identical to the element-loop logic.
+ *
+ * @param snapshots - Per-element mesh snapshots for one sweep point
+ * @param includeVsEdges - Whether to include voltage source gap edges
+ * @param applyPosition - Whether to offset nodes by snapshot.position (far-field)
+ */
+function buildCombinedMeshFromSnapshots(
+  snapshots: MeshSnapshot[],
+  includeVsEdges: boolean,
+  applyPosition: boolean,
+): {
+  nodes: number[][];
+  edges: [number, number][];
+  radii: number[];
+  csEdgeSnapshots: { snapshot: MeshSnapshot; nodeOffset: number }[];
+} {
+  let combinedNodes: number[][] = [];
+  let combinedEdges: [number, number][] = [];
+  let combinedRadii: number[] = [];
+  let nodeOffset = 0;
+  const csEdgeSnapshots: { snapshot: MeshSnapshot; nodeOffset: number }[] = [];
+
+  for (const snapshot of snapshots) {
+    const pos = applyPosition && snapshot.position ? snapshot.position : [0, 0, 0];
+    const offsetNodes = snapshot.nodes.map(node => [
+      node[0] + pos[0],
+      node[1] + pos[1],
+      node[2] + pos[2],
+    ]);
+    combinedNodes = combinedNodes.concat(offsetNodes);
+
+    const offsetEdges = snapshot.edges.map(
+      ([a, b]) => [a + nodeOffset, b + nodeOffset] as [number, number],
+    );
+    combinedEdges = combinedEdges.concat(offsetEdges);
+
+    if (snapshot.radii && snapshot.radii.length > 0) {
+      combinedRadii = combinedRadii.concat(snapshot.radii);
+    } else {
+      combinedRadii = combinedRadii.concat(snapshot.edges.map(() => 0.001));
+    }
+
+    // VS edges: include non-ground voltage source gap edges
+    if (includeVsEdges && hasNonGroundVs(snapshot) && snapshot.sources) {
+      for (const source of snapshot.sources) {
+        if (source.type === 'voltage'
+            && source.node_start != null && source.node_end != null
+            && source.node_start >= 1 && source.node_end >= 1) {
+          combinedEdges.push([source.node_start + nodeOffset, source.node_end + nodeOffset]);
+          combinedRadii.push((snapshot.radii && snapshot.radii[0]) ?? 0.001);
+        }
+      }
+    }
+
+    // Track elements with non-ground CS for gap edges
+    if (hasNonGroundCs(snapshot)) {
+      csEdgeSnapshots.push({ snapshot, nodeOffset });
+    }
+
+    nodeOffset += snapshot.nodes.length;
+  }
+
+  // Add CS gap edges: [node_end → node_start] so positive current completes loop
+  for (const { snapshot, nodeOffset: off } of csEdgeSnapshots) {
+    for (const source of snapshot.sources ?? []) {
+      if (source.type === 'current'
+          && source.node_start != null && source.node_end != null
+          && source.node_start >= 1 && source.node_end >= 1) {
+        combinedEdges.push([source.node_end + off, source.node_start + off]);
+        combinedRadii.push((snapshot.radii && snapshot.radii[0]) ?? 0.001);
+      }
+    }
+  }
+
+  return { nodes: combinedNodes, edges: combinedEdges, radii: combinedRadii, csEdgeSnapshots };
+}
+
 // ============================================================================
 // Types
 // ============================================================================
 
 export type SimulationStatus = 'idle' | 'preparing' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type SolverWorkflowState = 'idle' | 'solved' | 'postprocessing-ready';
+export type SolveMode = 'single' | 'sweep' | null;
 
 export interface RadiationPatternData {
   frequency: number;
@@ -151,6 +231,9 @@ export interface RadiationPatternData {
 }
 
 interface SolverState {
+  // Solve mode: 'single' | 'sweep' | null (nothing solved yet)
+  solveMode: SolveMode;
+
   // Current simulation
   status: SimulationStatus;
   progress: number; // 0-100
@@ -219,6 +302,7 @@ interface SolverState {
 }
 
 const initialState: SolverState = {
+  solveMode: null,
   status: 'idle',
   progress: 0,
   error: null,
@@ -402,6 +486,7 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
 
     // Update workflow state
     dispatch(setSolverState('solved'));
+    dispatch(setSolveMode('single'));
     dispatch(setCurrentFrequency(frequencyMHz));
 
     // Refresh token balance after simulation
@@ -453,7 +538,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 >('solver/computePostprocessingWorkflow', async (_, { getState, rejectWithValue, dispatch }) => {
   try {
     const state = getState();
-    const { results, directivityRequested, frequencySweep, currentFrequency } = state.solver;
+    const { results, directivityRequested, frequencySweep, currentFrequency, solveMode, parameterStudy: paramStudy } = state.solver;
     // Cast needed: Immer's WritableNonArrayDraft mangles Zod-inferred tuple types
     const requestedFields = state.solver.requestedFields as FieldDefinition[];
     const { elements } = state.design;
@@ -465,11 +550,14 @@ export const computePostprocessingWorkflow = createAsyncThunk<
       branchCurrentsLength: results?.branch_currents?.length,
       frequencySweepResults: frequencySweep?.results?.length,
       currentFrequency,
+      solveMode,
+      parameterStudyPoints: paramStudy?.results?.length,
     });
 
     // Check for either single solve results or sweep results
-    const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
-    const hasResults = results || (isSweepMode && frequencySweep.results && frequencySweep.results.length > 0);
+    const isSweep = solveMode === 'sweep' && paramStudy != null && paramStudy.results.length > 0;
+    const isSweepMode = isSweep || (frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1);
+    const hasResults = results || isSweep || (isSweepMode && frequencySweep?.results && frequencySweep.results.length > 0);
 
     if (!hasResults) {
       return rejectWithValue('No solver results available. Run solver first.');
@@ -510,6 +598,190 @@ export const computePostprocessingWorkflow = createAsyncThunk<
         })),
       };
     }
+
+    // ====================================================================
+    // SWEEP MODE: iterate all parameter study sweep points
+    // ====================================================================
+    if (isSweep) {
+      const studyResults = paramStudy!.results;
+      const numPoints = studyResults.length;
+      const { directivitySettings } = state.solver;
+
+      const totalWork = (fieldsToCompute.length * numPoints)
+        + (directivityNeedsComputing ? numPoints : 0);
+      let completedWork = 0;
+      dispatch(updatePostprocessingProgress({ completed: 0, total: totalWork }));
+
+      // --- Directivity for each sweep point ---
+      if (directivityNeedsComputing) {
+        for (let ptIdx = 0; ptIdx < numPoints; ptIdx++) {
+          const ptResult = studyResults[ptIdx];
+          const snapshots = ptResult.meshSnapshots;
+          const resp = ptResult.solverResponse as MultiAntennaSolutionResponse;
+          const freqHz = resp.frequency;
+
+          if (!snapshots || snapshots.length === 0) {
+            completedWork++;
+            dispatch(updatePostprocessingProgress({ completed: completedWork, total: totalWork }));
+            continue;
+          }
+
+          // Build far-field mesh (with position offset)
+          const ffMesh = buildCombinedMeshFromSnapshots(snapshots, true, true);
+
+          // Branch currents from solver response + VS currents
+          const branchCurrents: any[] = resp.antenna_solutions.flatMap((sol, i) => [
+            ...(sol.branch_currents || []),
+            ...(hasNonGroundVs(snapshots[i]) ? (sol.voltage_source_currents || []) : []),
+          ]);
+
+          // Append CS currents for gap edges
+          for (const { snapshot } of ffMesh.csEdgeSnapshots) {
+            for (const source of snapshot.sources ?? []) {
+              if (source.type === 'current'
+                  && source.node_start != null && source.node_end != null
+                  && source.node_start >= 1 && source.node_end >= 1) {
+                branchCurrents.push(source.amplitude ?? 1.0);
+              }
+            }
+          }
+
+          const pattern = await computeFarField({
+            frequencies: [freqHz],
+            branch_currents: [branchCurrents],
+            nodes: ffMesh.nodes,
+            edges: ffMesh.edges,
+            radii: ffMesh.radii,
+            theta_points: directivitySettings.theta_points,
+            phi_points: directivitySettings.phi_points,
+          });
+
+          // Key radiation patterns by sweep point index
+          dispatch(setRadiationPatternForFrequency({ frequencyHz: ptIdx, pattern }));
+
+          completedWork++;
+          dispatch(updatePostprocessingProgress({ completed: completedWork, total: totalWork }));
+        }
+
+        const firstPattern = getState().solver.radiationPatterns?.[0];
+        if (firstPattern) {
+          response.directivity = firstPattern;
+        }
+        dispatch(updateFieldResult({ fieldId: 'directivity', computed: true, num_points: 0 }));
+      }
+
+      // --- Near-field computation for each sweep point ---
+      if (fieldsToCompute.length > 0) {
+        const fieldResultsList: Array<{ fieldId: string; computed: boolean; num_points: number }> = [];
+
+        for (const field of fieldsToCompute) {
+          const observation_points = generateObservationPoints(field);
+
+          for (let ptIdx = 0; ptIdx < numPoints; ptIdx++) {
+            const ptResult = studyResults[ptIdx];
+            const snapshots = ptResult.meshSnapshots;
+            const resp = ptResult.solverResponse as MultiAntennaSolutionResponse;
+            const freqHz = resp.frequency;
+
+            if (!snapshots || snapshots.length === 0) {
+              completedWork++;
+              dispatch(updatePostprocessingProgress({ completed: completedWork, total: totalWork }));
+              continue;
+            }
+
+            // Build near-field mesh (no position offset)
+            const nfMesh = buildCombinedMeshFromSnapshots(snapshots, true, false);
+
+            // Branch currents from solver response + VS currents
+            const nfVsPerSnapshot = snapshots.map(s => hasNonGroundVs(s));
+            const branchCurrents: any[] = resp.antenna_solutions?.length
+              ? resp.antenna_solutions.flatMap((sol, i) => [
+                  ...(sol.branch_currents || []),
+                  ...(nfVsPerSnapshot[i] ? (sol.voltage_source_currents || []) : []),
+                ])
+              : [];
+
+            // Append CS currents for gap edges
+            for (const { snapshot } of nfMesh.csEdgeSnapshots) {
+              for (const source of snapshot.sources ?? []) {
+                if (source.type === 'current'
+                    && source.node_start != null && source.node_end != null
+                    && source.node_start >= 1 && source.node_end >= 1) {
+                  branchCurrents.push(source.amplitude ?? 1.0);
+                }
+              }
+            }
+
+            const fieldRequest = {
+              frequencies: [freqHz],
+              branch_currents: [branchCurrents],
+              nodes: nfMesh.nodes,
+              edges: nfMesh.edges,
+              radii: nfMesh.radii,
+              observation_points,
+            };
+
+            const fieldDataResult = await computeNearField(fieldRequest);
+
+            // Key field data by sweep point index (not frequency Hz)
+            dispatch(setFieldData({
+              fieldId: field.id,
+              frequencyHz: ptIdx,
+              data: {
+                points: fieldRequest.observation_points as Array<[number, number, number]>,
+                E_mag: fieldDataResult.E_magnitudes,
+                H_mag: fieldDataResult.H_magnitudes,
+                E_vectors: fieldDataResult.E_field,
+                H_vectors: fieldDataResult.H_field,
+              },
+            }));
+
+            completedWork++;
+            dispatch(updatePostprocessingProgress({ completed: completedWork, total: totalWork }));
+          }
+
+          dispatch(updateFieldResult({
+            fieldId: field.id,
+            computed: true,
+            num_points: observation_points.length,
+          }));
+
+          fieldResultsList.push({
+            fieldId: field.id,
+            computed: true,
+            num_points: observation_points.length,
+          });
+        }
+
+        response.fields = fieldResultsList;
+      }
+
+      // Shared cleanup for sweep mode
+      const totalFieldDataSizeMB = calculateFieldDataSize(getState().solver.fieldData);
+      if (totalFieldDataSizeMB > 50) {
+        console.warn(`⚠️ Large field dataset: ${totalFieldDataSizeMB.toFixed(1)} MB stored in memory`);
+      }
+
+      const portElements = elements.filter(
+        (el) => el.ports && el.ports.length > 0 && el.visible && !el.locked,
+      );
+      if (portElements.length > 0) {
+        try {
+          await dispatch(requestPortQuantities()).unwrap();
+        } catch (portErr) {
+          console.warn('[Postprocessing] Port quantities failed:', portErr);
+        }
+      }
+
+      dispatch(setSolverState('postprocessing-ready'));
+      dispatch(getCurrentUserAsync());
+
+      return { ...response, message: `Sweep postprocessing complete (${numPoints} points)`, totalFieldDataSizeMB };
+    }
+
+    // ====================================================================
+    // SINGLE / LEGACY FREQ SWEEP MODE (existing code below, unchanged)
+    // ====================================================================
 
     // Initialize progress tracking for all work to be done
     // For sweep mode, each field × each frequency is one work unit; directivity counts per frequency too
@@ -1322,6 +1594,10 @@ const solverSlice = createSlice({
       state.solverState = action.payload;
     },
 
+    setSolveMode: (state, action: PayloadAction<SolveMode>) => {
+      state.solveMode = action.payload;
+    },
+
     setCurrentFrequency: (state, action: PayloadAction<number>) => {
       state.currentFrequency = action.payload;
     },
@@ -1609,6 +1885,10 @@ const solverSlice = createSlice({
     builder.addCase(solveSingleFrequencyWorkflow.fulfilled, (state, _action) => {
       state.status = 'completed';
       state.progress = 100;
+      // Clear sweep data — single solve is mutually exclusive with sweep
+      state.parameterStudy = null;
+      state.parameterStudyConfig = null;
+      state.selectedSweepPointIndex = 0;
     });
 
     builder.addCase(solveSingleFrequencyWorkflow.rejected, (state, action) => {
@@ -1670,6 +1950,7 @@ const solverSlice = createSlice({
       state.parameterStudyConfig = action.payload.config;
       state.sweepInProgress = false;
       state.solverState = 'solved';
+      state.solveMode = 'sweep';
       state.progress = 100;
 
       // Build frequencySweep from parameter study results so the postprocessing
@@ -1775,6 +2056,7 @@ export const {
   setDirectivityRequested,
   setDirectivitySettings,
   setSolverState,
+  setSolveMode,
   setCurrentFrequency,
   updateFieldResult,
   updatePostprocessingProgress,
@@ -1790,6 +2072,7 @@ export const {
 } = solverSlice.actions;
 
 // Selectors
+export const selectSolveMode = (state: RootState) => state.solver.solveMode;
 export const selectSolverStatus = (state: RootState) => state.solver.status;
 export const selectSolverProgress = (state: RootState) => state.solver.progress;
 export const selectSolverError = (state: RootState) => state.solver.error;

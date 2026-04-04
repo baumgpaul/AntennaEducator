@@ -20,6 +20,7 @@ import type {
   ParameterStudyResult,
   ParameterPointResult,
   GridPoint,
+  MeshSnapshot,
 } from '@/types/parameterStudy';
 import { buildSweepGrid, needsRemesh } from '@/types/parameterStudy';
 import type { MultiAntennaRequest } from '@/types/api';
@@ -135,20 +136,33 @@ export const runParameterStudy = createAsyncThunk<
         // 5. Build solver request
         const freshState = getState();
         const elements = freshState.design.elements;
-        const antennaInputs = elements
-          .filter(
-            (el) =>
-              el.visible &&
-              !el.locked &&
-              el.mesh &&
-              el.mesh.nodes.length > 0 &&
-              el.mesh.edges.length > 0,
-          )
-          .map(convertElementToAntennaInput);
+        const visibleElements = elements.filter(
+          (el) =>
+            el.visible &&
+            !el.locked &&
+            el.mesh &&
+            el.mesh.nodes.length > 0 &&
+            el.mesh.edges.length > 0,
+        );
+        const antennaInputs = visibleElements.map(convertElementToAntennaInput);
 
         if (antennaInputs.length === 0) {
           return rejectWithValue('No valid antenna elements for simulation');
         }
+
+        // 5b. Capture mesh snapshot for postprocessing
+        const meshSnapshots: MeshSnapshot[] = visibleElements.map((el) => ({
+          nodes: el.mesh!.nodes.map((n) => [...n]),
+          edges: el.mesh!.edges.map((e) => [...e] as [number, number]),
+          radii: el.mesh!.radii ? [...el.mesh!.radii] : el.mesh!.edges.map(() => 0.001),
+          sources: (el.sources ?? []).map((s) => ({
+            type: s.type as string | undefined,
+            node_start: s.node_start,
+            node_end: s.node_end,
+            amplitude: typeof s.amplitude === 'number' ? s.amplitude : undefined,
+          })),
+          position: el.position ? [...el.position] as [number, number, number] : [0, 0, 0],
+        }));
 
         // Frequency from the context (the variable named `freq`)
         const frequency = ctx.freq;
@@ -170,6 +184,7 @@ export const runParameterStudy = createAsyncThunk<
           point,
           solverResponse,
           converged: solverResponse.converged,
+          meshSnapshots,
         });
 
         prevPoint = point;

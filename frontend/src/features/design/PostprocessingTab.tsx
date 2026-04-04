@@ -47,7 +47,7 @@ import {
   removeItemFromView,
   toggleItemVisibility,
 } from '@/store/postprocessingSlice';
-import { selectSelectedFrequencyHz } from '@/store/solverSlice';
+import { selectSelectedFrequencyHz, selectSolveMode, selectSweepPointIndex } from '@/store/solverSlice';
 import type { PortQuantitiesResponseOutput } from '@/api/postprocessor';
 
 interface PostprocessingTabProps {
@@ -198,6 +198,8 @@ function PostprocessingTab({
   const radiationPatterns = useAppSelector(selectRadiationPatterns);
   const requestedFields = useAppSelector(selectRequestedFields);
   const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
+  const solveMode = useAppSelector(selectSolveMode);
+  const sweepPointIndex = useAppSelector(selectSweepPointIndex);
 
   const portResults = useAppSelector(selectPortResults);
   const parameterStudy = useAppSelector(selectParameterStudy);
@@ -260,15 +262,17 @@ function PostprocessingTab({
   }, []);
 
   // Determine if we're in sweep mode
-  const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
-  const availableFrequencies = isSweepMode ? frequencySweep!.frequencies : (currentFrequency ? [currentFrequency * 1e6] : []); // MHz to Hz
+  const isSweepMode = solveMode === 'sweep' || (frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1);
+  const availableFrequencies = isSweepMode ? frequencySweep?.frequencies ?? [] : (currentFrequency ? [currentFrequency * 1e6] : []); // MHz to Hz
 
-  // Get current frequency in Hz for field data lookup
-  // Use global selectedFrequencyHz from store (set by FrequencySelector slider),
-  // falling back to the legacy local state for single-frequency mode.
-  const displayFrequencyHz = selectedFrequencyHz
-    ?? availableFrequencies[selectedFrequencyIndex]
-    ?? (currentFrequency ? currentFrequency * 1e6 : null);
+  // Get the key for field data / radiation pattern lookup.
+  // In sweep mode, field data is keyed by sweep point index (not frequency Hz).
+  // In single mode, field data is keyed by frequency Hz.
+  const displayFrequencyHz = solveMode === 'sweep'
+    ? sweepPointIndex
+    : (selectedFrequencyHz
+      ?? availableFrequencies[selectedFrequencyIndex]
+      ?? (currentFrequency ? currentFrequency * 1e6 : null));
 
   // Handle PDF export
   const handlePDFExport = async (options: {

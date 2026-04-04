@@ -43,7 +43,7 @@ import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { ParameterStudyConfig } from '@/types/parameterStudy';
 import { runParameterStudy } from '@/store/parameterStudyThunks';
-import { selectParameterStudy, selectParameterStudyConfig } from '@/store/solverSlice';
+import { selectParameterStudy, selectParameterStudyConfig, selectSolveMode } from '@/store/solverSlice';
 
 /**
  * SolverTab - New 3-panel layout for solver workflow
@@ -84,6 +84,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const isSolved = useSelector(selectIsSolved);
   const parameterStudy = useSelector(selectParameterStudy);
   const parameterStudyConfig = useSelector(selectParameterStudyConfig);
+  const solveMode = useSelector(selectSolveMode);
 
   // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
@@ -289,27 +290,25 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
               Solve Control
             </Typography>
-            {/* Show sweep solution if available, otherwise show single frequency */}
             {/* Determine display state for Solve Control */}
             {(() => {
-              const isSweepMode = !!(frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1);
-              const hasResults = !!(results || (frequencySweep && frequencySweep.isComplete));
-              const isSolving = simulationStatus === 'running' || (isSweepMode && (frequencySweep?.isComplete === false) && sweepInProgress);
+              const hasResults = !!(results || (solveMode === 'sweep' && parameterStudy));
+              const isSolving = simulationStatus === 'running' || sweepInProgress;
               const isError = simulationStatus === 'failed';
               const isOutdated = resultsStale || (!isSolved && hasResults);
 
-              // Solving: show 'Unsolved' label with loading animation (single vs sweep)
+              // Solving: show 'Unsolved' label with loading animation
               if (isSolving) {
                 return (
                   <>
                     <Chip
-                      icon={<CircularProgress size={12} variant={isSweepMode && solverProgress > 0 ? 'determinate' : 'indeterminate'} value={solverProgress} />}
+                      icon={<CircularProgress size={12} variant={solverProgress > 0 ? 'determinate' : 'indeterminate'} value={solverProgress} />}
                       label="Unsolved"
                       size="small"
                       sx={{ height: 20, fontSize: '0.65rem', color: 'info.main' }}
                     />
                     <Chip
-                      label={isSweepMode && sweepProgress ? `Solving freq ${sweepProgress.current}/${sweepProgress.total}` : isSweepMode ? `Sweep ${solverProgress}%` : 'Solving...'}
+                      label={sweepProgress ? `Solving point ${sweepProgress.current}/${sweepProgress.total}` : `Solving ${solverProgress}%`}
                       size="small"
                       sx={{ height: 20, fontSize: '0.65rem' }}
                     />
@@ -330,44 +329,16 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                 );
               }
 
-              // Solved (single or sweep)
+              // Solved
               if (hasResults && (solverWorkflowState === 'solved' || solverWorkflowState === 'postprocessing-ready')) {
-                if (isSweepMode && frequencySweep) {
-                  const start = frequencySweep.frequencies?.[0];
-                  const end = frequencySweep.frequencies?.[frequencySweep.frequencies.length - 1];
-                  const startLabel = start !== undefined ? (start / 1e6).toFixed(1) : 'N/A';
-                  const endLabel = end !== undefined ? (end / 1e6).toFixed(1) : 'N/A';
-                  return (
-                    <>
-                      <Chip
-                        icon={<CheckCircleIcon />}
-                        label={`Solved @ ${startLabel} .. ${endLabel} MHz`}
-                        size="small"
-                        sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
-                      />
-                      {isOutdated && (
-                        <Chip
-                          label="Solution Outdated"
-                          size="small"
-                          color="warning"
-                          sx={{ height: 20, fontSize: '0.65rem' }}
-                          title="Design changed after solving. Re-run solver to update results."
-                        />
-                      )}
-                    </>
-                  );
-                }
-
-                // Single frequency
-                const freqValue = typeof currentFrequency === 'number' && currentFrequency > 0
-                  ? currentFrequency
-                  : frequencySweep?.frequencies?.[0];
-                const freqLabel = freqValue !== undefined ? freqValue.toFixed(1) : 'N/A';
+                const label = solveMode === 'sweep'
+                  ? `Solved (Sweep) — ${parameterStudy?.results?.length ?? 0} points`
+                  : `Solved @ ${(typeof currentFrequency === 'number' && currentFrequency > 0 ? currentFrequency : 0).toFixed(1)} MHz`;
                 return (
                   <>
                     <Chip
                       icon={<CheckCircleIcon />}
-                      label={`Solved @ ${freqLabel} MHz`}
+                      label={label}
                       size="small"
                       sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
                     />
@@ -617,34 +588,6 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             />
           </Scene3D>
         </Box>
-
-        {/* Parameter Study Summary — compact chip when sweep results exist */}
-        {parameterStudy && parameterStudy.results.length > 0 && (
-          <Paper
-            elevation={0}
-            sx={{
-              px: 2,
-              py: 0.5,
-              borderTop: 1,
-              borderColor: 'divider',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              flexShrink: 0,
-            }}
-          >
-            <Chip
-              icon={<CheckCircleIcon />}
-              label={`Sweep complete: ${parameterStudy.results.length} points, ${(parameterStudy.totalTimeMs / 1000).toFixed(1)}s`}
-              size="small"
-              color="success"
-              variant="outlined"
-            />
-            <Typography variant="caption" color="text.secondary">
-              View results in the Postprocessing tab
-            </Typography>
-          </Paper>
-        )}
       </Box>
 
       {/* RIGHT PANEL - Properties Panel (300px, collapsible) */}

@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   selectFrequencySweep,
   selectSelectedFrequencyHz,
+  selectSolveMode,
   setSelectedFrequency,
 } from '@/store/solverSlice';
 
@@ -57,6 +58,12 @@ export const FrequencySelector: React.FC = () => {
   const dispatch = useAppDispatch();
   const frequencySweep = useAppSelector(selectFrequencySweep);
   const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
+  const solveMode = useAppSelector(selectSolveMode);
+
+  // Hide in sweep mode — SweepVariableSelector handles all variables including freq
+  if (solveMode === 'sweep') {
+    return null;
+  }
 
   if (!frequencySweep || !frequencySweep.frequencies || frequencySweep.frequencies.length <= 1) {
     return null; // Only show for multi-frequency sweeps
