@@ -7,11 +7,14 @@ import {
   Snackbar,
   IconButton,
   Tooltip,
+  Paper,
+  Chip,
 } from '@mui/material';
+import SettingsInputComponentIcon from '@mui/icons-material/SettingsInputComponent';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import type { SolverWorkflowState } from '@/store/solverSlice';
-import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields } from '@/store/solverSlice';
+import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields, selectPortResults, selectParameterStudy } from '@/store/solverSlice';
 import { selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
@@ -27,6 +30,8 @@ import { ViewItemRenderer } from '../postprocessing/ViewItemRenderer';
 import { Colorbar } from '../postprocessing/Colorbar';
 import TimeAnimationOverlay from '../postprocessing/TimeAnimationOverlay';
 import FrequencySelector from '../postprocessing/FrequencySelector';
+import { SweepVariableSelector } from '../postprocessing/SweepVariableSelector';
+import { ParameterStudyPlot } from '../postprocessing/plots/ParameterStudyPlot';
 import ExportPDFDialog from './dialogs/ExportPDFDialog';
 import { exportToPDF } from '@/utils/exportToPDF';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -42,7 +47,8 @@ import {
   removeItemFromView,
   toggleItemVisibility,
 } from '@/store/postprocessingSlice';
-import { selectSelectedFrequencyHz } from '@/store/solverSlice';
+import { selectSelectedFrequencyHz, selectSolveMode, selectSweepPointIndex } from '@/store/solverSlice';
+import type { PortQuantitiesResponseOutput } from '@/api/postprocessor';
 
 interface PostprocessingTabProps {
   solverState: SolverWorkflowState;
@@ -133,7 +139,7 @@ export function computeAutoRange(
     }
     case 'field-magnitude':
     case 'field-vector': {
-      if (fieldData && item.fieldId && displayFrequencyHz) {
+      if (fieldData && item.fieldId && displayFrequencyHz != null) {
         const freqData = fieldData[item.fieldId]?.[displayFrequencyHz] ?? fieldData[item.fieldId]?.[String(displayFrequencyHz)];
         const ft = resolveFieldType(item, requestedFields);
         const magnitudes = selectFieldMagnitudes(freqData, ft);
@@ -192,6 +198,19 @@ function PostprocessingTab({
   const radiationPatterns = useAppSelector(selectRadiationPatterns);
   const requestedFields = useAppSelector(selectRequestedFields);
   const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
+  const solveMode = useAppSelector(selectSolveMode);
+  const sweepPointIndex = useAppSelector(selectSweepPointIndex);
+
+  const portResults = useAppSelector(selectPortResults);
+  const parameterStudy = useAppSelector(selectParameterStudy);
+
+  // Derive z0 from first element's first port (used for Smith chart)
+  const portZ0 = useMemo(() => {
+    for (const el of elements) {
+      if (el.ports && el.ports.length > 0) return el.ports[0].z0;
+    }
+    return 50;
+  }, [elements]);
 
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
 
@@ -203,6 +222,9 @@ function PostprocessingTab({
   }, [selectedItemId, selectedViewId]);
 
   const [selectedFrequencyIndex] = useState<number>(0); // legacy, kept for fallback
+
+  const hasPortElements = elements.some((el) => el.ports && el.ports.length > 0);
+
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
   const [isAnimationPlaying, setIsAnimationPlaying] = useState(false);
@@ -240,15 +262,17 @@ function PostprocessingTab({
   }, []);
 
   // Determine if we're in sweep mode
-  const isSweepMode = frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1;
-  const availableFrequencies = isSweepMode ? frequencySweep!.frequencies : (currentFrequency ? [currentFrequency * 1e6] : []); // MHz to Hz
+  const isSweepMode = solveMode === 'sweep' || (frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1);
+  const availableFrequencies = isSweepMode ? frequencySweep?.frequencies ?? [] : (currentFrequency ? [currentFrequency * 1e6] : []); // MHz to Hz
 
-  // Get current frequency in Hz for field data lookup
-  // Use global selectedFrequencyHz from store (set by FrequencySelector slider),
-  // falling back to the legacy local state for single-frequency mode.
-  const displayFrequencyHz = selectedFrequencyHz
-    ?? availableFrequencies[selectedFrequencyIndex]
-    ?? (currentFrequency ? currentFrequency * 1e6 : null);
+  // Get the key for field data / radiation pattern lookup.
+  // In sweep mode, field data is keyed by sweep point index (not frequency Hz).
+  // In single mode, field data is keyed by frequency Hz.
+  const displayFrequencyHz = solveMode === 'sweep'
+    ? sweepPointIndex
+    : (selectedFrequencyHz
+      ?? availableFrequencies[selectedFrequencyIndex]
+      ?? (currentFrequency ? currentFrequency * 1e6 : null));
 
   // Handle PDF export
   const handlePDFExport = async (options: {
@@ -276,7 +300,7 @@ function PostprocessingTab({
         metadata: {
           include: options.includeMetadata,
           projectName,
-          frequency: displayFrequencyHz || undefined,
+          frequency: displayFrequencyHz ?? undefined,
         },
         resolution: options.resolution,
         filename: options.filename,
@@ -338,6 +362,43 @@ function PostprocessingTab({
         </Alert>
       )}
 
+      {/* PORT QUANTITIES STRIP — visible when port results are available */}
+      {isSolved && hasPortElements && portResults && (
+        <Paper
+          elevation={0}
+          sx={{
+            px: 2,
+            py: 0.75,
+            borderBottom: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            flexWrap: 'wrap',
+            flexShrink: 0,
+          }}
+        >
+          <SettingsInputComponentIcon fontSize="small" color="action" />
+          {Object.entries(portResults).map(([, result]: [string, PortQuantitiesResponseOutput]) =>
+            result.port_results?.map((pr) => {
+              if (!pr.z_in) return null;
+              const zr = pr.z_in.real.toFixed(1);
+              const zi = pr.z_in.imag >= 0 ? `+j${pr.z_in.imag.toFixed(1)}` : `-j${Math.abs(pr.z_in.imag).toFixed(1)}`;
+              return (
+                <Box key={pr.port_id} sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+                    {pr.port_id}:
+                  </Typography>
+                  <Chip label={`Z = (${zr}${zi}) Ω`} size="small" variant="outlined" />
+                  <Chip label={`VSWR = ${pr.vswr?.toFixed(2) ?? '—'}`} size="small" variant="outlined" />
+                  <Chip label={`S₁₁ = ${pr.s11_db?.toFixed(1) ?? '—'} dB`} size="small" variant="outlined" />
+                </Box>
+              );
+            }),
+          )}
+        </Paper>
+      )}
+
       {/* MAIN CONTENT - 3 PANELS */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
         {/* LEFT PANEL - TreeView with View Configurations (280px fixed) */}
@@ -351,6 +412,8 @@ function PostprocessingTab({
             backgroundColor: 'background.paper',
           }}
         >
+          {/* SweepVariableSelector — shown when parameter study results available */}
+          <SweepVariableSelector />
           {/* FrequencySelector — shown above tree when sweep results available */}
           <FrequencySelector />
           <TreeViewPanel
@@ -370,13 +433,22 @@ function PostprocessingTab({
           />
         </Box>
 
-      {/* MIDDLE PANEL - 3D Visualization OR Line View (flex, remaining space) */}
+      {/* MIDDLE PANEL - 3D Visualization OR Line View + Parameter Study (flex, remaining space) */}
       <Box
         sx={{
           flex: 1,
           height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+      <Box
+        sx={{
+          flex: parameterStudy ? '1 1 50%' : '1 1 100%',
           position: 'relative',
           overflow: 'hidden',
+          minHeight: 200,
           backgroundColor: selectedViewId && viewConfigurations.find(v => v.id === selectedViewId)?.viewType === 'Line'
             ? 'background.default'
             : '#1a1a1a',
@@ -413,7 +485,7 @@ function PostprocessingTab({
                   <ViewItemRenderer
                     key={item.id}
                     item={item}
-                    frequencyHz={displayFrequencyHz || undefined}
+                    frequencyHz={displayFrequencyHz ?? undefined}
                     animationPhase={hasAnimatedItems ? animationPhase : undefined}
                   />
                 ))}
@@ -459,7 +531,7 @@ function PostprocessingTab({
               max = colorItem.valueRangeMax ?? 1;
             } else {
               // Use per-frequency radiation pattern for directivity color range
-              const activePattern = (displayFrequencyHz && radiationPatterns?.[displayFrequencyHz])
+              const activePattern = (displayFrequencyHz != null && radiationPatterns?.[displayFrequencyHz])
                 || radiationPattern;
               const range = computeAutoRange(colorItem, solverResults, fieldData, activePattern, displayFrequencyHz, requestedFields);
               min = range.min;
@@ -507,6 +579,23 @@ function PostprocessingTab({
             );
           });
         })()}
+      </Box>
+
+      {/* Parameter Study Results — shown below 3D view when sweep exists */}
+      {parameterStudy && parameterStudy.results.length > 0 && (
+        <Box
+          sx={{
+            flex: '1 1 50%',
+            minHeight: 200,
+            borderTop: 1,
+            borderColor: 'divider',
+            overflow: 'auto',
+            backgroundColor: 'background.paper',
+          }}
+        >
+          <ParameterStudyPlot study={parameterStudy} z0={portZ0} />
+        </Box>
+      )}
       </Box>
 
       {/* RIGHT PANEL - Properties Panel (320px, collapsible) */}

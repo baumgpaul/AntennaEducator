@@ -59,6 +59,10 @@ vi.mock('../AddFieldDialog', () => ({
     ) : null,
 }));
 
+vi.mock('../ParameterStudyDialog', () => ({
+  ParameterStudyDialog: () => null,
+}));
+
 describe('SolverTab', () => {
   const mockElements: AntennaElement[] = [
     {
@@ -98,9 +102,19 @@ describe('SolverTab', () => {
         postprocessingStatus: 'idle',
         postprocessingProgress: null,
         resultsStale: false,
+        parameterStudy: null,
+        parameterStudyConfig: null,
+        selectedSweepPointIndex: 0,
+        portResults: null,
       },
       design: {
         isSolved: false,
+      },
+      variables: {
+        variables: [
+          { name: 'freq', expression: '300e6', unit: 'Hz', description: '' },
+          { name: 'wavelength', expression: 'C_0 / freq', unit: 'm', description: '' },
+        ],
       },
     };
   });
@@ -131,7 +145,7 @@ describe('SolverTab', () => {
       />
     );
 
-    expect(screen.getByText('Compute Postprocessing')).toBeDisabled();
+    expect(screen.getByText('Compute Fields')).toBeDisabled();
 
     mockState.solver.solverState = 'solved';
     mockState.design.isSolved = true;
@@ -145,7 +159,7 @@ describe('SolverTab', () => {
       />
     );
 
-    expect(screen.getByText('Compute Postprocessing')).not.toBeDisabled();
+    expect(screen.getByText('Compute Fields')).not.toBeDisabled();
   });
 
   it('dispatches directivity request when clicking Add Directivity', () => {

@@ -10,7 +10,7 @@
 2. [Phase 1 — Variable & Parameter Management](#phase-1--variable--parameter-management)
 3. [Phase 2 — Custom Antenna Geometry (CSV Import + Visual Editor)](#phase-2--custom-antenna-geometry-csv-import--visual-editor)
 4. [Phase 3 — Lumped Element & Port System](#phase-3--lumped-element--port-system)
-5. [Phase 4 — Solver Enhancements (Port Quantities, S11, VSWR)](#phase-4--solver-enhancements-port-quantities-s11-vswr)
+5. [Phase 4 — Solver Enhancements & On-Demand Postprocessing](#phase-4--solver-enhancements-port-quantities-s11-vswr)
 6. [Phase 5 — Generalized Line Plotting + Smith Chart](#phase-5--generalized-line-plotting--smith-chart)
 7. [Phase 6 — Course Submission System](#phase-6--course-submission-system)
 8. [Phase 7 — Structured PDF Export](#phase-7--structured-pdf-export)
@@ -232,7 +232,7 @@ These decisions were made during implementation and should guide future phases:
 
 ---
 
-## Phase 2 — Custom Antenna Geometry (CSV Import + Visual Editor) 🔧 In Progress
+## Phase 2 — Custom Antenna Geometry (CSV Import + Visual Editor) ✅ COMPLETE
 
 **Goal**: Allow users to define arbitrary wire antenna structures by importing CSV point/connection files or using a visual sub-GUI editor, with clear node/edge labeling.
 
@@ -377,155 +377,415 @@ ESLint warning reduction from **355 → 261 warnings** across 47 files:
 
 ---
 
-## Phase 3 — Lumped Element & Port System
+## Phase 3 — Lumped Element & Port System ✅ COMPLETE
 
 **Goal**: Formalize a port system per antenna element. Each element has its mesh nodes + user-definable appended nodes (-1, -2, ...). Users can add arbitrary R/L/C/Source networks between any pair of nodes (mesh or appended).
 
 **Rationale**: The solver already handles appended nodes and lumped elements between arbitrary node pairs. This phase surfaces that capability in the UI with a clear mental model.
 
-### 3.1 — Data Model: Ports & Appended Nodes
+**Status**: Implemented in PR #59 on branch `phase3/lumped-element-port-system`. Includes 5 rounds of bug fixes (terminal indices, parallel edges, dark mode, C_inv solver bug, dipole segments convention, delete support).
 
-The existing `AntennaElement` already has `sources` and `lumped_elements` lists. We enhance it:
+### 3.1 — Data Model: Ports & Appended Nodes ✅ Done
 
 **Updated `AntennaElement`** (`backend/common/models/geometry.py`):
 ```python
 class AppendedNode(BaseModel):
     """A user-defined auxiliary node. Index is negative: -1, -2, ..."""
-    index: int                          # -1, -2, ... (auto-assigned)
-    label: str = ""                     # User-friendly name, e.g., "Matching network node"
+    index: int                          # -1, -2, ... (auto-assigned, validated negative)
+    label: str = ""                     # User-friendly name
 
 class AntennaElement(BaseModel):
     # ... existing fields ...
-    appended_nodes: list[AppendedNode] = []   # NEW
-    # sources and lumped_elements already exist and can reference appended node indices
+    appended_nodes: list[AppendedNode] = []   # With unique index validation
 ```
 
-**Port definition for solver requests (Phase 4)**:
-A port is a pair of nodes `(node_a, node_b)` where we measure voltage/current. For a 2-pole (1-port) antenna, the port is typically `(source_node_start, source_node_end)`. This is defined at solver request time, not stored in the geometry.
+### 3.2 — Frontend: Circuit Editor ✅ Done
 
-### 3.2 — Frontend: Dialog Tests Carried Over from Phase 0
+**React Flow-based circuit editor** (`frontend/src/features/design/circuit/`):
+- `CircuitEditor.tsx` — Full-screen dialog with React Flow canvas, component palette, dark theme
+- `CircuitNodeTypes.tsx` — Custom node types: GND (ground), Terminal (mesh feed nodes), Appended (user-created)
+- `CircuitEdgeTypes.tsx` — Custom edge rendering with schematic symbols (R zigzag, L bumps, C plates, V/I circles), parallel edge offset, Alt+click label drag
+- `ComponentEditDialog.tsx` — Inline editing of R/L/C/V-source/I-source values with expression support
+- Delete support via Backspace/Delete keys (cascading delete of connected components)
+- Accessed via "Edit Circuitry" button in ribbon menu (disabled when no element selected)
 
-The following dialog-level tests were deferred from Phase 0 (no active bugs, just verification). They belong here since Phase 3 reworks the dialogs:
+**Type conversions** (`frontend/src/types/circuitTypes.ts`):
+- `circuitToBackend()` — Circuit state → sources, lumped_elements, appended_nodes
+- `backendToCircuit()` — Backend data → React Flow nodes/edges with coordinate hints
+- `nextAppendedIndex()` — Returns next available negative index
+- C ↔ C_inv conversion for capacitors, phase → complex amplitude for sources
 
-- [ ] **DipoleDialog**: Test that orientation presets (X/Y/Z) correctly set `center_position` and `orientation` vectors. Verify gap toggle enables/disables the gap-width field.
-- [ ] **LoopDialog**: Verify `normal_vector` input accepts arbitrary vectors and normalizes correctly. Test that gap position is correctly mapped when `gap=true`.
-- [ ] **RodDialog**: Verify `base_position` defaults and that orientation vector is normalized before sending to backend.
+### 3.3 — Bug Fixes (5 rounds)
 
-### 3.3 — Frontend: Enhanced Lumped Element Dialog
+- Terminal node indices corrected to use backend feed position labels
+- Parallel edges offset with quadratic bezier curves (60px offset)
+- Dark mode CSS overrides for React Flow controls
+- Solver `C_inv` bug in multi-antenna load renumbering (`solver.py`)
+- Edit Circuitry disabled when no element selected
+- Label drag changed from right-click (conflicted with context menu) to Alt+left-click
+- Frontend validation fixed to allow negative node indices (appended nodes)
+- Dipole `segments` convention aligned: parameter is now TOTAL segments (split equally for gap dipoles)
+- Delete key handling with cascading component removal
 
-**Reworked `LumpedElementDialog.tsx`**:
+### 3.4 — Design Decisions
 
-- **Node selector**: Dropdown showing all available nodes:
-  - Mesh nodes: `1, 2, ..., N` (with coordinates shown as hint)
-  - Ground: `0 (GND)`
-  - Appended nodes: `-1 (label), -2 (label), ...`
-  - "Add new appended node" option → creates a new `-N` node with a label prompt
-- **Element type**: R, L, C, or RLC (series combination)
-- **Value fields**: Resistance (Ω), Inductance (H), Capacitance (F) — with unit dropdown (nH/µH/mH/H, pF/nF/µF/F)
-- **Expression support**: All value fields accept expressions from Phase 1 variable context
-- **Visual**: Show a simple schematic icon (resistor zigzag, inductor coil, capacitor plates) next to the element
-
-**Reworked `SourceDialog.tsx`**:
-
-- Same node selector as lumped elements
-- Voltage source: amplitude (complex), series R/L/C
-- Current source: amplitude (complex)
-- Show source polarity (+ / −) in the node selector hint
-
-### 3.4 — Frontend: Port/Network Visualization in Preview
-
-In the 3D preview (custom dialog and existing type previews):
-- Appended nodes rendered as hollow circles (distinct from mesh nodes which are solid dots)
-- Lumped elements rendered as schematic symbols on the edge between their two nodes
-- Sources rendered as circled V or I symbols
-- Port pairs highlighted when hovered
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **Editor approach** | React Flow graph editor (not modal dialog) | Visual, interactive, supports arbitrary topologies |
+| **Component types** | R, L, C, Voltage Source, Current Source | Matches solver's Load/VoltageSource/CurrentSource |
+| **Node selection** | Inline in React Flow (click nodes to connect) | More intuitive than dropdown-based selection |
+| **SchematicOverlay in 3D** | Deferred — not needed for current workflow | Circuit editor provides the schematic view |
+| **Standalone NodeSelector** | Skipped — React Flow handles node selection | No reusable dropdown needed |
 
 ### 3.5 — Deliverables
 
-| Artifact | Type | Description |
-|----------|------|-------------|
-| `backend/common/models/geometry.py` update | Model | `AppendedNode` model, updated `AntennaElement` |
-| `frontend/src/features/design/LumpedElementDialog.tsx` rework | Component | Node selector, unit dropdowns, expressions |
-| `frontend/src/features/design/SourceDialog.tsx` rework | Component | Same node selector, polarity hint |
-| `frontend/src/features/design/components/NodeSelector.tsx` | Component | Reusable node dropdown with mesh/ground/appended |
-| `frontend/src/features/design/components/SchematicOverlay.tsx` | Component | Lumped element symbols in 3D preview |
-| `tests/unit/test_appended_nodes.py` | Test | Appended node indexing, lumped element attachment |
-| DipoleDialog / LoopDialog / RodDialog tests | Frontend | Orientation presets, gap toggle, normal vector normalization (carried from Phase 0) |
+| Artifact | Type | Status | Description |
+|----------|------|--------|-------------|
+| `backend/common/models/geometry.py` update | Model | ✅ Done | `AppendedNode` model + `AntennaElement.appended_nodes` |
+| `frontend/src/features/design/circuit/CircuitEditor.tsx` | Component | ✅ Done | React Flow editor with component palette |
+| `frontend/src/features/design/circuit/ComponentEditDialog.tsx` | Component | ✅ Done | Value/phase editing with expression support |
+| `frontend/src/features/design/circuit/CircuitNodeTypes.tsx` | Component | ✅ Done | GND, Terminal, Appended node rendering |
+| `frontend/src/features/design/circuit/CircuitEdgeTypes.tsx` | Component | ✅ Done | Schematic symbols, parallel edge offset |
+| `frontend/src/types/circuitTypes.ts` | Types | ✅ Done | Type definitions, conversion functions |
+| `tests/unit/test_appended_nodes.py` | Test | ✅ Done | 60+ backend tests for AppendedNode model |
+| `frontend/src/types/__tests__/circuitTypes.test.ts` | Test | ✅ Done | 30+ tests for type conversions |
+| `frontend/src/store/__tests__/designSlice.circuit.test.ts` | Test | ✅ Done | Circuit state management tests |
+
+### 3.6 — Remaining Items (Completed in Phase 4 branch)
+
+These items were deferred from Phase 0/3 and were backfilled as TDD in the Phase 4 branch (`phase4/solver-enhancements`, PR #60):
+
+- [x] **DipoleDialog UI tests**: Orientation presets (X/Y/Z), gap toggle
+- [x] **LoopDialog UI tests**: Normal vector normalization, gap position mapping
+- [x] **RodDialog UI tests**: base_position defaults, orientation normalization
+- [x] **CircuitEditor.test.tsx**: Component-level tests
+- [x] **ComponentEditDialog.test.tsx**: Component-level tests
+- [x] **Circuit editor IEEE symbols**: Replace current schematic symbols with proper IEEE/IEC standard symbols — zigzag resistor, semicircular coil inductor, parallel-plate capacitor, circled V/I sources (24-unit viewBox SVG paths in `CircuitEdgeTypes.tsx`)
+- [x] **Circuit editor auto-layout**: dagre-based TB auto-layout in `frontend/src/features/design/circuit/autoLayout.ts` (6 tests); "Auto Layout" button (AccountTree icon) in CircuitEditor toolbar
 ---
 
-## Phase 4 — Solver Enhancements (Port Quantities, S11, VSWR)
+## Phase 4 — Solver Enhancements & On-Demand Postprocessing
 
-**Goal**: For antennas with 2 poles (1 port = 1 voltage source feed point), compute and return reflection coefficient Γ, return loss |S11| in dB, VSWR, and input impedance per frequency. Make these first-class quantities in the response.
+**Goal**: (1) Port quantities (Γ, S11, VSWR, Z_in) with explicit port definitions. (2) Parameter variation system. (3) On-demand postprocessing — solve returns currents only, user explicitly requests port quantities and field computations. (4) Merge frequency sweep and parameter study into unified "Parameter Sweep". (5) Circuit editor: ports as components + IEEE symbols + auto-layout.
 
-**Rationale**: The solver already computes `input_impedance`, `reflection_coefficient`, and `return_loss` per frequency point, and the sweep response already aggregates `impedance_magnitude`, `impedance_phase`, `return_loss`, and `vswr`. The main work is:
-1. Making the port definition explicit in the request
-2. Ensuring Γ and VSWR are computed correctly with user-defined Z₀  
-3. Surfacing port voltage and port current as addressable quantities for plotting
+**Status**: Sections 4.0–4.4 complete (PR #60). Sections 4.6–4.9 in progress.
 
-### 4.1 — Backend: Port-Aware Solver Request
+**Rationale**: The solver already computes `input_impedance`, `reflection_coefficient`, and `return_loss` per frequency point. The main work is making the port definition explicit, adding proper Γ/VSWR with user-defined Z₀, and building a general parameter sweep system that treats frequency as just another variable.
 
-**Updated `FrequencySweepRequest`** (`backend/solver/schemas.py`):
-```python
-class PortDefinition(BaseModel):
-    """Defines a measurement port (2-pole, 1-port)."""
-    node_positive: int              # Node index (1-based, 0=GND, negative=appended)
-    node_negative: int              # Node index
-    reference_impedance: float = 50.0  # Z₀ [Ω]
-    label: str = "Port 1"
+### 4.0 — Phase 3 Test Backfill & Circuit Editor Polish ✅ Done
 
-class FrequencySweepRequest(BaseModel):
-    # ... existing fields ...
-    port: PortDefinition | None = None  # NEW — if None, auto-detect from first voltage source
+Carried over from Phase 3 — completed first (TDD). All committed in PR #60.
+
+**Dialog UI tests** (deferred from Phase 0):
+- [x] `DipoleDialog.test.tsx` — Orientation presets (X/Y/Z buttons), gap toggle enables/disables gap-width field
+- [x] `LoopDialog.test.tsx` — Normal vector accepts arbitrary vectors, auto-normalization, gap position mapping
+- [x] `RodDialog.test.tsx` — base_position defaults, orientation vector normalization before backend call
+
+**Circuit component tests**:
+- [x] `CircuitEditor.test.tsx` — Component palette, add/delete appended nodes, connect components
+- [x] `ComponentEditDialog.test.tsx` — Value/phase fields, node selection, expression evaluation
+
+**Circuit editor UX polish**:
+- [x] **IEEE/IEC standard symbols**: Proper standard symbols implemented in `CircuitEdgeTypes.tsx` (zigzag resistor, semicircular coil inductor, parallel-plate capacitor, circled V/I sources — SVG paths on 24-unit viewBox)
+- [x] **Auto-layout**: dagre-based TB auto-layout in `frontend/src/features/design/circuit/autoLayout.ts` (6 tests); "Auto Layout" button (AccountTree icon) in CircuitEditor toolbar triggers layout
+
+### 4.1 — Backend: Port-Aware Solver Request ✅ Done
+
+**Investigation result**: The backend already had full port quantity support before Phase 4 began — `reference_impedance`, `input_impedance`, `vswr`, `return_loss`, and `reflection_coefficient` were all present in `FrequencyPointResponse` and `SweepResultResponse` in `backend/solver/schemas.py`. No new backend changes were needed.
+
+The existing implementation computes:
+- `Γ = (Z_port - Z₀) / (Z_port + Z₀)` using the first voltage source as the port
+- `VSWR = (1 + |Γ|) / (1 - |Γ|)`
+- `return_loss = -20 log₁₀(|Γ|)` dB
+
+No `PortDefinition` model was added — the existing auto-detection from the first voltage source is sufficient for current use cases.
+
+### 4.2 — Parameter Variation System ✅ Done
+
+**Core concept**: Frequency is treated as just another variable (`freq` from the variable panel). The user can sweep any 1 or 2 variables (including frequency) over a defined range. This replaces the hardcoded frequency sweep with a general parametric study engine.
+
+**Files created**:
+- `frontend/src/types/parameterStudy.ts` — `SweepVariable`, `ParameterStudyConfig`, `GridPoint`, `ParameterPointResult`, `ParameterStudyResult`; pure helpers `generateSweepValues()`, `buildSweepGrid()`, `needsRemesh()` (16 tests)
+- `frontend/src/types/parameterStudyExtract.ts` — `extractPortQuantities()` helper that extracts Impedance/VSWR/ReturnLoss/Γ from `ParameterStudyResult` for a given axis variable (9 tests)
+- `frontend/src/store/parameterStudyThunks.ts` — `runParameterStudy` async thunk: builds cartesian grid → overrides variables → conditionally remeshes → calls `solveMultiAntenna` per point → collects `ParameterStudyResult` (9 tests)
+- `frontend/src/store/solverSlice.ts` — Updated with `parameterStudy: ParameterStudyResult | null` and `parameterStudyConfig: ParameterStudyConfig | null` state fields
+
+**Execution model** (frontend-driven):
+1. Frontend generates the parameter grid (1D or N1×N2 cartesian for 2D sweep)
+2. For each grid point: override swept variable(s) in variable context → conditionally remesh (only if non-`freq` variable changed) → call solver → collect results
+3. `needsRemesh()` skips remesh when only `freq` changes (mesh is frequency-independent for PEEC)
+4. Aggregate into `ParameterStudyResult` indexed by swept parameter values
+
+### 4.3 — Frontend: Solver Dialog Rework ✅ Done
+
+**New component**: `frontend/src/features/design/ParameterStudyDialog.tsx` (10 tests)
+
+Replaces the concept of `FrequencySweepDialog`. Accessible via "Study" button (TuneIcon) in the SolverTab ribbon.
+
+1. **Variable selection**: Up to 2 sweep variables from all user-defined variables. Default: `freq`.
+2. **Per-variable config**: Min, Max, N points, Linear/Log spacing
+3. **Grid info**: Shows total point count (N₁ × N₂ for 2D, N for 1D)
+4. **Progress feedback**: Progress bar showing `point X of N` during sweep execution
+5. **Wired into SolverTab**: dispatches `runParameterStudy` thunk; results stored in `solverSlice.parameterStudy`
+
+### 4.4 — Frontend: Results Visualization ✅ Done
+
+**Files created**:
+- `frontend/src/features/postprocessing/plots/ParameterStudyPlot.tsx` — Split-panel result viewer with 4 tabs: Impedance, VSWR, Return Loss, Smith Chart (8 tests). Uses `extractPortQuantities()` from `parameterStudyExtract.ts`. Appears below the 3D view in SolverTab once a study completes.
+- `frontend/src/features/postprocessing/plots/SmithChart.tsx` — Custom SVG Smith chart with no external dependency (13 tests, implemented ahead of Phase 5 schedule):
+  - Grid: constant-R circles at r ∈ {0, 0.2, 0.5, 1, 2, 5}, constant-X arcs at x ∈ {±0.2, ±0.5, ±1, ±2, ±5}
+  - Γ math: `impedanceToGamma(r, x, z0)` pure function (exported for unit testing)
+  - Impedance locus plotted as colored line; dots at each frequency with hover tooltip showing f, Z, Γ, VSWR
+  - Pure SVG — no external library
+
+**1-variable sweep**: Standard x-y Recharts `LineChart` (x = swept variable, y = selected quantity)
+
+**2-variable sweep**: Family-of-curves — one line per value of variable 2, plotted against variable 1
+
+### 4.5 — Deliverables
+
+| Artifact | Type | Status | Description |
+|----------|------|--------|-------------|
+| `frontend/src/features/design/__tests__/DipoleDialog.test.tsx` | Test | ✅ Done | Orientation presets, gap toggle |
+| `frontend/src/features/design/__tests__/LoopDialog.test.tsx` | Test | ✅ Done | Normal vector, gap position |
+| `frontend/src/features/design/__tests__/RodDialog.test.tsx` | Test | ✅ Done | Base position, orientation |
+| `frontend/src/features/design/circuit/__tests__/CircuitEditor.test.tsx` | Test | ✅ Done | Component palette, connections |
+| `frontend/src/features/design/circuit/__tests__/ComponentEditDialog.test.tsx` | Test | ✅ Done | Value editing, expressions |
+| `frontend/src/features/design/circuit/autoLayout.ts` | Utility | ✅ Done | dagre TB auto-layout, 6 tests |
+| Circuit editor IEEE symbols | Frontend | ✅ Done | Zigzag R, coil L, plate C, circle V/I in `CircuitEdgeTypes.tsx` |
+| `frontend/src/types/parameterStudy.ts` | Types | ✅ Done | `SweepVariable`, `ParameterStudyConfig`, grid/point types, pure helpers (16 tests) |
+| `frontend/src/types/parameterStudyExtract.ts` | Utility | ✅ Done | `extractPortQuantities()` — extract Impedance/VSWR/ReturnLoss/Γ (9 tests) |
+| `frontend/src/store/parameterStudyThunks.ts` | Redux | ✅ Done | `runParameterStudy` thunk — grid execution engine (9 tests) |
+| `frontend/src/store/solverSlice.ts` update | Redux | ✅ Done | `parameterStudy` + `parameterStudyConfig` state fields |
+| `frontend/src/features/design/ParameterStudyDialog.tsx` | Component | ✅ Done | Up to 2-variable sweep config dialog (10 tests) |
+| `frontend/src/features/postprocessing/plots/ParameterStudyPlot.tsx` | Component | ✅ Done | Split-panel result viewer — Impedance/VSWR/ReturnLoss/Smith tabs (8 tests) |
+| `frontend/src/features/postprocessing/plots/SmithChart.tsx` | Component | ✅ Done | Custom SVG Smith chart, `impedanceToGamma()` pure fn (13 tests) — implemented ahead of Phase 5 |
+| Backend port quantities (`vswr`, `return_loss`, `reference_impedance`) | Backend | ✅ Done (pre-existing) | Already in `FrequencyPointResponse` / `SweepResultResponse` before Phase 4 |
+
+### 4.6 — Port as Circuit Component ✅ Done
+
+**Concept**: A *port* is a 2-terminal measurement probe placed between two nodes of an antenna — analogous to connecting a VNA probe. Defined in the circuit editor alongside R/L/C/VS/CS. Each port has a characteristic impedance Z₀ (default 50 Ω). Ports are persisted on the `AntennaElement` (like `sources` and `lumped_elements`).
+
+**Frontend model** (`frontend/src/types/models.ts`):
+```typescript
+export interface Port {
+  id: string            // UUID
+  node_start: number    // 1-based mesh node index
+  node_end: number      // 1-based mesh node index (0 = ground)
+  z0: number            // Characteristic impedance [Ω], default 50
+  label?: string        // User label, e.g. "Port 1"
+}
 ```
 
-**Solver changes** (`backend/solver/system.py`):
-- If `port` is provided, compute impedance as `Z_port = V_port / I_port` where `V_port` and `I_port` are extracted from the solution vector at the port nodes.
-- If `port` is `None`, fall back to existing behavior (impedance from first voltage source).
-- Compute: `Γ = (Z_port - Z₀) / (Z_port + Z₀)`, `VSWR = (1 + |Γ|) / (1 - |Γ|)`, `ReturnLoss = -20 log₁₀(|Γ|)`.
+**Type extension** (`frontend/src/types/circuitTypes.ts`):
+- Added `'port'` to `CircuitComponentType` union
+- Added port to `COMPONENT_DEFAULTS` (symbol `P`, unit `Ω`, default 50) and `COMPONENT_TYPE_LABELS`
+- Updated `circuitToBackend()` to extract and return `ports: Port[]` alongside sources/lumped_elements
+- Updated `backendToCircuit()` to accept `existingPorts?: Port[]` and reconstruct port edges in the circuit graph
 
-**Updated sweep response**: Already has `vswr` and `return_loss` arrays — verify they populate correctly with the explicit port.
+**Circuit editor**:
+- `CircuitEdgeTypes.tsx`: Port SVG symbol — dashed circle with "P" label, purple color (`#9c27b0`)
+- `CircuitEditor.tsx`: `onApply` callback now includes `ports` in its data; `PALETTE_ITEMS` and `PALETTE_COLORS` include `'port'`
+- `DesignPage.tsx`: `handleCircuitApply` accepts and dispatches `ports`
+- `designSlice.ts`: `setElementCircuit` reducer persists `ports?: Port[]` onto the element
 
-### 4.2 — Frontend: Port Definition in Solver Config
+**Persistence**: `AntennaElement.ports?: Port[]` stored in `design_state` JSON blob.
 
-**Updated `FrequencySweepDialog.tsx`**:
-- New section: "Port Definition"
-  - Node+ and Node− dropdowns (same `NodeSelector` from Phase 3)
-  - Reference impedance Z₀ input (default 50 Ω)
-  - Auto-detect option: "Use primary voltage source as port" (default)
+### 4.7 — On-Demand Postprocessing ✅ Done
 
-**Updated `solverSlice.ts`**:
-- Store `port` definition in simulation config
-- Map port voltage/current from solver response to named quantities
+**Principle**: `Solve Single` returns currents/voltages only — no automatic far-field, near-field, or port quantity computation. The user explicitly requests postprocessing via separate buttons.
 
-### 4.3 — Requested Quantities
+**Investigation result**: `solveSingleFrequencyWorkflow` already did NOT auto-dispatch any postprocessing — the on-demand model was already in place. No changes to the solve flow were needed.
 
-The user should be able to check which quantities they want computed and returned. This is already partially modeled in `simulation_config.requested_fields`. Extend it:
+**UI (SolverTab ribbon)** — implemented changes:
+- **"Solve Single"** — unchanged (opens FrequencyInputDialog, dispatches `solveSingleFrequencyWorkflow`)
+- **"Parameter Sweep"** — replaces both "Sweep" and "Study" buttons (see §4.8)
+- **"Compute Fields"** — renamed from "Compute Postprocessing" for clarity (same handler, triggers `computePostprocessingWorkflow`)
+- **"Port Quantities"** — new button next to "Compute Fields"; enabled when solver state is `'solved'` or `'postprocessing-ready'` AND at least one element has ports; disabled with tooltip if no ports defined; dispatches `requestPortQuantities` thunk → results stored in `solverSlice.portResults`; uses `SettingsInputComponentIcon`
 
-**Quantity categories** (checkbox list in the solver dialog):
-- [ ] Input impedance (Z)
-- [ ] Reflection coefficient (Γ)
-- [ ] Return loss (|S11| dB)
-- [ ] VSWR
-- [ ] Port voltage
-- [ ] Port current
+### 4.8 — Merge Sweep into Parameter Sweep ✅ Done
 
-These drive what gets stored in `simulation_results` and what's available for plotting in Phase 5.
+**Concept**: Remove the separate "Sweep" button and `FrequencySweepDialog`. The existing `ParameterStudyDialog` already treats frequency as just another variable. Rename "Study" → "Parameter Sweep".
 
-### 4.4 — Deliverables
+**Changes made**:
+- Removed `FrequencySweepDialog` import, `sweepDialogOpen` state, `lastSweepParams` state, `handleSweep` handler, and `handleFrequencySweepSubmit` handler from `SolverTab.tsx`
+- Removed `FrequencySweepDialog` JSX from dialogs section
+- Removed "Sweep" button from ribbon `ButtonGroup`
+- Renamed "Study" button label to "Parameter Sweep" (keeps `TuneIcon`)
+- Removed unused imports: `ShowChartIcon`, `runFrequencySweep`, `convertElementToAntennaInput`, `FrequencySweepParams`, `MultiAntennaRequest` from `SolverTab.tsx`
+- `runFrequencySweep` thunk in `solverSlice.ts` retained (still used internally by `parameterStudyThunks.ts`); `FrequencySweepParams` type retained for backward compat
+- `ParameterStudyDialog` unchanged — already fully functional
 
-| Artifact | Type | Description |
-|----------|------|-------------|
-| `backend/solver/schemas.py` update | Schema | `PortDefinition`, updated request |
-| `backend/solver/system.py` update | Solver | Port-aware Z/Γ/VSWR computation |
-| `frontend/src/features/design/FrequencySweepDialog.tsx` update | Component | Port definition UI |
-| `frontend/src/store/solverSlice.ts` update | Redux | Port quantities in state |
-| `tests/unit/test_port_quantities.py` | Test | Γ, VSWR, return loss accuracy |
+### 4.9 — Backend: Port Quantities Endpoint ✅ Done
+
+**New endpoint** on the **postprocessor** service:
+
+```
+POST /api/port-quantities
+```
+
+**Request schema** (`PortQuantitiesRequest`):
+```python
+class PortDefinition(BaseModel):
+    port_id: str
+    node_start: int       # 1-based
+    node_end: int          # 0 = ground
+    z0: float = 50.0       # Reference impedance [Ω]
+
+class PortQuantitiesRequest(BaseModel):
+    frequency: float                              # Hz
+    antenna_id: str
+    node_voltages: List[complex]                  # From solver result
+    branch_currents: List[complex]                # From solver result
+    appended_voltages: List[complex] = []
+    voltage_source_currents: List[complex] = []
+    edges: List[List[int]]                        # Mesh edges for current lookup
+    ports: List[PortDefinition]
+```
+
+**Response schema** (`PortQuantitiesResponse`):
+```python
+class PortResult(BaseModel):
+    port_id: str
+    z_in: complex            # Input impedance [Ω]
+    gamma: complex           # Reflection coefficient
+    s11_db: float            # Return loss [dB]
+    vswr: float              # VSWR
+    voltage: complex         # Port voltage [V]
+    current: complex         # Port current [A]
+    power_in: float          # Input power [W]
+
+class PortQuantitiesResponse(BaseModel):
+    antenna_id: str
+    frequency: float
+    port_results: List[PortResult]
+```
+
+**Computation logic**:
+- `V_port = V(node_start) - V(node_end)` (node_end=0 → V=0 for ground)
+- `I_port` = current through the edge connecting the two port nodes (or sum of currents into node_start)
+- `Z_in = V_port / I_port`
+- `Γ = (Z_in - Z₀) / (Z_in + Z₀)`
+- `S11 = 20 * log10(|Γ|)` [dB]
+- `VSWR = (1 + |Γ|) / (1 - |Γ|)`
+- `P_in = 0.5 * Re(V_port * conj(I_port))`
+
+**Export**: Results can be exported as VTK/CSV via existing export infrastructure.
+
+### 4.10 — Deliverables (§4.6–4.9)
+
+| Artifact | Type | Status | Description |
+|----------|------|--------|-------------|
+| `Port` interface in `models.ts` | Types | ✅ Done | Port model (id, node_start, node_end, z0, label) |
+| `AntennaElement.ports` field | Types | ✅ Done | Persisted port definitions on antenna elements |
+| `'port'` in `CircuitComponentType` | Types | ✅ Done | Port type, COMPONENT_DEFAULTS, COMPONENT_TYPE_LABELS |
+| Port symbol in `CircuitEdgeTypes.tsx` | Frontend | ✅ Done | Dashed circle with "P" label, purple (#9c27b0) |
+| `circuitToBackend()` / `backendToCircuit()` updated | Frontend | ✅ Done | Extract/restore `ports: Port[]` in conversion functions |
+| `CircuitEditor.tsx` palette + `onApply` updated | Frontend | ✅ Done | `PALETTE_ITEMS`/`PALETTE_COLORS` include port; `onApply` passes `ports` |
+| `DesignPage.tsx` + `designSlice.ts` updated | Frontend | ✅ Done | `handleCircuitApply` and `setElementCircuit` reducer persist ports |
+| `POST /api/port-quantities` | Backend | ✅ Done | `postprocessor/main.py`: `_compute_port_quantities()` logic + auth endpoint |
+| `PortDefinition` / `PortQuantitiesRequest` / `PortResult` / `PortQuantitiesResponse` | Backend | ✅ Done | `postprocessor/models.py`: Pydantic schemas |
+| `computePortQuantities()` API function | Frontend | ✅ Done | `frontend/src/api/postprocessor.ts`: typed API client |
+| `requestPortQuantities` thunk + `portResults` state | Redux | ✅ Done | `solverSlice.ts`: thunk + reducers + `selectPortResults` selector |
+| "Port Quantities" button in SolverTab | Frontend | ✅ Done | Ribbon button; enabled when solved + ports exist; dispatches `requestPortQuantities` |
+| "Compute Fields" rename (was "Compute Postprocessing") | Frontend | ✅ Done | Clearer UI label in SolverTab ribbon |
+| Remove "Sweep" button + `FrequencySweepDialog` | Frontend | ✅ Done | Replaced by "Parameter Sweep" (§4.8) |
+| Rename "Study" → "Parameter Sweep" | Frontend | ✅ Done | Button label update in SolverTab |
+| SolverTab tests updated | Test | ✅ Done | Button text assertions updated; `portResults: null` added to mock state |
+| `PortQuantitiesDialog.tsx` | Frontend | ⏳ Deferred | Not needed — "Port Quantities" button fires directly without a config dialog |
+
+### 4.11 — Unified Solver/Sweep Refactor
+
+**Goal**: Eliminate the confused mix of single-solve vs sweep state. Enforce a clean "one active solution" model where the same postprocessing workflow handles both cases uniformly.
+
+**Root cause of current bugs**:
+- `isSweepMode` checked `frequencySweep.frequencies.length > 1` — FALSE for geometry-only sweeps (1 unique frequency), so fields were only computed once
+- `computePostprocessingWorkflow` iterated unique *frequencies*, not sweep *points* — geometry sweeps at a fixed frequency were treated as single-solve
+- Field data keyed by `frequencyHz` — can't distinguish two sweep points at the same frequency but different geometry
+- After nominal solve inside `runParameterStudy`, the `runMultiAntennaSimulation.pending` handler cleared sweep state (the `.fulfilled` on the study rebuilt it, but only with unique frequencies)
+
+**Design decisions** (confirmed with user):
+
+| Decision | Choice |
+|----------|--------|
+| Solve mode label | "Solved" for single, "Solved (Sweep)" for any parameter sweep |
+| Bottom summary chip | Remove entirely — top label is sufficient |
+| Solve mutual exclusivity | Single solve clears sweep, sweep clears single. One active solution at a time |
+| Mesh per sweep point | Store `meshSnapshot` (nodes, edges, radii per element) in `ParameterPointResult` |
+| Compute Fields scope | Compute for ALL sweep points at once (not just current slider position) |
+| Slider interaction | Show pre-computed results when slider moves — no re-compute |
+| Slider unification | `SweepVariableSelector` handles ALL swept variables including freq; `FrequencySelector` hidden during sweeps |
+| Geometry sweep postprocessing | All solutions kept. Compute Fields uses per-point mesh + currents. Full postprocessing for every sweep point. |
+
+**State model changes** (`solverSlice.ts`):
+
+New field: `solveMode: 'single' | 'sweep' | null` — set in reducers, replaces all `frequencySweep.length > 1` checks.
+
+Single solve: populates `multiAntennaResults`, `results`, `currentFrequency`. Clears `parameterStudy`, `frequencySweep`.
+
+Sweep: populates `parameterStudy` (with per-point meshes). Still synthesizes `frequencySweep` for backward compat (plots). Clears `results`.
+
+**Field data re-keying**: `fieldData[fieldId][sweepPointIndex]` for sweep mode, `fieldData[fieldId][0]` for single solve. `displayFrequencyHz` replaced by `selectedSweepPointIndex` for sweep-mode field lookup.
+
+**`computePostprocessingWorkflow` refactor**:
+- Single mode: 1 iteration, uses current mesh + `multiAntennaResults`
+- Sweep mode: N iterations (one per `parameterStudy.results[]`), each using that point's `meshSnapshot` + `solverResponse.branch_currents` + frequency. Progress: `point × fields` work units.
+
+**`ParameterPointResult` extension** (`parameterStudy.ts`):
+```typescript
+export interface MeshSnapshot {
+  nodes: number[][];
+  edges: [number, number][];
+  radii: number[];
+}
+
+export interface ParameterPointResult {
+  point: GridPoint;
+  solverResponse: unknown;
+  converged: boolean;
+  meshSnapshots: MeshSnapshot[];  // One per visible element, in element order
+}
+```
+
+**`parameterStudyThunks.ts`**: After remesh + before solve at each grid point, capture `elements[].mesh` → `meshSnapshots[]`.
+
+**UI changes**:
+- SolverTab Solve Control chip: uses `solveMode` — `null` → "Unsolved", `'single'` → "Solved", `'sweep'` → "Solved (Sweep)"
+- Remove bottom "Sweep complete: N points" chip from SolverTab
+- PostprocessingTab: `SweepVariableSelector` shown when `solveMode === 'sweep'`; `FrequencySelector` hidden when `solveMode === 'sweep'`
+- Field data lookup in postprocessing: `fieldData[fieldId][selectedSweepPointIndex]` when sweep, `fieldData[fieldId][0]` when single
+
+**Files touched**:
+1. `frontend/src/types/parameterStudy.ts` — add `MeshSnapshot`, update `ParameterPointResult`
+2. `frontend/src/store/parameterStudyThunks.ts` — capture mesh at each point
+3. `frontend/src/store/solverSlice.ts` — add `solveMode`, refactor `computePostprocessingWorkflow`, update reducers
+4. `frontend/src/features/design/SolverTab.tsx` — labels + remove bottom chip
+5. `frontend/src/features/design/PostprocessingTab.tsx` — use sweep point index for field lookup
+6. `frontend/src/features/postprocessing/SweepVariableSelector.tsx` — dispatch frequency update for freq-axis points
+7. `frontend/src/features/postprocessing/FrequencySelector.tsx` — hide when `solveMode === 'sweep'`
+
+### 4.12 — Deliverables (§4.11)
+
+| Artifact | Type | Status | Description |
+|----------|------|--------|-------------|
+| `MeshSnapshot` type in `parameterStudy.ts` | Types | ⏳ | Per-point mesh storage |
+| `ParameterPointResult.meshSnapshots` field | Types | ⏳ | Mesh captured at each sweep point |
+| `parameterStudyThunks.ts` mesh capture | Redux | ⏳ | Snapshot `elements[].mesh` per point |
+| `solveMode` field in `SolverState` | Redux | ⏳ | `'single' \| 'sweep' \| null` |
+| `computePostprocessingWorkflow` refactor | Redux | ⏳ | Iterate all sweep points with per-point mesh |
+| `fieldData` keyed by sweep point index | Redux | ⏳ | `fieldData[fieldId][pointIndex]` for sweep |
+| SolverTab label refactor | Frontend | ⏳ | "Solved" / "Solved (Sweep)" + remove bottom chip |
+| PostprocessingTab field lookup refactor | Frontend | ⏳ | Use `selectedSweepPointIndex` for sweep mode |
+| `SweepVariableSelector` freq dispatch | Frontend | ⏳ | Update `selectedFrequencyHz` when freq slider moves |
+| `FrequencySelector` hide in sweep mode | Frontend | ⏳ | Conditional render based on `solveMode` |
 
 ---
 
 ## Phase 5 — Generalized Line Plotting + Smith Chart
 
-**Goal**: A unified line plot system that can plot any computed quantity vs. frequency or vs. spatial coordinate (for 1D field observations). Add Smith chart as a specialized view.
+**Goal**: A unified line plot system that can plot any computed quantity vs. frequency or vs. any swept parameter. Add Smith chart as a specialized view. Build on Phase 4's parameter study results.
+
+**Prerequisite**: Phase 4 complete — port quantities and parameter study data available in Redux.
 
 ### 5.1 — Unified Plot Data Model
 
@@ -598,19 +858,11 @@ When a user defines a 1D observation line (Line or Arc shape in `fieldDefinition
 
 ### 5.5 — Smith Chart
 
-**New component**: `frontend/src/features/postprocessing/plots/SmithChart.tsx`
+> **Note**: The Smith chart was implemented early in Phase 4 (`phase4/solver-enhancements`, PR #60) as part of the parameter study results visualization. See `frontend/src/features/postprocessing/plots/SmithChart.tsx` (13 tests, `impedanceToGamma(r, x, z0)` exported pure function, pure SVG — no external library). The Phase 5 task is to **integrate it into the unified postprocessing view system** (as a selectable view type alongside 3D and line views) and enable interactive zoom/pan.
 
-**Implementation approach**:
-- Custom SVG component (no external library — better control and educational value)
-- Draw Smith chart grid: constant-R circles, constant-X arcs, unit circle
-- Plot impedance locus: `Z(f)` normalized to `Z₀`, plotted as `Γ = (Z - Z₀)/(Z + Z₀)` on the complex plane
-- Frequency markers: colored dots along the locus at specific frequencies, with tooltip on hover showing `f`, `Z`, `Γ`, `VSWR`
-- Interactive: zoom, pan, hover tooltip
-- Integration: available as a view item type in postprocessing (alongside 3D and line views)
+**New component** (Phase 5 scope — integration into postprocessing views): surface in `AddScalarPlotDialog` as a view type; wire to `simulation_results` impedance arrays from frequency sweep (not just parameter study).
 
-**Data source**: `impedance_real` and `impedance_imag` arrays from frequency sweep → compute Γ per frequency → plot in Γ-plane.
-
-**Smith chart grid math**:
+**Smith chart grid math** (already implemented in Phase 4):
 - Constant resistance circles: center `(r/(r+1), 0)`, radius `1/(r+1)` for normalized `r`
 - Constant reactance arcs: center `(1, 1/x)`, radius `1/|x|`
 - Standard values: r ∈ {0, 0.2, 0.5, 1, 2, 5}, x ∈ {±0.2, ±0.5, ±1, ±2, ±5}
@@ -886,18 +1138,22 @@ Phase 0 ─── Bug Fixes & Stabilization ✅
 Phase 1 ─── Variable & Parameter Management ✅
    │
    ├────────────────────┐
-   ▼                    ▼
-Phase 2               Phase 4
-Custom Geometry       Solver Enhancements (Port Quantities)
+   ▼                    │
+Phase 2 ✅              │
+Custom Geometry         │
    │                    │
    ▼                    │
-Phase 3                 │
+Phase 3 ✅              │
 Lumped Element &        │
 Port System             │
    │                    │
    ├────────────────────┘
    ▼
-Phase 5 ─── Generalized Line Plotting + Smith Chart
+Phase 4 ─── Solver Enhancements & On-Demand Postprocessing
+   │         4.0–4.4 ✅ (param study, Smith chart, circuit editor polish)
+   │         4.6–4.9 ⬜ (ports, on-demand postprocessing, Parameter Sweep merge)
+   ▼
+Phase 5 ─── Generalized Line Plotting + Smith Chart integration
    │
    ├───────────┐
    ▼           ▼
@@ -913,9 +1169,9 @@ Phase 9 ─── Deployment Rework
 ```
 
 **Key dependencies**:
-- Phase 1 (Variables) enables expression-aware inputs in Phase 2 (Custom Geometry) and Phase 3 (Lumped Elements)
-- Phase 2 (Custom Geometry) + Phase 3 (Ports) must precede Phase 5 (Plotting), because 1D field lines and port quantities are what we plot
-- Phase 4 (Solver enhancements) can run in parallel with Phase 2/3 since it's backend-only, but Phase 5 needs both
+- Phase 1 (Variables) enables expression-aware inputs in Phase 2 (Custom Geometry) and Phase 3 (Lumped Elements) — both ✅ complete
+- Phase 4 (Solver enhancements + parameter variation) depends on Phase 3 (port system) and uses Phase 1 variables as sweep parameters
+- Phase 5 (Plotting) needs Phase 4 complete — port quantities and parameter study data to plot
 - Phase 6 (Submissions) and Phase 7 (PDF) are independent of each other but need Phases 1–5 complete so submissions contain full feature set
 - Phase 8 and 9 are final — polish and deploy everything built in earlier phases
 
@@ -927,9 +1183,9 @@ Phase 9 ─── Deployment Rework
 |-------|---------|----------|-------|------------|--------|
 | 0 — Bug Fixes | Medium | Medium | High | Medium — many small fixes | ✅ Complete |
 | 1 — Variables | Medium | High | Medium | Medium — expression parser is key risk | ✅ Complete (PR #57) + helix removal + all-field expressions + resizable panels |
-| 2 — Custom Geometry | Medium | High | Medium | High — CSV parser + 3D preview + validation | ⏳ Next |
-| 3 — Lumped/Ports | Low | High | Low | Medium — UI rework, model is straightforward | ⏳ Pending |
-| 4 — Solver | High | Medium | High | Medium — math is known, integration matters | ⏳ Pending (can parallel with 2/3) |
+| 2 — Custom Geometry | Medium | High | Medium | High — CSV parser + 3D preview + validation | ✅ Complete (PR #58) |
+| 3 — Lumped/Ports | Low | High | Low | Medium — UI rework, model is straightforward | ✅ Complete (PR #59) |
+| 4 — Solver | High | Medium | High | Medium — math is known, integration matters | ⏳ Next |
 | 5 — Plotting + Smith | Low | Very High | Medium | High — unified plot model + Smith chart SVG | ⏳ Pending |
 | 6 — Submissions | Medium | High | Medium | Medium — CRUD + read-only mode | ⏳ Pending |
 | 7 — PDF Export | Low | High | Low | Medium — multi-page layout orchestration | ⏳ Pending |

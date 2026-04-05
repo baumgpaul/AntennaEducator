@@ -337,19 +337,21 @@ describe('formatComponentValue', () => {
 // ============================================================================
 
 describe('COMPONENT_DEFAULTS', () => {
-  it('has defaults for all 5 component types', () => {
-    expect(Object.keys(COMPONENT_DEFAULTS)).toHaveLength(5);
+  it('has defaults for all 6 component types', () => {
+    expect(Object.keys(COMPONENT_DEFAULTS)).toHaveLength(6);
     expect(COMPONENT_DEFAULTS.resistor.unit).toBe('Ω');
     expect(COMPONENT_DEFAULTS.inductor.unit).toBe('H');
     expect(COMPONENT_DEFAULTS.capacitor.unit).toBe('F');
     expect(COMPONENT_DEFAULTS.voltage_source.unit).toBe('V');
     expect(COMPONENT_DEFAULTS.current_source.unit).toBe('A');
+    expect(COMPONENT_DEFAULTS.port.unit).toBe('Ω');
   });
 });
 
 describe('COMPONENT_TYPE_LABELS', () => {
-  it('has labels for all 5 component types', () => {
-    expect(Object.keys(COMPONENT_TYPE_LABELS)).toHaveLength(5);
+  it('has labels for all 6 component types', () => {
+    expect(Object.keys(COMPONENT_TYPE_LABELS)).toHaveLength(6);
     expect(COMPONENT_TYPE_LABELS.resistor).toBe('Resistor');
+    expect(COMPONENT_TYPE_LABELS.port).toBe('Port');
   });
 });

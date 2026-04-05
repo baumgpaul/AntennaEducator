@@ -18,7 +18,14 @@ from backend.common.auth.token_dependency import TokenCheckResult, require_simul
 from .config import settings
 from .field import compute_directivity_from_pattern, compute_far_field
 from .field import compute_near_field as compute_near_field_impl
-from .models import FarFieldRequest, FieldRequest, RadiationPatternResponse
+from .models import (
+    FarFieldRequest,
+    FieldRequest,
+    PortQuantitiesRequest,
+    PortQuantitiesResponse,
+    PortResult,
+    RadiationPatternResponse,
+)
 
 # Configure logging level from settings
 logging.basicConfig(
@@ -512,6 +519,169 @@ async def get_info():
             "far_field_criterion": f"{settings.far_field_distance_factor} lambda",
         },
     }
+
+
+# ============================================================================
+# Port Quantities
+# ============================================================================
+
+
+def _parse_complex_list(raw: list) -> list[complex]:
+    """Parse a flat list of complex values from various serialisation formats."""
+    result: list[complex] = []
+    for c in raw:
+        if isinstance(c, (list, tuple)) and len(c) == 2:
+            result.append(complex(c[0], c[1]))
+        elif isinstance(c, dict):
+            result.append(complex(c.get("real", 0), c.get("imag", 0)))
+        elif isinstance(c, str):
+            result.append(complex(c.replace(" ", "")))
+        else:
+            result.append(complex(c))
+    return result
+
+
+def _compute_port_quantities(
+    port_id: str,
+    node_start: int,
+    node_end: int,
+    z0: float,
+    node_voltages: list[complex],
+    edges: list[list[int]],
+    branch_currents: list[complex],
+    appended_voltages: list[complex],
+) -> dict:
+    """Compute port quantities for a single port definition."""
+
+    # Get port voltage: V = V(node_start) - V(node_end)
+    # Node indices are 1-based; voltages array is 0-indexed
+    # node_end=0 means ground → V=0
+    if node_start > 0:
+        v_start = node_voltages[node_start - 1] if node_start <= len(node_voltages) else 0j
+    elif node_start < 0:
+        # Appended node (negative index → appended_voltages)
+        app_idx = abs(node_start) - 1
+        v_start = appended_voltages[app_idx] if app_idx < len(appended_voltages) else 0j
+    else:
+        v_start = 0j  # ground
+
+    if node_end > 0:
+        v_end = node_voltages[node_end - 1] if node_end <= len(node_voltages) else 0j
+    elif node_end < 0:
+        app_idx = abs(node_end) - 1
+        v_end = appended_voltages[app_idx] if app_idx < len(appended_voltages) else 0j
+    else:
+        v_end = 0j  # ground
+
+    v_port = v_start - v_end
+
+    # Get port current: find edge connecting node_start to node_end
+    # and use the corresponding branch current
+    i_port = 0j
+    for edge_idx, edge in enumerate(edges):
+        if edge_idx >= len(branch_currents):
+            break
+        if edge[0] == node_start and edge[1] == node_end:
+            i_port = branch_currents[edge_idx]
+            break
+        elif edge[0] == node_end and edge[1] == node_start:
+            i_port = -branch_currents[edge_idx]
+            break
+
+    # If no direct edge found, use V/I from node perspective
+    # Sum currents into node_start from all connected edges
+    if i_port == 0j and v_port != 0j:
+        for edge_idx, edge in enumerate(edges):
+            if edge_idx >= len(branch_currents):
+                break
+            if edge[1] == node_start:
+                i_port += branch_currents[edge_idx]
+            elif edge[0] == node_start:
+                i_port -= branch_currents[edge_idx]
+
+    # Compute impedance
+    if abs(i_port) > 1e-30:
+        z_in = v_port / i_port
+    else:
+        z_in = complex(1e12, 0)  # Open circuit
+
+    # Reflection coefficient Γ = (Z_in - Z0) / (Z_in + Z0)
+    gamma = (z_in - z0) / (z_in + z0) if abs(z_in + z0) > 1e-30 else complex(1, 0)
+
+    # Return loss S11 [dB]
+    gamma_mag = abs(gamma)
+    s11_db = 20 * np.log10(gamma_mag) if gamma_mag > 1e-30 else -200.0
+
+    # VSWR
+    if gamma_mag < 1.0 - 1e-10:
+        vswr = (1 + gamma_mag) / (1 - gamma_mag)
+    else:
+        vswr = 1e6  # Effectively infinite
+
+    # Input power
+    power_in = 0.5 * (v_port * i_port.conjugate()).real
+
+    return {
+        "port_id": port_id,
+        "z_in": z_in,
+        "gamma": gamma,
+        "s11_db": float(s11_db),
+        "vswr": float(vswr),
+        "voltage": v_port,
+        "current": i_port,
+        "power_in": float(power_in),
+    }
+
+
+@app.post(
+    f"{settings.api_prefix}/port-quantities",
+    response_model=PortQuantitiesResponse,
+    tags=["Port Analysis"],
+    summary="Compute port quantities (Z, Γ, S11, VSWR, V, I, P)",
+)
+async def compute_port_quantities(
+    request: PortQuantitiesRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
+):
+    """Compute input impedance, reflection coefficient, VSWR, and other quantities
+    for each defined port using solver results."""
+    try:
+        node_voltages = _parse_complex_list(request.node_voltages)
+        branch_currents = _parse_complex_list(request.branch_currents)
+        appended_voltages = _parse_complex_list(request.appended_voltages)
+
+        port_results = []
+        for port in request.ports:
+            result = _compute_port_quantities(
+                port_id=port.port_id,
+                node_start=port.node_start,
+                node_end=port.node_end,
+                z0=port.z0,
+                node_voltages=node_voltages,
+                edges=request.edges,
+                branch_currents=branch_currents,
+                appended_voltages=appended_voltages,
+            )
+            port_results.append(PortResult(**result))
+
+        return PortQuantitiesResponse(
+            antenna_id=request.antenna_id,
+            frequency=request.frequency,
+            port_results=port_results,
+        )
+
+    except IndexError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Node index out of range: {e}",
+        )
+    except Exception as e:
+        logger.exception("Port quantities computation failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Port quantities error: {e}",
+        )
 
 
 if __name__ == "__main__":

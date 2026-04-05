@@ -27,7 +27,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
   const fieldId = item.fieldId;
   const field = fieldId ? requestedFields?.find((f) => f.id === fieldId) : requestedFields?.[0];
 
-  if (!field || !fieldData || !frequencyHz) {
+  if (!field || !fieldData || frequencyHz == null) {
     return null;
   }
 
