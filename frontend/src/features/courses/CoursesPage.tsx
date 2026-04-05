@@ -50,6 +50,7 @@ import {
 import type { Folder, ProjectListItem } from '@/store/foldersSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
 import { FolderDialog } from '@/components/common';
+import NewProjectDialog from '@/features/projects/NewProjectDialog';
 import { formatErrorMessage } from '@/utils/errors';
 
 /**
@@ -75,6 +76,7 @@ function CoursesPage() {
   // Dialog state
   const [courseDialogOpen, setCourseDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Folder | null>(null);
+  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
 
   // Context menu
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
@@ -242,10 +244,15 @@ function CoursesPage() {
 
       {/* Toolbar for maintainers */}
       {isMaintainer && (
-        <Box sx={{ mb: 2 }}>
+        <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
           <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={handleCreateCourse}>
             New Course
           </Button>
+          {currentParentId && (
+            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setNewProjectDialogOpen(true)}>
+              New Project
+            </Button>
+          )}
         </Box>
       )}
 
@@ -468,6 +475,16 @@ function CoursesPage() {
         title={editingCourse ? 'Rename Course' : 'New Course'}
         initialName={editingCourse?.name ?? ''}
         submitLabel={editingCourse ? 'Rename' : 'Create'}
+      />
+
+      {/* New Project Dialog (inside course folder) */}
+      <NewProjectDialog
+        open={newProjectDialogOpen}
+        onClose={() => {
+          setNewProjectDialogOpen(false);
+          if (currentParentId) dispatch(fetchCourseProjects(currentParentId));
+        }}
+        folderId={currentParentId}
       />
     </Box>
   );
