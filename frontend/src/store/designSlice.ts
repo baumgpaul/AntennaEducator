@@ -122,6 +122,27 @@ function createDefaultPort(sources: Source[]): Port | null {
   return null;
 }
 
+function normalizeSourceForPreprocessor(source?: Source): Source | undefined {
+  if (!source) return undefined
+
+  const amp = source.amplitude
+  if (typeof amp === 'number') {
+    return { ...source, amplitude: { real: amp, imag: 0 } }
+  }
+  if (typeof amp === 'string') {
+    const parsed = Number(amp)
+    return {
+      ...source,
+      amplitude: Number.isFinite(parsed) ? { real: parsed, imag: 0 } : { real: 1, imag: 0 },
+    }
+  }
+  if (!amp || typeof amp !== 'object' || !('real' in amp) || !('imag' in amp)) {
+    return { ...source, amplitude: { real: 1, imag: 0 } }
+  }
+
+  return source
+}
+
 // ============================================================================
 // Async Thunks
 // ============================================================================
@@ -406,7 +427,7 @@ export const remeshElementExpressions = createAsyncThunk(
             ],
             // Pass existing source so the backend regenerates correct feed node
             // indices for the updated mesh geometry.
-            source: element.sources?.[0],
+            source: normalizeSourceForPreprocessor(element.sources?.[0]),
           }
           newPosition = [
             updatedParams.positionX ?? dipPos[0],
@@ -430,7 +451,7 @@ export const remeshElementExpressions = createAsyncThunk(
               updatedParams.normalY ?? loopNorm[1],
               updatedParams.normalZ ?? loopNorm[2],
             ],
-            source: element.sources?.[0],
+            source: normalizeSourceForPreprocessor(element.sources?.[0]),
           }
           newPosition = [
             updatedParams.positionX ?? loopPos[0],
@@ -459,7 +480,7 @@ export const remeshElementExpressions = createAsyncThunk(
             segments: Math.round(updatedParams.segments ?? params.segments),
             start_point: [sx, sy, sz],
             end_point: [ex, ey, ez],
-            source: element.sources?.[0],
+            source: normalizeSourceForPreprocessor(element.sources?.[0]),
           }
           response = await createRod(config)
           break
@@ -655,21 +676,9 @@ const designSlice = createSlice({
           radii: [...snap.radii],
         }
 
-        if (snap.sources && snap.sources.length > 0) {
-          const nextSources: Source[] = []
-          for (const s of snap.sources) {
-            if (s.type !== 'voltage' && s.type !== 'current') continue
-            nextSources.push({
-              type: s.type,
-              node_start: s.node_start ?? undefined,
-              node_end: s.node_end ?? undefined,
-              amplitude: typeof s.amplitude === 'number' ? s.amplitude : 1,
-            })
-          }
-          if (nextSources.length > 0) {
-            element.sources = nextSources
-          }
-        }
+        // Keep element.sources unchanged while browsing sweep points.
+        // Snapshots are for geometry/rendering, while source definitions should
+        // remain API-compatible for subsequent remesh/solve calls.
 
         if (snap.position && snap.position.length === 3) {
           element.position = [...snap.position] as [number, number, number]

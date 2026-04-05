@@ -38,12 +38,14 @@ import {
   selectSweepProgress,
   selectResultsStale,
   cancelPostprocessing,
+  setPortQuantitiesRequested,
+  selectPortQuantitiesRequested,
 } from '@/store/solverSlice';
 import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { ParameterStudyConfig } from '@/types/parameterStudy';
 import { runParameterStudy } from '@/store/parameterStudyThunks';
-import { selectParameterStudy, selectParameterStudyConfig, selectSolveMode, requestPortQuantities } from '@/store/solverSlice';
+import { selectParameterStudy, selectParameterStudyConfig, selectSolveMode } from '@/store/solverSlice';
 
 /**
  * SolverTab - New 3-panel layout for solver workflow
@@ -82,6 +84,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const postprocessingProgress = useSelector((state: RootState) => state.solver.postprocessingProgress);
   const resultsStale = useSelector(selectResultsStale);
   const isSolved = useSelector(selectIsSolved);
+  const portQuantitiesRequested = useSelector(selectPortQuantitiesRequested);
   const parameterStudy = useSelector(selectParameterStudy);
   const parameterStudyConfig = useSelector(selectParameterStudyConfig);
   const solveMode = useSelector(selectSolveMode);
@@ -414,11 +417,12 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             </Button>
             <Button
               startIcon={<CalculateIcon />}
-              onClick={() => dispatch(requestPortQuantities())}
+              onClick={() => dispatch(setPortQuantitiesRequested(!portQuantitiesRequested))}
               disabled={!isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
-              title={!isSolved ? 'Run solver first' : 'Compute port quantities (Z, VSWR, S11)'}
+              title={!isSolved ? 'Run solver first' : 'Queue port quantities for Compute PostProcessingResults'}
+              variant={portQuantitiesRequested ? 'contained' : 'outlined'}
             >
-              Request Port Quantities
+              {portQuantitiesRequested ? 'Port Quantities Requested' : 'Request Port Quantities'}
             </Button>
           </ButtonGroup>
         </Box>
@@ -564,6 +568,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           directivityRequested={directivityRequested}
           onDirectivityDelete={handleDirectivityDelete}
           onDirectivitySelect={handleDirectivitySelect}
+          portQuantitiesRequested={portQuantitiesRequested}
           isSolved={isSolved}
         />
       </Box>

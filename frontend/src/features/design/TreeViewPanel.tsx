@@ -105,6 +105,7 @@ interface TreeViewPanelProps {
   onFieldRename?: (fieldId: string, newName: string) => void;
   fieldResults?: Record<string, { computed: boolean; num_points: number }> | null; // Field computation status
   directivityRequested?: boolean;
+  portQuantitiesRequested?: boolean;
   onDirectivitySelect?: () => void;
   onDirectivityDelete?: () => void;
   isSolved?: boolean; // Track if design is solved (for outdated warnings)
@@ -163,6 +164,7 @@ function TreeViewPanel({
   onFieldRename,
   fieldResults,
   directivityRequested = false,
+  portQuantitiesRequested = false,
   onDirectivitySelect,
   onDirectivityDelete,
   isSolved = true,
@@ -786,6 +788,21 @@ function TreeViewPanel({
                 </ListItem>
               )}
 
+              {portQuantitiesRequested && (
+                <ListItem disablePadding data-testid="port-quantities-item">
+                  <ListItemButton disabled sx={{ pl: 3, opacity: 0.9 }}>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <CheckCircle fontSize="small" color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Port Quantities"
+                      secondary="Will compute with postprocessing"
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              )}
+
               {fieldRegions?.map((field) => {
                 const fieldVisible = field.visible ?? true;
                 const isComputed = fieldResults?.[field.id]?.computed ?? false;
@@ -865,7 +882,7 @@ function TreeViewPanel({
                 );
               })}
 
-              {(!fieldRegions || fieldRegions.length === 0) && !directivityRequested && (
+              {(!fieldRegions || fieldRegions.length === 0) && !directivityRequested && !portQuantitiesRequested && (
                 <Box sx={{ px: 3, py: 2, color: 'text.secondary' }}>
                   <Typography variant="body2">No additional fields requested yet</Typography>
                 </Box>
