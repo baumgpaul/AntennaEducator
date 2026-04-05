@@ -879,6 +879,85 @@ const PostprocessingPropertiesPanel: React.FC = () => {
           </>
         );
 
+      case 'smith-chart':
+        return (
+          <>
+            {/* Data Source */}
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Data Source</InputLabel>
+              <Select
+                value={selectedItem.smithDataSource ?? 'frequency-sweep'}
+                label="Data Source"
+                onChange={(e) => handleItemPropertyChange('smithDataSource', e.target.value)}
+              >
+                <MenuItem value="frequency-sweep">Frequency Sweep</MenuItem>
+                <MenuItem value="parameter-study">Parameter Study</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Reference Impedance */}
+            <TextField
+              fullWidth
+              label="Reference Impedance Z₀ (Ω)"
+              type="number"
+              value={selectedItem.referenceImpedance ?? 50}
+              onChange={(e) => handleItemPropertyChange('referenceImpedance', parseFloat(e.target.value) || 50)}
+              size="small"
+              sx={{ mb: 2 }}
+            />
+          </>
+        );
+
+      case 'polar-plot':
+        return (
+          <>
+            {/* Scale */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Scale
+              </Typography>
+              <RadioGroup
+                value={selectedItem.polarScale ?? 'dB'}
+                onChange={(e) => handleItemPropertyChange('polarScale', e.target.value)}
+              >
+                <FormControlLabel value="dB" control={<Radio size="small" />} label="dB" />
+                <FormControlLabel value="linear" control={<Radio size="small" />} label="Linear" />
+              </RadioGroup>
+            </Box>
+
+            {/* Cut Plane */}
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Cut Plane</InputLabel>
+              <Select
+                value={selectedItem.polarCutPlane ?? 'phi'}
+                label="Cut Plane"
+                onChange={(e) => handleItemPropertyChange('polarCutPlane', e.target.value)}
+              >
+                <MenuItem value="phi">φ-cut (E-plane)</MenuItem>
+                <MenuItem value="theta">θ-cut (H-plane)</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Cut Angle */}
+            <TextField
+              fullWidth
+              label="Cut Angle (°)"
+              type="number"
+              value={selectedItem.polarCutAngleDeg ?? 0}
+              onChange={(e) => handleItemPropertyChange('polarCutAngleDeg', parseFloat(e.target.value) || 0)}
+              size="small"
+              sx={{ mb: 2 }}
+            />
+          </>
+        );
+
+      case 'port-table':
+        return (
+          <Typography variant="body2" color="text.secondary">
+            Port quantity table shows impedance, reflection coefficient, return loss, and VSWR for each frequency point.
+          </Typography>
+        );
+
       default:
         return (
           <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic' }}>

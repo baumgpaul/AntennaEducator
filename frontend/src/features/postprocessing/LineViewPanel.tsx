@@ -1,17 +1,24 @@
 /**
- * LineViewPanel - Displays multiple scalar plots stacked vertically
- * Shows impedance, voltage, and current plots with shared X-axis (frequency)
+ * LineViewPanel - Displays multiple line plots stacked vertically
+ * Renders UnifiedLinePlot for line-plot items, legacy stub for scalar-plot items.
  */
 
 import { Box, Typography, Divider } from '@mui/material';
-import type { ViewConfiguration } from '@/types/postprocessing';
+import type { ViewConfiguration, ViewItem } from '@/types/postprocessing';
+import UnifiedLinePlot from './plots/UnifiedLinePlot';
+import { extractPortTraceData } from '@/types/plotDataExtractors';
+import type { DataPoint } from '@/types/plotDataExtractors';
+import { useAppSelector } from '@/store/hooks';
+import { selectParameterStudy } from '@/store/solverSlice';
 
 interface LineViewPanelProps {
   view: ViewConfiguration;
 }
 
 function LineViewPanel({ view }: LineViewPanelProps) {
-  // Render each plot type
+  const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
+  const parameterStudy = useAppSelector(selectParameterStudy);
+
   const visibleItems = view.items.filter((item) => item.visible);
 
   if (visibleItems.length === 0) {
@@ -32,14 +39,41 @@ function LineViewPanel({ view }: LineViewPanelProps) {
     );
   }
 
-  // Render each plot type
-  const renderPlot = (item: ViewConfiguration['items'][0], _index: number) => {
-    // Note: impedance/voltage/current plots are deprecated and need implementation
-    // They require restructuring FrequencySweepResult to include these data
+  const renderPlot = (item: ViewItem) => {
+    if (item.type === 'line-plot' && item.traces && item.traces.length > 0) {
+      // Build traceData from extractors
+      const traceData: Record<string, DataPoint[]> = {};
+      for (const trace of item.traces) {
+        if (trace.quantity.source === 'port') {
+          traceData[trace.id] = extractPortTraceData(
+            trace,
+            frequencySweep,
+            parameterStudy,
+          );
+        }
+        // Field, distribution, farfield extractors can be wired here later
+      }
+
+      return (
+        <Box key={item.id} sx={{ p: 2, height: 350 }}>
+          <UnifiedLinePlot
+            traces={item.traces}
+            traceData={traceData}
+            xAxisConfig={item.xAxisConfig}
+            yAxisLeftConfig={item.yAxisLeftConfig}
+            yAxisRightConfig={item.yAxisRightConfig}
+            title={item.label}
+            height={300}
+          />
+        </Box>
+      );
+    }
+
+    // Legacy scalar-plot stub
     return (
       <Box key={item.id} sx={{ p: 2, textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          Plot type not yet implemented. Use field visualization or radiation patterns instead.
+          Plot type not yet implemented. Use the ribbon menu to add a Line Plot view instead.
         </Typography>
       </Box>
     );
@@ -49,7 +83,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
     <Box sx={{ width: '100%', height: '100%', overflow: 'auto', bgcolor: 'background.default' }}>
       {visibleItems.map((item, index) => (
         <Box key={item.id}>
-          {renderPlot(item, index)}
+          {renderPlot(item)}
           {index < visibleItems.length - 1 && <Divider />}
         </Box>
       ))}

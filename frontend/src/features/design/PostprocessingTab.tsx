@@ -26,6 +26,11 @@ import RibbonMenu from './RibbonMenu';
 import TreeViewPanel from './TreeViewPanel';
 import PostprocessingPropertiesPanel from '../postprocessing/PostprocessingPropertiesPanel';
 import LineViewPanel from '../postprocessing/LineViewPanel';
+import { SmithChartViewPanel } from '../postprocessing/plots/SmithChartViewPanel';
+import { PortQuantityTable } from '../postprocessing/plots/PortQuantityTable';
+import PolarPlot from '../postprocessing/plots/PolarPlot';
+import type { PolarDataPoint } from '../postprocessing/plots/PolarPlot';
+import { PORT_TABLE_COLUMNS } from '@/types/plotDefinitions';
 import { ViewItemRenderer } from '../postprocessing/ViewItemRenderer';
 import { Colorbar } from '../postprocessing/Colorbar';
 import TimeAnimationOverlay from '../postprocessing/TimeAnimationOverlay';
@@ -449,7 +454,7 @@ function PostprocessingTab({
           position: 'relative',
           overflow: 'hidden',
           minHeight: 200,
-          backgroundColor: selectedViewId && viewConfigurations.find(v => v.id === selectedViewId)?.viewType === 'Line'
+          backgroundColor: selectedViewId && viewConfigurations.find(v => v.id === selectedViewId)?.viewType !== '3D'
             ? 'background.default'
             : '#1a1a1a',
         }}
@@ -473,6 +478,73 @@ function PostprocessingTab({
           // Render Line View Panel for Line views
           if (selectedView?.viewType === 'Line') {
             return <LineViewPanel view={selectedView} />;
+          }
+
+          // Render Smith Chart for Smith views
+          if (selectedView?.viewType === 'Smith') {
+            const smithItem = selectedView.items.find(
+              (item) => item.visible && item.type === 'smith-chart',
+            );
+            return (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'auto' }}>
+                <SmithChartViewPanel
+                  dataSource={smithItem?.smithDataSource ?? 'frequency-sweep'}
+                  frequencySweep={frequencySweep}
+                  parameterStudy={parameterStudy}
+                  z0={smithItem?.referenceImpedance ?? portZ0}
+                  title={smithItem?.label}
+                />
+              </Box>
+            );
+          }
+
+          // Render Polar Plot for Polar views
+          if (selectedView?.viewType === 'Polar') {
+            const polarItem = selectedView.items.find(
+              (item) => item.visible && item.type === 'polar-plot',
+            );
+            // Extract polar data from radiation pattern at current frequency
+            const patternData = displayFrequencyHz != null ? radiationPatterns?.[displayFrequencyHz] : null;
+            let polarData: PolarDataPoint[] = [];
+            if (patternData?.theta_angles && patternData?.pattern_db) {
+              const angles = patternData.theta_angles as number[];
+              const values = patternData.pattern_db as number[];
+              const offset = (patternData.directivity as number) || 0;
+              polarData = angles.map((deg, i) => ({
+                angleDeg: deg,
+                value: (polarItem?.polarScale === 'linear')
+                  ? Math.pow(10, ((values[i] ?? -40) + offset) / 10)
+                  : (values[i] ?? -40) + offset,
+              }));
+            }
+            return (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'auto' }}>
+                <PolarPlot
+                  data={polarData}
+                  scale={polarItem?.polarScale ?? 'dB'}
+                  title={polarItem?.label}
+                  size={Math.min(500, 400)}
+                />
+              </Box>
+            );
+          }
+
+          // Render Table for Table views
+          if (selectedView?.viewType === 'Table') {
+            const tableItem = selectedView.items.find(
+              (item) => item.visible && item.type === 'port-table',
+            );
+            return (
+              <Box sx={{ height: '100%', overflow: 'auto', p: 2 }}>
+                <PortQuantityTable
+                  columns={tableItem?.tableColumns ?? PORT_TABLE_COLUMNS}
+                  frequencySweep={frequencySweep}
+                  parameterStudy={parameterStudy}
+                  z0={portZ0}
+                  title={tableItem?.label}
+                />
+              </Box>
+            );
           }
 
           // Render 3D Scene for 3D views

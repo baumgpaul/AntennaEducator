@@ -23,6 +23,8 @@ import {
   AccountTree,
   ElectricalServices,
   BoltOutlined,
+  Radar,
+  TableChart,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector, useAppStore } from '@/store/hooks';
 import {
@@ -161,6 +163,48 @@ function RibbonMenu({
   const handleAddCurrentPlot = () => {
     dispatch(setScalarPlotPreselect('current'));
     dispatch(setAddScalarPlotDialogOpen(true));
+  };
+
+  const handleAddSmithChart = () => {
+    if (!selectedViewId) return;
+    dispatch(addItemToView({
+      viewId: selectedViewId,
+      item: {
+        type: 'smith-chart',
+        visible: true,
+        label: 'Smith Chart',
+        smithDataSource: 'frequency-sweep',
+        referenceImpedance: 50,
+      },
+    }));
+  };
+
+  const handleAddPolarPlot = () => {
+    if (!selectedViewId) return;
+    dispatch(addItemToView({
+      viewId: selectedViewId,
+      item: {
+        type: 'polar-plot',
+        visible: true,
+        label: 'Radiation Pattern',
+        polarCutPlane: 'phi',
+        polarCutAngleDeg: 0,
+        polarQuantity: 'directivity',
+        polarScale: 'dB',
+      },
+    }));
+  };
+
+  const handleAddPortTable = () => {
+    if (!selectedViewId) return;
+    dispatch(addItemToView({
+      viewId: selectedViewId,
+      item: {
+        type: 'port-table',
+        visible: true,
+        label: 'Port Quantities',
+      },
+    }));
   };
 
   const handleExportPDF = () => {
@@ -473,6 +517,78 @@ function RibbonMenu({
                           disabled={!selectedViewId}
                         >
                           Current
+                        </Button>
+                      </Tooltip>
+                    </ButtonGroup>
+                  </Box>
+
+                  <Divider orientation="vertical" flexItem />
+                </>
+              )}
+
+              {/* Smith Chart Section (Smith view only) */}
+              {selectedViewData?.viewType === 'Smith' && (
+                <>
+                  <Box>
+                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
+                      Smith Chart
+                    </Box>
+                    <ButtonGroup variant="outlined" size="small">
+                      <Tooltip title="Add impedance locus on Smith chart">
+                        <Button
+                          startIcon={<Radar />}
+                          onClick={handleAddSmithChart}
+                          disabled={!selectedViewId}
+                        >
+                          Impedance Locus
+                        </Button>
+                      </Tooltip>
+                    </ButtonGroup>
+                  </Box>
+
+                  <Divider orientation="vertical" flexItem />
+                </>
+              )}
+
+              {/* Polar Plot Section (Polar view only) */}
+              {selectedViewData?.viewType === 'Polar' && (
+                <>
+                  <Box>
+                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
+                      Radiation Pattern
+                    </Box>
+                    <ButtonGroup variant="outlined" size="small">
+                      <Tooltip title="Add radiation pattern polar cut">
+                        <Button
+                          startIcon={<RadioButtonChecked />}
+                          onClick={handleAddPolarPlot}
+                          disabled={!selectedViewId}
+                        >
+                          Pattern Cut
+                        </Button>
+                      </Tooltip>
+                    </ButtonGroup>
+                  </Box>
+
+                  <Divider orientation="vertical" flexItem />
+                </>
+              )}
+
+              {/* Table Section (Table view only) */}
+              {selectedViewData?.viewType === 'Table' && (
+                <>
+                  <Box>
+                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
+                      Tables
+                    </Box>
+                    <ButtonGroup variant="outlined" size="small">
+                      <Tooltip title="Add port impedance/VSWR/Return Loss table">
+                        <Button
+                          startIcon={<TableChart />}
+                          onClick={handleAddPortTable}
+                          disabled={!selectedViewId}
+                        >
+                          Port Quantities
                         </Button>
                       </Tooltip>
                     </ButtonGroup>
