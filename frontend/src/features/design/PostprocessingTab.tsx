@@ -26,8 +26,8 @@ import LineViewPanel from '../postprocessing/LineViewPanel';
 import { SmithChartViewPanel } from '../postprocessing/plots/SmithChartViewPanel';
 import { PortQuantityTable } from '../postprocessing/plots/PortQuantityTable';
 import PolarPlot from '../postprocessing/plots/PolarPlot';
-import type { PolarDataPoint } from '../postprocessing/plots/PolarPlot';
-import { PORT_TABLE_COLUMNS } from '@/types/plotDefinitions';
+import type { PolarDataPoint, PolarDataSeries } from '../postprocessing/plots/PolarPlot';
+import { PORT_TABLE_COLUMNS, TRACE_COLORS } from '@/types/plotDefinitions';
 import { ViewItemRenderer } from '../postprocessing/ViewItemRenderer';
 import { Colorbar } from '../postprocessing/Colorbar';
 import TimeAnimationOverlay from '../postprocessing/TimeAnimationOverlay';
@@ -462,23 +462,33 @@ function PostprocessingTab({
             const polarItem = selectedView.items.find(
               (item) => item.visible && item.type === 'polar-plot',
             );
-            // Extract polar data from radiation pattern at current frequency
-            const patternData = displayFrequencyHz != null ? radiationPatterns?.[displayFrequencyHz] : null;
-            let polarData: PolarDataPoint[] = [];
-            if (patternData?.theta_angles && patternData?.phi_angles && patternData?.pattern_db) {
-              const thetaAngles = patternData.theta_angles as number[];
-              const phiAngles = patternData.phi_angles as number[];
-              const patternDb = patternData.pattern_db as number[];
-              const offset = (patternData.directivity as number) || 0;
+
+            // Require an explicit polar-plot item
+            if (!polarItem) {
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', p: 4 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No pattern cut added. Use the ribbon to add a Pattern Cut or Sweep Overlay.
+                  </Typography>
+                </Box>
+              );
+            }
+
+            const cutPlane = polarItem.polarCutPlane ?? 'phi';
+            const cutAngleDeg = polarItem.polarCutAngleDeg ?? 0;
+            const polarScale = polarItem.polarScale ?? 'dB';
+
+            // Helper: extract polar data from a single radiation pattern
+            const extractPolarCut = (pattern: typeof radiationPatterns extends Record<number, infer T> | null ? T : never): PolarDataPoint[] => {
+              if (!pattern?.theta_angles || !pattern?.phi_angles || !pattern?.pattern_db) return [];
+              const thetaAngles = pattern.theta_angles as number[];
+              const phiAngles = pattern.phi_angles as number[];
+              const patternDb = pattern.pattern_db as number[];
+              const offset = (pattern.directivity as number) || 0;
               const nTheta = thetaAngles.length;
               const nPhi = phiAngles.length;
 
-              const cutPlane = polarItem?.polarCutPlane ?? 'phi';
-              const cutAngleDeg = polarItem?.polarCutAngleDeg ?? 0;
-
               if (cutPlane === 'phi') {
-                // phi-cut: vary theta at fixed phi
-                // Find closest phi index
                 const cutAngleRad = (cutAngleDeg * Math.PI) / 180;
                 let bestPhiIdx = 0;
                 let bestDist = Infinity;
@@ -486,18 +496,15 @@ function PostprocessingTab({
                   const d = Math.abs(phiAngles[j] - cutAngleRad);
                   if (d < bestDist) { bestDist = d; bestPhiIdx = j; }
                 }
-                polarData = thetaAngles.map((thetaRad, thetaIdx) => {
+                return thetaAngles.map((thetaRad, thetaIdx) => {
                   const flatIdx = thetaIdx * nPhi + bestPhiIdx;
                   const dbVal = patternDb[flatIdx] ?? -40;
                   return {
                     angleDeg: (thetaRad * 180) / Math.PI,
-                    value: (polarItem?.polarScale === 'linear')
-                      ? Math.pow(10, (dbVal + offset) / 10)
-                      : dbVal + offset,
+                    value: polarScale === 'linear' ? Math.pow(10, (dbVal + offset) / 10) : dbVal + offset,
                   };
                 });
               } else {
-                // theta-cut: vary phi at fixed theta
                 const cutAngleRad = (cutAngleDeg * Math.PI) / 180;
                 let bestThetaIdx = 0;
                 let bestDist = Infinity;
@@ -505,27 +512,64 @@ function PostprocessingTab({
                   const d = Math.abs(thetaAngles[i] - cutAngleRad);
                   if (d < bestDist) { bestDist = d; bestThetaIdx = i; }
                 }
-                polarData = phiAngles.map((phiRad, phiIdx) => {
+                return phiAngles.map((phiRad, phiIdx) => {
                   const flatIdx = bestThetaIdx * nPhi + phiIdx;
                   const dbVal = patternDb[flatIdx] ?? -40;
                   return {
                     angleDeg: (phiRad * 180) / Math.PI,
-                    value: (polarItem?.polarScale === 'linear')
-                      ? Math.pow(10, (dbVal + offset) / 10)
-                      : dbVal + offset,
+                    value: polarScale === 'linear' ? Math.pow(10, (dbVal + offset) / 10) : dbVal + offset,
                   };
                 });
               }
+            };
+
+            const cutLabel = cutPlane === 'theta'
+              ? `θ-cut @ θ=${cutAngleDeg}°`
+              : `φ-cut @ φ=${cutAngleDeg}°`;
+
+            // Sweep overlay: show all sweep points' patterns on one chart
+            if (polarItem.sweepOverlay && parameterStudy && radiationPatterns) {
+              const sweepVars = parameterStudy.config.sweepVariables;
+              const datasets: PolarDataSeries[] = [];
+              for (let ptIdx = 0; ptIdx < parameterStudy.results.length; ptIdx++) {
+                const pattern = radiationPatterns[ptIdx];
+                if (!pattern) continue;
+                const data = extractPolarCut(pattern);
+                if (data.length === 0) continue;
+                // Build label from sweep variable values
+                const point = parameterStudy.results[ptIdx].point;
+                const labelParts = sweepVars.map((sv) => {
+                  const val = point.values[sv.variableName];
+                  return val != null ? `${sv.variableName}=${val.toPrecision(4)}` : '';
+                }).filter(Boolean);
+                datasets.push({
+                  data,
+                  color: TRACE_COLORS[ptIdx % TRACE_COLORS.length],
+                  label: labelParts.join(', '),
+                });
+              }
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'auto' }}>
+                  <PolarPlot
+                    datasets={datasets}
+                    scale={polarScale}
+                    title={polarItem.label ?? `Sweep Overlay — ${cutLabel}`}
+                    size={Math.min(500, 400)}
+                  />
+                </Box>
+              );
             }
-            const cutLabel = polarItem?.polarCutPlane === 'theta'
-              ? `θ-cut @ θ=${polarItem?.polarCutAngleDeg ?? 0}°`
-              : `φ-cut @ φ=${polarItem?.polarCutAngleDeg ?? 0}°`;
+
+            // Single pattern: current sweep point or frequency
+            const patternData = displayFrequencyHz != null ? radiationPatterns?.[displayFrequencyHz] : null;
+            const polarData = patternData ? extractPolarCut(patternData) : [];
+
             return (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'auto' }}>
                 <PolarPlot
                   data={polarData}
-                  scale={polarItem?.polarScale ?? 'dB'}
-                  title={polarItem?.label ?? cutLabel}
+                  scale={polarScale}
+                  title={polarItem.label ?? cutLabel}
                   size={Math.min(500, 400)}
                 />
               </Box>

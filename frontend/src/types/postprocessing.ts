@@ -223,6 +223,8 @@ export interface ViewItem {
   polarQuantity?: 'directivity' | 'gain' | 'E_magnitude' | 'H_magnitude';
   /** Scale for polar plot */
   polarScale?: 'linear' | 'dB';
+  /** When true, overlay all sweep points on the same polar chart */
+  sweepOverlay?: boolean;
 
   // Table item properties (type: 'port-table')
   /** Visible columns for port quantity table */

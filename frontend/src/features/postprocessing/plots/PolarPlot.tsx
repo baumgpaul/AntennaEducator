@@ -17,8 +17,15 @@ export interface PolarDataPoint {
   value: number;
 }
 
-export interface PolarPlotProps {
+export interface PolarDataSeries {
   data: PolarDataPoint[];
+  color?: string;
+  label?: string;
+}
+
+export interface PolarPlotProps {
+  data?: PolarDataPoint[];
+  datasets?: PolarDataSeries[];
   scale: 'dB' | 'linear';
   title?: string;
   size?: number;
@@ -59,12 +66,20 @@ function polarToXY(
 
 function PolarPlot({
   data,
+  datasets,
   scale,
   title,
   size = 350,
   color = '#1976d2',
 }: PolarPlotProps) {
-  if (data.length === 0) {
+  // Normalize: if single data prop given, convert to datasets
+  const allSeries: PolarDataSeries[] = useMemo(() => {
+    if (datasets && datasets.length > 0) return datasets;
+    if (data && data.length > 0) return [{ data, color, label: undefined }];
+    return [];
+  }, [data, datasets, color]);
+
+  if (allSeries.length === 0 || allSeries.every((s) => s.data.length === 0)) {
     return (
       <Box
         sx={{
@@ -89,13 +104,15 @@ function PolarPlot({
   const maxR = size / 2 - margin;
 
   // Compute grid and normalize data
-  const { gridCircles, gridLabels, pathD } = useMemo(() => {
+  const { gridCircles, gridLabels, seriesPaths } = useMemo(() => {
+    // Gather all values across all series for consistent scaling
+    const allValues = allSeries.flatMap((s) => s.data.map((d) => d.value));
     let maxVal: number;
     let minVal: number;
     const circles: Array<{ r: number; label: string }> = [];
 
     if (scale === 'dB') {
-      maxVal = Math.max(...data.map((d) => d.value));
+      maxVal = Math.max(...allValues);
       minVal = maxVal - DB_RANGE;
       const numRings = Math.ceil(DB_RANGE / DB_GRID_STEP) + 1;
       for (let i = 0; i < numRings; i++) {
@@ -106,7 +123,7 @@ function PolarPlot({
         }
       }
     } else {
-      maxVal = Math.max(...data.map((d) => d.value), 1e-10);
+      maxVal = Math.max(...allValues, 1e-10);
       minVal = 0;
       const numRings = 4;
       for (let i = 0; i <= numRings; i++) {
@@ -116,30 +133,32 @@ function PolarPlot({
       }
     }
 
-    // Build SVG path
-    const normalizedPoints = data.map((d) => {
-      let norm: number;
-      if (scale === 'dB') {
-        const clamped = Math.max(d.value, minVal);
-        norm = (clamped - minVal) / (maxVal - minVal);
-      } else {
-        norm = Math.max(d.value, 0) / maxVal;
+    // Build SVG path for each series
+    const paths = allSeries.map((series) => {
+      const normalizedPoints = series.data.map((d) => {
+        let norm: number;
+        if (scale === 'dB') {
+          const clamped = Math.max(d.value, minVal);
+          norm = (clamped - minVal) / (maxVal - minVal);
+        } else {
+          norm = Math.max(d.value, 0) / maxVal;
+        }
+        return { angleDeg: d.angleDeg, r: norm * maxR };
+      });
+
+      let path = '';
+      normalizedPoints.forEach((pt, i) => {
+        const { x, y } = polarToXY(pt.angleDeg, pt.r, cx, cy);
+        path += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+      });
+      if (normalizedPoints.length > 2) {
+        path += ' Z';
       }
-      return { angleDeg: d.angleDeg, r: norm * maxR };
+      return path;
     });
 
-    let path = '';
-    normalizedPoints.forEach((pt, i) => {
-      const { x, y } = polarToXY(pt.angleDeg, pt.r, cx, cy);
-      path += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
-    });
-    // Close path
-    if (normalizedPoints.length > 2) {
-      path += ' Z';
-    }
-
-    return { gridCircles: circles, gridLabels: circles, pathD: path };
-  }, [data, scale, maxR, cx, cy]);
+    return { gridCircles: circles, gridLabels: circles, seriesPaths: paths };
+  }, [allSeries, scale, maxR, cx, cy]);
 
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: 1 }}>
@@ -211,15 +230,36 @@ function PolarPlot({
           );
         })}
 
-        {/* Data path */}
-        <path
-          className="polar-data-path"
-          d={pathD}
-          fill={`${color}20`}
-          stroke={color}
-          strokeWidth={2}
-        />
+        {/* Data paths — one per series */}
+        {seriesPaths.map((pathD, i) => {
+          const seriesColor = allSeries[i]?.color || color;
+          const showFill = allSeries.length === 1;
+          return (
+            <path
+              key={`series-${i}`}
+              className="polar-data-path"
+              d={pathD}
+              fill={showFill ? `${seriesColor}20` : 'none'}
+              stroke={seriesColor}
+              strokeWidth={allSeries.length > 1 ? 1.5 : 2}
+            />
+          );
+        })}
       </svg>
+
+      {/* Legend for multiple series */}
+      {allSeries.length > 1 && allSeries.some((s) => s.label) && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5, justifyContent: 'center' }}>
+          {allSeries.map((s, i) => (
+            <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ width: 14, height: 3, bgcolor: s.color || color, borderRadius: 1 }} />
+              <Typography variant="caption" sx={{ fontSize: 10, color: 'text.secondary' }}>
+                {s.label}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }

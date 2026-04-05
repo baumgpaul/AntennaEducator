@@ -29,6 +29,7 @@ import {
   BoltOutlined,
   Radar,
   TableChart,
+  Layers,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector, useAppStore } from '@/store/hooks';
 import {
@@ -211,6 +212,23 @@ function RibbonMenu({
         polarCutAngleDeg: 0,
         polarQuantity: 'directivity',
         polarScale: 'dB',
+      },
+    }));
+  };
+
+  const handleAddPolarSweepOverlay = () => {
+    if (!selectedViewId) return;
+    dispatch(addItemToView({
+      viewId: selectedViewId,
+      item: {
+        type: 'polar-plot',
+        visible: true,
+        label: 'Sweep Overlay',
+        polarCutPlane: 'phi',
+        polarCutAngleDeg: 0,
+        polarQuantity: 'directivity',
+        polarScale: 'dB',
+        sweepOverlay: true,
       },
     }));
   };
@@ -569,6 +587,17 @@ function RibbonMenu({
                           Pattern Cut
                         </Button>
                       </Tooltip>
+                      {parameterStudy && parameterStudy.results.length > 1 && (
+                        <Tooltip title="Overlay all sweep points on one polar chart">
+                          <Button
+                            startIcon={<Layers />}
+                            onClick={handleAddPolarSweepOverlay}
+                            disabled={!selectedViewId}
+                          >
+                            Sweep Overlay
+                          </Button>
+                        </Tooltip>
+                      )}
                     </ButtonGroup>
                   </Box>
 
