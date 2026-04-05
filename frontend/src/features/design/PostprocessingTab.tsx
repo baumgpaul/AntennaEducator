@@ -7,14 +7,11 @@ import {
   Snackbar,
   IconButton,
   Tooltip,
-  Paper,
-  Chip,
 } from '@mui/material';
-import SettingsInputComponentIcon from '@mui/icons-material/SettingsInputComponent';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import type { SolverWorkflowState } from '@/store/solverSlice';
-import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields, selectPortResults, selectParameterStudy } from '@/store/solverSlice';
+import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields, selectParameterStudy } from '@/store/solverSlice';
 import { selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
@@ -36,7 +33,6 @@ import { Colorbar } from '../postprocessing/Colorbar';
 import TimeAnimationOverlay from '../postprocessing/TimeAnimationOverlay';
 import FrequencySelector from '../postprocessing/FrequencySelector';
 import { SweepVariableSelector } from '../postprocessing/SweepVariableSelector';
-import { ParameterStudyPlot } from '../postprocessing/plots/ParameterStudyPlot';
 import ExportPDFDialog from './dialogs/ExportPDFDialog';
 import { exportToPDF } from '@/utils/exportToPDF';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -53,7 +49,7 @@ import {
   toggleItemVisibility,
 } from '@/store/postprocessingSlice';
 import { selectSelectedFrequencyHz, selectSolveMode, selectSweepPointIndex } from '@/store/solverSlice';
-import type { PortQuantitiesResponseOutput } from '@/api/postprocessor';
+
 
 interface PostprocessingTabProps {
   solverState: SolverWorkflowState;
@@ -206,7 +202,6 @@ function PostprocessingTab({
   const solveMode = useAppSelector(selectSolveMode);
   const sweepPointIndex = useAppSelector(selectSweepPointIndex);
 
-  const portResults = useAppSelector(selectPortResults);
   const parameterStudy = useAppSelector(selectParameterStudy);
 
   // Derive z0 from first element's first port (used for Smith chart)
@@ -228,7 +223,7 @@ function PostprocessingTab({
 
   const [selectedFrequencyIndex] = useState<number>(0); // legacy, kept for fallback
 
-  const hasPortElements = elements.some((el) => el.ports && el.ports.length > 0);
+
 
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
@@ -367,42 +362,7 @@ function PostprocessingTab({
         </Alert>
       )}
 
-      {/* PORT QUANTITIES STRIP — visible when port results are available */}
-      {isSolved && hasPortElements && portResults && (
-        <Paper
-          elevation={0}
-          sx={{
-            px: 2,
-            py: 0.75,
-            borderBottom: 1,
-            borderColor: 'divider',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            flexWrap: 'wrap',
-            flexShrink: 0,
-          }}
-        >
-          <SettingsInputComponentIcon fontSize="small" color="action" />
-          {Object.entries(portResults).map(([, result]: [string, PortQuantitiesResponseOutput]) =>
-            result.port_results?.map((pr) => {
-              if (!pr.z_in) return null;
-              const zr = pr.z_in.real.toFixed(1);
-              const zi = pr.z_in.imag >= 0 ? `+j${pr.z_in.imag.toFixed(1)}` : `-j${Math.abs(pr.z_in.imag).toFixed(1)}`;
-              return (
-                <Box key={pr.port_id} sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-                    {pr.port_id}:
-                  </Typography>
-                  <Chip label={`Z = (${zr}${zi}) Ω`} size="small" variant="outlined" />
-                  <Chip label={`VSWR = ${pr.vswr?.toFixed(2) ?? '—'}`} size="small" variant="outlined" />
-                  <Chip label={`S₁₁ = ${pr.s11_db?.toFixed(1) ?? '—'} dB`} size="small" variant="outlined" />
-                </Box>
-              );
-            }),
-          )}
-        </Paper>
-      )}
+      {/* Port quantities are now rendered via Table view — no inline strip */}
 
       {/* MAIN CONTENT - 3 PANELS */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -450,7 +410,7 @@ function PostprocessingTab({
       >
       <Box
         sx={{
-          flex: parameterStudy ? '1 1 50%' : '1 1 100%',
+          flex: '1 1 100%',
           position: 'relative',
           overflow: 'hidden',
           minHeight: 200,
@@ -653,21 +613,7 @@ function PostprocessingTab({
         })()}
       </Box>
 
-      {/* Parameter Study Results — shown below 3D view when sweep exists */}
-      {parameterStudy && parameterStudy.results.length > 0 && (
-        <Box
-          sx={{
-            flex: '1 1 50%',
-            minHeight: 200,
-            borderTop: 1,
-            borderColor: 'divider',
-            overflow: 'auto',
-            backgroundColor: 'background.paper',
-          }}
-        >
-          <ParameterStudyPlot study={parameterStudy} z0={portZ0} />
-        </Box>
-      )}
+      {/* Parameter Study results are now rendered via Smith/Line/Table views — no auto split panel */}
       </Box>
 
       {/* RIGHT PANEL - Properties Panel (320px, collapsible) */}
