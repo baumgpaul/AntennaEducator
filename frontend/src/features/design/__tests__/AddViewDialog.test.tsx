@@ -66,7 +66,7 @@ describe('AddViewDialog', () => {
     renderDialog();
 
     // Leave name blank
-    const radioLine = screen.getByLabelText(/Line View/);
+    const radioLine = screen.getByLabelText(/Line Plot/);
     fireEvent.click(radioLine);
 
     const createButton = screen.getByRole('button', { name: /create/i });

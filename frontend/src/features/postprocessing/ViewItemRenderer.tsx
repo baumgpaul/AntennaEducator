@@ -60,7 +60,11 @@ export const ViewItemRenderer: React.FC<ViewItemRendererProps> = ({
       return <VectorRenderer item={item} frequencyHz={frequencyHz} animationPhase={animationPhase} />;
 
     case 'scalar-plot':
-      // Scalar plots are only for Line views, not rendered in 3D
+    case 'line-plot':
+    case 'smith-chart':
+    case 'polar-plot':
+    case 'port-table':
+      // Non-3D items — rendered by their respective view panels, not in Scene3D
       return null;
 
     default:

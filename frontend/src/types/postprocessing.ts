@@ -2,17 +2,22 @@
  * Type definitions for the Postprocessing Tab Multi-View Configuration System
  *
  * This module defines the data structures for:
- * - View configurations (3D and Line views)
- * - View items (antenna elements, fields, plots)
+ * - View configurations (3D, Line, Smith, Polar, Table views)
+ * - View items (antenna elements, fields, plots, tables)
  * - Redux state for postprocessing
  */
+
+import type { PlotTrace, AxisConfig, SmithDataSource, TableColumn } from './plotDefinitions';
 
 /**
  * Type of view configuration
  * - 3D: 3D visualization with antennas, fields, directivity
  * - Line: Scalar result plots (impedance, voltage, current vs frequency)
+ * - Smith: Smith chart impedance visualization
+ * - Polar: Polar radiation pattern plots
+ * - Table: Tabular port quantity display
  */
-export type ViewType = '3D' | 'Line';
+export type ViewType = '3D' | 'Line' | 'Smith' | 'Polar' | 'Table';
 
 /**
  * Display quantity for complex-valued results.
@@ -43,6 +48,16 @@ export type DisplayQuantity = 'magnitude' | 'real' | 'imaginary' | 'phase' | 'in
  *
  * Line View Items:
  * - scalar-plot: Generic scalar data plot (impedance, voltage, current vs frequency)
+ * - line-plot: Unified multi-trace line plot (Phase 5)
+ *
+ * Smith View Items:
+ * - smith-chart: Impedance locus on Smith chart
+ *
+ * Polar View Items:
+ * - polar-plot: Radiation pattern polar plot
+ *
+ * Table View Items:
+ * - port-table: Port quantity table (Z, S11, VSWR per frequency)
  */
 export type ViewItemType =
   | 'antenna-system'
@@ -54,7 +69,11 @@ export type ViewItemType =
   | 'field-vector'
   | 'field-vector-component'
   | 'directivity'
-  | 'scalar-plot';
+  | 'scalar-plot'
+  | 'line-plot'
+  | 'smith-chart'
+  | 'polar-plot'
+  | 'port-table';
 
 /**
  * Settings for scalar plot visualization
@@ -176,6 +195,42 @@ export interface ViewItem {
   // Directivity scale
   /** Scale for directivity pattern (linear or logarithmic dBi) */
   scale?: 'linear' | 'logarithmic';
+
+  // ===== Phase 5: New view item properties =====
+
+  // Line Plot item properties (type: 'line-plot')
+  /** Plot traces for unified line plot */
+  traces?: PlotTrace[];
+  /** X-axis configuration for line plot */
+  xAxisConfig?: AxisConfig;
+  /** Left Y-axis configuration */
+  yAxisLeftConfig?: AxisConfig;
+  /** Right Y-axis configuration (optional dual-axis) */
+  yAxisRightConfig?: AxisConfig;
+
+  // Smith Chart item properties (type: 'smith-chart')
+  /** Data source for Smith chart */
+  smithDataSource?: SmithDataSource;
+  /** Reference impedance Z₀ for Smith chart */
+  referenceImpedance?: number;
+
+  // Polar Plot item properties (type: 'polar-plot')
+  /** Cut plane for polar radiation pattern */
+  polarCutPlane?: 'phi' | 'theta';
+  /** Cut angle in degrees */
+  polarCutAngleDeg?: number;
+  /** Quantity to plot on polar chart */
+  polarQuantity?: 'directivity' | 'gain' | 'E_magnitude' | 'H_magnitude';
+  /** Scale for polar plot */
+  polarScale?: 'linear' | 'dB';
+  /** When true, overlay all sweep points on the same polar chart */
+  sweepOverlay?: boolean;
+  /** Per-sweep-point visibility for overlay mode (key: point index, value: visible) */
+  sweepOverlayVisibility?: Record<number, boolean>;
+
+  // Table item properties (type: 'port-table')
+  /** Visible columns for port quantity table */
+  tableColumns?: TableColumn[];
 }
 
 /**
@@ -285,6 +340,10 @@ export function generateDefaultItemLabel(type: ViewItemType, existingItems: View
     'field-vector-component': 'Field Vector Component',
     'directivity': 'Directivity',
     'scalar-plot': 'Plot',
+    'line-plot': 'Line Plot',
+    'smith-chart': 'Smith Chart',
+    'polar-plot': 'Polar Plot',
+    'port-table': 'Port Table',
   };
 
   const baseLabel = baseLabels[type];
@@ -325,11 +384,33 @@ export function isItemTypeAllowedInView(itemType: ViewItemType, viewType: ViewTy
 
   const lineItems: ViewItemType[] = [
     'scalar-plot',
+    'line-plot',
   ];
 
-  if (viewType === '3D') {
-    return threeDItems.includes(itemType);
-  } else {
-    return lineItems.includes(itemType);
+  const smithItems: ViewItemType[] = [
+    'smith-chart',
+  ];
+
+  const polarItems: ViewItemType[] = [
+    'polar-plot',
+  ];
+
+  const tableItems: ViewItemType[] = [
+    'port-table',
+  ];
+
+  switch (viewType) {
+    case '3D':
+      return threeDItems.includes(itemType);
+    case 'Line':
+      return lineItems.includes(itemType);
+    case 'Smith':
+      return smithItems.includes(itemType);
+    case 'Polar':
+      return polarItems.includes(itemType);
+    case 'Table':
+      return tableItems.includes(itemType);
+    default:
+      return false;
   }
 }

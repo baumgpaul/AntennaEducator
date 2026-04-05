@@ -14,16 +14,11 @@ import {
   setSweepPointIndex,
   setSelectedFrequency,
 } from '@/store/solverSlice';
-import { remeshElementExpressions } from '@/store/designSlice';
+import { applySweepMeshSnapshots } from '@/store/designSlice';
 import {
   generateSweepValues,
 } from '@/types/parameterStudy';
-import type { ParameterStudyResult, SweepVariable } from '@/types/parameterStudy';
-import {
-  buildOverriddenContext,
-  resolveElementExpressions,
-} from '@/store/parameterStudyThunks';
-import { selectVariables } from '@/store/variablesSlice';
+import type { SweepVariable } from '@/types/parameterStudy';
 
 // ============================================================================
 // Pure helpers (exported for testing)
@@ -57,8 +52,6 @@ export const SweepVariableSelector: React.FC = () => {
   const dispatch = useAppDispatch();
   const study = useAppSelector(selectParameterStudy);
   const sweepPointIndex = useAppSelector(selectSweepPointIndex);
-  const variables = useAppSelector(selectVariables);
-  const elements = useAppSelector((state) => state.design.elements);
 
   // Compute per-variable sweep values
   const sweepAxes = useMemo(() => {
@@ -77,7 +70,7 @@ export const SweepVariableSelector: React.FC = () => {
 
   // Handler: when a slider for variable `varIdx` changes to value-index `newValueIdx`
   const handleSliderChange = useCallback(
-    async (varIdx: number, newValueIdx: number) => {
+    (varIdx: number, newValueIdx: number) => {
       if (!study) return;
       const newIndices = [...currentIndices];
       newIndices[varIdx] = newValueIdx;
@@ -94,23 +87,13 @@ export const SweepVariableSelector: React.FC = () => {
         if (freq) dispatch(setSelectedFrequency(freq));
       }
 
-      // Re-mesh geometry to match the swept variable values
-      const point = study.gridPoints[clampedIdx];
-      if (!point) return;
-      const ctx = buildOverriddenContext(variables, point.values);
-      for (const element of elements) {
-        if (!element.visible || element.locked) continue;
-        if (element.expressions && Object.keys(element.expressions).length > 0) {
-          const resolved = resolveElementExpressions(element.expressions, ctx);
-          if (Object.keys(resolved).length > 0) {
-            dispatch(
-              remeshElementExpressions({ elementId: element.id, resolvedValues: resolved }),
-            );
-          }
-        }
+      // Use precomputed mesh snapshots from the sweep point. This keeps
+      // navigation local/offline and avoids API remesh calls while browsing.
+      if (ptResult?.meshSnapshots && ptResult.meshSnapshots.length > 0) {
+        dispatch(applySweepMeshSnapshots({ meshSnapshots: ptResult.meshSnapshots }));
       }
     },
-    [dispatch, study, currentIndices, variables, elements],
+    [dispatch, study, currentIndices],
   );
 
   if (!study || sweepAxes.length === 0) return null;

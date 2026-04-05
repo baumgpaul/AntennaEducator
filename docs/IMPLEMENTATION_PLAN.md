@@ -468,7 +468,7 @@ These items were deferred from Phase 0/3 and were backfilled as TDD in the Phase
 
 **Goal**: (1) Port quantities (Γ, S11, VSWR, Z_in) with explicit port definitions. (2) Parameter variation system. (3) On-demand postprocessing — solve returns currents only, user explicitly requests port quantities and field computations. (4) Merge frequency sweep and parameter study into unified "Parameter Sweep". (5) Circuit editor: ports as components + IEEE symbols + auto-layout.
 
-**Status**: Sections 4.0–4.4 complete (PR #60). Sections 4.6–4.9 in progress.
+**Status**: Sections 4.0–4.11 complete ✅ (PR #60, merged). All known bugs fixed.
 
 **Rationale**: The solver already computes `input_impedance`, `reflection_coefficient`, and `return_loss` per frequency point. The main work is making the port definition explicit, adding proper Γ/VSWR with user-defined Z₀, and building a general parameter sweep system that treats frequency as just another variable.
 
@@ -694,7 +694,7 @@ class PortQuantitiesResponse(BaseModel):
 | SolverTab tests updated | Test | ✅ Done | Button text assertions updated; `portResults: null` added to mock state |
 | `PortQuantitiesDialog.tsx` | Frontend | ⏳ Deferred | Not needed — "Port Quantities" button fires directly without a config dialog |
 
-### 4.11 — Unified Solver/Sweep Refactor
+### 4.11 — Unified Solver/Sweep Refactor ✅ Done
 
 **Goal**: Eliminate the confused mix of single-solve vs sweep state. Enforce a clean "one active solution" model where the same postprocessing workflow handles both cases uniformly.
 
@@ -768,116 +768,344 @@ export interface ParameterPointResult {
 
 | Artifact | Type | Status | Description |
 |----------|------|--------|-------------|
-| `MeshSnapshot` type in `parameterStudy.ts` | Types | ⏳ | Per-point mesh storage |
-| `ParameterPointResult.meshSnapshots` field | Types | ⏳ | Mesh captured at each sweep point |
-| `parameterStudyThunks.ts` mesh capture | Redux | ⏳ | Snapshot `elements[].mesh` per point |
-| `solveMode` field in `SolverState` | Redux | ⏳ | `'single' \| 'sweep' \| null` |
-| `computePostprocessingWorkflow` refactor | Redux | ⏳ | Iterate all sweep points with per-point mesh |
-| `fieldData` keyed by sweep point index | Redux | ⏳ | `fieldData[fieldId][pointIndex]` for sweep |
-| SolverTab label refactor | Frontend | ⏳ | "Solved" / "Solved (Sweep)" + remove bottom chip |
-| PostprocessingTab field lookup refactor | Frontend | ⏳ | Use `selectedSweepPointIndex` for sweep mode |
-| `SweepVariableSelector` freq dispatch | Frontend | ⏳ | Update `selectedFrequencyHz` when freq slider moves |
-| `FrequencySelector` hide in sweep mode | Frontend | ⏳ | Conditional render based on `solveMode` |
+| `MeshSnapshot` type in `parameterStudy.ts` | Types | ✅ Done | Per-point mesh storage (nodes, edges, radii, sources, position) |
+| `ParameterPointResult.meshSnapshots` field | Types | ✅ Done | Mesh captured at each sweep point |
+| `parameterStudyThunks.ts` mesh capture | Redux | ✅ Done | Snapshot `elements[].mesh` per point |
+| `solveMode` field in `SolverState` | Redux | ✅ Done | `'single' \| 'sweep' \| null` |
+| `computePostprocessingWorkflow` refactor | Redux | ✅ Done | Iterate all sweep points with per-point mesh |
+| `fieldData` keyed by sweep point index | Redux | ✅ Done | `fieldData[fieldId][pointIndex]` for sweep |
+| SolverTab label refactor | Frontend | ✅ Done | "Solved @ X MHz" / "Solved (Sweep) — N points" + remove bottom chip |
+| PostprocessingTab field lookup refactor | Frontend | ✅ Done | Use `selectedSweepPointIndex` for sweep mode |
+| `SweepVariableSelector` freq dispatch | Frontend | ✅ Done | Update `selectedFrequencyHz` + remesh geometry when slider moves |
+| `FrequencySelector` hide in sweep mode | Frontend | ✅ Done | Conditional render based on `solveMode` |
+
+### 4.13 — Bug Fixes (post-refactor) ✅ Done
+
+Multiple rounds of bug fixes after the unified refactor (all committed in PR #60):
+
+| Bug | Root Cause | Fix | Commit |
+|-----|-----------|-----|--------|
+| `toFixed` crash on port quantities | Pydantic v2 serializes `complex` as string `"73+42j"` instead of `{real, imag}` | `@field_serializer` on `PortResult` for complex fields | `80cb6df` |
+| "Solution Outdated" after sweep | `remeshElementExpressions.fulfilled` sets `isSolved=false` during nominal restore; `resultsStale` not cleared | Clear `resultsStale` in `runParameterStudy.fulfilled`; sweep-aware outdated logic in SolverTab | `4be206d` |
+| Dipole accumulation / phantom sidelobes in sweep | `remeshElementExpressions` sent actual position to backend (mesh offset) but didn't update `element.position` → double offset in `convertElementToAntennaInput` | Generate mesh at origin (`center_position=[0,0,0]`), return `newPosition` from thunk, update `element.position` in fulfilled handler | `05b3f88` |
+| Postprocessing outdated tag on slider move | `SweepVariableSelector` dispatches `remeshElementExpressions` for 3D visualization, which sets `isSolved=false` | Sweep-aware outdated check in Postprocessing section of SolverTab ribbon | `05b3f88` |
+| Sweep point 0 not showing results | `displayFrequencyHz = sweepPointIndex`, index 0 is falsy in JS; all truthy checks skip it | Null-checks (`!= null`, `??`) instead of truthy checks in PostprocessingTab | `488d63a` |
+| Sweep results lost on project reload | `solveMode`, `parameterStudy`, `parameterStudyConfig`, `selectedSweepPointIndex`, `radiationPatterns`, `selectedFrequencyHz` not persisted | Added to `getPersistableSolverState()` and `loadSolverState()` | `488d63a` |
+| Sweep point 0 falsy-zero in all renderers | Same falsy-zero bug propagated to FieldRenderer, DirectivityRenderer, CurrentRenderer, VoltageRenderer, VectorRenderer, FrequencySelector, RibbonMenu | Null-checks in all 7 renderer files | `083ee64` |
+
+### 4.14 — Design Decisions Made (§4.11)
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Solve mode field | `solveMode: 'single' \| 'sweep' \| null` replaces all `frequencySweep.length > 1` checks | Single source of truth for solve type |
+| Solve mutual exclusivity | Single solve clears sweep data; sweep clears single data | One active solution at a time, prevents stale state confusion |
+| Mesh per sweep point | `MeshSnapshot` in `ParameterPointResult` captures nodes/edges/radii/sources/position per element | Enables per-point postprocessing with correct geometry |
+| Compute Fields scope | Compute for ALL sweep points at once, not just current slider position | Pre-compute everything; slider just selects which to display |
+| Slider interaction model | Show pre-computed results when slider moves — no re-compute, but re-mesh for 3D | Instant navigation; no latency |
+| Slider unification | `SweepVariableSelector` handles ALL swept variables; `FrequencySelector` hidden in sweep mode | Single control surface for sweep navigation |
+| Field data keying | `fieldData[fieldId][sweepPointIndex]` for sweep, `fieldData[fieldId][frequencyHz]` for single | Sweep points at same frequency but different geometry are distinguishable |
+| Position convention | Mesh always generated at origin; `element.position` carries offset; applied in `convertElementToAntennaInput` | Consistent with initial creation; prevents double-offset during sweep remesh |
+| Sweep state persistence | `solveMode`, `parameterStudy`, `parameterStudyConfig`, `selectedSweepPointIndex`, `radiationPatterns`, `selectedFrequencyHz` saved to project | Full session restore for sweep experiments |
+| Falsy-zero handling | All `frequencyHz` and `displayFrequencyHz` checks use `!= null` / `??` instead of truthy | Sweep point index 0 is valid but falsy in JS |
+
+### 4.15 — Known Limitations
+
+- **CurrentRenderer/VoltageRenderer in sweep mode**: These renderers use `frequencyHz` to look up frequency sweep results by Hz comparison, but in sweep mode `frequencyHz` is the sweep point index — the Hz lookup fails. Falls back to nominal single-solve data. Proper per-sweep-point current/voltage display deferred to Phase 5.
+- **`selectVariableContextNumeric` non-memoized**: Returns new object on every call, triggering react-redux warning. Cosmetic only; fix with `createSelector` when convenient.
 
 ---
 
-## Phase 5 — Generalized Line Plotting + Smith Chart
+## Phase 5 — Postprocessing View System: Line Plots, Smith Chart, Polar Plots, Table View
 
-**Goal**: A unified line plot system that can plot any computed quantity vs. frequency or vs. any swept parameter. Add Smith chart as a specialized view. Build on Phase 4's parameter study results.
+**Status**: ⏳ Not started
 
-**Prerequisite**: Phase 4 complete — port quantities and parameter study data available in Redux.
+**Goal**: Complete the postprocessing view system so that all simulation results are consumed through user-added views in `PostprocessingTab`. Users add views explicitly (nothing shown by default). Remove all result displays from `SolverTab` — it becomes a pure control surface for solving and postprocessing. Four new view types join the existing 3D view: **Line Plot**, **Smith Chart**, **Polar Plot**, and **Table View**.
 
-### 5.1 — Unified Plot Data Model
+**Prerequisite**: Phase 4 complete ✅ — port quantities, parameter study, sweep mode, field data all available in Redux.
 
-**New type** (`frontend/src/types/plotDefinitions.ts`):
+### 5.0 — Architecture & UX Principles
+
+1. **PostprocessingTab shows NOTHING by default** — user adds views via "Add View" button or ribbon presets.
+2. **SolverTab = control surface only** — contains Solve, Compute Fields, Port Quantities buttons. No plots, no result chips, no port quantities strip. `ParameterStudyPlot` is removed entirely.
+3. **Build on existing view system** — `ViewConfiguration`, `addItemToView`, `PostprocessingPropertiesPanel`, tree view. New view types extend `ViewType`.
+4. **Quantities are on-demand** — "quantities should only be shown when requested" by adding a view.
+5. **All data sources plottable** — port quantities, current/voltage distribution, near-field components (Ex, Ey, Ez, Hx, Hy, Hz, S), far-field directivity, sweep variables.
+6. **X-axis flexibility** — frequency for single-solve sweeps, swept variable for parameter studies, distance/arc-length for observation lines, theta/phi for radiation pattern cuts.
+7. **Sweep visualization** — single line for 1 sweep variable; curve group (one line per secondary variable value) for 2 sweep variables.
+
+### 5.1 — Extend ViewType & ViewConfiguration
+
+**Updated types** in `frontend/src/types/postprocessing.ts`:
+
+```typescript
+type ViewType = '3D' | 'Line' | 'Smith' | 'Polar' | 'Table'
+```
+
+Each view type gets a discriminated item config:
+
+```typescript
+// Line Plot items
+interface LinePlotItem extends BaseViewItem {
+  type: 'line-plot'
+  traces: PlotTrace[]
+  xAxisConfig: AxisConfig
+  yAxisLeftConfig: AxisConfig
+  yAxisRightConfig?: AxisConfig
+}
+
+// Smith Chart items  
+interface SmithChartItem extends BaseViewItem {
+  type: 'smith-chart'
+  dataSource: SmithDataSource  // 'frequency-sweep' | 'parameter-study'
+  referenceImpedance: number
+}
+
+// Polar Plot items
+interface PolarPlotItem extends BaseViewItem {
+  type: 'polar-plot'
+  cutPlane: 'phi' | 'theta'
+  cutAngleDeg: number
+  quantity: 'directivity' | 'gain' | 'E_magnitude' | 'H_magnitude'
+  scale: 'linear' | 'dB'
+}
+
+// Table items
+interface TableItem extends BaseViewItem {
+  type: 'table'
+  columns: TableColumn[]    // Which port quantities to show
+}
+```
+
+### 5.2 — Unified Plot Data Model
+
+**New file**: `frontend/src/types/plotDefinitions.ts`
+
 ```typescript
 type PlotQuantity =
-  // Port quantities (vs. frequency)
+  // Port quantities (vs. frequency or swept variable)
   | { source: 'port'; quantity: 'impedance_real' | 'impedance_imag' | 'impedance_magnitude' | 'impedance_phase' }
   | { source: 'port'; quantity: 'reflection_coefficient_magnitude' | 'reflection_coefficient_phase' }
   | { source: 'port'; quantity: 'return_loss' | 'vswr' }
   | { source: 'port'; quantity: 'port_voltage_magnitude' | 'port_voltage_phase' }
   | { source: 'port'; quantity: 'port_current_magnitude' | 'port_current_phase' }
-  // Field quantities (vs. spatial coordinate along 1D observation line)
-  | { source: 'field'; fieldId: string; quantity: 'E_magnitude' | 'H_magnitude'
+  // Field quantities (vs. spatial coordinate along 1D observation line, or vs. frequency)
+  | { source: 'field'; fieldId: string; quantity: 'E_magnitude' | 'H_magnitude' | 'S_magnitude'
       | 'Ex' | 'Ey' | 'Ez' | 'Er' | 'Etheta' | 'Ephi'
       | 'Hx' | 'Hy' | 'Hz' | 'Hr' | 'Htheta' | 'Hphi' }
+  // Far-field / radiation quantities
+  | { source: 'farfield'; quantity: 'directivity' | 'gain' | 'E_theta' | 'E_phi' }
+  // Current/voltage distribution along wire
+  | { source: 'distribution'; quantity: 'current_magnitude' | 'current_phase'
+      | 'voltage_magnitude' | 'voltage_phase' }
 
 interface PlotTrace {
   id: string
   quantity: PlotQuantity
   label: string                        // Legend label
-  color: string                        // Line color
+  color: string                        // Line color (auto-assigned or user-picked)
   lineStyle: 'solid' | 'dashed' | 'dotted'
   yAxisId: 'left' | 'right'           // Dual-axis support
 }
 
-interface PlotConfiguration {
-  id: string
-  name: string
-  xAxis: { label: string; unit: string; scale: 'linear' | 'log' }
-  yAxisLeft: { label: string; unit: string; scale: 'linear' | 'log' | 'dB' }
-  yAxisRight?: { label: string; unit: string; scale: 'linear' | 'log' | 'dB' }
-  traces: PlotTrace[]
+interface AxisConfig {
+  label: string
+  unit: string
+  scale: 'linear' | 'log' | 'dB'
 }
 ```
 
-### 5.2 — Enhanced AddScalarPlotDialog
+### 5.3 — AddViewDialog Enhancement
 
-Rework `AddScalarPlotDialog.tsx`:
-1. **Quantity selector**: Dropdown of available quantities, grouped by category:
-   - "Port" → Impedance (Real, Imag, |Z|, ∠Z), S11 (|Γ|, dB), VSWR, Voltage, Current
-   - "Field: {fieldName}" → |E|, Ex, Ey, Ez, Eφ, Eθ, |H|, Hx, ... (only show fields that were defined in preprocessor and computed)
-2. **Multi-trace**: User can add multiple traces to one plot (different quantities or different fields)
-3. **Axis config**: Scale (linear/log/dB), axis label, unit
-4. **Presets**: Quick-add buttons like "Impedance (Re + Im)", "S11 (dB)", "VSWR"
+**Rework** `frontend/src/features/design/dialogs/AddViewDialog.tsx`:
 
-### 5.3 — Plot Rendering Engine
+Current: 2-field form (name + radio: 3D / Line).  
+New: 5 view type options with icons:
 
-Update `LineViewPanel.tsx` to use the unified `PlotConfiguration`:
-- Replace hardcoded ImpedancePlot/VoltagePlot/CurrentPlot with a generic `UnifiedLinePlot` component
-- `UnifiedLinePlot` reads `PlotConfiguration`, extracts data from Redux (solver results for port quantities, field data for spatial quantities)
-- Handle unit conversion (Hz→MHz for display, rad→deg, linear→dB)
-- Recharts `LineChart` with dynamic trace count, dual Y-axis, responsive container
+| View Type | Icon | Description |
+|-----------|------|-------------|
+| 3D View | ViewInAr | 3D antenna geometry, fields, radiation patterns |
+| Line Plot | ShowChart | X-Y line plots for any quantity |
+| Smith Chart | Radar (or custom) | Impedance on Smith chart |
+| Polar Plot | PieChart | Radiation pattern cuts (phi/theta) |
+| Table View | TableChart | Port quantities in tabular form |
 
-Keep the existing `ImpedancePlot`, `CurrentPlot`, `VoltagePlot` as legacy wrappers that create `PlotConfiguration` objects, so old saved projects still render.
+On creation, the view starts empty — user adds content via ribbon buttons or presets.
 
-### 5.4 — 1D Field Line Plotting
+### 5.4 — Quick Presets (Ribbon Menu)
 
-When a user defines a 1D observation line (Line or Arc shape in `fieldDefinitions.ts`):
-- The postprocessor computes E/H at each point along the line
-- Frontend extracts field components at each observation point
-- X-axis = distance along the line (arc length in meters) or point index
-- Y-axis = selected field component magnitude or complex part
+**Updated ribbon section** for postprocessing (Line/Smith/Polar/Table views):
 
-**Data flow**:
-1. User defined a Line field (start→end, N points) in preprocessor → stored in `simulation_config`
-2. Solver runs → postprocessor computes fields → stored in `simulation_results` / `fieldData[fieldId]`
-3. User adds a "Field: {fieldName} > |E|" trace to a line plot
-4. `UnifiedLinePlot` reads `fieldData[fieldId][freqHz].E_mag` → plots vs. distance along line
+| Preset Button | Creates | Traces / Content |
+|---------------|---------|-------------------|
+| "Impedance" | Line Plot | Re(Z) + Im(Z) vs frequency, dual Y-axis |
+| "S₁₁ (dB)" | Line Plot | Return loss (dB) vs frequency |
+| "VSWR" | Line Plot | VSWR vs frequency |
+| "Smith Chart" | Smith Chart view | Impedance locus, freq sweep or param study |
+| "Radiation Pattern" | Polar Plot | Directivity cut at φ=0° |
+| "Port Table" | Table View | Z_in, S₁₁, VSWR per frequency row |
 
-### 5.5 — Smith Chart
+Presets are one-click: create a new view with pre-configured traces/items. User can customize after creation via properties panel.
 
-> **Note**: The Smith chart was implemented early in Phase 4 (`phase4/solver-enhancements`, PR #60) as part of the parameter study results visualization. See `frontend/src/features/postprocessing/plots/SmithChart.tsx` (13 tests, `impedanceToGamma(r, x, z0)` exported pure function, pure SVG — no external library). The Phase 5 task is to **integrate it into the unified postprocessing view system** (as a selectable view type alongside 3D and line views) and enable interactive zoom/pan.
+When a **parameter study** is active, the preset adapts:
+- "Impedance" → traces use swept variable as X-axis; curve group for 2D sweeps
 
-**New component** (Phase 5 scope — integration into postprocessing views): surface in `AddScalarPlotDialog` as a view type; wire to `simulation_results` impedance arrays from frequency sweep (not just parameter study).
+### 5.5 — Line Plot Rendering Engine
 
-**Smith chart grid math** (already implemented in Phase 4):
-- Constant resistance circles: center `(r/(r+1), 0)`, radius `1/(r+1)` for normalized `r`
-- Constant reactance arcs: center `(1, 1/x)`, radius `1/|x|`
-- Standard values: r ∈ {0, 0.2, 0.5, 1, 2, 5}, x ∈ {±0.2, ±0.5, ±1, ±2, ±5}
+**New component**: `frontend/src/features/postprocessing/plots/UnifiedLinePlot.tsx`
 
-### 5.6 — Deliverables
+- Reads `LinePlotItem.traces[]` and extracts data from Redux state:
+  - Port quantities → from `solverSlice.frequencySweep` or `solverSlice.parameterStudy`
+  - Field values → from `solverSlice.fieldData[fieldId]`
+  - Current/voltage distribution → from `solverSlice.frequencySweep[].currents` / `.voltages`
+  - Far-field → from `solverSlice.radiationPatterns`
+- Recharts `LineChart` with:
+  - Dynamic trace count (1–N lines)
+  - Dual Y-axis (left + right)
+  - Responsive container
+  - Unit conversions: Hz→MHz, rad→deg, linear→dB
+  - Tooltip showing all trace values at cursor position
+- **Sweep handling**:
+  - 1 sweep variable → single line per trace, X-axis = swept variable values
+  - 2 sweep variables → curve group per trace, one line per secondary variable value, legend shows secondary value
 
-| Artifact | Type | Description |
-|----------|------|-------------|
-| `frontend/src/types/plotDefinitions.ts` | Types | `PlotQuantity`, `PlotTrace`, `PlotConfiguration` |
-| `frontend/src/features/postprocessing/plots/UnifiedLinePlot.tsx` | Component | Generic multi-trace plot |
-| `frontend/src/features/postprocessing/plots/SmithChart.tsx` | Component | Custom SVG Smith chart |
-| Updated `AddScalarPlotDialog.tsx` | Component | Quantity selector, multi-trace, presets |
-| Updated `LineViewPanel.tsx` | Component | Use `UnifiedLinePlot` for rendering |
-| `frontend/src/features/postprocessing/plots/smithChartUtils.ts` | Utility | Grid geometry math |
-| `tests/unit/test_smith_chart_math.py` | Test | Γ computation, circle/arc equations |
+**Data extraction helpers**: `frontend/src/types/plotDataExtractors.ts`
+- `extractPortTraceData(trace, solverState)` → `{x, y}[]`
+- `extractFieldTraceData(trace, solverState)` → `{x, y}[]`
+- `extractDistributionTraceData(trace, solverState)` → `{x, y}[]`
+- `extractFarfieldTraceData(trace, solverState)` → `{x, y}[]`
+
+These are **pure functions** — easy to unit test.
+
+### 5.6 — Smith Chart Integration
+
+**Existing**: `SmithChart.tsx` (Phase 4) — pure SVG, `impedanceToGamma()`, 13 tests. Currently only used inside `ParameterStudyPlot`.
+
+**Phase 5 changes**:
+1. **New view type** `'Smith'` in `AddViewDialog`
+2. **SmithChartItem** properties in `PostprocessingPropertiesPanel`: reference impedance Z₀, data source (frequency sweep / parameter study)
+3. **SmithChartViewPanel** renders `SmithChart` with data from:
+   - Frequency sweep: `frequencySweep[].portResults.impedance` → impedance locus curve
+   - Parameter study: `parameterStudy.results[].portResults.impedance` → points per sweep value
+4. **Interactive features** (stretch goal): hover tooltip showing Z and f at each point
+
+### 5.7 — Polar Plot
+
+**New component**: `frontend/src/features/postprocessing/plots/PolarPlot.tsx`
+
+- Pure SVG polar plot (like SmithChart approach — no external library)
+- Plots radiation pattern cuts: directivity/gain vs angle
+- Cut planes: φ-cut (vary θ at fixed φ) or θ-cut (vary φ at fixed θ)
+- Scales: linear or dB (concentric circles at dB intervals)
+- Grid: concentric circles (magnitude), radial lines (angle every 30°)
+- Data source: `solverSlice.radiationPatterns` keyed by frequency or sweep point
+
+**Polar plot properties** (in `PostprocessingPropertiesPanel`):
+- Cut plane selector (phi / theta)
+- Cut angle (degrees)
+- Quantity (directivity / gain / E_theta / E_phi)
+- Scale (linear / dB)
+- Frequency/sweep point (if multiple available)
+
+### 5.8 — Table View
+
+**New component**: `frontend/src/features/postprocessing/plots/PortQuantityTable.tsx`
+
+- MUI `Table` showing port quantities per frequency row
+- Columns (configurable): Frequency (MHz), Re(Z), Im(Z), |Z|, ∠Z, |Γ|, Return Loss (dB), VSWR
+- Data source: `solverSlice.frequencySweep` or `solverSlice.parameterStudy`
+- Sortable by any column
+- Copy-to-clipboard button (CSV format)
+- For parameter study: rows = sweep points instead of frequencies
+
+### 5.9 — SolverTab Cleanup
+
+**Remove from SolverTab**:
+- `ParameterStudyPlot` split-panel (bottom half)
+- Port quantities strip (impedance/VSWR/S₁₁ chips)
+- Any inline result display
+
+**Keep in SolverTab**:
+- Solve button + sweep config
+- Compute Fields button + field definition controls
+- Port Quantities computation trigger button
+- Status labels ("Solved @ X MHz", "Solved (Sweep) — N points")
+- Parameter study dialog (configuration only, not results)
+
+**Rationale**: SolverTab = "run computations". PostprocessingTab = "view results".
+
+### 5.10 — PostprocessingTab Layout Update
+
+**Remove**:
+- `ParameterStudyPlot` from split-panel (bottom half of PostprocessingTab)
+- Port quantities strip below warning banner
+- Any auto-displayed results
+
+**Result**: PostprocessingTab starts empty. User adds views via "Add View" or ribbon presets. Each view gets its own panel in the middle area. View selection in tree switches the active panel.
+
+### 5.11 — Properties Panel Extensions
+
+Extend `PostprocessingPropertiesPanel` with editors for new view types:
+
+| View Type | Properties |
+|-----------|-----------|
+| Line Plot | Trace list (add/remove/reorder), per-trace: quantity picker, color, line style, Y-axis; axis configs (label, unit, scale) |
+| Smith Chart | Reference impedance Z₀, data source toggle |
+| Polar Plot | Cut plane, cut angle, quantity, scale |
+| Table View | Column visibility toggles, sort column |
+
+### 5.12 — Implementation Order (TDD)
+
+| Step | Scope | Tests First |
+|------|-------|-------------|
+| 1 | `plotDefinitions.ts` types + `plotDataExtractors.ts` pure functions | Unit tests for all extractors |
+| 2 | Extend `ViewType` enum + `ViewConfiguration` types | Type compilation check |
+| 3 | `UnifiedLinePlot` component | Render tests with mock data |
+| 4 | `AddViewDialog` enhancement (5 view types) | Dialog render + selection tests |
+| 5 | Ribbon presets (one-click view creation) | Integration tests |
+| 6 | `PolarPlot` component | SVG geometry unit tests + render tests |
+| 7 | `PortQuantityTable` component | Table render + sort tests |
+| 8 | Smith Chart view integration | Render with frequency sweep data |
+| 9 | `PostprocessingPropertiesPanel` extensions | Property editor render tests |
+| 10 | SolverTab cleanup (remove plots/chips) | Verify SolverTab renders without results |
+| 11 | PostprocessingTab cleanup (remove auto-displays) | Verify empty state |
+
+### 5.13 — Deliverables
+
+| Artifact | Type | Status | Description |
+|----------|------|--------|-------------|
+| `frontend/src/types/plotDefinitions.ts` | Types | ⏳ | `PlotQuantity`, `PlotTrace`, `AxisConfig`, view item interfaces |
+| `frontend/src/types/plotDataExtractors.ts` | Utility | ⏳ | Pure data extraction functions for all trace sources |
+| `frontend/src/features/postprocessing/plots/UnifiedLinePlot.tsx` | Component | ⏳ | Generic multi-trace Recharts line plot |
+| `frontend/src/features/postprocessing/plots/PolarPlot.tsx` | Component | ⏳ | SVG polar radiation pattern plot |
+| `frontend/src/features/postprocessing/plots/PortQuantityTable.tsx` | Component | ⏳ | MUI table for port quantities per frequency |
+| Updated `AddViewDialog.tsx` | Component | ⏳ | 5 view type options with icons |
+| Updated `RibbonMenu.tsx` postprocessing section | Component | ⏳ | Quick preset buttons for all view types |
+| Updated `PostprocessingPropertiesPanel.tsx` | Component | ⏳ | Property editors for Line/Smith/Polar/Table |
+| Updated `PostprocessingTab.tsx` | Component | ⏳ | Remove ParameterStudyPlot, port strip; empty default state |
+| Updated `SolverTab.tsx` | Component | ⏳ | Remove all result displays; control surface only |
+| Updated `postprocessing.ts` types | Types | ⏳ | Extended `ViewType`, new item types |
+| `frontend/src/types/plotDataExtractors.test.ts` | Test | ⏳ | Unit tests for all data extractors |
+| `frontend/src/features/postprocessing/plots/UnifiedLinePlot.test.tsx` | Test | ⏳ | Render tests |
+| `frontend/src/features/postprocessing/plots/PolarPlot.test.tsx` | Test | ⏳ | SVG geometry + render tests |
+| `frontend/src/features/postprocessing/plots/PortQuantityTable.test.tsx` | Test | ⏳ | Table render + sort tests |
+
+### 5.14 — Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| PostprocessingTab default | Empty — no auto-displayed results | User explicitly adds what they want to see |
+| SolverTab scope | Control surface only — no plots or result chips | Clean separation: configure & run vs. view results |
+| View types | 3D (existing) + Line Plot + Smith Chart + Polar Plot + Table View | Covers all EM analysis visualization needs |
+| Line Plot engine | Recharts `LineChart` with `PlotConfiguration` model | Already used in codebase; supports dual Y-axis, responsive |
+| Smith Chart | Reuse existing `SmithChart.tsx` SVG; promote to standalone view | Already implemented and tested (13 tests) |
+| Polar Plot | Pure SVG (same approach as SmithChart) | No external dependency; full control over rendering |
+| Table View | MUI `Table` with sortable columns | MUI already in project; familiar pattern |
+| Quick presets | One-click buttons in ribbon that create pre-configured views | Fast workflow — user doesn't configure from scratch |
+| Data extractors | Pure functions in separate file | Testable, composable, no component coupling |
+| Sweep curves | 1 variable = single line; 2 variables = curve group | Natural extension of existing ParameterStudyPlot logic |
+| X-axis flexibility | Per-trace: frequency, swept variable, distance, angle | User has full control; presets provide sensible defaults |
+| ParameterStudyPlot | Removed from SolverTab; functionality absorbed into Line Plot + Smith view types | Consolidation — one way to view results |
+| Legacy plot wrappers | Keep ImpedancePlot/VoltagePlot/CurrentPlot as internal wrappers | Backward compatibility for saved Line-view projects |
 
 ---
 
@@ -1149,11 +1377,12 @@ Port System             │
    │                    │
    ├────────────────────┘
    ▼
-Phase 4 ─── Solver Enhancements & On-Demand Postprocessing
-   │         4.0–4.4 ✅ (param study, Smith chart, circuit editor polish)
-   │         4.6–4.9 ⬜ (ports, on-demand postprocessing, Parameter Sweep merge)
+Phase 4 ─── Solver Enhancements & On-Demand Postprocessing ✅ (PR #60)
+   │         Full scope: param study, Smith chart, circuit editor,
+   │         ports, on-demand postprocessing, sweep merge, bug fixes
    ▼
-Phase 5 ─── Generalized Line Plotting + Smith Chart integration
+Phase 5 ─── Postprocessing Views (Line, Smith, Polar, Table) ⏳
+   │         Remove results from SolverTab; all results via views
    │
    ├───────────┐
    ▼           ▼
@@ -1170,9 +1399,9 @@ Phase 9 ─── Deployment Rework
 
 **Key dependencies**:
 - Phase 1 (Variables) enables expression-aware inputs in Phase 2 (Custom Geometry) and Phase 3 (Lumped Elements) — both ✅ complete
-- Phase 4 (Solver enhancements + parameter variation) depends on Phase 3 (port system) and uses Phase 1 variables as sweep parameters
-- Phase 5 (Plotting) needs Phase 4 complete — port quantities and parameter study data to plot
-- Phase 6 (Submissions) and Phase 7 (PDF) are independent of each other but need Phases 1–5 complete so submissions contain full feature set
+- Phase 4 (Solver enhancements + parameter variation) depends on Phase 3 (port system) and uses Phase 1 variables as sweep parameters — ✅ complete (PR #60)
+- Phase 5 (Postprocessing Views) needs Phase 4 complete — port quantities, parameter study data, field data, sweep mode all available in Redux
+- Phase 6 (Submissions) and Phase 7 (PDF) are independent of each other but need Phases 1–5 complete so submissions/exports contain full feature set
 - Phase 8 and 9 are final — polish and deploy everything built in earlier phases
 
 ---

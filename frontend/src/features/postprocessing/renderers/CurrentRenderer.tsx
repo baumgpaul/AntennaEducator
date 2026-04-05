@@ -32,13 +32,28 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
 }) => {
   const results = useAppSelector((state) => state.solver.results);
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
+  const parameterStudy = useAppSelector((state) => state.solver.parameterStudy);
   const elements = useAppSelector((state) => state.design.elements);
 
-  // Get current distribution data — supports both single-freq and sweep modes
+  // Get current distribution data — supports single-freq, frequency sweep, and parameter study modes
   const currentData = useMemo(() => {
     if (frequencyHz == null) return null;
 
-    // Sweep mode: look up the result for this specific frequency
+    // Parameter study mode: frequencyHz is a sweep point INDEX (0, 1, 2, ...)
+    if (parameterStudy?.results?.length) {
+      const pointIdx = Math.round(frequencyHz);
+      const pointResult = parameterStudy.results[pointIdx];
+      if (pointResult) {
+        const resp = pointResult.solverResponse as any;
+        if (resp?.antenna_solutions?.length) {
+          return resp.antenna_solutions.flatMap(
+            (sol: any) => sol.branch_currents || []
+          );
+        }
+      }
+    }
+
+    // Frequency sweep mode: look up the result for this specific frequency (Hz)
     if (frequencySweep?.frequencies && frequencySweep.results) {
       const freqIdx = frequencySweep.frequencies.findIndex(
         (f) => Math.abs(f - frequencyHz) < 1 // 1 Hz tolerance
@@ -65,7 +80,7 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
     }
 
     return null;
-  }, [results, frequencySweep, frequencyHz]);
+  }, [results, frequencySweep, parameterStudy, frequencyHz]);
 
   if (!currentData || !elements || elements.length === 0) {
     console.log('[CurrentRenderer] ❌ Early exit - currentData:', !!currentData, 'elements:', elements?.length);

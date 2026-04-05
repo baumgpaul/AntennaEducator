@@ -49,31 +49,31 @@ describe('AddScalarPlotDialog', () => {
     expect(screen.getByText('Add Scalar Plot')).toBeInTheDocument();
   });
 
-  it('shows port selector for voltage plot', async () => {
+  it('shows VSWR option in data type selector', async () => {
     renderDialog();
 
     const select = screen.getByRole('combobox');
     fireEvent.mouseDown(select);
 
-    const voltageOption = screen.getByText('Voltage vs Frequency');
-    fireEvent.click(voltageOption);
+    const vswrOption = screen.getByText('VSWR vs Sweep Variable');
+    fireEvent.click(vswrOption);
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/Port Number/i)).toBeInTheDocument();
+      expect(screen.getByDisplayValue('vswr')).toBeInTheDocument();
     });
   });
 
-  it('hides port selector for impedance plot', async () => {
+  it('does not show port selector for port quantity line plot', async () => {
     renderDialog();
 
-    // Default is already impedance, so port selector should not be shown
+    // Port number is no longer needed for these presets
     expect(screen.queryByLabelText(/Port Number/i)).not.toBeInTheDocument();
   });
 
-  it('adds impedance plot to view', async () => {
+  it('adds a line-plot item to view', async () => {
     renderDialog();
 
-    // Default is already impedance, just click Add
+    // Default is Re(Z), just click Add
     const addButton = screen.getByRole('button', { name: /add/i });
     fireEvent.click(addButton);
 
@@ -81,22 +81,17 @@ describe('AddScalarPlotDialog', () => {
       const state = store.getState();
       const view = state.postprocessing.viewConfigurations[0];
       expect(view.items).toHaveLength(1);
-      expect(view.items[0].type).toBe('scalar-plot');
+      expect(view.items[0].type).toBe('line-plot');
     });
   });
 
-  it('adds voltage plot with port number', async () => {
+  it('adds VSWR line plot with port quantity trace', async () => {
     renderDialog();
 
     const select = screen.getByRole('combobox');
     fireEvent.mouseDown(select);
-    const voltageOption = screen.getByText('Voltage vs Frequency');
-    fireEvent.click(voltageOption);
-
-    await waitFor(() => {
-      const portInput = screen.getByLabelText(/Port Number/i);
-      fireEvent.change(portInput, { target: { value: '2' } });
-    });
+    const vswrOption = screen.getByText('VSWR vs Sweep Variable');
+    fireEvent.click(vswrOption);
 
     const addButton = screen.getByRole('button', { name: /add/i });
     fireEvent.click(addButton);
@@ -105,8 +100,9 @@ describe('AddScalarPlotDialog', () => {
       const state = store.getState();
       const view = state.postprocessing.viewConfigurations[0];
       expect(view.items).toHaveLength(1);
-      expect(view.items[0].type).toBe('scalar-plot');
-      expect(view.items[0].portNumber).toBe(2);
+      expect(view.items[0].type).toBe('line-plot');
+      expect(view.items[0].traces?.[0]?.quantity?.source).toBe('port');
+      expect(view.items[0].traces?.[0]?.quantity?.quantity).toBe('vswr');
     });
   });
 

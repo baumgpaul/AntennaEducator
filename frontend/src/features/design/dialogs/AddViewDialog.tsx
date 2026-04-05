@@ -1,6 +1,6 @@
 /**
  * AddViewDialog - Dialog for creating new view configurations
- * Simple 2-field form: name (optional) and view type (3D or Line)
+ * Supports 5 view types: 3D, Line, Smith, Polar, Table
  */
 
 import { useState } from 'react';
@@ -18,6 +18,11 @@ import {
   FormControl,
   Box,
 } from '@mui/material';
+import ViewInArIcon from '@mui/icons-material/ViewInAr';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
+import RadarIcon from '@mui/icons-material/Radar';
+import PieChartIcon from '@mui/icons-material/PieChart';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   setAddViewDialogOpen,
@@ -25,6 +30,44 @@ import {
   selectAddViewDialogOpen,
 } from '@/store/postprocessingSlice';
 import type { ViewType } from '@/types/postprocessing';
+
+const VIEW_TYPE_OPTIONS: Array<{
+  value: ViewType;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    value: '3D',
+    label: '3D View',
+    description: 'Visualize antennas, fields, and directivity patterns',
+    icon: <ViewInArIcon fontSize="small" sx={{ mr: 0.5 }} />,
+  },
+  {
+    value: 'Line',
+    label: 'Line Plot',
+    description: 'X-Y line plots for any quantity (impedance, fields, etc.)',
+    icon: <ShowChartIcon fontSize="small" sx={{ mr: 0.5 }} />,
+  },
+  {
+    value: 'Smith',
+    label: 'Smith Chart',
+    description: 'Impedance locus on Smith chart',
+    icon: <RadarIcon fontSize="small" sx={{ mr: 0.5 }} />,
+  },
+  {
+    value: 'Polar',
+    label: 'Polar Plot',
+    description: 'Radiation pattern cuts (phi/theta)',
+    icon: <PieChartIcon fontSize="small" sx={{ mr: 0.5 }} />,
+  },
+  {
+    value: 'Table',
+    label: 'Table View',
+    description: 'Port quantities in tabular form (Z, S₁₁, VSWR)',
+    icon: <TableChartIcon fontSize="small" sx={{ mr: 0.5 }} />,
+  },
+];
 
 function AddViewDialog() {
   const dispatch = useAppDispatch();
@@ -35,14 +78,13 @@ function AddViewDialog() {
 
   const handleClose = () => {
     dispatch(setAddViewDialogOpen(false));
-    // Reset form
     setName('');
     setViewType('3D');
   };
 
   const handleSubmit = () => {
     dispatch(createViewConfiguration({
-      name: name.trim() || undefined, // Use default name if empty
+      name: name.trim() || undefined,
       viewType,
     }));
     handleClose();
@@ -53,7 +95,6 @@ function AddViewDialog() {
       <DialogTitle>Create New View</DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* View Name */}
           <TextField
             label="View Name (Optional)"
             placeholder="Result View 1"
@@ -63,23 +104,25 @@ function AddViewDialog() {
             helperText="Leave blank to auto-generate (Result View 1, 2, 3...)"
           />
 
-          {/* View Type */}
           <FormControl component="fieldset">
             <FormLabel component="legend">View Type</FormLabel>
             <RadioGroup
               value={viewType}
               onChange={(e) => setViewType(e.target.value as ViewType)}
             >
-              <FormControlLabel
-                value="3D"
-                control={<Radio />}
-                label="3D View - Visualize antennas, fields, and directivity patterns"
-              />
-              <FormControlLabel
-                value="Line"
-                control={<Radio />}
-                label="Line View - Plot impedance, voltage, and current curves"
-              />
+              {VIEW_TYPE_OPTIONS.map((opt) => (
+                <FormControlLabel
+                  key={opt.value}
+                  value={opt.value}
+                  control={<Radio />}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      {opt.icon}
+                      <span>{opt.label} — {opt.description}</span>
+                    </Box>
+                  }
+                />
+              ))}
             </RadioGroup>
           </FormControl>
         </Box>

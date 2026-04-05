@@ -16,6 +16,7 @@ import type {
   AntennaElement,
   AppendedNode,
 } from '@/types/models'
+import type { MeshSnapshot } from '@/types/parameterStudy'
 import { generateDipoleMesh, generateLoopMesh, generateRodMesh, generateCustomMesh, createDipole, createLoop, createRod } from '@/api/preprocessor'
 import { getNextElementColor } from '@/utils/colors'
 import { runParameterStudy } from '@/store/parameterStudyThunks'
@@ -119,6 +120,27 @@ function createDefaultPort(sources: Source[]): Port | null {
     };
   }
   return null;
+}
+
+function normalizeSourceForPreprocessor(source?: Source): Source | undefined {
+  if (!source) return undefined
+
+  const amp = source.amplitude
+  if (typeof amp === 'number') {
+    return { ...source, amplitude: { real: amp, imag: 0 } }
+  }
+  if (typeof amp === 'string') {
+    const parsed = Number(amp)
+    return {
+      ...source,
+      amplitude: Number.isFinite(parsed) ? { real: parsed, imag: 0 } : { real: 1, imag: 0 },
+    }
+  }
+  if (!amp || typeof amp !== 'object' || !('real' in amp) || !('imag' in amp)) {
+    return { ...source, amplitude: { real: 1, imag: 0 } }
+  }
+
+  return source
 }
 
 // ============================================================================
@@ -405,7 +427,7 @@ export const remeshElementExpressions = createAsyncThunk(
             ],
             // Pass existing source so the backend regenerates correct feed node
             // indices for the updated mesh geometry.
-            source: element.sources?.[0],
+            source: normalizeSourceForPreprocessor(element.sources?.[0]),
           }
           newPosition = [
             updatedParams.positionX ?? dipPos[0],
@@ -429,7 +451,7 @@ export const remeshElementExpressions = createAsyncThunk(
               updatedParams.normalY ?? loopNorm[1],
               updatedParams.normalZ ?? loopNorm[2],
             ],
-            source: element.sources?.[0],
+            source: normalizeSourceForPreprocessor(element.sources?.[0]),
           }
           newPosition = [
             updatedParams.positionX ?? loopPos[0],
@@ -458,7 +480,7 @@ export const remeshElementExpressions = createAsyncThunk(
             segments: Math.round(updatedParams.segments ?? params.segments),
             start_point: [sx, sy, sz],
             end_point: [ex, ey, ez],
-            source: element.sources?.[0],
+            source: normalizeSourceForPreprocessor(element.sources?.[0]),
           }
           response = await createRod(config)
           break
@@ -630,6 +652,70 @@ const designSlice = createSlice({
 
     markAsUnsolved: (state) => {
       state.isSolved = false
+    },
+
+    // Apply precomputed sweep-point meshes to visible/unlocked elements
+    // so postprocessing sweep navigation does not trigger API remesh calls.
+    applySweepMeshSnapshots: (state, action: PayloadAction<{ meshSnapshots: MeshSnapshot[] }>) => {
+      const { meshSnapshots } = action.payload
+      if (!meshSnapshots || meshSnapshots.length === 0) return
+
+      // Prefer ID-based matching for correctness; fallback to index for old data.
+      const hasIds = meshSnapshots.some((s) => s.elementId)
+
+      if (hasIds) {
+        for (const snap of meshSnapshots) {
+          if (!snap.elementId) continue
+          const element = state.elements.find(
+            (el) => el.id === snap.elementId && el.visible && !el.locked,
+          )
+          if (!element) continue
+
+          element.mesh = {
+            nodes: snap.nodes.map((n) => [...n] as [number, number, number]),
+            edges: snap.edges.map((e) => [...e] as [number, number]),
+            radii: [...snap.radii],
+          }
+
+          if (snap.position && snap.position.length === 3) {
+            element.position = [...snap.position] as [number, number, number]
+          }
+        }
+      } else {
+        // Legacy fallback: match by position index (pre-ID snapshots)
+        const targetIndices = state.elements
+          .map((el, idx) => ({ el, idx }))
+          .filter(({ el }) => el.visible && !el.locked)
+          .map(({ idx }) => idx)
+
+        const count = Math.min(targetIndices.length, meshSnapshots.length)
+        for (let i = 0; i < count; i++) {
+          const element = state.elements[targetIndices[i]]
+          const snap = meshSnapshots[i]
+
+          element.mesh = {
+            nodes: snap.nodes.map((n) => [...n] as [number, number, number]),
+            edges: snap.edges.map((e) => [...e] as [number, number]),
+            radii: [...snap.radii],
+          }
+
+          if (snap.position && snap.position.length === 3) {
+            element.position = [...snap.position] as [number, number, number]
+          }
+        }
+      }
+
+      const selected = state.selectedElementId
+      if (selected) {
+        const selectedElement = state.elements.find((el) => el.id === selected)
+        if (selectedElement?.mesh) {
+          state.mesh = selectedElement.mesh
+          return
+        }
+      }
+      if (state.elements[0]?.mesh) {
+        state.mesh = state.elements[0].mesh
+      }
     },
 
     // Legacy antenna configuration (backward compatibility)
@@ -1145,6 +1231,7 @@ export const {
   // Solver state
   markAsSolved,
   markAsUnsolved,
+  applySweepMeshSnapshots,
   // Legacy actions
   setAntennaType,
   setAntennaConfig,

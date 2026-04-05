@@ -37,6 +37,8 @@ import {
   toggleItemVisibility,
 } from '../../store/postprocessingSlice';
 import { selectSelectedFrequencyHz } from '../../store/solverSlice';
+import { selectParameterStudy } from '../../store/solverSlice';
+import { TRACE_COLORS } from '@/types/plotDefinitions';
 
 /**
  * Get ordinal suffix for density numbers (1st, 2nd, 3rd, 4th, etc.)
@@ -65,6 +67,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   const fieldData = useAppSelector((state) => state.solver.fieldData);
   const radiationPattern = useAppSelector((state) => state.solver.radiationPattern);
   const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
+  const parameterStudy = useAppSelector(selectParameterStudy);
   const requestedFields = useAppSelector((state) => state.solver.requestedFields) as FieldDefinition[];
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
@@ -877,6 +880,132 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               </RadioGroup>
             </Box>
           </>
+        );
+
+      case 'smith-chart':
+        return (
+          <>
+            {/* Data Source */}
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Data Source</InputLabel>
+              <Select
+                value={selectedItem.smithDataSource ?? 'frequency-sweep'}
+                label="Data Source"
+                onChange={(e) => handleItemPropertyChange('smithDataSource', e.target.value)}
+              >
+                <MenuItem value="frequency-sweep">Frequency Sweep</MenuItem>
+                <MenuItem value="parameter-study">Parameter Study</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Reference Impedance */}
+            <TextField
+              fullWidth
+              label="Reference Impedance Z₀ (Ω)"
+              type="number"
+              value={selectedItem.referenceImpedance ?? 50}
+              onChange={(e) => handleItemPropertyChange('referenceImpedance', parseFloat(e.target.value) || 50)}
+              size="small"
+              sx={{ mb: 2 }}
+            />
+          </>
+        );
+
+      case 'polar-plot':
+        return (
+          <>
+            {/* Scale */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Scale
+              </Typography>
+              <RadioGroup
+                value={selectedItem.polarScale ?? 'dB'}
+                onChange={(e) => handleItemPropertyChange('polarScale', e.target.value)}
+              >
+                <FormControlLabel value="dB" control={<Radio size="small" />} label="dB" />
+                <FormControlLabel value="linear" control={<Radio size="small" />} label="Linear" />
+              </RadioGroup>
+            </Box>
+
+            {/* Cut Plane */}
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Cut Plane</InputLabel>
+              <Select
+                value={selectedItem.polarCutPlane ?? 'phi'}
+                label="Cut Plane"
+                onChange={(e) => handleItemPropertyChange('polarCutPlane', e.target.value)}
+              >
+                <MenuItem value="phi">φ-cut (E-plane)</MenuItem>
+                <MenuItem value="theta">θ-cut (H-plane)</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Cut Angle */}
+            <TextField
+              fullWidth
+              label="Cut Angle (°)"
+              type="number"
+              value={selectedItem.polarCutAngleDeg ?? 90}
+              onChange={(e) => handleItemPropertyChange('polarCutAngleDeg', parseFloat(e.target.value) || 90)}
+              size="small"
+              sx={{ mb: 2 }}
+            />
+
+            {/* Sweep overlay series toggle */}
+            {selectedItem.sweepOverlay && parameterStudy && parameterStudy.results.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" gutterBottom>
+                  Sweep Series
+                </Typography>
+                <Box sx={{ maxHeight: 200, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.5 }}>
+                  {parameterStudy.results.map((pr, ptIdx) => {
+                    const sweepVars = parameterStudy.config.sweepVariables;
+                    const labelParts = sweepVars.map((sv) => {
+                      const val = pr.point.values[sv.variableName];
+                      return val != null ? `${sv.variableName}=${Number(val).toPrecision(4)}` : '';
+                    }).filter(Boolean);
+                    const label = labelParts.join(', ') || `Point ${ptIdx}`;
+                    const vis = selectedItem.sweepOverlayVisibility;
+                    const isVisible = vis == null || vis[ptIdx] !== false;
+                    const color = TRACE_COLORS[ptIdx % TRACE_COLORS.length];
+                    return (
+                      <FormControlLabel
+                        key={ptIdx}
+                        sx={{ display: 'flex', m: 0, px: 0.5 }}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={isVisible}
+                            onChange={(_, checked) => {
+                              const current = selectedItem.sweepOverlayVisibility ?? {};
+                              handleItemPropertyChange('sweepOverlayVisibility', {
+                                ...current,
+                                [ptIdx]: checked,
+                              });
+                            }}
+                            sx={{ color, '&.Mui-checked': { color }, p: 0.5 }}
+                          />
+                        }
+                        label={
+                          <Typography variant="caption" noWrap>
+                            {label}
+                          </Typography>
+                        }
+                      />
+                    );
+                  })}
+                </Box>
+              </Box>
+            )}
+          </>
+        );
+
+      case 'port-table':
+        return (
+          <Typography variant="body2" color="text.secondary">
+            Port quantity table shows impedance, reflection coefficient, return loss, and VSWR for each frequency point.
+          </Typography>
         );
 
       default:

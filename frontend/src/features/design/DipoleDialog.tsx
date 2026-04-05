@@ -561,31 +561,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               />
             </Grid>
 
-            {/* Design Guidelines */}
-            <Grid item xs={12}>
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: 'rgba(33, 150, 243, 0.1)',
-                  borderRadius: 1,
-                  border: '1px solid rgba(33, 150, 243, 0.3)',
-                  mt: 1,
-                }}
-              >
-                <Typography variant="caption" display="block" gutterBottom>
-                  <strong>Design Guidelines:</strong>
-                </Typography>
-                <Typography variant="caption" display="block">
-                  • Length ≈ λ/2 for resonance (0.48λ - 0.50λ)
-                </Typography>
-                <Typography variant="caption" display="block">
-                  • Radius/Length ratio typically 0.001 - 0.01
-                </Typography>
-                <Typography variant="caption" display="block">
-                  • Use 15-30 segments for accurate results
-                </Typography>
-              </Box>
-            </Grid>
+
           </Grid>
             </Box>
 

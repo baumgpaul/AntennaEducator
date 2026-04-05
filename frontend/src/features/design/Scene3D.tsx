@@ -23,6 +23,7 @@ interface Scene3DProps {
   gridVisible?: boolean;
   onGridVisibilityChange?: (visible: boolean) => void;
   cameraMode?: 'perspective' | 'orthographic';
+  disableCameraAutoAdjust?: boolean;
 }
 
 /**
@@ -85,10 +86,11 @@ function calculateBounds(elements?: AntennaElement[], mesh?: Mesh) {
 /**
  * Auto-adjust camera to fit antenna
  */
-function CameraController({ bounds }: { bounds: ReturnType<typeof calculateBounds> }) {
+function CameraController({ bounds, disableAutoAdjust = false }: { bounds: ReturnType<typeof calculateBounds>; disableAutoAdjust?: boolean }) {
   const { camera, controls } = useThree();
 
   useEffect(() => {
+    if (disableAutoAdjust) return;
     if (controls && 'target' in controls) {
       // Center camera on antenna
       const target = bounds.center;
@@ -177,7 +179,7 @@ const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeo
  * Automatically scales to fit antenna geometry
  */
 const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
-  function Scene3D({ children, showScale: _showScale = true, showAxisLabels = true, elements, mesh, gridVisible = true, onGridVisibilityChange: _onGridVisibilityChange, cameraMode = 'perspective' }, ref) {
+  function Scene3D({ children, showScale: _showScale = true, showAxisLabels = true, elements, mesh, gridVisible = true, onGridVisibilityChange: _onGridVisibilityChange, cameraMode = 'perspective', disableCameraAutoAdjust = false }, ref) {
   const controlsRef = useRef<any>(null);
 
   // Calculate scene bounds based on antenna geometry
@@ -204,7 +206,7 @@ const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
         )}
 
         {/* Auto-adjust camera when antenna loads */}
-        <CameraController bounds={bounds} />
+        <CameraController bounds={bounds} disableAutoAdjust={disableCameraAutoAdjust} />
 
         {/* Expose imperative controls */}
         <SceneControlsHelper ref={ref} bounds={bounds} />

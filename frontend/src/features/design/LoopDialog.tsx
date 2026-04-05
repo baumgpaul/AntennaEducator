@@ -10,7 +10,6 @@ import {
   Box,
   Typography,
   Divider,
-  Alert,
   CircularProgress,
   ToggleButton,
   ToggleButtonGroup,
@@ -507,23 +506,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               />
             </Grid>
 
-            {/* Design Guidelines */}
-            <Grid item xs={12}>
-              <Alert severity="info">
-                <Typography variant="caption" component="div">
-                  <strong>Loop Antenna Guidelines:</strong>
-                </Typography>
-                <Typography variant="caption" component="div" sx={{ mt: 0.5 }}>
-                  • Small loops (C ≪ λ): Low radiation resistance, used as magnetic sensors
-                </Typography>
-                <Typography variant="caption" component="div">
-                  • Resonant loops (C ≈ λ): Higher efficiency, omnidirectional pattern
-                </Typography>
-                <Typography variant="caption" component="div">
-                  • Wire radius affects bandwidth and impedance
-                </Typography>
-              </Alert>
-            </Grid>
+
           </Grid>
             </Box>
 

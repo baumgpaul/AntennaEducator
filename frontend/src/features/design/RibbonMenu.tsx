@@ -9,6 +9,11 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import AddCurveDialog from '../postprocessing/AddCurveDialog';
+import type { AddCurveResult } from '../postprocessing/AddCurveDialog';
+import { selectParameterStudy } from '@/store/solverSlice';
+import type { PlotTrace } from '@/types/plotDefinitions';
 import {
   CableOutlined,
   RadioButtonChecked,
@@ -17,23 +22,24 @@ import {
   CheckCircle,
   Add,
   Sensors,
-  ShowChart,
   PictureAsPdf,
   SaveAlt,
   AccountTree,
   ElectricalServices,
   BoltOutlined,
+  Radar,
+  TableChart,
+  Layers,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector, useAppStore } from '@/store/hooks';
 import {
   setAddViewDialogOpen,
   setAddAntennaDialogOpen,
   setAddFieldDialogOpen,
-  setAddScalarPlotDialogOpen,
-  setScalarPlotPreselect,
   setExportPDFDialogOpen,
   setExportType,
   addItemToView,
+  updateItemProperty,
 } from '@/store/postprocessingSlice';
 import { exportToVTU, canExportToVTU } from '@/utils/ParaViewExporter';
 import type { RootState } from '@/store';
@@ -148,19 +154,95 @@ function RibbonMenu({
     }));
   };
 
-  const handleAddImpedancePlot = () => {
-    dispatch(setScalarPlotPreselect('impedance'));
-    dispatch(setAddScalarPlotDialogOpen(true));
+  // Add Curve dialog state (Line view)
+  const [addCurveDialogOpen, setAddCurveDialogOpen] = useState(false);
+  const parameterStudy = useAppSelector(selectParameterStudy);
+
+  const handleAddCurveResult = (result: AddCurveResult) => {
+    if (!selectedViewId) return;
+    // Find existing line-plot item or create one
+    const lineItem = selectedViewData?.items.find((i) => i.type === 'line-plot');
+    if (lineItem) {
+      const existing: PlotTrace[] = lineItem.traces ?? [];
+      dispatch(updateItemProperty({
+        viewId: selectedViewId,
+        itemId: lineItem.id,
+        property: 'traces',
+        value: [...existing, ...result.traces],
+      }));
+    } else {
+      dispatch(addItemToView({
+        viewId: selectedViewId,
+        item: {
+          type: 'line-plot',
+          visible: true,
+          traces: result.traces,
+        },
+      }));
+    }
   };
 
-  const handleAddVoltagePlot = () => {
-    dispatch(setScalarPlotPreselect('voltage'));
-    dispatch(setAddScalarPlotDialogOpen(true));
+  const existingTraceCount = selectedViewData?.items
+    .filter((i) => i.type === 'line-plot')
+    .reduce((acc, i) => acc + (i.traces?.length ?? 0), 0) ?? 0;
+
+  const handleAddSmithChart = () => {
+    if (!selectedViewId) return;
+    dispatch(addItemToView({
+      viewId: selectedViewId,
+      item: {
+        type: 'smith-chart',
+        visible: true,
+        label: 'Smith Chart',
+        smithDataSource: 'frequency-sweep',
+        referenceImpedance: 50,
+      },
+    }));
   };
 
-  const handleAddCurrentPlot = () => {
-    dispatch(setScalarPlotPreselect('current'));
-    dispatch(setAddScalarPlotDialogOpen(true));
+  const handleAddPolarPlot = () => {
+    if (!selectedViewId) return;
+    dispatch(addItemToView({
+      viewId: selectedViewId,
+      item: {
+        type: 'polar-plot',
+        visible: true,
+        label: 'Radiation Pattern',
+        polarCutPlane: 'phi',
+        polarCutAngleDeg: 90,
+        polarQuantity: 'directivity',
+        polarScale: 'dB',
+      },
+    }));
+  };
+
+  const handleAddPolarSweepOverlay = () => {
+    if (!selectedViewId) return;
+    dispatch(addItemToView({
+      viewId: selectedViewId,
+      item: {
+        type: 'polar-plot',
+        visible: true,
+        label: 'Sweep Overlay',
+        polarCutPlane: 'phi',
+        polarCutAngleDeg: 90,
+        polarQuantity: 'directivity',
+        polarScale: 'dB',
+        sweepOverlay: true,
+      },
+    }));
+  };
+
+  const handleAddPortTable = () => {
+    if (!selectedViewId) return;
+    dispatch(addItemToView({
+      viewId: selectedViewId,
+      item: {
+        type: 'port-table',
+        visible: true,
+        label: 'Port Quantities',
+      },
+    }));
   };
 
   const handleExportPDF = () => {
@@ -440,40 +522,107 @@ function RibbonMenu({
                 </>
               )}
 
-              {/* Scalar Results Section (Line view only) */}
+              {/* Add Curve Section (Line view only) */}
               {selectedViewData?.viewType === 'Line' && (
                 <>
                   <Box>
                     <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                      Scalar Results
+                      Curves
                     </Box>
                     <ButtonGroup variant="outlined" size="small">
-                      <Tooltip title="Add impedance vs frequency plot">
+                      <Tooltip title="Add a curve to this line plot (impedance, VSWR, current, voltage, ...)">
                         <Button
-                          startIcon={<ShowChart />}
-                          onClick={handleAddImpedancePlot}
+                          startIcon={<AddIcon />}
+                          onClick={() => setAddCurveDialogOpen(true)}
                           disabled={!selectedViewId}
                         >
-                          Impedance
+                          Add Curve
                         </Button>
                       </Tooltip>
-                      <Tooltip title="Add voltage vs frequency plot">
+                    </ButtonGroup>
+                  </Box>
+
+                  <Divider orientation="vertical" flexItem />
+                </>
+              )}
+
+              {/* Smith Chart Section (Smith view only) */}
+              {selectedViewData?.viewType === 'Smith' && (
+                <>
+                  <Box>
+                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
+                      Smith Chart
+                    </Box>
+                    <ButtonGroup variant="outlined" size="small">
+                      <Tooltip title="Add impedance locus on Smith chart">
                         <Button
-                          startIcon={<ShowChart />}
-                          onClick={handleAddVoltagePlot}
+                          startIcon={<Radar />}
+                          onClick={handleAddSmithChart}
                           disabled={!selectedViewId}
                         >
-                          Voltage
+                          Impedance Locus
                         </Button>
                       </Tooltip>
-                      <Tooltip title="Add current vs frequency plot">
+                    </ButtonGroup>
+                  </Box>
+
+                  <Divider orientation="vertical" flexItem />
+                </>
+              )}
+
+              {/* Polar Plot Section (Polar view only) */}
+              {selectedViewData?.viewType === 'Polar' && (
+                <>
+                  <Box>
+                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
+                      Radiation Pattern
+                    </Box>
+                    <ButtonGroup variant="outlined" size="small">
+                      <Tooltip title="Add radiation pattern polar cut">
                         <Button
-                          startIcon={<ShowChart />}
-                          onClick={handleAddCurrentPlot}
+                          startIcon={<RadioButtonChecked />}
+                          onClick={handleAddPolarPlot}
                           disabled={!selectedViewId}
                         >
-                          Current
+                          Pattern Cut
                         </Button>
+                      </Tooltip>
+                      {parameterStudy && parameterStudy.results.length > 1 && (
+                        <Tooltip title="Overlay all sweep points on one polar chart">
+                          <Button
+                            startIcon={<Layers />}
+                            onClick={handleAddPolarSweepOverlay}
+                            disabled={!selectedViewId}
+                          >
+                            Sweep Overlay
+                          </Button>
+                        </Tooltip>
+                      )}
+                    </ButtonGroup>
+                  </Box>
+
+                  <Divider orientation="vertical" flexItem />
+                </>
+              )}
+
+              {/* Table Section (Table view only) */}
+              {selectedViewData?.viewType === 'Table' && (
+                <>
+                  <Box>
+                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
+                      Tables
+                    </Box>
+                    <ButtonGroup variant="outlined" size="small">
+                      <Tooltip title={selectedViewData?.items.some((i) => i.type === 'port-table') ? 'Port quantities already added' : 'Add port impedance/VSWR/Return Loss table'}>
+                        <span>
+                          <Button
+                            startIcon={<TableChart />}
+                            onClick={handleAddPortTable}
+                            disabled={!selectedViewId || selectedViewData?.items.some((i) => i.type === 'port-table')}
+                          >
+                            Port Quantities
+                          </Button>
+                        </span>
                       </Tooltip>
                     </ButtonGroup>
                   </Box>
@@ -528,6 +677,15 @@ function RibbonMenu({
           {snackbarMessage}
         </Alert>
       </Snackbar>
+
+      {/* Add Curve wizard dialog (Line views) */}
+      <AddCurveDialog
+        open={addCurveDialogOpen}
+        onClose={() => setAddCurveDialogOpen(false)}
+        onAdd={handleAddCurveResult}
+        parameterStudy={parameterStudy}
+        existingTraceCount={existingTraceCount}
+      />
     </Paper>
   );
 }
