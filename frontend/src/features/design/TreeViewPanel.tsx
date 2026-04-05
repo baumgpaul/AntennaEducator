@@ -113,7 +113,7 @@ interface TreeViewPanelProps {
   viewConfigurations?: Array<{
     id: string;
     name: string;
-    viewType: '3D' | 'Line';
+    viewType: string;
     items: Array<{
       id: string;
       type: string;
