@@ -86,6 +86,12 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
   const variables = useAppSelector(selectVariables);
   const numericContext = useAppSelector(selectVariableContextNumeric);
 
+  const defaultFrequencyVariable = useMemo(() => {
+    if (variables.some((v) => v.name === 'freq')) return 'freq';
+    if (variables.some((v) => v.name === 'frequency')) return 'frequency';
+    return variables[0]?.name || '';
+  }, [variables]);
+
   // Derive initial sweep-var state from initialConfig (or fresh default)
   const buildInitialState = (): SweepVarState[] => {
     if (initialConfig && initialConfig.sweepVariables.length > 0) {
@@ -97,7 +103,7 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
         spacing: sv.spacing,
       }));
     }
-    return [{ ...DEFAULT_VAR_STATE, variableName: 'freq' }];
+    return [{ ...DEFAULT_VAR_STATE, variableName: defaultFrequencyVariable }];
   };
 
   // Per-variable sweep configuration (1 or 2)
@@ -109,7 +115,7 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
       setSweepVars(buildInitialState());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, defaultFrequencyVariable]);
 
   // ========================================================================
   // Handlers

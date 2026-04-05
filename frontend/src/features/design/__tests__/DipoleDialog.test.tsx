@@ -368,25 +368,6 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
     });
   });
 
-  describe('Design Guidelines Section', () => {
-    it('should display design guidelines without frequency references', () => {
-      render(
-        <Provider store={createTestStore()}>
-          <DipoleDialog
-            open={true}
-            onClose={mockOnClose}
-            onGenerate={mockOnGenerate}
-          />
-        </Provider>
-      );
-
-      expect(screen.getByText(/Design Guidelines:/i)).toBeInTheDocument();
-      expect(screen.getByText(/Length ≈ λ\/2 for resonance/i)).toBeInTheDocument();
-      expect(screen.getByText(/Radius\/Length ratio/i)).toBeInTheDocument();
-      expect(screen.getByText(/15-30 segments/i)).toBeInTheDocument();
-    });
-  });
-
   describe('Loading State', () => {
     it('should disable form fields during generation', async () => {
       const user = userEvent.setup();

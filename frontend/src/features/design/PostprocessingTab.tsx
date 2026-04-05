@@ -7,14 +7,11 @@ import {
   Snackbar,
   IconButton,
   Tooltip,
-  Paper,
-  Chip,
 } from '@mui/material';
-import SettingsInputComponentIcon from '@mui/icons-material/SettingsInputComponent';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import type { SolverWorkflowState } from '@/store/solverSlice';
-import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields, selectPortResults, selectParameterStudy } from '@/store/solverSlice';
+import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields, selectParameterStudy } from '@/store/solverSlice';
 import { selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { AntennaElement } from '@/types/models';
@@ -26,12 +23,16 @@ import RibbonMenu from './RibbonMenu';
 import TreeViewPanel from './TreeViewPanel';
 import PostprocessingPropertiesPanel from '../postprocessing/PostprocessingPropertiesPanel';
 import LineViewPanel from '../postprocessing/LineViewPanel';
+import { SmithChartViewPanel } from '../postprocessing/plots/SmithChartViewPanel';
+import { PortQuantityTable } from '../postprocessing/plots/PortQuantityTable';
+import PolarPlot from '../postprocessing/plots/PolarPlot';
+import type { PolarDataPoint, PolarDataSeries } from '../postprocessing/plots/PolarPlot';
+import { PORT_TABLE_COLUMNS, TRACE_COLORS } from '@/types/plotDefinitions';
 import { ViewItemRenderer } from '../postprocessing/ViewItemRenderer';
 import { Colorbar } from '../postprocessing/Colorbar';
 import TimeAnimationOverlay from '../postprocessing/TimeAnimationOverlay';
 import FrequencySelector from '../postprocessing/FrequencySelector';
 import { SweepVariableSelector } from '../postprocessing/SweepVariableSelector';
-import { ParameterStudyPlot } from '../postprocessing/plots/ParameterStudyPlot';
 import ExportPDFDialog from './dialogs/ExportPDFDialog';
 import { exportToPDF } from '@/utils/exportToPDF';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -43,12 +44,13 @@ import {
   selectView,
   deleteViewConfiguration,
   renameViewConfiguration,
+  duplicateViewConfiguration,
   selectItem,
   removeItemFromView,
   toggleItemVisibility,
 } from '@/store/postprocessingSlice';
 import { selectSelectedFrequencyHz, selectSolveMode, selectSweepPointIndex } from '@/store/solverSlice';
-import type { PortQuantitiesResponseOutput } from '@/api/postprocessor';
+
 
 interface PostprocessingTabProps {
   solverState: SolverWorkflowState;
@@ -201,7 +203,6 @@ function PostprocessingTab({
   const solveMode = useAppSelector(selectSolveMode);
   const sweepPointIndex = useAppSelector(selectSweepPointIndex);
 
-  const portResults = useAppSelector(selectPortResults);
   const parameterStudy = useAppSelector(selectParameterStudy);
 
   // Derive z0 from first element's first port (used for Smith chart)
@@ -223,7 +224,7 @@ function PostprocessingTab({
 
   const [selectedFrequencyIndex] = useState<number>(0); // legacy, kept for fallback
 
-  const hasPortElements = elements.some((el) => el.ports && el.ports.length > 0);
+
 
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [showSnackbar, setShowSnackbar] = useState<boolean>(false);
@@ -332,25 +333,22 @@ function PostprocessingTab({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
 
-      {/* WARNING BANNER - Show when no results or results are stale or unsolved */}
-      {(!frequencySweep && !currentFrequency) || resultsStale || !isSolved ? (
+      {/* WARNING BANNER - Show when no results, results are stale, or design changed (not during sweep navigation) */}
+      {(!frequencySweep && !currentFrequency) || resultsStale || (!isSweepMode && !isSolved) ? (
         <Alert
-          severity={resultsStale ? "warning" : !isSolved && (!currentFrequency && !frequencySweep) ? "info" : "info"}
+          severity={resultsStale ? "warning" : "info"}
           sx={{ m: 2, mb: 0 }}
         >
           <AlertTitle>
             {resultsStale ? "Results Outdated" :
-             !isSolved && (!currentFrequency && !frequencySweep) ? "No Results Available" :
-             !isSolved ? "Design Modified" :
-             "No Results Available"}
+             !currentFrequency && !frequencySweep ? "No Results Available" :
+             "Design Modified"}
           </AlertTitle>
           {resultsStale
             ? "The antenna structure or solver settings have changed. Run the solver again to update results."
-            : !isSolved && (!currentFrequency && !frequencySweep)
+            : !currentFrequency && !frequencySweep
             ? "No solver results found. Please run the solver first."
-            : !isSolved
-            ? "The antenna structure has been modified. Results shown may be outdated. Run the solver and postprocessor again to update."
-            : "No solver results found. Please run the solver first."}
+            : "The antenna structure has been modified. Results shown may be outdated. Run the solver again to update."}
         </Alert>
       ) : null}
 
@@ -362,42 +360,7 @@ function PostprocessingTab({
         </Alert>
       )}
 
-      {/* PORT QUANTITIES STRIP — visible when port results are available */}
-      {isSolved && hasPortElements && portResults && (
-        <Paper
-          elevation={0}
-          sx={{
-            px: 2,
-            py: 0.75,
-            borderBottom: 1,
-            borderColor: 'divider',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            flexWrap: 'wrap',
-            flexShrink: 0,
-          }}
-        >
-          <SettingsInputComponentIcon fontSize="small" color="action" />
-          {Object.entries(portResults).map(([, result]: [string, PortQuantitiesResponseOutput]) =>
-            result.port_results?.map((pr) => {
-              if (!pr.z_in) return null;
-              const zr = pr.z_in.real.toFixed(1);
-              const zi = pr.z_in.imag >= 0 ? `+j${pr.z_in.imag.toFixed(1)}` : `-j${Math.abs(pr.z_in.imag).toFixed(1)}`;
-              return (
-                <Box key={pr.port_id} sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-                    {pr.port_id}:
-                  </Typography>
-                  <Chip label={`Z = (${zr}${zi}) Ω`} size="small" variant="outlined" />
-                  <Chip label={`VSWR = ${pr.vswr?.toFixed(2) ?? '—'}`} size="small" variant="outlined" />
-                  <Chip label={`S₁₁ = ${pr.s11_db?.toFixed(1) ?? '—'} dB`} size="small" variant="outlined" />
-                </Box>
-              );
-            }),
-          )}
-        </Paper>
-      )}
+      {/* Port quantities are now rendered via Table view — no inline strip */}
 
       {/* MAIN CONTENT - 3 PANELS */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -424,6 +387,7 @@ function PostprocessingTab({
             onViewSelect={(viewId) => dispatch(selectView(viewId))}
             onViewDelete={(viewId) => dispatch(deleteViewConfiguration(viewId))}
             onViewRename={(viewId, newName) => dispatch(renameViewConfiguration({ viewId, name: newName }))}
+            onViewDuplicate={(viewId) => dispatch(duplicateViewConfiguration(viewId))}
             onItemSelect={(viewId, itemId) => {
               dispatch(selectView(viewId));
               dispatch(selectItem(itemId));
@@ -445,11 +409,11 @@ function PostprocessingTab({
       >
       <Box
         sx={{
-          flex: parameterStudy ? '1 1 50%' : '1 1 100%',
+          flex: '1 1 100%',
           position: 'relative',
           overflow: 'hidden',
           minHeight: 200,
-          backgroundColor: selectedViewId && viewConfigurations.find(v => v.id === selectedViewId)?.viewType === 'Line'
+          backgroundColor: selectedViewId && viewConfigurations.find(v => v.id === selectedViewId)?.viewType !== '3D'
             ? 'background.default'
             : '#1a1a1a',
         }}
@@ -473,6 +437,173 @@ function PostprocessingTab({
           // Render Line View Panel for Line views
           if (selectedView?.viewType === 'Line') {
             return <LineViewPanel view={selectedView} />;
+          }
+
+          // Render Smith Chart for Smith views
+          if (selectedView?.viewType === 'Smith') {
+            const smithItem = selectedView.items.find(
+              (item) => item.visible && item.type === 'smith-chart',
+            );
+            return (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'auto' }}>
+                <SmithChartViewPanel
+                  dataSource={smithItem?.smithDataSource ?? 'frequency-sweep'}
+                  frequencySweep={frequencySweep}
+                  parameterStudy={parameterStudy}
+                  z0={smithItem?.referenceImpedance ?? portZ0}
+                  title={smithItem?.label}
+                />
+              </Box>
+            );
+          }
+
+          // Render Polar Plot for Polar views
+          if (selectedView?.viewType === 'Polar') {
+            const polarItem = selectedView.items.find(
+              (item) => item.visible && item.type === 'polar-plot',
+            );
+
+            // Require an explicit polar-plot item
+            if (!polarItem) {
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', p: 4 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No pattern cut added. Use the ribbon to add a Pattern Cut or Sweep Overlay.
+                  </Typography>
+                </Box>
+              );
+            }
+
+            const cutPlane = polarItem.polarCutPlane ?? 'phi';
+            const cutAngleDeg = polarItem.polarCutAngleDeg ?? 90;
+            const polarScale = polarItem.polarScale ?? 'dB';
+
+            // Helper: extract polar data from a single radiation pattern
+            const extractPolarCut = (pattern: typeof radiationPatterns extends Record<number, infer T> | null ? T : never): PolarDataPoint[] => {
+              if (!pattern?.theta_angles || !pattern?.phi_angles || !pattern?.pattern_db) return [];
+              const thetaAngles = pattern.theta_angles as number[];
+              const phiAngles = pattern.phi_angles as number[];
+              const patternDb = pattern.pattern_db as number[];
+              const offset = (pattern.directivity as number) || 0;
+              const nTheta = thetaAngles.length;
+              const nPhi = phiAngles.length;
+
+              if (cutPlane === 'phi') {
+                const cutAngleRad = (cutAngleDeg * Math.PI) / 180;
+                let bestPhiIdx = 0;
+                let bestDist = Infinity;
+                for (let j = 0; j < nPhi; j++) {
+                  const d = Math.abs(phiAngles[j] - cutAngleRad);
+                  if (d < bestDist) { bestDist = d; bestPhiIdx = j; }
+                }
+                return thetaAngles.map((thetaRad, thetaIdx) => {
+                  const flatIdx = thetaIdx * nPhi + bestPhiIdx;
+                  const dbVal = patternDb[flatIdx] ?? -40;
+                  return {
+                    angleDeg: (thetaRad * 180) / Math.PI,
+                    value: polarScale === 'linear' ? Math.pow(10, (dbVal + offset) / 10) : dbVal + offset,
+                  };
+                });
+              } else {
+                const cutAngleRad = (cutAngleDeg * Math.PI) / 180;
+                let bestThetaIdx = 0;
+                let bestDist = Infinity;
+                for (let i = 0; i < nTheta; i++) {
+                  const d = Math.abs(thetaAngles[i] - cutAngleRad);
+                  if (d < bestDist) { bestDist = d; bestThetaIdx = i; }
+                }
+                return phiAngles.map((phiRad, phiIdx) => {
+                  const flatIdx = bestThetaIdx * nPhi + phiIdx;
+                  const dbVal = patternDb[flatIdx] ?? -40;
+                  return {
+                    angleDeg: (phiRad * 180) / Math.PI,
+                    value: polarScale === 'linear' ? Math.pow(10, (dbVal + offset) / 10) : dbVal + offset,
+                  };
+                });
+              }
+            };
+
+            const cutLabel = cutPlane === 'theta'
+              ? `θ-cut @ θ=${cutAngleDeg}°`
+              : `φ-cut @ φ=${cutAngleDeg}°`;
+
+            // Sweep overlay: show all sweep points' patterns on one chart
+            if (polarItem.sweepOverlay && parameterStudy && radiationPatterns) {
+              const sweepVars = parameterStudy.config.sweepVariables;
+              const vis = polarItem.sweepOverlayVisibility;
+              const datasets: PolarDataSeries[] = [];
+              for (let ptIdx = 0; ptIdx < parameterStudy.results.length; ptIdx++) {
+                // Skip hidden series
+                if (vis && vis[ptIdx] === false) continue;
+                const pattern = radiationPatterns[ptIdx];
+                if (!pattern) continue;
+                const data = extractPolarCut(pattern);
+                if (data.length === 0) continue;
+                // Build label from sweep variable values
+                const point = parameterStudy.results[ptIdx].point;
+                const labelParts = sweepVars.map((sv) => {
+                  const val = point.values[sv.variableName];
+                  return val != null ? `${sv.variableName}=${val.toPrecision(4)}` : '';
+                }).filter(Boolean);
+                datasets.push({
+                  data,
+                  color: TRACE_COLORS[ptIdx % TRACE_COLORS.length],
+                  label: labelParts.join(', '),
+                });
+              }
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'auto' }}>
+                  <PolarPlot
+                    datasets={datasets}
+                    scale={polarScale}
+                    title={polarItem.label ?? `Sweep Overlay — ${cutLabel}`}
+                    size={Math.min(500, 400)}
+                  />
+                </Box>
+              );
+            }
+
+            // Single pattern: current sweep point or frequency
+            const patternData = displayFrequencyHz != null ? radiationPatterns?.[displayFrequencyHz] : null;
+            const polarData = patternData ? extractPolarCut(patternData) : [];
+
+            return (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'auto' }}>
+                <PolarPlot
+                  data={polarData}
+                  scale={polarScale}
+                  title={polarItem.label ?? cutLabel}
+                  size={Math.min(500, 400)}
+                />
+              </Box>
+            );
+          }
+
+          // Render Table for Table views
+          if (selectedView?.viewType === 'Table') {
+            const tableItem = selectedView.items.find(
+              (item) => item.visible && item.type === 'port-table',
+            );
+            if (!tableItem) {
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', p: 4 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No port quantities added. Use the ribbon to add a Port Quantities table.
+                  </Typography>
+                </Box>
+              );
+            }
+            return (
+              <Box sx={{ height: '100%', overflow: 'auto', p: 2 }}>
+                <PortQuantityTable
+                  columns={tableItem.tableColumns ?? PORT_TABLE_COLUMNS}
+                  frequencySweep={frequencySweep}
+                  parameterStudy={parameterStudy}
+                  z0={portZ0}
+                  title={tableItem.label}
+                />
+              </Box>
+            );
           }
 
           // Render 3D Scene for 3D views
@@ -581,21 +712,7 @@ function PostprocessingTab({
         })()}
       </Box>
 
-      {/* Parameter Study Results — shown below 3D view when sweep exists */}
-      {parameterStudy && parameterStudy.results.length > 0 && (
-        <Box
-          sx={{
-            flex: '1 1 50%',
-            minHeight: 200,
-            borderTop: 1,
-            borderColor: 'divider',
-            overflow: 'auto',
-            backgroundColor: 'background.paper',
-          }}
-        >
-          <ParameterStudyPlot study={parameterStudy} z0={portZ0} />
-        </Box>
-      )}
+      {/* Parameter Study results are now rendered via Smith/Line/Table views — no auto split panel */}
       </Box>
 
       {/* RIGHT PANEL - Properties Panel (320px, collapsible) */}

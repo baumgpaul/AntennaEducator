@@ -38,6 +38,8 @@ import {
   selectSweepProgress,
   selectResultsStale,
   cancelPostprocessing,
+  setPortQuantitiesRequested,
+  selectPortQuantitiesRequested,
 } from '@/store/solverSlice';
 import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
@@ -82,6 +84,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const postprocessingProgress = useSelector((state: RootState) => state.solver.postprocessingProgress);
   const resultsStale = useSelector(selectResultsStale);
   const isSolved = useSelector(selectIsSolved);
+  const portQuantitiesRequested = useSelector(selectPortQuantitiesRequested);
   const parameterStudy = useSelector(selectParameterStudy);
   const parameterStudyConfig = useSelector(selectParameterStudyConfig);
   const solveMode = useSelector(selectSolveMode);
@@ -392,10 +395,10 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
 
         <Divider orientation="vertical" flexItem />
 
-        {/* Group 2: Field Definition */}
+        {/* Group 2: Request Quantity */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5 }}>
-            Field Definition
+            Request Quantity
           </Typography>
           <ButtonGroup size="small" variant="outlined">
             <Button
@@ -411,6 +414,15 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               disabled={simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
             >
               Add Field
+            </Button>
+            <Button
+              startIcon={<CalculateIcon />}
+              onClick={() => dispatch(setPortQuantitiesRequested(!portQuantitiesRequested))}
+              disabled={!isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
+              title={!isSolved ? 'Run solver first' : 'Queue port quantities for Compute PostProcessingResults'}
+              variant={portQuantitiesRequested ? 'contained' : 'outlined'}
+            >
+              {portQuantitiesRequested ? 'Port Quantities Requested' : 'Request Port Quantities'}
             </Button>
           </ButtonGroup>
         </Box>
@@ -479,7 +491,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               disabled={!canComputePostprocessing || !isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
               title={!isSolved ? 'Run solver first before computing postprocessing' : undefined}
             >
-              Compute Fields
+              Compute PostProcessingResults
             </Button>
 
             {postprocessingStatus === 'running' && (
@@ -556,6 +568,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           directivityRequested={directivityRequested}
           onDirectivityDelete={handleDirectivityDelete}
           onDirectivitySelect={handleDirectivitySelect}
+          portQuantitiesRequested={portQuantitiesRequested}
           isSolved={isSolved}
         />
       </Box>
@@ -579,7 +592,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             minHeight: 200,
           }}
         >
-          <Scene3D elements={elements}>
+          <Scene3D elements={elements} disableCameraAutoAdjust={sweepInProgress}>
             {/* Render antenna elements */}
             <WireGeometry
               elements={elements}

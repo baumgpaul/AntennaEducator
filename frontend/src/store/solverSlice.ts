@@ -299,6 +299,7 @@ interface SolverState {
 
   // Port quantity results (per antenna_id)
   portResults: Record<string, import('@/api/postprocessor').PortQuantitiesResponseOutput> | null;
+  portQuantitiesRequested: boolean;
 }
 
 const initialState: SolverState = {
@@ -331,6 +332,7 @@ const initialState: SolverState = {
   parameterStudyConfig: null,
   selectedSweepPointIndex: 0,
   portResults: null,
+  portQuantitiesRequested: false,
 };
 
 // ============================================================================
@@ -538,7 +540,15 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 >('solver/computePostprocessingWorkflow', async (_, { getState, rejectWithValue, dispatch }) => {
   try {
     const state = getState();
-    const { results, directivityRequested, frequencySweep, currentFrequency, solveMode, parameterStudy: paramStudy } = state.solver;
+    const {
+      results,
+      directivityRequested,
+      frequencySweep,
+      currentFrequency,
+      solveMode,
+      parameterStudy: paramStudy,
+      portQuantitiesRequested,
+    } = state.solver;
     // Cast needed: Immer's WritableNonArrayDraft mangles Zod-inferred tuple types
     const requestedFields = state.solver.requestedFields as FieldDefinition[];
     const { elements } = state.design;
@@ -765,7 +775,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
       const portElements = elements.filter(
         (el) => el.ports && el.ports.length > 0 && el.visible && !el.locked,
       );
-      if (portElements.length > 0) {
+      if (portQuantitiesRequested && portElements.length > 0) {
         try {
           await dispatch(requestPortQuantities()).unwrap();
         } catch (portErr) {
@@ -1041,7 +1051,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     const portElements = elements.filter(
       (el) => el.ports && el.ports.length > 0 && el.visible && !el.locked,
     );
-    if (portElements.length > 0) {
+    if (portQuantitiesRequested && portElements.length > 0) {
       try {
         await dispatch(requestPortQuantities()).unwrap();
       } catch (portErr) {
@@ -1640,6 +1650,10 @@ const solverSlice = createSlice({
       state.selectedSweepPointIndex = action.payload;
     },
 
+    setPortQuantitiesRequested: (state, action: PayloadAction<boolean>) => {
+      state.portQuantitiesRequested = action.payload;
+    },
+
   updateFieldResult: (state, action: PayloadAction<{ fieldId: string; computed: boolean; num_points: number }>) => {
     if (!state.fieldResults) {
       state.fieldResults = {};
@@ -2079,6 +2093,7 @@ export const {
   setSelectedFrequency,
   setRadiationPatternForFrequency,
   setSweepPointIndex,
+  setPortQuantitiesRequested,
 } = solverSlice.actions;
 
 // Selectors
@@ -2116,5 +2131,6 @@ export const selectSweepPointIndex = (state: RootState) => state.solver.selected
 
 // Port quantity selectors
 export const selectPortResults = (state: RootState) => state.solver.portResults;
+export const selectPortQuantitiesRequested = (state: RootState) => state.solver.portQuantitiesRequested;
 
 export default solverSlice.reducer;

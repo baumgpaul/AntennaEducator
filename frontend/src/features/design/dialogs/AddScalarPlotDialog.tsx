@@ -26,6 +26,7 @@ import {
   selectSelectedView,
 } from '@/store/postprocessingSlice';
 import type { RootState } from '@/store/store';
+import { TRACE_COLORS } from '@/types/plotDefinitions';
 
 function AddScalarPlotDialog() {
   const dispatch = useAppDispatch();
@@ -34,20 +35,22 @@ function AddScalarPlotDialog() {
   const selectedView = useAppSelector(selectSelectedView);
   const preselect = useAppSelector((state: RootState) => state.postprocessing.scalarPlotPreselect);
 
-  const [dataType, setDataType] = useState<'impedance' | 'voltage' | 'current'>('impedance');
-  const [portNumber, setPortNumber] = useState<number>(1);
+  const [dataType, setDataType] = useState<
+    'impedance_real' | 'impedance_imag' | 'impedance_magnitude' | 'vswr' | 'return_loss'
+  >('impedance_real');
 
   // Apply preselect when dialog opens
   useEffect(() => {
     if (open && preselect) {
-      setDataType(preselect);
+      if (preselect === 'impedance') {
+        setDataType('impedance_real');
+      }
     }
   }, [open, preselect]);
 
   const handleClose = () => {
     dispatch(setAddScalarPlotDialogOpen(false));
-    setDataType('impedance');
-    setPortNumber(1);
+    setDataType('impedance_real');
   };
 
   const handleSubmit = () => {
@@ -60,25 +63,56 @@ function AddScalarPlotDialog() {
     }
 
     const labels: Record<string, string> = {
-      'impedance': 'Impedance',
-      'voltage': `Voltage (Port ${portNumber})`,
-      'current': `Current (Port ${portNumber})`,
+      impedance_real: 'Re(Z)',
+      impedance_imag: 'Im(Z)',
+      impedance_magnitude: '|Z|',
+      vswr: 'VSWR',
+      return_loss: 'Return Loss',
+    };
+
+    const yAxisByType: Record<string, { label: string; unit: string; scale: 'linear' | 'log' | 'dB' }> = {
+      impedance_real: { label: 'Impedance', unit: 'Ohm', scale: 'linear' },
+      impedance_imag: { label: 'Impedance', unit: 'Ohm', scale: 'linear' },
+      impedance_magnitude: { label: 'Impedance', unit: 'Ohm', scale: 'linear' },
+      vswr: { label: 'VSWR', unit: '', scale: 'linear' },
+      return_loss: { label: 'Return Loss', unit: 'dB', scale: 'dB' },
     };
 
     dispatch(addItemToView({
       viewId: selectedViewId,
       item: {
-        type: 'scalar-plot',
+        type: 'line-plot',
         visible: true,
-        portNumber: dataType !== 'impedance' ? portNumber : undefined,
         label: labels[dataType],
+        traces: [
+          {
+            id: `trace_${Date.now()}`,
+            quantity: {
+              source: 'port',
+              quantity: dataType,
+            },
+            label: labels[dataType],
+            color: TRACE_COLORS[0],
+            lineStyle: 'solid',
+            yAxisId: 'left',
+          },
+        ],
+        xAxisConfig: {
+          label: 'Frequency',
+          unit: 'MHz',
+          scale: 'linear',
+        },
+        yAxisLeftConfig: yAxisByType[dataType],
+        yAxisRightConfig: {
+          label: '',
+          unit: '',
+          scale: 'linear',
+        },
       },
     }));
 
     handleClose();
   };
-
-  const requiresPort = dataType !== 'impedance';
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -90,27 +124,25 @@ function AddScalarPlotDialog() {
             <InputLabel>Data Type</InputLabel>
             <Select
               value={dataType}
-              onChange={(e) => setDataType(e.target.value as 'impedance' | 'voltage' | 'current')}
+              onChange={(e) =>
+                setDataType(
+                  e.target.value as
+                    | 'impedance_real'
+                    | 'impedance_imag'
+                    | 'impedance_magnitude'
+                    | 'vswr'
+                    | 'return_loss',
+                )
+              }
               label="Data Type"
             >
-              <MenuItem value="impedance">Impedance vs Frequency</MenuItem>
-              <MenuItem value="voltage">Voltage vs Frequency</MenuItem>
-              <MenuItem value="current">Current vs Frequency</MenuItem>
+              <MenuItem value="impedance_real">Re(Z) vs Sweep Variable</MenuItem>
+              <MenuItem value="impedance_imag">Im(Z) vs Sweep Variable</MenuItem>
+              <MenuItem value="impedance_magnitude">|Z| vs Sweep Variable</MenuItem>
+              <MenuItem value="vswr">VSWR vs Sweep Variable</MenuItem>
+              <MenuItem value="return_loss">Return Loss vs Sweep Variable</MenuItem>
             </Select>
           </FormControl>
-
-          {/* Port Number (for voltage/current only) */}
-          {requiresPort && (
-            <TextField
-              label="Port Number"
-              type="number"
-              value={portNumber}
-              onChange={(e) => setPortNumber(parseInt(e.target.value, 10) || 1)}
-              inputProps={{ min: 1, max: 10 }}
-              fullWidth
-              helperText="Port number to plot"
-            />
-          )}
         </Box>
       </DialogContent>
       <DialogActions>

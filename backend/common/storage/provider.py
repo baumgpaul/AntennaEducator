@@ -11,6 +11,7 @@ class ResultType(str, Enum):
     SOLVER_RESULTS = "solver_results"  # impedance, currents, frequency_sweep
     RADIATION_PATTERN = "radiation_pattern"  # 3D pattern data
     FIELD_DATA = "field_data"  # near/far-field vectors (largest)
+    PARAMETER_STUDY = "parameter_study"  # parameter sweep results (can be very large)
 
 
 class ResultsStorageProvider(ABC):

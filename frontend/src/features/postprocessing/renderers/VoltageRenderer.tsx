@@ -22,13 +22,28 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
 }) => {
   const results = useAppSelector((state) => state.solver.results);
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
+  const parameterStudy = useAppSelector((state) => state.solver.parameterStudy);
   const elements = useAppSelector((state) => state.design.elements);
 
-  // Get voltage distribution data — supports both single-freq and sweep modes
+  // Get voltage distribution data — supports single-freq, frequency sweep, and parameter study modes
   const voltageData = useMemo(() => {
     if (frequencyHz == null) return null;
 
-    // Sweep mode: look up node_voltages for this specific frequency
+    // Parameter study mode: frequencyHz is a sweep point INDEX (0, 1, 2, ...)
+    if (parameterStudy?.results?.length) {
+      const pointIdx = Math.round(frequencyHz);
+      const pointResult = parameterStudy.results[pointIdx];
+      if (pointResult) {
+        const resp = pointResult.solverResponse as any;
+        if (resp?.antenna_solutions?.length) {
+          return resp.antenna_solutions.flatMap(
+            (sol: any) => sol.node_voltages || []
+          );
+        }
+      }
+    }
+
+    // Frequency sweep mode: look up node_voltages for this specific frequency (Hz)
     if (frequencySweep?.frequencies && frequencySweep.results) {
       const freqIdx = frequencySweep.frequencies.findIndex(
         (f) => Math.abs(f - frequencyHz) < 1 // 1 Hz tolerance
@@ -55,7 +70,7 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
     }
 
     return null;
-  }, [results, frequencySweep, frequencyHz]);
+  }, [results, frequencySweep, parameterStudy, frequencyHz]);
 
   // Extract node positions from elements
   const nodes = useMemo(() => {
