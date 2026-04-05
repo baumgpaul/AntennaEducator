@@ -84,7 +84,7 @@ describe('LineViewPanel', () => {
 
     renderWithStore(<LineViewPanel view={emptyView} />);
 
-    expect(screen.getByText(/No plots added to this view/)).toBeInTheDocument();
+    expect(screen.getByText(/No curves added yet/)).toBeInTheDocument();
   });
 
   it('renders impedance plot with sweep data', () => {

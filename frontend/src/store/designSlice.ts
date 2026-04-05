@@ -660,28 +660,48 @@ const designSlice = createSlice({
       const { meshSnapshots } = action.payload
       if (!meshSnapshots || meshSnapshots.length === 0) return
 
-      const targetIndices = state.elements
-        .map((el, idx) => ({ el, idx }))
-        .filter(({ el }) => el.visible && !el.locked)
-        .map(({ idx }) => idx)
+      // Prefer ID-based matching for correctness; fallback to index for old data.
+      const hasIds = meshSnapshots.some((s) => s.elementId)
 
-      const count = Math.min(targetIndices.length, meshSnapshots.length)
-      for (let i = 0; i < count; i++) {
-        const element = state.elements[targetIndices[i]]
-        const snap = meshSnapshots[i]
+      if (hasIds) {
+        for (const snap of meshSnapshots) {
+          if (!snap.elementId) continue
+          const element = state.elements.find(
+            (el) => el.id === snap.elementId && el.visible && !el.locked,
+          )
+          if (!element) continue
 
-        element.mesh = {
-          nodes: snap.nodes.map((n) => [...n] as [number, number, number]),
-          edges: snap.edges.map((e) => [...e] as [number, number]),
-          radii: [...snap.radii],
+          element.mesh = {
+            nodes: snap.nodes.map((n) => [...n] as [number, number, number]),
+            edges: snap.edges.map((e) => [...e] as [number, number]),
+            radii: [...snap.radii],
+          }
+
+          if (snap.position && snap.position.length === 3) {
+            element.position = [...snap.position] as [number, number, number]
+          }
         }
+      } else {
+        // Legacy fallback: match by position index (pre-ID snapshots)
+        const targetIndices = state.elements
+          .map((el, idx) => ({ el, idx }))
+          .filter(({ el }) => el.visible && !el.locked)
+          .map(({ idx }) => idx)
 
-        // Keep element.sources unchanged while browsing sweep points.
-        // Snapshots are for geometry/rendering, while source definitions should
-        // remain API-compatible for subsequent remesh/solve calls.
+        const count = Math.min(targetIndices.length, meshSnapshots.length)
+        for (let i = 0; i < count; i++) {
+          const element = state.elements[targetIndices[i]]
+          const snap = meshSnapshots[i]
 
-        if (snap.position && snap.position.length === 3) {
-          element.position = [...snap.position] as [number, number, number]
+          element.mesh = {
+            nodes: snap.nodes.map((n) => [...n] as [number, number, number]),
+            edges: snap.edges.map((e) => [...e] as [number, number]),
+            radii: [...snap.radii],
+          }
+
+          if (snap.position && snap.position.length === 3) {
+            element.position = [...snap.position] as [number, number, number]
+          }
         }
       }
 

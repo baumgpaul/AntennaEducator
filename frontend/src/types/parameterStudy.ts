@@ -48,6 +48,8 @@ export interface GridPoint {
 
 /** Snapshot of an element's mesh at one sweep point. */
 export interface MeshSnapshot {
+  /** Element ID this snapshot belongs to — used for reliable matching on restore. */
+  elementId?: string;
   nodes: number[][];
   edges: [number, number][];
   radii: number[];

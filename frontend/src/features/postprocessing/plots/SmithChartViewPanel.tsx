@@ -98,6 +98,6 @@ export const SmithChartViewPanel: React.FC<SmithChartViewPanelProps> = ({
   }
 
   return (
-    <SmithChart data={points} z0={z0} title={title} size={size} />
+    <SmithChart data={points} z0={z0} title={title} size={size} vswrCircles={[1.5, 2, 3]} />
   );
 };

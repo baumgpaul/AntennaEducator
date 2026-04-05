@@ -463,23 +463,67 @@ function PostprocessingTab({
             // Extract polar data from radiation pattern at current frequency
             const patternData = displayFrequencyHz != null ? radiationPatterns?.[displayFrequencyHz] : null;
             let polarData: PolarDataPoint[] = [];
-            if (patternData?.theta_angles && patternData?.pattern_db) {
-              const angles = patternData.theta_angles as number[];
-              const values = patternData.pattern_db as number[];
+            if (patternData?.theta_angles && patternData?.phi_angles && patternData?.pattern_db) {
+              const thetaAngles = patternData.theta_angles as number[];
+              const phiAngles = patternData.phi_angles as number[];
+              const patternDb = patternData.pattern_db as number[];
               const offset = (patternData.directivity as number) || 0;
-              polarData = angles.map((deg, i) => ({
-                angleDeg: deg,
-                value: (polarItem?.polarScale === 'linear')
-                  ? Math.pow(10, ((values[i] ?? -40) + offset) / 10)
-                  : (values[i] ?? -40) + offset,
-              }));
+              const nTheta = thetaAngles.length;
+              const nPhi = phiAngles.length;
+
+              const cutPlane = polarItem?.polarCutPlane ?? 'phi';
+              const cutAngleDeg = polarItem?.polarCutAngleDeg ?? 0;
+
+              if (cutPlane === 'phi') {
+                // phi-cut: vary theta at fixed phi
+                // Find closest phi index
+                const cutAngleRad = (cutAngleDeg * Math.PI) / 180;
+                let bestPhiIdx = 0;
+                let bestDist = Infinity;
+                for (let j = 0; j < nPhi; j++) {
+                  const d = Math.abs(phiAngles[j] - cutAngleRad);
+                  if (d < bestDist) { bestDist = d; bestPhiIdx = j; }
+                }
+                polarData = thetaAngles.map((thetaRad, thetaIdx) => {
+                  const flatIdx = thetaIdx * nPhi + bestPhiIdx;
+                  const dbVal = patternDb[flatIdx] ?? -40;
+                  return {
+                    angleDeg: (thetaRad * 180) / Math.PI,
+                    value: (polarItem?.polarScale === 'linear')
+                      ? Math.pow(10, (dbVal + offset) / 10)
+                      : dbVal + offset,
+                  };
+                });
+              } else {
+                // theta-cut: vary phi at fixed theta
+                const cutAngleRad = (cutAngleDeg * Math.PI) / 180;
+                let bestThetaIdx = 0;
+                let bestDist = Infinity;
+                for (let i = 0; i < nTheta; i++) {
+                  const d = Math.abs(thetaAngles[i] - cutAngleRad);
+                  if (d < bestDist) { bestDist = d; bestThetaIdx = i; }
+                }
+                polarData = phiAngles.map((phiRad, phiIdx) => {
+                  const flatIdx = bestThetaIdx * nPhi + phiIdx;
+                  const dbVal = patternDb[flatIdx] ?? -40;
+                  return {
+                    angleDeg: (phiRad * 180) / Math.PI,
+                    value: (polarItem?.polarScale === 'linear')
+                      ? Math.pow(10, (dbVal + offset) / 10)
+                      : dbVal + offset,
+                  };
+                });
+              }
             }
+            const cutLabel = polarItem?.polarCutPlane === 'theta'
+              ? `θ-cut @ θ=${polarItem?.polarCutAngleDeg ?? 0}°`
+              : `φ-cut @ φ=${polarItem?.polarCutAngleDeg ?? 0}°`;
             return (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'auto' }}>
                 <PolarPlot
                   data={polarData}
                   scale={polarItem?.polarScale ?? 'dB'}
-                  title={polarItem?.label}
+                  title={polarItem?.label ?? cutLabel}
                   size={Math.min(500, 400)}
                 />
               </Box>

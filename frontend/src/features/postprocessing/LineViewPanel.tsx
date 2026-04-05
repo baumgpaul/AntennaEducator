@@ -1,41 +1,94 @@
 /**
  * LineViewPanel - Displays multiple line plots stacked vertically
  * Renders UnifiedLinePlot for line-plot items, legacy stub for scalar-plot items.
+ * Includes "Add Curve" button that opens wizard dialog.
  */
 
-import { Box, Typography, Divider } from '@mui/material';
+import { useState } from 'react';
+import { Box, Typography, Divider, Button } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import type { ViewConfiguration, ViewItem } from '@/types/postprocessing';
 import UnifiedLinePlot from './plots/UnifiedLinePlot';
+import AddCurveDialog from './AddCurveDialog';
+import type { AddCurveResult } from './AddCurveDialog';
 import { extractPortTraceData } from '@/types/plotDataExtractors';
 import type { DataPoint } from '@/types/plotDataExtractors';
-import type { AxisConfig } from '@/types/plotDefinitions';
-import { useAppSelector } from '@/store/hooks';
+import type { AxisConfig, PlotTrace } from '@/types/plotDefinitions';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectParameterStudy } from '@/store/solverSlice';
+import { updateItemProperty, addItemToView } from '@/store/postprocessingSlice';
 
 interface LineViewPanelProps {
   view: ViewConfiguration;
 }
 
 function LineViewPanel({ view }: LineViewPanelProps) {
+  const dispatch = useAppDispatch();
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const parameterStudy = useAppSelector(selectParameterStudy);
+  const [addCurveDialogOpen, setAddCurveDialogOpen] = useState(false);
 
   const visibleItems = view.items.filter((item) => item.visible);
 
-  if (visibleItems.length === 0) {
+  // Find the first line-plot item (or null)
+  const linePlotItem = view.items.find((item) => item.type === 'line-plot');
+
+  const handleAddCurve = (result: AddCurveResult) => {
+    if (linePlotItem) {
+      // Append traces to existing line-plot item
+      const existingTraces = linePlotItem.traces ?? [];
+      const newTraces: PlotTrace[] = [...existingTraces, ...result.traces];
+      dispatch(updateItemProperty({
+        viewId: view.id,
+        itemId: linePlotItem.id,
+        property: 'traces',
+        value: newTraces,
+      }));
+    } else {
+      // Create a new line-plot item with the traces
+      dispatch(addItemToView({
+        viewId: view.id,
+        item: {
+          type: 'line-plot',
+          visible: true,
+          traces: result.traces,
+        },
+      }));
+    }
+  };
+
+  const existingTraceCount = linePlotItem?.traces?.length ?? 0;
+
+  if (visibleItems.length === 0 && !linePlotItem) {
     return (
       <Box
         sx={{
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           height: '100%',
-          p: 4
+          p: 4,
+          gap: 2,
         }}
       >
         <Typography variant="body1" color="text.secondary">
-          No plots added to this view. Use the ribbon menu to add impedance, voltage, or current plots.
+          No curves added yet.
         </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setAddCurveDialogOpen(true)}
+        >
+          Add Curve
+        </Button>
+        <AddCurveDialog
+          open={addCurveDialogOpen}
+          onClose={() => setAddCurveDialogOpen(false)}
+          onAdd={handleAddCurve}
+          parameterStudy={parameterStudy}
+          existingTraceCount={existingTraceCount}
+        />
       </Box>
     );
   }
@@ -97,12 +150,31 @@ function LineViewPanel({ view }: LineViewPanelProps) {
 
   return (
     <Box sx={{ width: '100%', height: '100%', overflow: 'auto', bgcolor: 'background.default' }}>
+      {/* Add Curve button */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1, pb: 0 }}>
+        <Button
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => setAddCurveDialogOpen(true)}
+        >
+          Add Curve
+        </Button>
+      </Box>
+
       {visibleItems.map((item, index) => (
         <Box key={item.id}>
           {renderPlot(item)}
           {index < visibleItems.length - 1 && <Divider />}
         </Box>
       ))}
+
+      <AddCurveDialog
+        open={addCurveDialogOpen}
+        onClose={() => setAddCurveDialogOpen(false)}
+        onAdd={handleAddCurve}
+        parameterStudy={parameterStudy}
+        existingTraceCount={existingTraceCount}
+      />
     </Box>
   );
 }

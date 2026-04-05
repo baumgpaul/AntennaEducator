@@ -73,8 +73,8 @@ describe('PortQuantityTable', () => {
         parameterStudy={null}
       />,
     );
-    // 100 MHz
-    expect(screen.getByText('100.00')).toBeTruthy();
+    // 100 MHz — engineering notation strips trailing zeros
+    expect(screen.getByText('100')).toBeTruthy();
   });
 
   it('computes impedance values from solver data', () => {
@@ -88,10 +88,10 @@ describe('PortQuantityTable', () => {
         parameterStudy={null}
       />,
     );
-    // Re(Z)
-    expect(screen.getByText('50.00')).toBeTruthy();
+    // Re(Z) — engineering notation
+    expect(screen.getByText('50')).toBeTruthy();
     // Im(Z)
-    expect(screen.getByText('-20.00')).toBeTruthy();
+    expect(screen.getByText('-20')).toBeTruthy();
   });
 
   it('renders empty state when no data', () => {
@@ -166,7 +166,7 @@ describe('PortQuantityTable', () => {
     // 2 data rows + 1 header
     const rows = screen.getAllByRole('row');
     expect(rows.length).toBe(3);
-    // Re(Z) = 73 from first row
-    expect(screen.getByText('73.00')).toBeTruthy();
+    // Re(Z) = 73 from first row — engineering notation
+    expect(screen.getByText('73')).toBeTruthy();
   });
 });

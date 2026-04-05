@@ -1,8 +1,26 @@
 /**
  * PortQuantityTable — tabular view of port-level quantities (impedance,
  * reflection coefficient, return loss, VSWR) per frequency or swept variable.
+ *
+ * Features: sortable columns, CSV export, engineering notation,
+ * all sweep variables included as columns.
  */
-import React from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
+import {
+  Box,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TableSortLabel,
+  Paper,
+  Typography,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import type { TableColumn } from '@/types/plotDefinitions';
 import type { FrequencySweepResult } from '@/types/api';
 import type { ParameterStudyResult } from '@/types/parameterStudy';
@@ -47,6 +65,41 @@ function reflectionCoefficient(z: ComplexLike, z0: number): ComplexLike {
 }
 
 // ============================================================================
+// Engineering notation formatter
+// ============================================================================
+
+const SI_PREFIXES: [number, string][] = [
+  [1e12, 'T'],
+  [1e9, 'G'],
+  [1e6, 'M'],
+  [1e3, 'k'],
+  [1, ''],
+  [1e-3, 'm'],
+  [1e-6, 'μ'],
+  [1e-9, 'n'],
+  [1e-12, 'p'],
+];
+
+function formatEngineering(value: number, decimals = 3): string {
+  if (!Number.isFinite(value)) return value > 0 ? '∞' : '-∞';
+  if (value === 0) return '0';
+  const absVal = Math.abs(value);
+  for (const [threshold, prefix] of SI_PREFIXES) {
+    if (absVal >= threshold * 0.9995) {
+      return (value / threshold).toFixed(decimals).replace(/\.?0+$/, '') + prefix;
+    }
+  }
+  return value.toExponential(decimals);
+}
+
+function formatCell(value: number | undefined, useEng = true): string {
+  if (value == null) return '—';
+  if (!Number.isFinite(value)) return '∞';
+  if (useEng) return formatEngineering(value);
+  return value.toFixed(4);
+}
+
+// ============================================================================
 // Row data builder
 // ============================================================================
 
@@ -55,15 +108,14 @@ interface RowData {
 }
 
 function buildRow(
-  xValue: number,
+  sweepValues: Record<string, number>,
   z: ComplexLike,
   z0: number,
-  xKey: string,
 ): RowData {
   const gamma = reflectionCoefficient(z, z0);
   const gMag = complexMag(gamma);
   return {
-    [xKey]: xValue,
+    ...sweepValues,
     zReal: z.real,
     zImag: z.imag,
     zMag: complexMag(z),
@@ -74,6 +126,26 @@ function buildRow(
   };
 }
 
+/** Build column definitions dynamically from sweep variables + fixed quantity columns. */
+function buildColumns(
+  parameterStudy: ParameterStudyResult | null,
+  baseColumns: TableColumn[],
+): TableColumn[] {
+  if (parameterStudy && parameterStudy.config.sweepVariables.length > 0) {
+    const varCols: TableColumn[] = parameterStudy.config.sweepVariables.map((sv) => ({
+      key: sv.variableName,
+      label: sv.variableName,
+      unit: sv.variableName.toLowerCase().includes('freq') ? 'Hz' : '',
+    }));
+    // Remove 'frequency' column from base if sweep has its own freq variable
+    const filteredBase = baseColumns.filter(
+      (c) => !varCols.some((vc) => vc.key === c.key),
+    );
+    return [...varCols, ...filteredBase];
+  }
+  return baseColumns;
+}
+
 function extractRows(
   frequencySweep: FrequencySweepResult | null,
   parameterStudy: ParameterStudyResult | null,
@@ -81,15 +153,15 @@ function extractRows(
   z0: number,
 ): RowData[] {
   if (parameterStudy && parameterStudy.results.length > 0) {
-    const varName =
-      parameterStudy.config.sweepVariables[0]?.variableName ?? '';
     return parameterStudy.results.map((pr) => {
-      const sol = (pr.solverResponse as any)?.antenna_solutions?.[
-        antennaIndex
-      ];
+      const sol = (pr.solverResponse as any)?.antenna_solutions?.[antennaIndex];
       const z = parseComplex(sol?.input_impedance);
-      const xVal = varName ? (pr.point.values[varName] ?? 0) : 0;
-      return buildRow(xVal, z, z0, varName || 'frequency');
+      // Include ALL sweep variable values
+      const sweepValues: Record<string, number> = {};
+      for (const sv of parameterStudy.config.sweepVariables) {
+        sweepValues[sv.variableName] = pr.point.values[sv.variableName] ?? 0;
+      }
+      return buildRow(sweepValues, z, z0);
     });
   }
 
@@ -97,13 +169,38 @@ function extractRows(
     return frequencySweep.results.map((result, i) => {
       const sol = result.antenna_solutions?.[antennaIndex];
       const z = parseComplex(sol?.input_impedance);
-      const freq =
-        (frequencySweep.frequencies[i] ?? result.frequency) / 1e6; // to MHz
-      return buildRow(freq, z, z0, 'frequency');
+      const freq = frequencySweep.frequencies[i] ?? result.frequency;
+      return buildRow({ frequency: freq / 1e6 }, z, z0);
     });
   }
 
   return [];
+}
+
+// ============================================================================
+// CSV export
+// ============================================================================
+
+function exportCSV(columns: TableColumn[], rows: RowData[], filename = 'port_quantities.csv') {
+  const header = columns.map((c) => `${c.label}${c.unit ? ` (${c.unit})` : ''}`).join(',');
+  const body = rows
+    .map((row) =>
+      columns.map((c) => {
+        const v = row[c.key];
+        if (v == null) return '';
+        if (!Number.isFinite(v)) return 'Inf';
+        return v.toString();
+      }).join(','),
+    )
+    .join('\n');
+  const csv = `${header}\n${body}`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ============================================================================
@@ -119,88 +216,117 @@ export interface PortQuantityTableProps {
   title?: string;
 }
 
+type SortDir = 'asc' | 'desc';
+
 export const PortQuantityTable: React.FC<PortQuantityTableProps> = ({
-  columns,
+  columns: baseColumns,
   frequencySweep,
   parameterStudy,
   antennaIndex = 0,
   z0 = 50,
   title,
 }) => {
-  const rows = extractRows(frequencySweep, parameterStudy, antennaIndex, z0);
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const columns = useMemo(
+    () => buildColumns(parameterStudy, baseColumns),
+    [parameterStudy, baseColumns],
+  );
+
+  const rows = useMemo(
+    () => extractRows(frequencySweep, parameterStudy, antennaIndex, z0),
+    [frequencySweep, parameterStudy, antennaIndex, z0],
+  );
+
+  const sortedRows = useMemo(() => {
+    if (!sortKey) return rows;
+    return [...rows].sort((a, b) => {
+      const va = a[sortKey] ?? 0;
+      const vb = b[sortKey] ?? 0;
+      return sortDir === 'asc' ? va - vb : vb - va;
+    });
+  }, [rows, sortKey, sortDir]);
+
+  const handleSort = useCallback(
+    (key: string) => {
+      if (sortKey === key) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortKey(key);
+        setSortDir('asc');
+      }
+    },
+    [sortKey],
+  );
+
+  const handleExport = useCallback(() => {
+    exportCSV(columns, sortedRows);
+  }, [columns, sortedRows]);
 
   if (rows.length === 0) {
     return (
-      <div style={{ padding: 16, textAlign: 'center', color: '#999' }}>
-        No data available
-      </div>
+      <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+        <Typography variant="body2">No data available</Typography>
+      </Box>
     );
   }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      {title && (
-        <div
-          style={{
-            padding: '8px 16px',
-            fontWeight: 600,
-            fontSize: 14,
-          }}
-        >
-          {title}
-        </div>
-      )}
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          fontSize: 13,
-        }}
-      >
-        <thead>
-          <tr>
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                style={{
-                  padding: '6px 12px',
-                  textAlign: 'right',
-                  borderBottom: '2px solid #ddd',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {col.label}
-                {col.unit ? ` (${col.unit})` : ''}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i}>
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+          {title || 'Port Quantities'}
+        </Typography>
+        <Tooltip title="Export CSV">
+          <IconButton size="small" onClick={handleExport}>
+            <FileDownloadIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+      <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
+        <Table size="small" stickyHeader>
+          <TableHead>
+            <TableRow>
               {columns.map((col) => (
-                <td
+                <TableCell
                   key={col.key}
-                  style={{
-                    padding: '4px 12px',
-                    textAlign: 'right',
-                    borderBottom: '1px solid #eee',
-                    fontFamily: 'monospace',
-                  }}
+                  align="right"
+                  sortDirection={sortKey === col.key ? sortDir : false}
+                  sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}
                 >
-                  {formatCell(row[col.key])}
-                </td>
+                  <TableSortLabel
+                    active={sortKey === col.key}
+                    direction={sortKey === col.key ? sortDir : 'asc'}
+                    onClick={() => handleSort(col.key)}
+                  >
+                    {col.label}
+                    {col.unit ? ` (${col.unit})` : ''}
+                  </TableSortLabel>
+                </TableCell>
               ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {sortedRows.map((row, i) => (
+              <TableRow key={i} hover>
+                {columns.map((col) => (
+                  <TableCell
+                    key={col.key}
+                    align="right"
+                    sx={{ fontFamily: 'monospace', fontSize: 12 }}
+                  >
+                    {formatCell(row[col.key])}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Typography variant="caption" sx={{ px: 2, py: 0.5, color: 'text.secondary', display: 'block' }}>
+        {rows.length} rows · Z₀ = {z0} Ω
+      </Typography>
+    </Box>
   );
 };
-
-function formatCell(value: number | undefined): string {
-  if (value == null) return '—';
-  if (!Number.isFinite(value)) return '∞';
-  return value.toFixed(2);
-}

@@ -169,6 +169,7 @@ export const runParameterStudy = createAsyncThunk<
 
         // 5b. Capture mesh snapshot for postprocessing
         const meshSnapshots: MeshSnapshot[] = visibleElements.map((el) => ({
+          elementId: el.id,
           nodes: el.mesh!.nodes.map((n) => [...n]),
           edges: el.mesh!.edges.map((e) => [...e] as [number, number]),
           radii: el.mesh!.radii ? [...el.mesh!.radii] : el.mesh!.edges.map(() => 0.001),
