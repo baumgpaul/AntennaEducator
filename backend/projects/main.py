@@ -49,6 +49,9 @@ from backend.projects.schemas import (
     generate_content_preview,
 )
 
+# Submission routes
+from backend.projects.submission_routes import router as submission_router
+
 app = FastAPI(
     title="Antenna Simulator — Projects Service",
     description="Project management and persistence API",
@@ -70,6 +73,9 @@ else:
 
 # Include folder/course management routes
 app.include_router(folder_router)
+
+# Include submission routes
+app.include_router(submission_router)
 
 
 def get_repository() -> ProjectRepository:

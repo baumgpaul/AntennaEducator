@@ -31,7 +31,7 @@ import {
   markAsSolved,
 } from '@/store/designSlice';
 import { updateProject, fetchProject } from '@/store/projectsSlice';
-import { addNotification } from '@/store/uiSlice';
+import { addNotification, showSuccess } from '@/store/uiSlice';
 import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
 import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';
 import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
@@ -64,8 +64,11 @@ import AddAntennaElementDialog from './dialogs/AddAntennaElementDialog';
 import AddFieldVisualizationDialog from './dialogs/AddFieldVisualizationDialog';
 import AddScalarPlotDialog from './dialogs/AddScalarPlotDialog';
 import DocumentationPanel from './DocumentationPanel';
+import SubmitDialog from './dialogs/SubmitDialog';
 import { togglePanel as toggleDocPanel, closePanel as closeDocPanel, clearDocumentation } from '@/store/documentationSlice';
 import { selectVariables, setVariables, resetVariables } from '@/store/variablesSlice';
+import { fetchFolders } from '@/store/foldersSlice';
+import { submitProject as submitProjectThunk, selectSubmitLoading, selectSubmissionsError } from '@/store/submissionsSlice';
 import type { VariableDefinition } from '@/utils/expressionEvaluator';
 import {
   BUILTIN_CONSTANTS,
@@ -169,6 +172,12 @@ function DesignPage() {
   // Track if project is being loaded to skip auto-saves during load
   const projectLoadingRef = useRef<boolean>(true);
   const [currentTab, setCurrentTab] = useState<'designer' | 'solver' | 'postprocessing'>('designer');
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+
+  // Submission state
+  const submitLoading = useAppSelector(selectSubmitLoading);
+  const submitError = useAppSelector(selectSubmissionsError);
+  const folders = useAppSelector((state) => state.folders.folders);
 
   const handleTabChange = (_: unknown, newValue: 'designer' | 'solver' | 'postprocessing') => {
     // Block entering Postprocessing tab when solver has no results (idle)
@@ -183,6 +192,12 @@ function DesignPage() {
   // Get current project from Redux to detect when it loads
   const currentProject = useAppSelector((state) => state.projects.currentProject);
 
+  // Determine if this project belongs to a course (folder has source_course_id)
+  const projectFolder = currentProject?.folder_id
+    ? folders.find((f: { id: string; source_course_id?: string }) => f.id === currentProject.folder_id)
+    : null;
+  const sourceCourseId = (projectFolder as { source_course_id?: string } | null | undefined)?.source_course_id ?? null;
+
   // Load project on mount if projectId exists
   useEffect(() => {
     if (projectId) {
@@ -191,6 +206,8 @@ function DesignPage() {
       // isn't shown while the new project's docs load
       dispatch(clearDocumentation());
     }
+    // Load user folders to determine course association
+    dispatch(fetchFolders());
   }, [projectId, dispatch]);
 
   // Parse and restore design elements from project
@@ -1097,6 +1114,25 @@ function DesignPage() {
     }
   };
 
+  // ── Submission handlers ──────────────────────────────────────────────────
+  const handleSubmitClick = () => {
+    setSubmitDialogOpen(true);
+  };
+
+  const handleSubmitConfirm = async () => {
+    if (!sourceCourseId || !currentProject?.id) return;
+    const result = await dispatch(
+      submitProjectThunk({
+        courseId: sourceCourseId,
+        projectId: String(currentProject.id),
+      }),
+    );
+    if (submitProjectThunk.fulfilled.match(result)) {
+      setSubmitDialogOpen(false);
+      dispatch(showSuccess('Project submitted successfully!'));
+    }
+  };
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Tab Navigation */}
@@ -1222,6 +1258,8 @@ function DesignPage() {
             onViewOption={handleViewOption}
             solverStatus={solverStatus}
             solverProgress={solverProgress}
+            showSubmit={!!sourceCourseId}
+            onSubmit={handleSubmitClick}
           />
         }
         bottomPanel={
@@ -1358,6 +1396,17 @@ function DesignPage() {
       <AddAntennaElementDialog />
       <AddFieldVisualizationDialog />
       <AddScalarPlotDialog />
+
+      {/* Submit to Course Dialog */}
+      <SubmitDialog
+        open={submitDialogOpen}
+        onClose={() => setSubmitDialogOpen(false)}
+        onConfirm={handleSubmitConfirm}
+        projectName={currentProject?.name ?? 'Untitled'}
+        courseName={projectFolder?.name}
+        loading={submitLoading}
+        error={submitError}
+      />
 
       {/* Auto-save indicator */}
       <Snackbar

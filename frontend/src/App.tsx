@@ -8,6 +8,9 @@ import ResultsPage from './features/results/ResultsPage';
 import { LoginPage, RegisterPage, ProtectedRoute } from './features/auth';
 import { CoursesPage } from './features/courses';
 import { AdminPage } from './features/admin';
+import MySubmissionsPage from './features/courses/MySubmissionsPage';
+import SubmissionsDashboard from './features/courses/SubmissionsDashboard';
+import SubmissionViewer from './features/courses/SubmissionViewer';
 import NotFoundPage from './features/common/NotFoundPage';
 import { NotificationManager, SessionManager } from './components/common';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -35,6 +38,9 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/projects" element={<ErrorBoundary><ProjectsPage /></ErrorBoundary>} />
           <Route path="/courses" element={<ErrorBoundary><CoursesPage /></ErrorBoundary>} />
+          <Route path="/courses/:courseId/submissions" element={<ErrorBoundary><SubmissionsDashboard /></ErrorBoundary>} />
+          <Route path="/my-submissions" element={<ErrorBoundary><MySubmissionsPage /></ErrorBoundary>} />
+          <Route path="/submission/:courseId/:submissionId" element={<ErrorBoundary><SubmissionViewer /></ErrorBoundary>} />
           <Route path="/admin" element={<ErrorBoundary><AdminPage /></ErrorBoundary>} />
           <Route path="/design" element={<ErrorBoundary><DesignPage /></ErrorBoundary>} />
           <Route path="/project/:projectId/design" element={<ErrorBoundary><DesignPage /></ErrorBoundary>} />
