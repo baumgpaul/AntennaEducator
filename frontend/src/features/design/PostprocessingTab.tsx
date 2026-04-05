@@ -139,7 +139,7 @@ export function computeAutoRange(
     }
     case 'field-magnitude':
     case 'field-vector': {
-      if (fieldData && item.fieldId && displayFrequencyHz) {
+      if (fieldData && item.fieldId && displayFrequencyHz != null) {
         const freqData = fieldData[item.fieldId]?.[displayFrequencyHz] ?? fieldData[item.fieldId]?.[String(displayFrequencyHz)];
         const ft = resolveFieldType(item, requestedFields);
         const magnitudes = selectFieldMagnitudes(freqData, ft);
@@ -300,7 +300,7 @@ function PostprocessingTab({
         metadata: {
           include: options.includeMetadata,
           projectName,
-          frequency: displayFrequencyHz || undefined,
+          frequency: displayFrequencyHz ?? undefined,
         },
         resolution: options.resolution,
         filename: options.filename,
@@ -485,7 +485,7 @@ function PostprocessingTab({
                   <ViewItemRenderer
                     key={item.id}
                     item={item}
-                    frequencyHz={displayFrequencyHz || undefined}
+                    frequencyHz={displayFrequencyHz ?? undefined}
                     animationPhase={hasAnimatedItems ? animationPhase : undefined}
                   />
                 ))}
@@ -531,7 +531,7 @@ function PostprocessingTab({
               max = colorItem.valueRangeMax ?? 1;
             } else {
               // Use per-frequency radiation pattern for directivity color range
-              const activePattern = (displayFrequencyHz && radiationPatterns?.[displayFrequencyHz])
+              const activePattern = (displayFrequencyHz != null && radiationPatterns?.[displayFrequencyHz])
                 || radiationPattern;
               const range = computeAutoRange(colorItem, solverResults, fieldData, activePattern, displayFrequencyHz, requestedFields);
               min = range.min;

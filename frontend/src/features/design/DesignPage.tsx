@@ -123,6 +123,7 @@ function DesignPage() {
     results: solverState.results,
     currentDistribution: solverState.currentDistribution,
     radiationPattern: solverState.radiationPattern,
+    radiationPatterns: solverState.radiationPatterns,
     multiAntennaResults: solverState.multiAntennaResults,
     frequencySweep: solverState.frequencySweep,
     resultsHistory: solverState.resultsHistory,
@@ -133,6 +134,12 @@ function DesignPage() {
     currentFrequency: solverState.currentFrequency,
     fieldResults: solverState.fieldResults,
     fieldData: solverState.fieldData,
+    selectedFrequencyHz: solverState.selectedFrequencyHz,
+    // Sweep-specific state
+    solveMode: solverState.solveMode,
+    parameterStudy: solverState.parameterStudy,
+    parameterStudyConfig: solverState.parameterStudyConfig,
+    selectedSweepPointIndex: solverState.selectedSweepPointIndex,
   });
 
   // Map solver status to SolverTab-compatible type

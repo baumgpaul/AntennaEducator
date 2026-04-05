@@ -1575,6 +1575,12 @@ const solverSlice = createSlice({
       if (savedState.radiationPatterns !== undefined) state.radiationPatterns = savedState.radiationPatterns;
       if (savedState.selectedFrequencyHz !== undefined) state.selectedFrequencyHz = savedState.selectedFrequencyHz;
 
+      // Restore sweep-specific state
+      if (savedState.solveMode !== undefined) state.solveMode = savedState.solveMode;
+      if (savedState.parameterStudy !== undefined) state.parameterStudy = savedState.parameterStudy;
+      if (savedState.parameterStudyConfig !== undefined) state.parameterStudyConfig = savedState.parameterStudyConfig;
+      if (savedState.selectedSweepPointIndex !== undefined) state.selectedSweepPointIndex = savedState.selectedSweepPointIndex;
+
       // Don't restore status/progress/error/jobId - these are runtime state
       // Don't restore currentRequest - this is transient
       // Don't restore sweepInProgress - this is runtime state
