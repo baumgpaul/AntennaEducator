@@ -11,11 +11,11 @@ import type { ViewConfiguration, ViewItem } from '@/types/postprocessing';
 import UnifiedLinePlot from './plots/UnifiedLinePlot';
 import AddCurveDialog from './AddCurveDialog';
 import type { AddCurveResult } from './AddCurveDialog';
-import { extractPortTraceData } from '@/types/plotDataExtractors';
+import { extractPortTraceData, extractDistributionTraceData, extractFarfieldTraceData } from '@/types/plotDataExtractors';
 import type { DataPoint } from '@/types/plotDataExtractors';
 import type { AxisConfig, PlotTrace } from '@/types/plotDefinitions';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
-import { selectParameterStudy } from '@/store/solverSlice';
+import { selectParameterStudy, selectSelectedFrequencyHz } from '@/store/solverSlice';
 import { updateItemProperty, addItemToView } from '@/store/postprocessingSlice';
 
 interface LineViewPanelProps {
@@ -26,21 +26,77 @@ function LineViewPanel({ view }: LineViewPanelProps) {
   const dispatch = useAppDispatch();
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const parameterStudy = useAppSelector(selectParameterStudy);
-  const currentDistribution = useAppSelector((state) => state.solver.currentDistribution);
+  const singleResult = useAppSelector((state) => state.solver.results);
   const radiationPattern = useAppSelector((state) => state.solver.radiationPattern);
   const radiationPatterns = useAppSelector((state) => state.solver.radiationPatterns);
+  const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
   const [addCurveDialogOpen, setAddCurveDialogOpen] = useState(false);
 
   // Data availability flags for AddCurveDialog
   const hasPortData = !!(
     (frequencySweep && frequencySweep.results && frequencySweep.results.length > 0) ||
-    (parameterStudy && parameterStudy.results && parameterStudy.results.length > 0)
+    (parameterStudy && parameterStudy.results && parameterStudy.results.length > 0) ||
+    singleResult
   );
-  const hasDistributionData = !!(currentDistribution && Object.keys(currentDistribution).length > 0);
+  const hasDistributionData = !!(
+    (frequencySweep && frequencySweep.results && frequencySweep.results.length > 0 &&
+      frequencySweep.results.some((r) =>
+        r.antenna_solutions?.some((a) => a.branch_currents?.length > 0)
+      )) ||
+    (singleResult && (singleResult as any).branch_currents?.length > 0)
+  );
   const hasFarfieldData = !!(
     radiationPattern ||
     (radiationPatterns && Object.keys(radiationPatterns).length > 0)
   );
+
+  // Determine the x-axis context from sweep type
+  const sweepVarName = parameterStudy?.config.sweepVariables[0]?.variableName;
+  const isParamSweep = !!(parameterStudy && parameterStudy.results.length > 0);
+  const isFreqSweep = !!(frequencySweep && frequencySweep.results.length > 0);
+
+  /** Build default x-axis config based on sweep context */
+  const buildXAxisConfig = (source: string): AxisConfig => {
+    if (source === 'distribution') {
+      return { label: 'Segment Index', unit: '', scale: 'linear' };
+    }
+    if (source === 'farfield') {
+      return { label: 'θ', unit: '°', scale: 'linear' };
+    }
+    if (isParamSweep && sweepVarName) {
+      const isFreqVar = sweepVarName === 'freq' || sweepVarName === 'frequency';
+      return { label: sweepVarName, unit: isFreqVar ? 'Hz' : '', scale: 'linear' };
+    }
+    if (isFreqSweep) {
+      return { label: 'Frequency', unit: 'Hz', scale: 'linear' };
+    }
+    return { label: 'X', unit: '', scale: 'linear' };
+  };
+
+  /** Build default y-axis label from first trace */
+  const buildYAxisConfig = (traces: PlotTrace[]): AxisConfig => {
+    const first = traces[0];
+    if (!first) return { label: 'Y', unit: '', scale: 'linear' };
+    const q = first.quantity;
+    switch (q.source) {
+      case 'port': {
+        if (q.quantity.startsWith('impedance')) return { label: 'Impedance', unit: 'Ω', scale: 'linear' };
+        if (q.quantity === 'return_loss') return { label: 'Return Loss', unit: 'dB', scale: 'linear' };
+        if (q.quantity === 'vswr') return { label: 'VSWR', unit: '', scale: 'linear' };
+        if (q.quantity.startsWith('reflection')) return { label: '|Γ|', unit: '', scale: 'linear' };
+        return { label: first.label, unit: '', scale: 'linear' };
+      }
+      case 'distribution': {
+        if (q.quantity.startsWith('current')) return { label: 'Current', unit: 'A', scale: 'linear' };
+        if (q.quantity.startsWith('voltage')) return { label: 'Voltage', unit: 'V', scale: 'linear' };
+        return { label: first.label, unit: '', scale: 'linear' };
+      }
+      case 'farfield':
+        return { label: first.label, unit: 'dBi', scale: 'linear' };
+      default:
+        return { label: first.label, unit: '', scale: 'linear' };
+    }
+  };
 
   const visibleItems = view.items.filter((item) => item.visible);
 
@@ -58,14 +114,34 @@ function LineViewPanel({ view }: LineViewPanelProps) {
         property: 'traces',
         value: newTraces,
       }));
+      // Set axis configs if not already set
+      if (!linePlotItem.yAxisLeftConfig && result.traces.length > 0) {
+        dispatch(updateItemProperty({
+          viewId: view.id,
+          itemId: linePlotItem.id,
+          property: 'yAxisLeftConfig',
+          value: buildYAxisConfig(result.traces),
+        }));
+      }
+      if (!linePlotItem.xAxisConfig && result.traces.length > 0) {
+        dispatch(updateItemProperty({
+          viewId: view.id,
+          itemId: linePlotItem.id,
+          property: 'xAxisConfig',
+          value: buildXAxisConfig(result.traces[0].quantity.source),
+        }));
+      }
     } else {
-      // Create a new line-plot item with the traces
+      const source = result.traces[0]?.quantity.source ?? 'port';
+      // Create a new line-plot item with the traces and axis configs
       dispatch(addItemToView({
         viewId: view.id,
         item: {
           type: 'line-plot',
           visible: true,
           traces: result.traces,
+          xAxisConfig: buildXAxisConfig(source),
+          yAxisLeftConfig: buildYAxisConfig(result.traces),
         },
       }));
     }
@@ -112,40 +188,56 @@ function LineViewPanel({ view }: LineViewPanelProps) {
 
   const renderPlot = (item: ViewItem) => {
     if (item.type === 'line-plot' && item.traces && item.traces.length > 0) {
-      const sweepVarName = parameterStudy?.config.sweepVariables[0]?.variableName;
       // Build traceData from extractors
       const traceData: Record<string, DataPoint[]> = {};
+      // Determine the frequency key for single-frequency extractors
+      const freqKey = selectedFrequencyHz
+        ?? frequencySweep?.frequencies?.[0]
+        ?? (singleResult as any)?.frequency
+        ?? 0;
+
+      // Build patterns lookup — merge singular and plural
+      const patternsLookup: Record<number, any> | null = radiationPatterns
+        ?? (radiationPattern ? { [freqKey]: radiationPattern } : null);
+
       for (const trace of item.traces) {
-        if (trace.quantity.source === 'port') {
-          traceData[trace.id] = extractPortTraceData(
-            trace,
-            frequencySweep,
-            parameterStudy,
-          );
+        switch (trace.quantity.source) {
+          case 'port':
+            traceData[trace.id] = extractPortTraceData(
+              trace,
+              frequencySweep,
+              parameterStudy,
+              0,
+              50,
+              singleResult as any,
+            );
+            break;
+          case 'distribution':
+            traceData[trace.id] = extractDistributionTraceData(
+              trace,
+              frequencySweep,
+              freqKey,
+              0,
+              singleResult as any,
+            );
+            break;
+          case 'farfield':
+            traceData[trace.id] = extractFarfieldTraceData(
+              trace,
+              patternsLookup,
+              freqKey,
+            );
+            break;
+          // field extractors can be wired here when field data is available
         }
-        // Field, distribution, farfield extractors can be wired here later
       }
-
-      const defaultXAxis: AxisConfig = {
-        label: 'Frequency',
-        unit: 'MHz',
-        scale: 'linear',
-      };
-
-      const xAxisConfig: AxisConfig = parameterStudy && sweepVarName
-        ? {
-            ...(item.xAxisConfig ?? defaultXAxis),
-            label: sweepVarName,
-            unit: sweepVarName === 'freq' || sweepVarName === 'frequency' ? 'Hz' : (item.xAxisConfig?.unit ?? ''),
-          }
-        : (item.xAxisConfig ?? defaultXAxis);
 
       return (
         <Box key={item.id} sx={{ p: 2, height: 350 }}>
           <UnifiedLinePlot
             traces={item.traces}
             traceData={traceData}
-            xAxisConfig={xAxisConfig}
+            xAxisConfig={item.xAxisConfig}
             yAxisLeftConfig={item.yAxisLeftConfig}
             yAxisRightConfig={item.yAxisRightConfig}
             title={item.label}

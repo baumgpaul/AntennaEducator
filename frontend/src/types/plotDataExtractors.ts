@@ -142,13 +142,15 @@ function portQuantityFromImpedance(
 // ============================================================================
 
 /**
- * Extract port quantity data points from frequency sweep or parameter study.
+ * Extract port quantity data points from frequency sweep, parameter study,
+ * or a single-frequency solve result.
  *
  * @param trace - The plot trace definition
  * @param frequencySweep - Frequency sweep results (if available)
  * @param parameterStudy - Parameter study results (if available)
  * @param antennaIndex - Which antenna to extract from (default: 0)
  * @param z0 - Reference impedance (default: 50 Ω)
+ * @param singleResult - Single-frequency solver result (if no sweep)
  * @returns Array of {x, y} points
  */
 export function extractPortTraceData(
@@ -157,6 +159,7 @@ export function extractPortTraceData(
   parameterStudy: ParameterStudyResult | null,
   antennaIndex = 0,
   z0 = 50,
+  singleResult?: { frequency: number; input_impedance?: unknown; antenna_solutions?: Array<{ input_impedance?: unknown }> } | null,
 ): DataPoint[] {
   const q = trace.quantity as PortPlotQuantity;
 
@@ -179,6 +182,16 @@ export function extractPortTraceData(
       const freq = frequencySweep.frequencies[i] ?? result.frequency;
       return { x: freq, y: portQuantityFromImpedance(z, q.quantity, z0) };
     });
+  }
+
+  // Fall back to single-frequency result (produces a single data point)
+  if (singleResult) {
+    const z = singleResult.antenna_solutions?.[antennaIndex]?.input_impedance
+      ?? singleResult.input_impedance;
+    if (z != null) {
+      const zParsed = parseComplex(z);
+      return [{ x: singleResult.frequency, y: portQuantityFromImpedance(zParsed, q.quantity, z0) }];
+    }
   }
 
   return [];
@@ -294,6 +307,7 @@ function extractVectorComponent(
  * @param frequencySweep - Frequency sweep results
  * @param frequencyHz - Which frequency to extract
  * @param antennaIndex - Which antenna (default: 0)
+ * @param singleResult - Single-frequency solver result (if no sweep)
  * @returns Array of {x, y} points (x = edge/node index)
  */
 export function extractDistributionTraceData(
@@ -301,39 +315,48 @@ export function extractDistributionTraceData(
   frequencySweep: FrequencySweepResult | null,
   frequencyHz: number,
   antennaIndex = 0,
+  singleResult?: { branch_currents?: unknown[]; node_voltages?: unknown[]; antenna_solutions?: Array<{ branch_currents: unknown[]; node_voltages: unknown[] }> } | null,
 ): DataPoint[] {
-  if (!frequencySweep) return [];
-
   const q = trace.quantity as DistributionPlotQuantity;
 
-  // Find the result at the requested frequency
-  const freqIdx = frequencySweep.results.findIndex(
-    (r) => Math.abs(r.frequency - frequencyHz) < 1,
-  );
-  if (freqIdx < 0) return [];
+  // Try frequency sweep first
+  let antenna: { branch_currents: unknown[]; node_voltages: unknown[] } | undefined;
 
-  const solution = frequencySweep.results[freqIdx];
-  const antenna = solution.antenna_solutions?.[antennaIndex];
+  if (frequencySweep && frequencySweep.results.length > 0) {
+    const freqIdx = frequencySweep.results.findIndex(
+      (r) => Math.abs(r.frequency - frequencyHz) < 1,
+    );
+    if (freqIdx >= 0) {
+      antenna = frequencySweep.results[freqIdx].antenna_solutions?.[antennaIndex];
+    }
+  }
+
+  // Fall back to single-frequency result
+  if (!antenna && singleResult) {
+    antenna = singleResult.antenna_solutions?.[antennaIndex]
+      ?? (singleResult.branch_currents ? singleResult as any : undefined);
+  }
+
   if (!antenna) return [];
 
   switch (q.quantity) {
     case 'current_magnitude':
-      return antenna.branch_currents.map((c, i) => ({
+      return (antenna.branch_currents ?? []).map((c, i) => ({
         x: i,
         y: complexMag(parseComplex(c)),
       }));
     case 'current_phase':
-      return antenna.branch_currents.map((c, i) => ({
+      return (antenna.branch_currents ?? []).map((c, i) => ({
         x: i,
         y: complexPhaseDeg(parseComplex(c)),
       }));
     case 'voltage_magnitude':
-      return antenna.node_voltages.map((v, i) => ({
+      return (antenna.node_voltages ?? []).map((v, i) => ({
         x: i,
         y: complexMag(parseComplex(v)),
       }));
     case 'voltage_phase':
-      return antenna.node_voltages.map((v, i) => ({
+      return (antenna.node_voltages ?? []).map((v, i) => ({
         x: i,
         y: complexPhaseDeg(parseComplex(v)),
       }));

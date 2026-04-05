@@ -13,7 +13,7 @@
  * Convention: the chart is a unit circle centered at origin in Γ-space.
  * SVG coordinates: cx=center, cy=center, radius maps Γ to pixels.
  */
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 
 // ============================================================================
@@ -135,14 +135,18 @@ export const SmithChart: React.FC<SmithChartProps> = ({
   // Mouse handlers for zoom & pan
   // ========================================================================
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+  // Native wheel handler registered with { passive: false } to allow preventDefault
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
       setZoom((z) => Math.max(0.5, Math.min(10, z * factor)));
-    },
-    [],
-  );
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -411,7 +415,6 @@ export const SmithChart: React.FC<SmithChartProps> = ({
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
-        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

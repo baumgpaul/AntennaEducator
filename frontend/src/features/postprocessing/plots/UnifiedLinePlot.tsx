@@ -28,8 +28,8 @@ export interface UnifiedLinePlotProps {
   traces: PlotTrace[];
   /** Pre-extracted data per trace id. */
   traceData: Record<string, DataPoint[]>;
-  xAxisConfig: AxisConfig;
-  yAxisLeftConfig: AxisConfig;
+  xAxisConfig?: AxisConfig;
+  yAxisLeftConfig?: AxisConfig;
   yAxisRightConfig?: AxisConfig;
   title?: string;
   height?: number;
@@ -45,9 +45,13 @@ const DASH_MAP: Record<LineStyle, string> = {
   dotted: '2 4',
 };
 
-function formatAxisLabel(cfg: AxisConfig): string {
+function formatAxisLabel(cfg: AxisConfig | undefined): string {
+  if (!cfg) return '';
   return cfg.unit ? `${cfg.label} [${cfg.unit}]` : cfg.label;
 }
+
+const DEFAULT_X_AXIS: AxisConfig = { label: 'X', unit: '', scale: 'linear' };
+const DEFAULT_Y_AXIS: AxisConfig = { label: 'Y', unit: '', scale: 'linear' };
 
 // ============================================================================
 // Component
@@ -56,12 +60,14 @@ function formatAxisLabel(cfg: AxisConfig): string {
 function UnifiedLinePlot({
   traces,
   traceData,
-  xAxisConfig,
-  yAxisLeftConfig,
+  xAxisConfig: xAxisConfigProp,
+  yAxisLeftConfig: yAxisLeftConfigProp,
   yAxisRightConfig,
   title,
   height = 350,
 }: UnifiedLinePlotProps) {
+  const xAxisConfig = xAxisConfigProp ?? DEFAULT_X_AXIS;
+  const yAxisLeftConfig = yAxisLeftConfigProp ?? DEFAULT_Y_AXIS;
   // Check for any data
   const hasData = traces.some((t) => (traceData[t.id]?.length ?? 0) > 0);
 
