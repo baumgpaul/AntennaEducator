@@ -73,7 +73,7 @@ export const FrequencySelector: React.FC = () => {
   const marks = getFrequencyMarks(frequencies);
   const minMHz = Math.min(...frequencies) / 1e6;
   const maxMHz = Math.max(...frequencies) / 1e6;
-  const currentMHz = selectedFrequencyHz ? selectedFrequencyHz / 1e6 : minMHz;
+  const currentMHz = selectedFrequencyHz != null ? selectedFrequencyHz / 1e6 : minMHz;
 
   const handleChange = (_event: Event, value: number | number[]) => {
     const mhz = value as number;

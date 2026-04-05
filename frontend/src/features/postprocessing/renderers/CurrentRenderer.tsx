@@ -36,7 +36,7 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
 
   // Get current distribution data — supports both single-freq and sweep modes
   const currentData = useMemo(() => {
-    if (!frequencyHz) return null;
+    if (frequencyHz == null) return null;
 
     // Sweep mode: look up the result for this specific frequency
     if (frequencySweep?.frequencies && frequencySweep.results) {
