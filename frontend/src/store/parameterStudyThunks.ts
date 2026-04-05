@@ -77,6 +77,23 @@ export function resolveElementExpressions(
   return resolved;
 }
 
+/**
+ * Resolve the solver frequency for a sweep point.
+ * Supports both `freq` and `frequency` variable naming.
+ */
+function resolveSweepFrequency(
+  pointValues: Record<string, number>,
+  ctx: Record<string, number>,
+): number | null {
+  const fromPoint = pointValues.freq ?? pointValues.frequency;
+  if (typeof fromPoint === 'number' && fromPoint > 0) return fromPoint;
+
+  const fromContext = ctx.freq ?? ctx.frequency;
+  if (typeof fromContext === 'number' && fromContext > 0) return fromContext;
+
+  return null;
+}
+
 // ============================================================================
 // Async Thunk
 // ============================================================================
@@ -164,11 +181,11 @@ export const runParameterStudy = createAsyncThunk<
           position: el.position ? [...el.position] as [number, number, number] : [0, 0, 0],
         }));
 
-        // Frequency from the context (the variable named `freq`)
-        const frequency = ctx.freq;
-        if (!frequency || frequency <= 0) {
+        // Frequency may come from `freq` or `frequency` variables.
+        const frequency = resolveSweepFrequency(point.values, ctx);
+        if (!frequency) {
           return rejectWithValue(
-            `Invalid frequency at grid point ${i}: ${frequency}`,
+            `Invalid frequency at grid point ${i}. Define a positive freq/frequency variable.`,
           );
         }
 
@@ -209,7 +226,7 @@ export const runParameterStudy = createAsyncThunk<
 
       // 7. Final nominal solve — populate state.results / state.multiAntennaResults
       //    so that postprocessing (field computation, directivity) can work after a sweep.
-      const nominalFrequency = nominalCtx.freq;
+      const nominalFrequency = resolveSweepFrequency({}, nominalCtx);
       if (nominalFrequency && nominalFrequency > 0) {
         const finalState = getState();
         const nominalInputs = finalState.design.elements

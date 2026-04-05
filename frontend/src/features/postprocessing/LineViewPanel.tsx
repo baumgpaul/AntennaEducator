@@ -8,6 +8,7 @@ import type { ViewConfiguration, ViewItem } from '@/types/postprocessing';
 import UnifiedLinePlot from './plots/UnifiedLinePlot';
 import { extractPortTraceData } from '@/types/plotDataExtractors';
 import type { DataPoint } from '@/types/plotDataExtractors';
+import type { AxisConfig } from '@/types/plotDefinitions';
 import { useAppSelector } from '@/store/hooks';
 import { selectParameterStudy } from '@/store/solverSlice';
 
@@ -41,6 +42,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
 
   const renderPlot = (item: ViewItem) => {
     if (item.type === 'line-plot' && item.traces && item.traces.length > 0) {
+      const sweepVarName = parameterStudy?.config.sweepVariables[0]?.variableName;
       // Build traceData from extractors
       const traceData: Record<string, DataPoint[]> = {};
       for (const trace of item.traces) {
@@ -54,12 +56,26 @@ function LineViewPanel({ view }: LineViewPanelProps) {
         // Field, distribution, farfield extractors can be wired here later
       }
 
+      const defaultXAxis: AxisConfig = {
+        label: 'Frequency',
+        unit: 'MHz',
+        scale: 'linear',
+      };
+
+      const xAxisConfig: AxisConfig = parameterStudy && sweepVarName
+        ? {
+            ...(item.xAxisConfig ?? defaultXAxis),
+            label: sweepVarName,
+            unit: sweepVarName === 'freq' || sweepVarName === 'frequency' ? 'Hz' : (item.xAxisConfig?.unit ?? ''),
+          }
+        : (item.xAxisConfig ?? defaultXAxis);
+
       return (
         <Box key={item.id} sx={{ p: 2, height: 350 }}>
           <UnifiedLinePlot
             traces={item.traces}
             traceData={traceData}
-            xAxisConfig={item.xAxisConfig}
+            xAxisConfig={xAxisConfig}
             yAxisLeftConfig={item.yAxisLeftConfig}
             yAxisRightConfig={item.yAxisRightConfig}
             title={item.label}
