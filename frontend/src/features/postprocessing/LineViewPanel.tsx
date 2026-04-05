@@ -52,8 +52,8 @@ function LineViewPanel({ view }: LineViewPanelProps) {
 
   // Determine the x-axis context from sweep type
   const sweepVarName = parameterStudy?.config.sweepVariables[0]?.variableName;
-  const isParamSweep = !!(parameterStudy && parameterStudy.results.length > 0);
-  const isFreqSweep = !!(frequencySweep && frequencySweep.results.length > 0);
+  const isParamSweep = !!(parameterStudy && parameterStudy.results?.length > 0);
+  const isFreqSweep = !!(frequencySweep && (frequencySweep as any).results?.length > 0);
 
   /** Build default x-axis config based on sweep context */
   const buildXAxisConfig = (source: string): AxisConfig => {
