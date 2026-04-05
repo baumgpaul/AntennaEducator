@@ -332,25 +332,22 @@ function PostprocessingTab({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
 
-      {/* WARNING BANNER - Show when no results or results are stale or unsolved */}
-      {(!frequencySweep && !currentFrequency) || resultsStale || !isSolved ? (
+      {/* WARNING BANNER - Show when no results, results are stale, or design changed (not during sweep navigation) */}
+      {(!frequencySweep && !currentFrequency) || resultsStale || (!isSweepMode && !isSolved) ? (
         <Alert
-          severity={resultsStale ? "warning" : !isSolved && (!currentFrequency && !frequencySweep) ? "info" : "info"}
+          severity={resultsStale ? "warning" : "info"}
           sx={{ m: 2, mb: 0 }}
         >
           <AlertTitle>
             {resultsStale ? "Results Outdated" :
-             !isSolved && (!currentFrequency && !frequencySweep) ? "No Results Available" :
-             !isSolved ? "Design Modified" :
-             "No Results Available"}
+             !currentFrequency && !frequencySweep ? "No Results Available" :
+             "Design Modified"}
           </AlertTitle>
           {resultsStale
             ? "The antenna structure or solver settings have changed. Run the solver again to update results."
-            : !isSolved && (!currentFrequency && !frequencySweep)
+            : !currentFrequency && !frequencySweep
             ? "No solver results found. Please run the solver first."
-            : !isSolved
-            ? "The antenna structure has been modified. Results shown may be outdated. Run the solver and postprocessor again to update."
-            : "No solver results found. Please run the solver first."}
+            : "The antenna structure has been modified. Results shown may be outdated. Run the solver again to update."}
         </Alert>
       ) : null}
 

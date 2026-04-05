@@ -43,7 +43,7 @@ import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import type { ParameterStudyConfig } from '@/types/parameterStudy';
 import { runParameterStudy } from '@/store/parameterStudyThunks';
-import { selectParameterStudy, selectParameterStudyConfig, selectSolveMode } from '@/store/solverSlice';
+import { selectParameterStudy, selectParameterStudyConfig, selectSolveMode, requestPortQuantities } from '@/store/solverSlice';
 
 /**
  * SolverTab - New 3-panel layout for solver workflow
@@ -392,10 +392,10 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
 
         <Divider orientation="vertical" flexItem />
 
-        {/* Group 2: Field Definition */}
+        {/* Group 2: Request Quantity */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5 }}>
-            Field Definition
+            Request Quantity
           </Typography>
           <ButtonGroup size="small" variant="outlined">
             <Button
@@ -411,6 +411,14 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               disabled={simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
             >
               Add Field
+            </Button>
+            <Button
+              startIcon={<CalculateIcon />}
+              onClick={() => dispatch(requestPortQuantities())}
+              disabled={!isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
+              title={!isSolved ? 'Run solver first' : 'Compute port quantities (Z, VSWR, S11)'}
+            >
+              Request Port Quantities
             </Button>
           </ButtonGroup>
         </Box>
@@ -479,7 +487,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               disabled={!canComputePostprocessing || !isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
               title={!isSolved ? 'Run solver first before computing postprocessing' : undefined}
             >
-              Compute Fields
+              Compute PostProcessingResults
             </Button>
 
             {postprocessingStatus === 'running' && (
@@ -579,7 +587,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             minHeight: 200,
           }}
         >
-          <Scene3D elements={elements}>
+          <Scene3D elements={elements} disableCameraAutoAdjust={sweepInProgress}>
             {/* Render antenna elements */}
             <WireGeometry
               elements={elements}

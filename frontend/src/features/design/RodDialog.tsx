@@ -328,22 +328,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
               </Alert>
             </Grid>
 
-            {/* Usage Info */}
-            <Grid item xs={12}>
-              <Alert severity="info">
-                <strong>Common Uses:</strong>
-                <br />
-                • Ground plane radials
-                <br />
-                • Reflector elements
-                <br />
-                • Director elements (Yagi arrays)
-                <br />
-                • Parasitic elements
-                <br />
-                • Custom wire structures
-              </Alert>
-            </Grid>
+
           </Grid>
             </Box>
 
