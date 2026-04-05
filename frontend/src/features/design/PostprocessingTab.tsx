@@ -44,6 +44,7 @@ import {
   selectView,
   deleteViewConfiguration,
   renameViewConfiguration,
+  duplicateViewConfiguration,
   selectItem,
   removeItemFromView,
   toggleItemVisibility,
@@ -386,6 +387,7 @@ function PostprocessingTab({
             onViewSelect={(viewId) => dispatch(selectView(viewId))}
             onViewDelete={(viewId) => dispatch(deleteViewConfiguration(viewId))}
             onViewRename={(viewId, newName) => dispatch(renameViewConfiguration({ viewId, name: newName }))}
+            onViewDuplicate={(viewId) => dispatch(duplicateViewConfiguration(viewId))}
             onItemSelect={(viewId, itemId) => {
               dispatch(selectView(viewId));
               dispatch(selectItem(itemId));
@@ -535,14 +537,23 @@ function PostprocessingTab({
             const tableItem = selectedView.items.find(
               (item) => item.visible && item.type === 'port-table',
             );
+            if (!tableItem) {
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', p: 4 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No port quantities added. Use the ribbon to add a Port Quantities table.
+                  </Typography>
+                </Box>
+              );
+            }
             return (
               <Box sx={{ height: '100%', overflow: 'auto', p: 2 }}>
                 <PortQuantityTable
-                  columns={tableItem?.tableColumns ?? PORT_TABLE_COLUMNS}
+                  columns={tableItem.tableColumns ?? PORT_TABLE_COLUMNS}
                   frequencySweep={frequencySweep}
                   parameterStudy={parameterStudy}
                   z0={portZ0}
-                  title={tableItem?.label}
+                  title={tableItem.label}
                 />
               </Box>
             );

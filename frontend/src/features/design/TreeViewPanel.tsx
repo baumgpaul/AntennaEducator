@@ -127,6 +127,7 @@ interface TreeViewPanelProps {
   onViewSelect?: (viewId: string) => void;
   onViewDelete?: (viewId: string) => void;
   onViewRename?: (viewId: string, newName: string) => void;
+  onViewDuplicate?: (viewId: string) => void;
   onItemSelect?: (viewId: string, itemId: string) => void;
   onItemDelete?: (viewId: string, itemId: string) => void;
   onItemVisibilityToggle?: (viewId: string, itemId: string) => void;
@@ -174,6 +175,7 @@ function TreeViewPanel({
   onViewSelect,
   onViewDelete: _onViewDelete,
   onViewRename: _onViewRename,
+  onViewDuplicate,
   onItemSelect,
   onItemDelete,
   onItemVisibilityToggle,
@@ -207,6 +209,19 @@ function TreeViewPanel({
   const [fieldRenameDialogOpen, setFieldRenameDialogOpen] = useState(false);
   const [renamingFieldId, setRenamingFieldId] = useState<string | null>(null);
   const [newFieldName, setNewFieldName] = useState('');
+
+  // View context menu state
+  const [viewContextMenu, setViewContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    viewId: string;
+  } | null>(null);
+
+  // View rename dialog state
+  const [viewRenameDialogOpen, setViewRenameDialogOpen] = useState(false);
+  const [renamingViewId, setRenamingViewId] = useState<string | null>(null);
+  const [newViewName, setNewViewName] = useState('');
+
   // Build tree data from elements or single mesh
   const treeData = useMemo<TreeNode[]>(() => {
     console.log('[TreeViewPanel] Building tree from elements:', elements?.map(e => ({ id: e.id, name: e.name })));
@@ -947,6 +962,20 @@ function TreeViewPanel({
                         color={view.viewType === '3D' ? 'primary' : 'secondary'}
                         sx={{ height: 20, fontSize: '0.65rem' }}
                       />
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewContextMenu({
+                            mouseX: e.clientX,
+                            mouseY: e.clientY,
+                            viewId: view.id,
+                          });
+                        }}
+                        sx={{ p: 0.25, ml: 0.5 }}
+                      >
+                        <MoreVert fontSize="small" />
+                      </IconButton>
                     </AccordionSummary>
                     <AccordionDetails sx={{ p: 0 }}>
                       {view.items.length === 0 ? (
@@ -1019,6 +1048,93 @@ function TreeViewPanel({
                 ))}
               </List>
             )}
+
+            {/* View context menu */}
+            <Menu
+              open={viewContextMenu !== null}
+              onClose={() => setViewContextMenu(null)}
+              anchorReference="anchorPosition"
+              anchorPosition={
+                viewContextMenu
+                  ? { top: viewContextMenu.mouseY, left: viewContextMenu.mouseX }
+                  : undefined
+              }
+            >
+              <MenuItem
+                onClick={() => {
+                  if (viewContextMenu) {
+                    const view = viewConfigurations.find(v => v.id === viewContextMenu.viewId);
+                    if (view) {
+                      setRenamingViewId(viewContextMenu.viewId);
+                      setNewViewName(view.name);
+                      setViewRenameDialogOpen(true);
+                    }
+                  }
+                  setViewContextMenu(null);
+                }}
+              >
+                <ListItemIcon><Edit fontSize="small" /></ListItemIcon>
+                <ListItemText>Rename</ListItemText>
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  if (viewContextMenu) {
+                    onViewDuplicate?.(viewContextMenu.viewId);
+                  }
+                  setViewContextMenu(null);
+                }}
+              >
+                <ListItemIcon><ContentCopy fontSize="small" /></ListItemIcon>
+                <ListItemText>Duplicate</ListItemText>
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  if (viewContextMenu) {
+                    _onViewDelete?.(viewContextMenu.viewId);
+                  }
+                  setViewContextMenu(null);
+                }}
+                sx={{ color: 'error.main' }}
+              >
+                <ListItemIcon><Delete fontSize="small" sx={{ color: 'error.main' }} /></ListItemIcon>
+                <ListItemText>Delete</ListItemText>
+              </MenuItem>
+            </Menu>
+
+            {/* View rename dialog */}
+            <Dialog open={viewRenameDialogOpen} onClose={() => setViewRenameDialogOpen(false)}>
+              <DialogTitle>Rename View</DialogTitle>
+              <DialogContent>
+                <TextField
+                  autoFocus
+                  fullWidth
+                  value={newViewName}
+                  onChange={(e) => setNewViewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newViewName.trim() && renamingViewId) {
+                      _onViewRename?.(renamingViewId, newViewName.trim());
+                      setViewRenameDialogOpen(false);
+                    }
+                  }}
+                  sx={{ mt: 1 }}
+                />
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setViewRenameDialogOpen(false)}>Cancel</Button>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    if (renamingViewId && newViewName.trim()) {
+                      _onViewRename?.(renamingViewId, newViewName.trim());
+                    }
+                    setViewRenameDialogOpen(false);
+                  }}
+                  disabled={!newViewName.trim()}
+                >
+                  Rename
+                </Button>
+              </DialogActions>
+            </Dialog>
           </>
         )}
       </Box>

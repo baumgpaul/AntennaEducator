@@ -108,6 +108,33 @@ const postprocessingSlice = createSlice({
     },
 
     /**
+     * Duplicate (copy) a view configuration
+     */
+    duplicateViewConfiguration: (state, action: PayloadAction<string>) => {
+      if (state.viewConfigurations.length >= MAX_VIEW_CONFIGURATIONS) return;
+      const source = state.viewConfigurations.find(v => v.id === action.payload);
+      if (!source) return;
+
+      const now = new Date().toISOString();
+      const newView: ViewConfiguration = {
+        ...JSON.parse(JSON.stringify(source)),
+        id: uuidv4(),
+        name: `${source.name} (Copy)`,
+        createdAt: now,
+        updatedAt: now,
+      };
+      // Give each item a fresh id
+      newView.items = newView.items.map((item: ViewItem) => ({
+        ...item,
+        id: uuidv4(),
+      }));
+
+      state.viewConfigurations.push(newView);
+      state.selectedViewId = newView.id;
+      state.selectedItemId = null;
+    },
+
+    /**
      * Select a view configuration
      */
     selectView: (state, action: PayloadAction<string | null>) => {
@@ -280,6 +307,7 @@ export const {
   createViewConfiguration,
   deleteViewConfiguration,
   renameViewConfiguration,
+  duplicateViewConfiguration,
   selectView,
   addItemToView,
   removeItemFromView,

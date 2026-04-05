@@ -9,6 +9,11 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import AddCurveDialog from '../postprocessing/AddCurveDialog';
+import type { AddCurveResult } from '../postprocessing/AddCurveDialog';
+import { selectParameterStudy } from '@/store/solverSlice';
+import type { PlotTrace } from '@/types/plotDefinitions';
 import {
   CableOutlined,
   RadioButtonChecked,
@@ -17,7 +22,6 @@ import {
   CheckCircle,
   Add,
   Sensors,
-  ShowChart,
   PictureAsPdf,
   SaveAlt,
   AccountTree,
@@ -31,11 +35,10 @@ import {
   setAddViewDialogOpen,
   setAddAntennaDialogOpen,
   setAddFieldDialogOpen,
-  setAddScalarPlotDialogOpen,
-  setScalarPlotPreselect,
   setExportPDFDialogOpen,
   setExportType,
   addItemToView,
+  updateItemProperty,
 } from '@/store/postprocessingSlice';
 import { exportToVTU, canExportToVTU } from '@/utils/ParaViewExporter';
 import type { RootState } from '@/store';
@@ -150,20 +153,37 @@ function RibbonMenu({
     }));
   };
 
-  const handleAddImpedancePlot = () => {
-    dispatch(setScalarPlotPreselect('impedance'));
-    dispatch(setAddScalarPlotDialogOpen(true));
+  // Add Curve dialog state (Line view)
+  const [addCurveDialogOpen, setAddCurveDialogOpen] = useState(false);
+  const parameterStudy = useAppSelector(selectParameterStudy);
+
+  const handleAddCurveResult = (result: AddCurveResult) => {
+    if (!selectedViewId) return;
+    // Find existing line-plot item or create one
+    const lineItem = selectedViewData?.items.find((i) => i.type === 'line-plot');
+    if (lineItem) {
+      const existing: PlotTrace[] = lineItem.traces ?? [];
+      dispatch(updateItemProperty({
+        viewId: selectedViewId,
+        itemId: lineItem.id,
+        property: 'traces',
+        value: [...existing, ...result.traces],
+      }));
+    } else {
+      dispatch(addItemToView({
+        viewId: selectedViewId,
+        item: {
+          type: 'line-plot',
+          visible: true,
+          traces: result.traces,
+        },
+      }));
+    }
   };
 
-  const handleAddVoltagePlot = () => {
-    dispatch(setScalarPlotPreselect('voltage'));
-    dispatch(setAddScalarPlotDialogOpen(true));
-  };
-
-  const handleAddCurrentPlot = () => {
-    dispatch(setScalarPlotPreselect('current'));
-    dispatch(setAddScalarPlotDialogOpen(true));
-  };
+  const existingTraceCount = selectedViewData?.items
+    .filter((i) => i.type === 'line-plot')
+    .reduce((acc, i) => acc + (i.traces?.length ?? 0), 0) ?? 0;
 
   const handleAddSmithChart = () => {
     if (!selectedViewId) return;
@@ -484,39 +504,21 @@ function RibbonMenu({
                 </>
               )}
 
-              {/* Scalar Results Section (Line view only) */}
+              {/* Add Curve Section (Line view only) */}
               {selectedViewData?.viewType === 'Line' && (
                 <>
                   <Box>
                     <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                      Scalar Results
+                      Curves
                     </Box>
                     <ButtonGroup variant="outlined" size="small">
-                      <Tooltip title="Add impedance vs frequency plot">
+                      <Tooltip title="Add a curve to this line plot (impedance, VSWR, current, voltage, ...)">
                         <Button
-                          startIcon={<ShowChart />}
-                          onClick={handleAddImpedancePlot}
+                          startIcon={<AddIcon />}
+                          onClick={() => setAddCurveDialogOpen(true)}
                           disabled={!selectedViewId}
                         >
-                          Impedance
-                        </Button>
-                      </Tooltip>
-                      <Tooltip title="Add voltage vs frequency plot">
-                        <Button
-                          startIcon={<ShowChart />}
-                          onClick={handleAddVoltagePlot}
-                          disabled={!selectedViewId}
-                        >
-                          Voltage
-                        </Button>
-                      </Tooltip>
-                      <Tooltip title="Add current vs frequency plot">
-                        <Button
-                          startIcon={<ShowChart />}
-                          onClick={handleAddCurrentPlot}
-                          disabled={!selectedViewId}
-                        >
-                          Current
+                          Add Curve
                         </Button>
                       </Tooltip>
                     </ButtonGroup>
@@ -644,6 +646,15 @@ function RibbonMenu({
           {snackbarMessage}
         </Alert>
       </Snackbar>
+
+      {/* Add Curve wizard dialog (Line views) */}
+      <AddCurveDialog
+        open={addCurveDialogOpen}
+        onClose={() => setAddCurveDialogOpen(false)}
+        onAdd={handleAddCurveResult}
+        parameterStudy={parameterStudy}
+        existingTraceCount={existingTraceCount}
+      />
     </Paper>
   );
 }

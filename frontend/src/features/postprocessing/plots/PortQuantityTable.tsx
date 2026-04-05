@@ -137,9 +137,12 @@ function buildColumns(
       label: sv.variableName,
       unit: sv.variableName.toLowerCase().includes('freq') ? 'Hz' : '',
     }));
-    // Remove 'frequency' column from base if sweep has its own freq variable
+    // Remove 'frequency' column from base — sweep variables replace it.
+    // Also remove any column whose key matches a sweep variable name.
     const filteredBase = baseColumns.filter(
-      (c) => !varCols.some((vc) => vc.key === c.key),
+      (c) =>
+        c.key !== 'frequency' &&
+        !varCols.some((vc) => vc.key === c.key),
     );
     return [...varCols, ...filteredBase];
   }
