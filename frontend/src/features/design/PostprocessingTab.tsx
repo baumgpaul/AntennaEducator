@@ -475,7 +475,7 @@ function PostprocessingTab({
             }
 
             const cutPlane = polarItem.polarCutPlane ?? 'phi';
-            const cutAngleDeg = polarItem.polarCutAngleDeg ?? 0;
+            const cutAngleDeg = polarItem.polarCutAngleDeg ?? 90;
             const polarScale = polarItem.polarScale ?? 'dB';
 
             // Helper: extract polar data from a single radiation pattern
@@ -530,8 +530,11 @@ function PostprocessingTab({
             // Sweep overlay: show all sweep points' patterns on one chart
             if (polarItem.sweepOverlay && parameterStudy && radiationPatterns) {
               const sweepVars = parameterStudy.config.sweepVariables;
+              const vis = polarItem.sweepOverlayVisibility;
               const datasets: PolarDataSeries[] = [];
               for (let ptIdx = 0; ptIdx < parameterStudy.results.length; ptIdx++) {
+                // Skip hidden series
+                if (vis && vis[ptIdx] === false) continue;
                 const pattern = radiationPatterns[ptIdx];
                 if (!pattern) continue;
                 const data = extractPolarCut(pattern);

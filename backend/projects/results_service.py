@@ -17,6 +17,7 @@ S3_RESULT_KEYS = {
     "solver_results": ResultType.SOLVER_RESULTS,  # results, frequency_sweep, etc.
     "radiation_pattern": ResultType.RADIATION_PATTERN,  # radiationPattern
     "field_data": ResultType.FIELD_DATA,  # fieldData, fieldResults
+    "parameter_study": ResultType.PARAMETER_STUDY,  # parameterStudy, radiationPatterns, etc.
 }
 
 
@@ -87,6 +88,21 @@ class ResultsService:
             for field in ["fieldData", "fieldResults"]:
                 slim_results.pop(field, None)
 
+        # Extract and store parameter study data (can be very large)
+        param_study_data = self._extract_parameter_study_data(simulation_results)
+        if param_study_data:
+            key = await self.storage.store_result(
+                project_id, ResultType.PARAMETER_STUDY, param_study_data
+            )
+            result_keys["parameter_study"] = key
+            for field in [
+                "parameterStudy",
+                "radiationPatterns",
+                "resultsHistory",
+                "currentDistribution",
+            ]:
+                slim_results.pop(field, None)
+
         # Store the keys reference in slim_results
         slim_results["result_keys"] = result_keys
 
@@ -134,6 +150,12 @@ class ResultsService:
             field_data = await self.storage.get_result(project_id, ResultType.FIELD_DATA)
             if field_data:
                 hydrated.update(field_data)
+
+        # Fetch parameter study data
+        if "parameter_study" in result_keys:
+            param_data = await self.storage.get_result(project_id, ResultType.PARAMETER_STUDY)
+            if param_data:
+                hydrated.update(param_data)
 
         return hydrated
 
@@ -200,6 +222,19 @@ class ResultsService:
             if field in simulation_results and simulation_results[field] is not None:
                 field_data[field] = simulation_results[field]
         return field_data
+
+    def _extract_parameter_study_data(self, simulation_results: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract parameter study and related large data from simulation_results."""
+        param_data = {}
+        for field in [
+            "parameterStudy",
+            "radiationPatterns",
+            "resultsHistory",
+            "currentDistribution",
+        ]:
+            if field in simulation_results and simulation_results[field] is not None:
+                param_data[field] = simulation_results[field]
+        return param_data
 
 
 # Singleton instance

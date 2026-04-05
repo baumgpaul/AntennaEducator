@@ -40,7 +40,22 @@ function parseComplex(v: unknown): ComplexLike {
   }
   if (typeof v === 'number') return { real: v, imag: 0 };
   if (typeof v === 'string') {
-    const n = parseFloat(v);
+    // Handle Python complex string formats: "(50+20j)", "(50-20j)", "50+20j", "(-3.2+0j)"
+    const s = v.replace(/[()]/g, '').trim();
+    const match = s.match(/^([+-]?[\d.eE+-]+)\s*([+-]\s*[\d.eE+-]+)[jJ]$/);
+    if (match) {
+      const real = parseFloat(match[1]);
+      const imag = parseFloat(match[2].replace(/\s/g, ''));
+      if (Number.isFinite(real) && Number.isFinite(imag)) return { real, imag };
+    }
+    // Pure imaginary: "20j", "-3.5j"
+    const pureImag = s.match(/^([+-]?[\d.eE+-]+)[jJ]$/);
+    if (pureImag) {
+      const imag = parseFloat(pureImag[1]);
+      if (Number.isFinite(imag)) return { real: 0, imag };
+    }
+    // Plain number string
+    const n = parseFloat(s);
     return Number.isFinite(n) ? { real: n, imag: 0 } : { real: 0, imag: 0 };
   }
   return { real: 0, imag: 0 };

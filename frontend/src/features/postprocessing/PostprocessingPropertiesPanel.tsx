@@ -37,6 +37,8 @@ import {
   toggleItemVisibility,
 } from '../../store/postprocessingSlice';
 import { selectSelectedFrequencyHz } from '../../store/solverSlice';
+import { selectParameterStudy } from '../../store/solverSlice';
+import { TRACE_COLORS } from '@/types/plotDefinitions';
 
 /**
  * Get ordinal suffix for density numbers (1st, 2nd, 3rd, 4th, etc.)
@@ -65,6 +67,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   const fieldData = useAppSelector((state) => state.solver.fieldData);
   const radiationPattern = useAppSelector((state) => state.solver.radiationPattern);
   const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
+  const parameterStudy = useAppSelector(selectParameterStudy);
   const requestedFields = useAppSelector((state) => state.solver.requestedFields) as FieldDefinition[];
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
@@ -943,11 +946,58 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               fullWidth
               label="Cut Angle (°)"
               type="number"
-              value={selectedItem.polarCutAngleDeg ?? 0}
-              onChange={(e) => handleItemPropertyChange('polarCutAngleDeg', parseFloat(e.target.value) || 0)}
+              value={selectedItem.polarCutAngleDeg ?? 90}
+              onChange={(e) => handleItemPropertyChange('polarCutAngleDeg', parseFloat(e.target.value) || 90)}
               size="small"
               sx={{ mb: 2 }}
             />
+
+            {/* Sweep overlay series toggle */}
+            {selectedItem.sweepOverlay && parameterStudy && parameterStudy.results.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" gutterBottom>
+                  Sweep Series
+                </Typography>
+                <Box sx={{ maxHeight: 200, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.5 }}>
+                  {parameterStudy.results.map((pr, ptIdx) => {
+                    const sweepVars = parameterStudy.config.sweepVariables;
+                    const labelParts = sweepVars.map((sv) => {
+                      const val = pr.point.values[sv.variableName];
+                      return val != null ? `${sv.variableName}=${Number(val).toPrecision(4)}` : '';
+                    }).filter(Boolean);
+                    const label = labelParts.join(', ') || `Point ${ptIdx}`;
+                    const vis = selectedItem.sweepOverlayVisibility;
+                    const isVisible = vis == null || vis[ptIdx] !== false;
+                    const color = TRACE_COLORS[ptIdx % TRACE_COLORS.length];
+                    return (
+                      <FormControlLabel
+                        key={ptIdx}
+                        sx={{ display: 'flex', m: 0, px: 0.5 }}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={isVisible}
+                            onChange={(_, checked) => {
+                              const current = selectedItem.sweepOverlayVisibility ?? {};
+                              handleItemPropertyChange('sweepOverlayVisibility', {
+                                ...current,
+                                [ptIdx]: checked,
+                              });
+                            }}
+                            sx={{ color, '&.Mui-checked': { color }, p: 0.5 }}
+                          />
+                        }
+                        label={
+                          <Typography variant="caption" noWrap>
+                            {label}
+                          </Typography>
+                        }
+                      />
+                    );
+                  })}
+                </Box>
+              </Box>
+            )}
           </>
         );
 

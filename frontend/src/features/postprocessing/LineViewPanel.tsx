@@ -26,7 +26,21 @@ function LineViewPanel({ view }: LineViewPanelProps) {
   const dispatch = useAppDispatch();
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const parameterStudy = useAppSelector(selectParameterStudy);
+  const currentDistribution = useAppSelector((state) => state.solver.currentDistribution);
+  const radiationPattern = useAppSelector((state) => state.solver.radiationPattern);
+  const radiationPatterns = useAppSelector((state) => state.solver.radiationPatterns);
   const [addCurveDialogOpen, setAddCurveDialogOpen] = useState(false);
+
+  // Data availability flags for AddCurveDialog
+  const hasPortData = !!(
+    (frequencySweep && frequencySweep.results && frequencySweep.results.length > 0) ||
+    (parameterStudy && parameterStudy.results && parameterStudy.results.length > 0)
+  );
+  const hasDistributionData = !!(currentDistribution && Object.keys(currentDistribution).length > 0);
+  const hasFarfieldData = !!(
+    radiationPattern ||
+    (radiationPatterns && Object.keys(radiationPatterns).length > 0)
+  );
 
   const visibleItems = view.items.filter((item) => item.visible);
 
@@ -88,6 +102,9 @@ function LineViewPanel({ view }: LineViewPanelProps) {
           onAdd={handleAddCurve}
           parameterStudy={parameterStudy}
           existingTraceCount={existingTraceCount}
+          hasPortData={hasPortData}
+          hasDistributionData={hasDistributionData}
+          hasFarfieldData={hasFarfieldData}
         />
       </Box>
     );
@@ -174,6 +191,9 @@ function LineViewPanel({ view }: LineViewPanelProps) {
         onAdd={handleAddCurve}
         parameterStudy={parameterStudy}
         existingTraceCount={existingTraceCount}
+        hasPortData={hasPortData}
+        hasDistributionData={hasDistributionData}
+        hasFarfieldData={hasFarfieldData}
       />
     </Box>
   );

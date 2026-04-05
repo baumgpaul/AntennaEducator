@@ -225,6 +225,8 @@ export interface ViewItem {
   polarScale?: 'linear' | 'dB';
   /** When true, overlay all sweep points on the same polar chart */
   sweepOverlay?: boolean;
+  /** Per-sweep-point visibility for overlay mode (key: point index, value: visible) */
+  sweepOverlayVisibility?: Record<number, boolean>;
 
   // Table item properties (type: 'port-table')
   /** Visible columns for port quantity table */

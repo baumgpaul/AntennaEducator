@@ -110,6 +110,12 @@ interface AddCurveDialogProps {
   onAdd: (result: AddCurveResult) => void;
   parameterStudy: ParameterStudyResult | null;
   existingTraceCount: number;
+  /** Whether port/impedance data is available (frequencySweep or parameterStudy) */
+  hasPortData?: boolean;
+  /** Whether current/voltage distribution data is available */
+  hasDistributionData?: boolean;
+  /** Whether far-field/radiation pattern data is available */
+  hasFarfieldData?: boolean;
 }
 
 // ============================================================================
@@ -125,6 +131,9 @@ export default function AddCurveDialog({
   onAdd,
   parameterStudy,
   existingTraceCount,
+  hasPortData = false,
+  hasDistributionData = false,
+  hasFarfieldData = false,
 }: AddCurveDialogProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [selectedSource, setSelectedSource] = useState<SourceType | null>(null);
@@ -136,6 +145,15 @@ export default function AddCurveDialog({
   const sweepVars = parameterStudy?.config.sweepVariables ?? [];
   const hasTwoVars = sweepVars.length >= 2;
   const steps = mode === 'group' ? STEPS_GROUP : STEPS_SINGLE;
+
+  const isSourceAvailable = (type: SourceType): boolean => {
+    switch (type) {
+      case 'port': return hasPortData;
+      case 'distribution': return hasDistributionData;
+      case 'farfield': return hasFarfieldData;
+      case 'field': return false; // Not yet wired
+    }
+  };
 
   // Sweep values for variable sliders
   const overlayVar = hasTwoVars ? sweepVars[overlayVarIdx] : sweepVars[0];
@@ -262,24 +280,27 @@ export default function AddCurveDialog({
         {/* Step 1: Source */}
         {activeStep === 0 && (
           <List>
-            {SOURCE_OPTIONS.map((opt) => (
-              <ListItemButton
-                key={opt.type}
-                onClick={() => handleSourceSelect(opt.type)}
-                selected={selectedSource === opt.type}
-                disabled={opt.type === 'field'} // Not yet wired
-                sx={{ borderRadius: 1, mb: 0.5 }}
-              >
-                <ListItemIcon>{opt.icon}</ListItemIcon>
-                <ListItemText
-                  primary={opt.label}
-                  secondary={opt.description}
-                />
-                {opt.type === 'field' && (
-                  <Chip label="Coming soon" size="small" variant="outlined" />
-                )}
-              </ListItemButton>
-            ))}
+            {SOURCE_OPTIONS.map((opt) => {
+              const available = isSourceAvailable(opt.type);
+              return (
+                <ListItemButton
+                  key={opt.type}
+                  onClick={() => handleSourceSelect(opt.type)}
+                  selected={selectedSource === opt.type}
+                  disabled={!available}
+                  sx={{ borderRadius: 1, mb: 0.5 }}
+                >
+                  <ListItemIcon>{opt.icon}</ListItemIcon>
+                  <ListItemText
+                    primary={opt.label}
+                    secondary={opt.description}
+                  />
+                  {!available && (
+                    <Chip label="No data" size="small" variant="outlined" />
+                  )}
+                </ListItemButton>
+              );
+            })}
           </List>
         )}
 
