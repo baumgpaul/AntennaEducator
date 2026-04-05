@@ -18,6 +18,19 @@ function parseComplex(v: unknown): { real: number; imag: number } {
     return { real: (v as any).real, imag: (v as any).imag };
   }
   if (typeof v === 'number') return { real: v, imag: 0 };
+  if (typeof v === 'string') {
+    const cleaned = v.replace(/[()]/g, '');
+    const match = cleaned.match(/^([+-]?[\d.eE+-]+)([+-][\d.eE+-]+)[jJ]$/);
+    if (match) {
+      return { real: parseFloat(match[1]), imag: parseFloat(match[2]) };
+    }
+    const imagMatch = cleaned.match(/^([+-]?[\d.eE+-]+)[jJ]$/);
+    if (imagMatch) {
+      return { real: 0, imag: parseFloat(imagMatch[1]) };
+    }
+    const realOnly = parseFloat(cleaned);
+    if (!isNaN(realOnly)) return { real: realOnly, imag: 0 };
+  }
   return { real: 0, imag: 0 };
 }
 

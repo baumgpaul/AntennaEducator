@@ -613,14 +613,16 @@ function RibbonMenu({
                       Tables
                     </Box>
                     <ButtonGroup variant="outlined" size="small">
-                      <Tooltip title="Add port impedance/VSWR/Return Loss table">
-                        <Button
-                          startIcon={<TableChart />}
-                          onClick={handleAddPortTable}
-                          disabled={!selectedViewId}
-                        >
-                          Port Quantities
-                        </Button>
+                      <Tooltip title={selectedViewData?.items.some((i) => i.type === 'port-table') ? 'Port quantities already added' : 'Add port impedance/VSWR/Return Loss table'}>
+                        <span>
+                          <Button
+                            startIcon={<TableChart />}
+                            onClick={handleAddPortTable}
+                            disabled={!selectedViewId || selectedViewData?.items.some((i) => i.type === 'port-table')}
+                          >
+                            Port Quantities
+                          </Button>
+                        </span>
                       </Tooltip>
                     </ButtonGroup>
                   </Box>
