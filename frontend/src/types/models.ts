@@ -79,6 +79,14 @@ export interface LumpedElement {
   tag?: string
 }
 
+export interface Port {
+  id: string            // UUID
+  node_start: number    // 1-based mesh node index
+  node_end: number      // 1-based mesh node index (0 = ground)
+  z0: number            // Characteristic impedance [Ω], default 50
+  label?: string        // User label, e.g. "Port 1"
+}
+
 // ============================================================================
 // Antenna Builder Types
 // ============================================================================
@@ -188,6 +196,7 @@ export interface AntennaElement {
   mesh: Mesh
   sources?: Source[]  // Voltage/current sources
   lumped_elements?: LumpedElement[]  // Loads (R, L, C)
+  ports?: Port[]  // Measurement ports for Z, Γ, S11, VSWR
   appended_nodes?: AppendedNode[]  // User-created auxiliary circuit nodes
   visible: boolean
   locked: boolean

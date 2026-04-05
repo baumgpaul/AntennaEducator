@@ -225,6 +225,11 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
               onChange={setValueStr}
               size="small"
             />
+            {type === 'port' && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: 'block' }}>
+                Reference impedance — used for postprocessing only
+              </Typography>
+            )}
           </Grid>
 
           {/* Phase (sources only) */}

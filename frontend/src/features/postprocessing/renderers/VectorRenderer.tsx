@@ -118,7 +118,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
 
   // Get field data for this frequency (safe access before early return)
   // Use String() fallback for defensive key lookup — after JSON round-trip, object keys are always strings
-  const dataForFrequency = (field && fieldData && frequencyHz)
+  const dataForFrequency = (field && fieldData && frequencyHz != null)
     ? (fieldData[field.id]?.[frequencyHz] ?? fieldData[field.id]?.[String(frequencyHz)])
     : undefined;
 
@@ -365,7 +365,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
     }
 
     // Only create new arrows when we have valid data
-    if (!field || !fieldData || !frequencyHz || !dataForFrequency || !hasData) return;
+    if (!field || !fieldData || frequencyHz == null || !dataForFrequency || !hasData) return;
 
     for (const arrow of arrows) {
       if (!arrow) continue;

@@ -217,11 +217,58 @@ export const computeFarField = async (request: {
   return handleApiResponse(response)
 }
 
+// ============================================================================
+// Port Quantities
+// ============================================================================
+
+export interface PortDefinitionInput {
+  port_id: string
+  node_start: number
+  node_end: number
+  z0: number
+}
+
+export interface PortQuantitiesRequestInput {
+  frequency: number
+  antenna_id: string
+  node_voltages: Array<{ real: number; imag: number }>
+  branch_currents: Array<{ real: number; imag: number }>
+  appended_voltages?: Array<{ real: number; imag: number }>
+  voltage_source_currents?: Array<{ real: number; imag: number }>
+  edges: number[][]
+  ports: PortDefinitionInput[]
+}
+
+export interface PortResultOutput {
+  port_id: string
+  z_in: { real: number; imag: number }
+  gamma: { real: number; imag: number }
+  s11_db: number
+  vswr: number
+  voltage: { real: number; imag: number }
+  current: { real: number; imag: number }
+  power_in: number
+}
+
+export interface PortQuantitiesResponseOutput {
+  antenna_id: string
+  frequency: number
+  port_results: PortResultOutput[]
+}
+
+export const computePortQuantities = async (
+  request: PortQuantitiesRequestInput,
+): Promise<PortQuantitiesResponseOutput> => {
+  const response = await postprocessorClient.post('/api/port-quantities', request)
+  return handleApiResponse(response)
+}
+
 // Export all functions as a single object
 const postprocessorApi = {
   checkHealth,
   computeNearField,
   computeFarField,
+  computePortQuantities,
 }
 
 export default postprocessorApi

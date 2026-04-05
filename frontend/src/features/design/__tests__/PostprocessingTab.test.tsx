@@ -6,6 +6,7 @@ import PostprocessingTab from '../PostprocessingTab';
 import postprocessingReducer from '@/store/postprocessingSlice';
 import designReducer from '@/store/designSlice';
 import solverReducer from '@/store/solverSlice';
+import variablesReducer from '@/store/variablesSlice';
 import type { AntennaElement } from '@/types/models';
 import type { ViewConfiguration } from '@/types/postprocessing';
 
@@ -40,6 +41,7 @@ function renderWithStore(
       postprocessing: postprocessingReducer,
       design: designReducer,
       solver: solverReducer,
+      variables: variablesReducer,
     },
     preloadedState: {
       postprocessing: {
@@ -80,6 +82,10 @@ function renderWithStore(
         radiationPatterns: null,
         selectedFrequencyHz: null,
         resultsStale: false,
+        parameterStudy: null,
+        parameterStudyConfig: null,
+        selectedSweepPointIndex: 0,
+        portResults: null,
         ...overrides.solver,
       } as any,
     },

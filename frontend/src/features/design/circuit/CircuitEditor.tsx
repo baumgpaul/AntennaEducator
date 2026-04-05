@@ -48,10 +48,12 @@ import {
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import SaveIcon from '@mui/icons-material/Save';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 
 import { circuitNodeTypes, type CircuitNodeData } from './CircuitNodeTypes';
 import { circuitEdgeTypes, type CircuitEdgeData } from './CircuitEdgeTypes';
 import { ComponentEditDialog } from './ComponentEditDialog';
+import { computeAutoLayout } from './autoLayout';
 import type {
   CircuitState,
   CircuitComponent,
@@ -74,10 +76,11 @@ import type { AntennaElement } from '@/types/models';
 export interface CircuitEditorProps {
   open: boolean;
   onClose: () => void;
-  /** Apply changes — receives sources + lumped_elements + appended_nodes */
+  /** Apply changes — receives sources + lumped_elements + ports + appended_nodes */
   onApply: (data: {
     sources: ReturnType<typeof circuitToBackend>['sources'];
     lumped_elements: ReturnType<typeof circuitToBackend>['lumped_elements'];
+    ports: ReturnType<typeof circuitToBackend>['ports'];
     appended_nodes: Array<{ index: number; label: string }>;
   }) => void;
   /** The antenna element being edited */
@@ -148,6 +151,7 @@ const PALETTE_ITEMS: CircuitComponentType[] = [
   'capacitor',
   'voltage_source',
   'current_source',
+  'port',
 ];
 
 const PALETTE_COLORS: Record<CircuitComponentType, string> = {
@@ -156,6 +160,7 @@ const PALETTE_COLORS: Record<CircuitComponentType, string> = {
   capacitor: '#4caf50',
   voltage_source: '#f44336',
   current_source: '#e91e63',
+  port: '#9c27b0',
 };
 
 // ============================================================================
@@ -273,7 +278,7 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     }
 
     const initial = backendToCircuit(
-      sources, lumpedElements, terminalNodeIndices, existingAppended, element.mesh,
+      sources, lumpedElements, terminalNodeIndices, existingAppended, element.mesh, element.ports,
     );
     setCircuit(initial);
 
@@ -378,6 +383,23 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     setEditDialogOpen(true);
   }, []);
 
+  // Auto-layout: reposition nodes using dagre
+  const handleAutoLayout = useCallback(() => {
+    const currentNodes = rfNodesToCircuit(rfNodes);
+    const layouted = computeAutoLayout(currentNodes, circuit.components);
+
+    setCircuit((prev) => ({ ...prev, nodes: layouted }));
+    setRfNodes((prev) =>
+      prev.map((rfn) => {
+        const updated = layouted.find(
+          (n) => `node-${n.index}` === rfn.id,
+        );
+        if (!updated) return rfn;
+        return { ...rfn, position: { x: updated.positionX, y: updated.positionY } };
+      }),
+    );
+  }, [rfNodes, circuit.components, setRfNodes]);
+
   // Save component from edit dialog
   const handleSaveComponent = useCallback(
     (compData: Omit<CircuitComponent, 'id'> & { id?: string }) => {
@@ -453,12 +475,12 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     const finalNodes = rfNodesToCircuit(rfNodes);
     const finalCircuit: CircuitState = { nodes: finalNodes, components: circuit.components };
 
-    const { sources, lumped_elements } = circuitToBackend(finalCircuit);
+    const { sources, lumped_elements, ports } = circuitToBackend(finalCircuit);
     const appended_nodes = finalNodes
       .filter((n) => n.kind === 'appended')
       .map((n) => ({ index: n.index, label: n.label }));
 
-    onApply({ sources, lumped_elements, appended_nodes });
+    onApply({ sources, lumped_elements, ports, appended_nodes });
     onClose();
   }, [rfNodes, circuit.components, onApply, onClose]);
 
@@ -609,6 +631,19 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
             sx={{ textTransform: 'none', fontSize: '0.75rem' }}
           >
             Add Component
+          </Button>
+
+          {/* Auto Layout Button */}
+          <Button
+            startIcon={<AccountTreeIcon />}
+            onClick={handleAutoLayout}
+            size="small"
+            variant="outlined"
+            color="secondary"
+            fullWidth
+            sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+          >
+            Auto Layout
           </Button>
 
           <Divider sx={{ borderColor: '#333' }} />

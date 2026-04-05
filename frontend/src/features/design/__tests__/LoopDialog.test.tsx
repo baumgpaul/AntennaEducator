@@ -210,4 +210,134 @@ describe('LoopDialog - T4.A2: Frequency Input Removal', () => {
       expect(screen.getByLabelText(/Loop Radius/i)).toBeInTheDocument();
     });
   });
+
+  describe('Orientation (Rotation Angles)', () => {
+    it('should render rotation angle fields', () => {
+      render(
+        <Provider store={createTestStore()}>
+          <LoopDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      expect(screen.getByLabelText(/Rot X/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Rot Y/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Rot Z/i)).toBeInTheDocument();
+    });
+
+    it('should default rotation angles to 0', () => {
+      render(
+        <Provider store={createTestStore()}>
+          <LoopDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      expect((screen.getByLabelText(/Rot X/i) as HTMLInputElement).value).toBe('0');
+      expect((screen.getByLabelText(/Rot Y/i) as HTMLInputElement).value).toBe('0');
+      expect((screen.getByLabelText(/Rot Z/i) as HTMLInputElement).value).toBe('0');
+    });
+
+    it('should accept rotation angle values', async () => {
+      const user = userEvent.setup();
+      render(
+        <Provider store={createTestStore()}>
+          <LoopDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      const rotX = screen.getByLabelText(/Rot X/i);
+      await user.clear(rotX);
+      await user.type(rotX, '45');
+
+      expect((rotX as HTMLInputElement).value).toBe('45');
+    });
+
+    it('should submit with rotation angles in resolved data', async () => {
+      const user = userEvent.setup();
+      mockOnGenerate.mockResolvedValue(undefined);
+
+      render(
+        <Provider store={createTestStore()}>
+          <LoopDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      const rotX = screen.getByLabelText(/Rot X/i);
+      await user.clear(rotX);
+      await user.type(rotX, '90');
+
+      await user.click(screen.getByRole('button', { name: /Generate/i }));
+
+      await waitFor(() => {
+        expect(mockOnGenerate).toHaveBeenCalledTimes(1);
+      });
+
+      const submittedData = mockOnGenerate.mock.calls[0][0];
+      expect(submittedData.orientation).toEqual({ rotX: 90, rotY: 0, rotZ: 0 });
+    });
+
+    it('should submit rotation angles without normalization', async () => {
+      const user = userEvent.setup();
+      mockOnGenerate.mockResolvedValue(undefined);
+
+      render(
+        <Provider store={createTestStore()}>
+          <LoopDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      const rotX = screen.getByLabelText(/Rot X/i);
+      const rotY = screen.getByLabelText(/Rot Y/i);
+      const rotZ = screen.getByLabelText(/Rot Z/i);
+
+      await user.clear(rotX);
+      await user.type(rotX, '30');
+      await user.clear(rotY);
+      await user.type(rotY, '60');
+      await user.clear(rotZ);
+      await user.type(rotZ, '-45');
+
+      await user.click(screen.getByRole('button', { name: /Generate/i }));
+
+      await waitFor(() => {
+        expect(mockOnGenerate).toHaveBeenCalledTimes(1);
+      });
+
+      const submittedData = mockOnGenerate.mock.calls[0][0];
+      // Euler angles passed as-is (no normalization)
+      expect(submittedData.orientation.rotX).toBe(30);
+      expect(submittedData.orientation.rotY).toBe(60);
+      expect(submittedData.orientation.rotZ).toBe(-45);
+    });
+  });
+
+  describe('Feed Gap', () => {
+    it('should render feed gap field', () => {
+      render(
+        <Provider store={createTestStore()}>
+          <LoopDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      expect(screen.getByLabelText(/Feed Gap/i)).toBeInTheDocument();
+    });
+
+    it('should include feedGap in submitted data', async () => {
+      const user = userEvent.setup();
+      mockOnGenerate.mockResolvedValue(undefined);
+
+      render(
+        <Provider store={createTestStore()}>
+          <LoopDialog open={true} onClose={mockOnClose} onGenerate={mockOnGenerate} />
+        </Provider>
+      );
+
+      await user.click(screen.getByRole('button', { name: /Generate/i }));
+
+      await waitFor(() => {
+        expect(mockOnGenerate).toHaveBeenCalledTimes(1);
+      });
+
+      expect(mockOnGenerate.mock.calls[0][0]).toHaveProperty('feedGap');
+    });
+  });
 });

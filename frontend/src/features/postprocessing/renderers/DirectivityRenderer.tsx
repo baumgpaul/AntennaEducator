@@ -20,7 +20,7 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
   // Use per-frequency pattern if available, falling back to the single radiationPattern
   const radiationPatterns = useAppSelector((state) => state.solver.radiationPatterns);
   const fallbackPattern = useAppSelector((state) => state.solver.radiationPattern);
-  const radiationPattern = (frequencyHz && radiationPatterns?.[frequencyHz]) || fallbackPattern;
+  const radiationPattern = (frequencyHz != null && radiationPatterns?.[frequencyHz]) || fallbackPattern;
 
   // Extract directivity data (may be undefined before early return check)
   const theta_angles = radiationPattern?.theta_angles;
@@ -136,7 +136,7 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
     return sphereGeometry;
   }, [theta_angles, phi_angles, processedDirectivity, colors, sizeFactor, min, max, scaleMode]);
 
-  if (!radiationPattern || !frequencyHz || !theta_angles || !phi_angles || !pattern_db || !geometry) {
+  if (!radiationPattern || frequencyHz == null || !theta_angles || !phi_angles || !pattern_db || !geometry) {
     return null;
   }
 

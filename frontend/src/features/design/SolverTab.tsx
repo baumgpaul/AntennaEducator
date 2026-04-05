@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
+import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, LinearProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import ShowChartIcon from '@mui/icons-material/ShowChart';
+import TuneIcon from '@mui/icons-material/Tune';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import CalculateIcon from '@mui/icons-material/Calculate';
@@ -16,7 +16,7 @@ import WireGeometry from './WireGeometry';
 import { FieldRegionVisualization } from './FieldRegionVisualization';
 import { SolverPropertiesPanel } from './SolverPropertiesPanel';
 import { FrequencyInputDialog } from './FrequencyInputDialog';
-import { FrequencySweepDialog } from './FrequencySweepDialog';
+import { ParameterStudyDialog } from './ParameterStudyDialog';
 import { AddFieldDialog } from './AddFieldDialog';
 import DirectivitySettingsDialog from './DirectivitySettingsDialog';
 import type { AntennaElement } from '@/types/models';
@@ -29,7 +29,6 @@ import {
   setDirectivitySettings,
   solveSingleFrequencyWorkflow,
   computePostprocessingWorkflow,
-  runFrequencySweep,
   selectSolverStatus,
   selectSolverError,
   selectSolverProgress,
@@ -42,8 +41,9 @@ import {
 } from '@/store/solverSlice';
 import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
-import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
-import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
+import type { ParameterStudyConfig } from '@/types/parameterStudy';
+import { runParameterStudy } from '@/store/parameterStudyThunks';
+import { selectParameterStudy, selectParameterStudyConfig, selectSolveMode } from '@/store/solverSlice';
 
 /**
  * SolverTab - New 3-panel layout for solver workflow
@@ -82,15 +82,17 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const postprocessingProgress = useSelector((state: RootState) => state.solver.postprocessingProgress);
   const resultsStale = useSelector(selectResultsStale);
   const isSolved = useSelector(selectIsSolved);
+  const parameterStudy = useSelector(selectParameterStudy);
+  const parameterStudyConfig = useSelector(selectParameterStudyConfig);
+  const solveMode = useSelector(selectSolveMode);
 
   // Local state
   const [frequencyDialogOpen, setFrequencyDialogOpen] = useState(false);
-  const [sweepDialogOpen, setSweepDialogOpen] = useState(false);
   const [addFieldDialogOpen, setAddFieldDialogOpen] = useState(false);
   const [directivityDialogOpen, setDirectivityDialogOpen] = useState(false);
   const [selectedFieldId, setSelectedFieldId] = useState<string | undefined>(undefined);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
-  const [lastSweepParams, setLastSweepParams] = useState<FrequencySweepParams | null>(null);
+  const [parameterStudyDialogOpen, setParameterStudyDialogOpen] = useState(false);
 
   // Auto-open properties panel when a field is selected
   useEffect(() => {
@@ -124,52 +126,21 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
     setFrequencyDialogOpen(true);
   };
 
-  const handleSweep = () => {
-    setSweepDialogOpen(true);
+  const handleParameterStudy = () => {
+    setParameterStudyDialogOpen(true);
   };
 
-  const handleFrequencySweepSubmit = async (params: FrequencySweepParams) => {
+  const handleParameterStudySubmit = async (config: ParameterStudyConfig) => {
+    setParameterStudyDialogOpen(false);
     try {
-      if (!elements || elements.length === 0) {
-        setSnackbarMessage('No antenna elements in design');
-        setSnackbarSeverity('error');
-        setSnackbarOpen(true);
-        return;
-      }
-
-      // Build antenna requests using canonical builder (handles balanced feed, position offsets)
-      const antennaRequests = elements
-        .filter((el: AntennaElement) => el.visible && !el.locked && el.mesh && el.mesh.nodes.length > 0 && el.mesh.edges.length > 0)
-        .map((element: AntennaElement) => convertElementToAntennaInput(element));
-
-      if (antennaRequests.length === 0) {
-        setSnackbarMessage('No valid elements for simulation');
-        setSnackbarSeverity('error');
-        setSnackbarOpen(true);
-        return;
-      }
-
-      // Base request without frequency (will be set per sweep point)
-      const baseRequest: Omit<MultiAntennaRequest, 'frequency'> = {
-        antennas: antennaRequests,
-      };
-
-      // Close dialog immediately and save params for next open
-      setSweepDialogOpen(false);
-      setLastSweepParams(params);
-
-      await dispatch(runFrequencySweep({
-        params,
-        request: baseRequest as MultiAntennaRequest,
-      })).unwrap();
-
+      await dispatch(runParameterStudy(config)).unwrap();
       dispatch(markAsSolved());
-
-      setSnackbarMessage(`Frequency sweep complete! ${params.numPoints} frequencies solved.`);
+      const totalPts = config.sweepVariables.reduce((acc, v) => acc * v.numPoints, 1);
+      setSnackbarMessage(`Parameter study complete! ${totalPts} points solved.`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
     } catch (error: any) {
-      setSnackbarMessage(error || 'Frequency sweep failed');
+      setSnackbarMessage(error || 'Parameter study failed');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     }
@@ -319,27 +290,29 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
               Solve Control
             </Typography>
-            {/* Show sweep solution if available, otherwise show single frequency */}
             {/* Determine display state for Solve Control */}
             {(() => {
-              const isSweepMode = !!(frequencySweep && frequencySweep.frequencies && frequencySweep.frequencies.length > 1);
-              const hasResults = !!(results || (frequencySweep && frequencySweep.isComplete));
-              const isSolving = simulationStatus === 'running' || (isSweepMode && (frequencySweep?.isComplete === false) && sweepInProgress);
+              const hasResults = !!(results || (solveMode === 'sweep' && parameterStudy));
+              const isSolving = simulationStatus === 'running' || sweepInProgress;
               const isError = simulationStatus === 'failed';
-              const isOutdated = resultsStale || (!isSolved && hasResults);
+              // In sweep mode, the nominal-restore remesh briefly sets isSolved=false;
+              // only use resultsStale (explicit design changes) to determine outdated.
+              const isOutdated = solveMode === 'sweep'
+                ? resultsStale
+                : resultsStale || (!isSolved && hasResults);
 
-              // Solving: show 'Unsolved' label with loading animation (single vs sweep)
+              // Solving: show 'Unsolved' label with loading animation
               if (isSolving) {
                 return (
                   <>
                     <Chip
-                      icon={<CircularProgress size={12} variant={isSweepMode && solverProgress > 0 ? 'determinate' : 'indeterminate'} value={solverProgress} />}
+                      icon={<CircularProgress size={12} variant={solverProgress > 0 ? 'determinate' : 'indeterminate'} value={solverProgress} />}
                       label="Unsolved"
                       size="small"
                       sx={{ height: 20, fontSize: '0.65rem', color: 'info.main' }}
                     />
                     <Chip
-                      label={isSweepMode && sweepProgress ? `Solving freq ${sweepProgress.current}/${sweepProgress.total}` : isSweepMode ? `Sweep ${solverProgress}%` : 'Solving...'}
+                      label={sweepProgress ? `Solving point ${sweepProgress.current}/${sweepProgress.total}` : `Solving ${solverProgress}%`}
                       size="small"
                       sx={{ height: 20, fontSize: '0.65rem' }}
                     />
@@ -360,44 +333,16 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                 );
               }
 
-              // Solved (single or sweep)
+              // Solved
               if (hasResults && (solverWorkflowState === 'solved' || solverWorkflowState === 'postprocessing-ready')) {
-                if (isSweepMode && frequencySweep) {
-                  const start = frequencySweep.frequencies?.[0];
-                  const end = frequencySweep.frequencies?.[frequencySweep.frequencies.length - 1];
-                  const startLabel = start !== undefined ? (start / 1e6).toFixed(1) : 'N/A';
-                  const endLabel = end !== undefined ? (end / 1e6).toFixed(1) : 'N/A';
-                  return (
-                    <>
-                      <Chip
-                        icon={<CheckCircleIcon />}
-                        label={`Solved @ ${startLabel} .. ${endLabel} MHz`}
-                        size="small"
-                        sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
-                      />
-                      {isOutdated && (
-                        <Chip
-                          label="Solution Outdated"
-                          size="small"
-                          color="warning"
-                          sx={{ height: 20, fontSize: '0.65rem' }}
-                          title="Design changed after solving. Re-run solver to update results."
-                        />
-                      )}
-                    </>
-                  );
-                }
-
-                // Single frequency
-                const freqValue = typeof currentFrequency === 'number' && currentFrequency > 0
-                  ? currentFrequency
-                  : frequencySweep?.frequencies?.[0];
-                const freqLabel = freqValue !== undefined ? freqValue.toFixed(1) : 'N/A';
+                const label = solveMode === 'sweep'
+                  ? `Solved (Sweep) — ${parameterStudy?.results?.length ?? 0} points`
+                  : `Solved @ ${(typeof currentFrequency === 'number' && currentFrequency > 0 ? currentFrequency : 0).toFixed(1)} MHz`;
                 return (
                   <>
                     <Chip
                       icon={<CheckCircleIcon />}
-                      label={`Solved @ ${freqLabel} MHz`}
+                      label={label}
                       size="small"
                       sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
                     />
@@ -436,11 +381,11 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               Solve Single
             </Button>
             <Button
-              startIcon={<ShowChartIcon />}
-              onClick={handleSweep}
+              startIcon={<TuneIcon />}
+              onClick={handleParameterStudy}
               disabled={simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
             >
-              Sweep
+              Parameter Sweep
             </Button>
           </ButtonGroup>
         </Box>
@@ -480,7 +425,11 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             </Typography>
             {postprocessingStatus === 'completed' && fieldResults && (() => {
               const anyFieldOutdated = Object.values(fieldResults).some(r => r && !r.computed);
-              const isOutdated = !isSolved || anyFieldOutdated;
+              // In sweep mode, navigating sweep points remeshes (setting isSolved=false)
+              // which is purely visual — don't treat it as outdated.
+              const isOutdated = solveMode === 'sweep'
+                ? (resultsStale || anyFieldOutdated)
+                : (!isSolved || anyFieldOutdated);
               return (
                 <>
                   {isOutdated ? (
@@ -528,11 +477,11 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               startIcon={postprocessingStatus === 'running' ? <CircularProgress size={16} /> : <CalculateIcon />}
               onClick={handleComputePostprocessing}
               disabled={!canComputePostprocessing || !isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
-              sx={{ flex: 1 }}
               title={!isSolved ? 'Run solver first before computing postprocessing' : undefined}
             >
-              Compute Postprocessing
+              Compute Fields
             </Button>
+
             {postprocessingStatus === 'running' && (
               <IconButton
                 size="small"
@@ -547,6 +496,25 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           </Box>
         </Box>
       </Paper>
+
+      {/* Parameter sweep progress */}
+      {sweepInProgress && sweepProgress && (
+        <LinearProgress
+          variant="determinate"
+          value={Math.round((sweepProgress.current / sweepProgress.total) * 100)}
+          sx={{ flexShrink: 0, height: 4 }}
+        />
+      )}
+
+      {/* Postprocessing (field computation) progress */}
+      {postprocessingStatus === 'running' && postprocessingProgress && postprocessingProgress.total > 0 && (
+        <LinearProgress
+          variant="determinate"
+          value={Math.round((postprocessingProgress.completed / postprocessingProgress.total) * 100)}
+          color="info"
+          sx={{ flexShrink: 0, height: 4 }}
+        />
+      )}
 
       {/* 3-PANEL LAYOUT */}
       <Box
@@ -597,27 +565,37 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         sx={{
           flex: 1,
           height: '100%',
-          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
           overflow: 'hidden',
-          backgroundColor: '#1a1a1a',
         }}
       >
-        <Scene3D elements={elements}>
-          {/* Render antenna elements */}
-          <WireGeometry
-            elements={elements}
-            selectedElementId={selectedElementId}
-            onElementSelect={onElementSelect}
-            showNodes={false}
-          />
+        <Box
+          sx={{
+            flex: '1 1 100%',
+            position: 'relative',
+            overflow: 'hidden',
+            backgroundColor: '#1a1a1a',
+            minHeight: 200,
+          }}
+        >
+          <Scene3D elements={elements}>
+            {/* Render antenna elements */}
+            <WireGeometry
+              elements={elements}
+              selectedElementId={selectedElementId}
+              onElementSelect={onElementSelect}
+              showNodes={false}
+            />
 
-          {/* Render field regions */}
-          <FieldRegionVisualization
-            fieldDefinitions={requestedFields}
-            selectedFieldId={selectedFieldId}
-            visible={fieldRegionsVisible}
-          />
-        </Scene3D>
+            {/* Render field regions */}
+            <FieldRegionVisualization
+              fieldDefinitions={requestedFields}
+              selectedFieldId={selectedFieldId}
+              visible={fieldRegionsVisible}
+            />
+          </Scene3D>
+        </Box>
       </Box>
 
       {/* RIGHT PANEL - Properties Panel (300px, collapsible) */}
@@ -699,19 +677,6 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         initialFrequency={currentFrequency ?? undefined}
       />
 
-      <FrequencySweepDialog
-        open={sweepDialogOpen}
-        onClose={() => setSweepDialogOpen(false)}
-        onSubmit={handleFrequencySweepSubmit}
-        isLoading={simulationStatus === 'running' || simulationStatus === 'preparing'}
-        initialValues={lastSweepParams ? {
-          startFrequency: lastSweepParams.startFrequency,
-          stopFrequency: lastSweepParams.stopFrequency,
-          numPoints: lastSweepParams.numPoints,
-          spacing: lastSweepParams.spacing,
-        } : undefined}
-      />
-
       <AddFieldDialog
         open={addFieldDialogOpen}
         onClose={() => setAddFieldDialogOpen(false)}
@@ -723,6 +688,14 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         onClose={() => setDirectivityDialogOpen(false)}
         onConfirm={handleDirectivityConfirm}
         initialSettings={directivitySettings}
+      />
+
+      <ParameterStudyDialog
+        open={parameterStudyDialogOpen}
+        onClose={() => setParameterStudyDialogOpen(false)}
+        onSubmit={handleParameterStudySubmit}
+        isLoading={simulationStatus === 'running' || simulationStatus === 'preparing'}
+        initialConfig={parameterStudyConfig}
       />
 
       {/* FEEDBACK SNACKBAR */}

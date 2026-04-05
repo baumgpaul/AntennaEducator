@@ -195,9 +195,9 @@ function RibbonMenu({
       return;
     }
 
-    const frequencyHz = currentFrequency ? currentFrequency * 1e6 : null;
+    const frequencyHz = currentFrequency != null ? currentFrequency * 1e6 : null;
 
-    if (!frequencyHz) {
+    if (frequencyHz == null) {
       setSnackbarMessage('No frequency data available');
       setSnackbarSeverity('error');
       setShowSnackbar(true);

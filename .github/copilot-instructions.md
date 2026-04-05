@@ -33,7 +33,7 @@ All protected endpoints use `user: UserIdentity = Depends(get_current_user)`.
 
 ### Frontend (React 18 + TypeScript + Vite)
 
-Located in `frontend/`. Uses MUI 5, Redux Toolkit, React Router 6, Three.js/React Three Fiber for 3D visualization. Deployed to S3 + CloudFront at `https://antennaeducator.nyakyagyawa.com`.
+Located in `frontend/`. Uses MUI 5, Redux Toolkit, React Router 6, Three.js/React Three Fiber for 3D visualization, Recharts for line/bar charts, `@dagrejs/dagre` for circuit auto-layout. Deployed to S3 + CloudFront at `https://antennaeducator.nyakyagyawa.com`.
 
 ### AWS Infrastructure (Terraform)
 
@@ -77,6 +77,7 @@ Each microservice uses `pydantic_settings.BaseSettings` with env prefix (e.g., `
 - 6 Redux slices in `frontend/src/store/`: `auth`, `projects`, `design`, `solver`, `postprocessing`, `ui`.
 - Always use typed hooks: `useAppDispatch()` and `useAppSelector()` from `store/hooks.ts`.
 - Async operations use `createAsyncThunk` calling functions from `frontend/src/api/`.
+- `solverSlice` also holds `parameterStudy: ParameterStudyResult | null` and `parameterStudyConfig` — populated by `runParameterStudy` thunk.
 
 ### Frontend: API Client Layer (`frontend/src/api/`)
 - Separate Axios instances per backend service (`projectsClient`, `solverClient`, `preprocessorClient`, `postprocessorClient`) in `client.ts`.
@@ -85,6 +86,23 @@ Each microservice uses `pydantic_settings.BaseSettings` with env prefix (e.g., `
 
 ### Frontend: Feature-Based Structure
 Components organized by feature under `frontend/src/features/`: `auth/`, `design/`, `projects/`, `results/`, `solver/`, `postprocessing/`, `home/`. Each feature exports pages via `index.ts`. The `design/` feature is the largest — contains antenna dialogs, 3D scene, solver/postprocessing tabs, and ribbon menu.
+
+### Frontend: Parameter Variation System
+- **Types**: `frontend/src/types/parameterStudy.ts` — `SweepVariable`, `ParameterStudyConfig`, `GridPoint`, `ParameterPointResult`, `ParameterStudyResult`; pure helpers `generateSweepValues()`, `buildSweepGrid()`, `needsRemesh()`.
+- **Engine**: `frontend/src/store/parameterStudyThunks.ts` — `runParameterStudy` thunk: builds cartesian grid → overrides variables → conditionally remeshes → calls `solveMultiAntenna` per point.
+- **UI**: `ParameterStudyDialog.tsx` in `design/` — configure 1–2 sweep variables; launched via "Study" button in SolverTab ribbon.
+- **Results split-panel**: After a study completes, `ParameterStudyPlot` appears below the 3D view in SolverTab with Impedance / VSWR / Return Loss / Smith Chart tabs.
+- **Key rule**: `freq` is just another variable — sweeping it changes solver frequency without remeshing; sweeping any other variable triggers a remesh.
+
+### Frontend: Charts & Plots (`frontend/src/features/postprocessing/plots/`)
+- `ImpedancePlot.tsx`, `VoltagePlot.tsx`, `CurrentPlot.tsx` — Recharts `LineChart` with `ResponsiveContainer`.
+- `ParameterStudyPlot.tsx` — parameter study results (tabs: Impedance, VSWR, Return Loss, Smith Chart); uses `extractPortQuantities()` from `frontend/src/types/parameterStudyExtract.ts`.
+- `SmithChart.tsx` — pure SVG Smith chart; exports `impedanceToGamma(r, x, z0)` pure function for unit testing.
+
+### Frontend: Circuit Editor (`frontend/src/features/design/circuit/`)
+- `CircuitEdgeTypes.tsx` — IEEE/IEC schematic symbols rendered as inline SVG (24-unit viewBox): zigzag resistor, semicircular inductor coil, parallel-plate capacitor, circle voltage/current sources.
+- `autoLayout.ts` — dagre-based TB auto-layout; exported `computeAutoLayout(nodes, components)` returns new node positions without mutation.
+- "Auto Layout" button (AccountTree icon) in CircuitEditor toolbar triggers layout.
 
 ## Development & Deployment Commands
 
@@ -171,6 +189,7 @@ If `black` or `isort` report failures, auto-fix with `black backend/ tests/` and
 - **TDD principle**: Always follow Test-Driven Development — write tests first, make small incremental changes, and commit after code runs and tests pass.
 - **Test file convention**: Every `*.test.tsx` / `*.test.ts` file **must** contain at least one `describe` block with at least one `it` (or `it.todo`). Vitest fails the entire suite if a test file is empty or contains no tests. When creating a stub test file for a feature that is not yet implemented, use `it.todo("…")` placeholders.
 - **Pre-commit checks**: Before every `git commit`, run **all** CI/CD checks from the "Pre-Commit CI/CD Checks" section above (`black`, `isort`, `ruff`, `pytest`, `tsc`, `npm run lint`, `npx vitest run`). Never commit code that hasn't passed these checks.
+- **Local testing before commit**: Always run the affected tests locally and confirm they pass before committing. Do not rely on CI alone — run `npx vitest run` (full suite) or at minimum `npx vitest run <changed-test-files>` from `frontend/`. For backend changes, run `pytest tests/unit/ -x -q --tb=short`. Fix any failures before committing.
 
 ## Known Issues & Workarounds
 
@@ -184,3 +203,6 @@ npx tsc --noEmit                                  # TypeScript check (always wor
 
 ### Pre-Commit Hook — `frontend-typecheck` Fails on Windows
 The pre-commit hook runs `npx --prefix frontend tsc --noEmit`, which on Windows fails to pass `--noEmit` correctly to `tsc` (prints tsc help text instead of type-checking). **Workaround**: run `cd frontend && npx tsc --noEmit` manually — this works correctly. If pre-commit blocks a commit, use `git commit --no-verify` after manually verifying the typecheck passes.
+
+### Console Warning — `selectVariableContextNumeric` Non-Memoized Selector
+`selectVariableContextNumeric` (in `variablesSlice.ts`) computes a new object on every call, triggering a react-redux warning ("Selector returned a different result when called with the same parameters"). This is a **cosmetic warning only** — tests still pass. Fix when convenient: wrap the selector with `createSelector` from `reselect`.

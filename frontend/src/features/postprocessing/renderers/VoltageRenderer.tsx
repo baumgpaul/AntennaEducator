@@ -26,7 +26,7 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
 
   // Get voltage distribution data — supports both single-freq and sweep modes
   const voltageData = useMemo(() => {
-    if (!frequencyHz) return null;
+    if (frequencyHz == null) return null;
 
     // Sweep mode: look up node_voltages for this specific frequency
     if (frequencySweep?.frequencies && frequencySweep.results) {

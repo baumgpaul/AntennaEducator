@@ -8,6 +8,7 @@ import type {
   Mesh,
   Source,
   LumpedElement,
+  Port,
   SolverResult,
   DipoleConfig,
   LoopConfig,
@@ -17,6 +18,7 @@ import type {
 } from '@/types/models'
 import { generateDipoleMesh, generateLoopMesh, generateRodMesh, generateCustomMesh, createDipole, createLoop, createRod } from '@/api/preprocessor'
 import { getNextElementColor } from '@/utils/colors'
+import { runParameterStudy } from '@/store/parameterStudyThunks'
 
 interface DesignState {
   // Multi-element system
@@ -78,6 +80,45 @@ const initialState: DesignState = {
   // Errors
   meshError: null,
   solverError: null,
+}
+
+// ============================================================================
+// ============================================================================
+// Helpers
+// ============================================================================
+
+/**
+ * Derive a default port from the element's generated sources.
+ * For a balanced/gap feed the backend produces two center-tap voltage sources
+ * (node_start=0).  The port sits between their respective node_end values.
+ * For any other source configuration the port mirrors the first source.
+ */
+function createDefaultPort(sources: Source[]): Port | null {
+  if (!sources || sources.length === 0) return null;
+  const centerTap = sources.filter(
+    (s) => s.type === 'voltage' && s.node_start === 0 && s.node_end != null && s.node_end !== 0,
+  );
+  if (centerTap.length >= 2) {
+    return {
+      id: `port_${Date.now()}`,
+      node_start: centerTap[0].node_end as number,
+      node_end: centerTap[1].node_end as number,
+      z0: 50,
+      label: 'Port 1',
+    };
+  }
+  const s = sources[0];
+  const ne = s.node_end;
+  if (ne != null && ne !== 0) {
+    return {
+      id: `port_${Date.now()}`,
+      node_start: s.node_start ?? 0,
+      node_end: ne,
+      z0: 50,
+      label: 'Port 1',
+    };
+  }
+  return null;
 }
 
 // ============================================================================
@@ -287,8 +328,16 @@ export const remeshElementOrientation = createAsyncThunk(
  * Used when re-evaluating expressions to update element configs.
  */
 const EXPR_TO_CONFIG_KEY: Record<string, Record<string, string>> = {
-  dipole: { length: 'length', radius: 'wire_radius', gap: 'gap', segments: 'segments' },
-  loop: { radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap', segments: 'segments' },
+  dipole: {
+    length: 'length', radius: 'wire_radius', gap: 'gap', segments: 'segments',
+    positionX: 'positionX', positionY: 'positionY', positionZ: 'positionZ',
+    orientationX: 'orientationX', orientationY: 'orientationY', orientationZ: 'orientationZ',
+  },
+  loop: {
+    radius: 'radius', wireRadius: 'wire_radius', feedGap: 'gap', segments: 'segments',
+    positionX: 'positionX', positionY: 'positionY', positionZ: 'positionZ',
+    normalX: 'normalX', normalY: 'normalY', normalZ: 'normalZ',
+  },
   rod: {
     radius: 'wire_radius', segments: 'segments',
     start_x: 'start_x', start_y: 'start_y', start_z: 'start_z',
@@ -334,27 +383,59 @@ export const remeshElementExpressions = createAsyncThunk(
       }
 
       let response
+      let newPosition: [number, number, number] | undefined
       switch (element.type) {
         case 'dipole': {
+          // Reassemble position/orientation arrays from individual X/Y/Z values
+          const dipPos = params.center_position || [0, 0, 0]
+          const dipOri = params.orientation || [0, 0, 1]
+          // Always generate at origin — element.position carries the offset
+          // (consistent with initial creation in generateDipoleMesh)
           const config: DipoleConfig = {
             length: updatedParams.length,
             wire_radius: updatedParams.wire_radius,
             gap: updatedParams.gap,
             segments: Math.round(updatedParams.segments ?? params.segments),
             balanced_feed: updatedParams.balanced_feed ?? params.balanced_feed,
-            center_position: updatedParams.center_position || [0, 0, 0],
-            orientation: updatedParams.orientation || [0, 0, 1],
+            center_position: [0, 0, 0],
+            orientation: [
+              updatedParams.orientationX ?? dipOri[0],
+              updatedParams.orientationY ?? dipOri[1],
+              updatedParams.orientationZ ?? dipOri[2],
+            ],
+            // Pass existing source so the backend regenerates correct feed node
+            // indices for the updated mesh geometry.
+            source: element.sources?.[0],
           }
+          newPosition = [
+            updatedParams.positionX ?? dipPos[0],
+            updatedParams.positionY ?? dipPos[1],
+            updatedParams.positionZ ?? dipPos[2],
+          ] as [number, number, number]
           response = await createDipole(config)
           break
         }
         case 'loop': {
+          // Reassemble position/normal arrays from individual X/Y/Z values
+          const loopPos = params.center_position || [0, 0, 0]
+          const loopNorm = params.normal_vector || [0, 0, 1]
+          // Always generate at origin — element.position carries the offset
           const config: LoopConfig = {
             ...updatedParams,
             segments: Math.round(updatedParams.segments ?? params.segments),
-            center_position: updatedParams.center_position || [0, 0, 0],
-            normal_vector: updatedParams.normal_vector || [0, 0, 1],
+            center_position: [0, 0, 0],
+            normal_vector: [
+              updatedParams.normalX ?? loopNorm[0],
+              updatedParams.normalY ?? loopNorm[1],
+              updatedParams.normalZ ?? loopNorm[2],
+            ],
+            source: element.sources?.[0],
           }
+          newPosition = [
+            updatedParams.positionX ?? loopPos[0],
+            updatedParams.positionY ?? loopPos[1],
+            updatedParams.positionZ ?? loopPos[2],
+          ] as [number, number, number]
           response = await createLoop(config)
           break
         }
@@ -377,6 +458,7 @@ export const remeshElementExpressions = createAsyncThunk(
             segments: Math.round(updatedParams.segments ?? params.segments),
             start_point: [sx, sy, sz],
             end_point: [ex, ey, ez],
+            source: element.sources?.[0],
           }
           response = await createRod(config)
           break
@@ -385,7 +467,7 @@ export const remeshElementExpressions = createAsyncThunk(
           return rejectWithValue(`Unknown element type: ${element.type}`)
       }
 
-      return { elementId, mesh: response.mesh, updatedParams, sources: response.element?.sources }
+      return { elementId, mesh: response.mesh, updatedParams, sources: response.element?.sources, newPosition }
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to re-mesh element with updated expressions')
     }
@@ -658,13 +740,14 @@ const designSlice = createSlice({
       state.lumpedElements.splice(action.payload, 1)
     },
 
-    // Batch-replace circuit data (sources + lumped elements + appended nodes) on an element
+    // Batch-replace circuit data (sources + lumped elements + ports + appended nodes) on an element
     setElementCircuit: (
       state,
       action: PayloadAction<{
         elementId: string
         sources: Source[]
         lumped_elements: LumpedElement[]
+        ports?: Port[]
         appended_nodes: AppendedNode[]
       }>
     ) => {
@@ -672,6 +755,7 @@ const designSlice = createSlice({
       if (index >= 0) {
         state.elements[index].sources = action.payload.sources
         state.elements[index].lumped_elements = action.payload.lumped_elements
+        state.elements[index].ports = action.payload.ports || []
         state.elements[index].appended_nodes = action.payload.appended_nodes
         state.isSolved = false
       }
@@ -758,6 +842,8 @@ const designSlice = createSlice({
 
         // Create AntennaElement from response (use backend sources — they handle
         // balanced feed, current excitation, and correct node indexing)
+        const dipSources = action.payload.element?.sources || [];
+        const dipDefaultPort = createDefaultPort(dipSources);
         const element: AntennaElement = {
           id: `dipole_${Date.now()}`,
           type: 'dipole',
@@ -766,8 +852,9 @@ const designSlice = createSlice({
           position,
           rotation,
           mesh: action.payload.mesh,
-          sources: action.payload.element?.sources || [],
+          sources: dipSources,
           lumped_elements: action.payload.element?.lumped_elements || [],
+          ports: dipDefaultPort ? [dipDefaultPort] : [],
           visible: true,
           locked: false,
           color,
@@ -818,6 +905,8 @@ const designSlice = createSlice({
           : (backendLoopElement?.config || backendLoopElement || {});
 
         // Create AntennaElement from response (include backend sources)
+        const loopSources = action.payload.element?.sources || [];
+        const loopDefaultPort = createDefaultPort(loopSources);
         const element: AntennaElement = {
           id: `loop_${Date.now()}`,
           type: 'loop',
@@ -826,8 +915,9 @@ const designSlice = createSlice({
           position,
           rotation,
           mesh: action.payload.mesh,
-          sources: action.payload.element?.sources || [],
+          sources: loopSources,
           lumped_elements: action.payload.element?.lumped_elements || [],
+          ports: loopDefaultPort ? [loopDefaultPort] : [],
           visible: true,
           locked: false,
           color,
@@ -996,7 +1086,7 @@ const designSlice = createSlice({
       })
       .addCase(remeshElementExpressions.fulfilled, (state, action) => {
         state.meshGenerating = false;
-        const { elementId, mesh, updatedParams, sources } = action.payload;
+        const { elementId, mesh, updatedParams, sources, newPosition } = action.payload;
         const index = state.elements.findIndex(el => el.id === elementId);
         if (index >= 0) {
           const element = state.elements[index];
@@ -1008,9 +1098,16 @@ const designSlice = createSlice({
           const target = cfg.parameters || cfg;
           Object.assign(target, updatedParams);
 
-          // Update sources if returned (they may reference new geometry)
-          if (sources) {
+          // Update sources if returned (they may reference new geometry).
+          // Guard against empty arrays: an empty response should never clear
+          // existing sources (e.g. when the remesh request omits source config).
+          if (sources && sources.length > 0) {
             element.sources = sources;
+          }
+
+          // Update position from resolved expression values
+          if (newPosition) {
+            element.position = newPosition;
           }
 
           state.isSolved = false;
@@ -1020,6 +1117,12 @@ const designSlice = createSlice({
       .addCase(remeshElementExpressions.rejected, (state, action) => {
         state.meshGenerating = false;
         state.meshError = action.payload as string || 'Failed to re-mesh with updated expressions';
+      })
+      // Mark as solved when a parameter study completes (the nominal restore
+      // step dispatches remeshElementExpressions which sets isSolved=false;
+      // this overrides that so the user can compute fields afterwards).
+      .addCase(runParameterStudy.fulfilled, (state) => {
+        state.isSolved = true;
       });
   },
 })
