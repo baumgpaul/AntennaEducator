@@ -1,8 +1,7 @@
 /**
- * SubmissionViewer — Read-only view of a submitted project snapshot.
- *
- * Loads the frozen design_state, simulation_config, simulation_results,
- * and ui_state from a submission and renders them in a non-editable layout.
+ * SubmissionViewer — Loads a frozen submission snapshot into the Redux store
+ * and navigates to the Designer in read-only mode so the examiner can see
+ * the full 3D design, solver results, and postprocessing output.
  */
 
 import { useEffect } from 'react';
@@ -15,8 +14,9 @@ import {
   Paper,
   Chip,
   Button,
+  Divider,
 } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import { ArrowBack, OpenInNew as OpenIcon } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import {
   fetchSubmissionDetail,
@@ -24,6 +24,10 @@ import {
   selectDetailLoading,
   selectSubmissionsError,
 } from '@/store/submissionsSlice';
+import { loadDesign } from '@/store/designSlice';
+import { loadSolverState, setFieldDefinitions } from '@/store/solverSlice';
+import { loadViewConfigurations } from '@/store/postprocessingSlice';
+import { clearCurrentProject } from '@/store/projectsSlice';
 
 const statusConfig: Record<string, { label: string; color: 'warning' | 'success' | 'info' }> = {
   submitted: { label: 'Submitted', color: 'warning' },
@@ -45,6 +49,39 @@ function SubmissionViewer() {
       dispatch(fetchSubmissionDetail({ courseId, submissionId }));
     }
   }, [courseId, submissionId, dispatch]);
+
+  const handleOpenInDesigner = () => {
+    if (!submission) return;
+
+    const backUrl = `/courses/${courseId}/submissions`;
+
+    // Load solver state FIRST (loadDesign resets isSolved, so solver must be
+    // re-applied after loadDesign — we do it again below)
+    dispatch(loadSolverState((submission.frozen_simulation_results as Record<string, unknown>) ?? {}));
+
+    // Load design elements
+    const designState = submission.frozen_design_state as Record<string, unknown> | null;
+    const elements = (designState?.elements as unknown[]) ?? [];
+    dispatch(loadDesign({ elements }));
+
+    // Re-apply solver state after loadDesign (which resets isSolved)
+    dispatch(loadSolverState((submission.frozen_simulation_results as Record<string, unknown>) ?? {}));
+
+    // Load requested fields from simulation_config
+    const requestedFields =
+      ((submission.frozen_simulation_config as Record<string, unknown>)?.requested_fields as unknown[]) ?? [];
+    dispatch(setFieldDefinitions(requestedFields as Parameters<typeof setFieldDefinitions>[0]));
+
+    // Load view configurations from ui_state
+    const viewConfigs =
+      ((submission.frozen_ui_state as Record<string, unknown>)?.view_configurations as unknown[]) ?? [];
+    dispatch(loadViewConfigurations(viewConfigs as Parameters<typeof loadViewConfigurations>[0]));
+
+    // Clear any active project so DesignPage won't reload it
+    dispatch(clearCurrentProject());
+
+    navigate(`/design?readOnly=true&back=${encodeURIComponent(backUrl)}`);
+  };
 
   if (loading) {
     return (
@@ -73,74 +110,75 @@ function SubmissionViewer() {
   const cfg = statusConfig[submission.status] ?? statusConfig.submitted;
   const designState = submission.frozen_design_state as Record<string, unknown> | null;
   const elements = (designState?.elements as unknown[]) ?? [];
+  const hasResults =
+    !!submission.frozen_simulation_results &&
+    Object.keys(submission.frozen_simulation_results).length > 0;
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Read-only banner */}
-      <Alert severity="warning" sx={{ borderRadius: 0 }}>
-        <strong>Read-Only Snapshot</strong> — This is a frozen copy of the submitted project. No changes can be made.
-      </Alert>
+    <Box sx={{ p: 3, maxWidth: 640, mx: 'auto' }}>
+      {/* Navigation */}
+      <Button
+        size="small"
+        startIcon={<ArrowBack />}
+        onClick={() => navigate(`/courses/${courseId}/submissions`)}
+        sx={{ mb: 2 }}
+      >
+        Back to Submissions
+      </Button>
 
-      {/* Submission header */}
-      <Paper elevation={0} sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button size="small" startIcon={<ArrowBack />} onClick={() => navigate(-1)}>
-            Back
-          </Button>
-          <Typography variant="h6" sx={{ flex: 1 }}>
-            {submission.project_name}
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+        <Typography variant="h5" sx={{ flex: 1 }}>
+          {submission.project_name}
+        </Typography>
+        <Chip label={cfg.label} color={cfg.color} />
+      </Box>
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+        Student: <strong>{submission.username || submission.user_id}</strong>
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Submitted: {new Date(submission.submitted_at).toLocaleString()}
+        {submission.reviewed_at && (
+          <> &nbsp;·&nbsp; Reviewed: {new Date(submission.reviewed_at).toLocaleString()}</>
+        )}
+      </Typography>
+
+      <Divider sx={{ mb: 3 }} />
+
+      {/* Feedback */}
+      {submission.feedback && (
+        <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Instructor Feedback
           </Typography>
-          <Chip label={cfg.label} color={cfg.color} size="small" />
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Submitted: {new Date(submission.submitted_at).toLocaleString()}
-          {submission.reviewed_at && (
-            <> | Reviewed: {new Date(submission.reviewed_at).toLocaleString()}</>
-          )}
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+            {submission.feedback}
+          </Typography>
+        </Paper>
+      )}
+
+      {/* Snapshot summary */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+        <Typography variant="subtitle2" gutterBottom>
+          Frozen Snapshot
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {elements.length} antenna element{elements.length !== 1 ? 's' : ''}
+          {hasResults ? ' · Simulation results included' : ' · No simulation results'}
         </Typography>
       </Paper>
 
-      {/* Content area */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
-        {/* Feedback section */}
-        {submission.feedback && (
-          <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Instructor Feedback
-            </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-              {submission.feedback}
-            </Typography>
-          </Paper>
-        )}
-
-        {/* Design state summary */}
-        <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Design Snapshot
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {elements.length} antenna element{elements.length !== 1 ? 's' : ''} in this design.
-          </Typography>
-          {designState?.version && (
-            <Typography variant="body2" color="text.secondary">
-              Design version: {String(designState.version)}
-            </Typography>
-          )}
-        </Paper>
-
-        {/* Simulation results summary */}
-        {submission.frozen_simulation_results && Object.keys(submission.frozen_simulation_results).length > 0 && (
-          <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Simulation Results
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Simulation data is included in this snapshot.
-            </Typography>
-          </Paper>
-        )}
-      </Box>
+      {/* Primary action */}
+      <Button
+        variant="contained"
+        size="large"
+        startIcon={<OpenIcon />}
+        onClick={handleOpenInDesigner}
+        fullWidth
+      >
+        Open in Designer (Read-Only)
+      </Button>
     </Box>
   );
 }

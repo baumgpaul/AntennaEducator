@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Box, Snackbar, Alert, Tabs, Tab, IconButton, Tooltip } from '@mui/material';
-import { Description as DescriptionIcon } from '@mui/icons-material';
+import { Box, Snackbar, Alert, Tabs, Tab, IconButton, Tooltip, Button } from '@mui/material';
+import { Description as DescriptionIcon, Lock as LockIcon, ArrowBack as BackIcon } from '@mui/icons-material';
 import { debounce } from 'lodash';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { parseApiError } from '@/utils/errors';
 import {
@@ -30,7 +30,7 @@ import {
   loadDesign,
   markAsSolved,
 } from '@/store/designSlice';
-import { updateProject, fetchProject } from '@/store/projectsSlice';
+import { updateProject, fetchProject, clearCurrentProject } from '@/store/projectsSlice';
 import { addNotification, showSuccess } from '@/store/uiSlice';
 import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
 import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';
@@ -85,6 +85,9 @@ import { addLumpedElementToMesh, addSourceToMesh } from '@/api/preprocessor';
 function DesignPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isReadOnly = searchParams.get('readOnly') === 'true';
+  const readOnlyBackUrl = searchParams.get('back') ?? null;
   const dispatch = useAppDispatch();
   const {
     elements,
@@ -1135,6 +1138,28 @@ function DesignPage() {
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Read-only submission preview banner */}
+      {isReadOnly && (
+        <Alert
+          severity="warning"
+          icon={<LockIcon fontSize="small" />}
+          sx={{ borderRadius: 0, py: 0.5, flexShrink: 0 }}
+          action={
+            readOnlyBackUrl ? (
+              <Button
+                size="small"
+                color="inherit"
+                startIcon={<BackIcon />}
+                onClick={() => navigate(readOnlyBackUrl)}
+              >
+                Back to Submissions
+              </Button>
+            ) : undefined
+          }
+        >
+          <strong>Read-Only Submission Preview</strong> — No changes will be saved.
+        </Alert>
+      )}
       {/* Tab Navigation */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', backgroundColor: 'background.paper', display: 'flex', alignItems: 'center' }}>
         <Tabs
@@ -1258,7 +1283,7 @@ function DesignPage() {
             onViewOption={handleViewOption}
             solverStatus={solverStatus}
             solverProgress={solverProgress}
-            showSubmit={!!sourceCourseId}
+            showSubmit={!!sourceCourseId && !isReadOnly}
             onSubmit={handleSubmitClick}
           />
         }
