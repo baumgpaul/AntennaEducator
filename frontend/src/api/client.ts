@@ -184,7 +184,8 @@ const createApiClient = (baseURL: string): AxiosInstance => {
           localStorage.removeItem('user')
           window.location.href = '/login'
 
-          return Promise.reject(apiError)
+          // Page is navigating away — suppress error propagation
+          return new Promise(() => {})
         }
 
         if (isRefreshing) {
@@ -219,7 +220,8 @@ const createApiClient = (baseURL: string): AxiosInstance => {
           console.error('[Auth] Token refresh failed, redirect will happen from refreshAccessToken()')
           processQueue(refreshError, null)
           localStorage.setItem('logout_reason', 'token_refresh_failed')
-          return Promise.reject(apiError)
+          // Page is navigating to /login — suppress error propagation
+          return new Promise(() => {})
         } finally {
           isRefreshing = false
         }
