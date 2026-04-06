@@ -150,17 +150,25 @@ class DynamoDBProjectRepository(ProjectRepository):
     async def list_all_projects_in_folder(self, folder_id: str) -> List[Dict[str, Any]]:
         """List ALL projects in a folder regardless of owner.
 
-        Uses a DynamoDB scan with filter — acceptable for course folders
-        which typically contain a small number of projects.
+        Uses a paginated DynamoDB scan with filter.  Acceptable for course
+        folders which typically contain a small number of projects.
         """
-        resp = self.table.scan(
-            FilterExpression=("EntityType = :et AND FolderId = :fid"),
-            ExpressionAttributeValues={
+        items: List[Dict[str, Any]] = []
+        scan_kwargs = {
+            "FilterExpression": "EntityType = :et AND FolderId = :fid",
+            "ExpressionAttributeValues": {
                 ":et": "PROJECT",
                 ":fid": folder_id,
             },
-        )
-        return [self._to_dict(i) for i in resp.get("Items", [])]
+        }
+        while True:
+            resp = self.table.scan(**scan_kwargs)
+            items.extend(resp.get("Items", []))
+            last_key = resp.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            scan_kwargs["ExclusiveStartKey"] = last_key
+        return [self._to_dict(i) for i in items]
 
     # ── update ────────────────────────────────────────────────────────────
 
