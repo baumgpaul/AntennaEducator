@@ -341,6 +341,11 @@ class TestFolderRepositoryOwnership:
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+
+# Patches started by _setup_mocks and stopped by _cleanup.
+_active_patches: list = []
+
+
 def _setup_mocks(
     user: UserIdentity,
     folder_repo: MagicMock = None,
@@ -360,6 +365,22 @@ def _setup_mocks(
     if doc_svc is None:
         doc_svc = MagicMock()
 
+    # Enrollment repo mock — is_enrolled returns False by default so enroll_user
+    # is called; tests that need a specific behaviour can override it.
+    enrollment_repo = MagicMock()
+    enrollment_repo.is_enrolled = MagicMock(return_value=False)
+    enrollment_repo.enroll_user = MagicMock()
+
+    # Patch _get_enrollment_repo so copy_course_to_user does not hit real AWS.
+    # Note: _get_user_repo is intentionally NOT patched here so that tests
+    # which use @patch("...._get_user_repo") decorators remain in full control.
+    p_enroll = patch(
+        "backend.projects.folder_routes._get_enrollment_repo",
+        return_value=enrollment_repo,
+    )
+    p_enroll.start()
+    _active_patches.append(p_enroll)
+
     app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[get_folder_repository] = lambda: folder_repo
     app.dependency_overrides[get_repo] = lambda: project_repo
@@ -367,11 +388,21 @@ def _setup_mocks(
     app.dependency_overrides[_get_doc_service] = lambda: doc_svc
     app.dependency_overrides[get_documentation_service] = lambda: doc_svc
 
-    return {"folder_repo": folder_repo, "repo": project_repo, "doc_svc": doc_svc}
+    return {
+        "folder_repo": folder_repo,
+        "repo": project_repo,
+        "doc_svc": doc_svc,
+        "enrollment_repo": enrollment_repo,
+    }
 
 
 def _cleanup():
     app.dependency_overrides.clear()
+    for p in _active_patches:
+        p.stop()
+    _active_patches.clear()
+
+
 
 
 # ── User Folder Endpoints ────────────────────────────────────────────────────
@@ -631,7 +662,9 @@ class TestDeepCopyEndpoints:
         yield
         _cleanup()
 
-    def test_copy_course_to_user(self):
+    @patch("backend.projects.folder_routes._get_user_repo")
+    def test_copy_course_to_user(self, mock_get_user_repo):
+        mock_get_user_repo.return_value = MagicMock(get_user_by_id=MagicMock(return_value=None))
         mocks = _setup_mocks(NORMAL_USER)
 
         new_folder = {
@@ -653,7 +686,9 @@ class TestDeepCopyEndpoints:
         assert resp.json()["name"] == "RF 101"
         assert resp.json()["is_course"] is False
 
-    def test_copy_course_with_projects(self):
+    @patch("backend.projects.folder_routes._get_user_repo")
+    def test_copy_course_with_projects(self, mock_get_user_repo):
+        mock_get_user_repo.return_value = MagicMock(get_user_by_id=MagicMock(return_value=None))
         mocks = _setup_mocks(NORMAL_USER)
 
         new_folder = {
