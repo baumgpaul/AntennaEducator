@@ -34,7 +34,11 @@ import TimeAnimationOverlay from '../postprocessing/TimeAnimationOverlay';
 import FrequencySelector from '../postprocessing/FrequencySelector';
 import { SweepVariableSelector } from '../postprocessing/SweepVariableSelector';
 import ExportPDFDialog from './dialogs/ExportPDFDialog';
-import { exportToPDF } from '@/utils/exportToPDF';
+import type { PDFExportOptions } from './dialogs/ExportPDFDialog';
+import { generatePDFReport } from '@/utils/pdfReportGenerator';
+import html2canvas from 'html2canvas';
+import { selectCurrentSubmission } from '@/store/submissionsSlice';
+import { selectVariables } from '@/store/variablesSlice';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAnimationPhase } from '@/hooks/useAnimationPhase';
 import {
@@ -204,6 +208,9 @@ function PostprocessingTab({
   const sweepPointIndex = useAppSelector(selectSweepPointIndex);
 
   const parameterStudy = useAppSelector(selectParameterStudy);
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const variables = useAppSelector(selectVariables);
+  const currentSubmission = useAppSelector(selectCurrentSubmission);
 
   // Derive z0 from first element's first port (used for Smith chart)
   const portZ0 = useMemo(() => {
@@ -275,44 +282,65 @@ function PostprocessingTab({
       ?? availableFrequencies[selectedFrequencyIndex]
       ?? (currentFrequency ? currentFrequency * 1e6 : null));
 
-  // Handle PDF export
-  const handlePDFExport = async (options: {
-    includeMetadata: boolean;
-    resolution: '1080p' | '1440p' | '4K';
-    filename: string;
-  }) => {
-    if (!middlePanelRef.current || !selectedViewId) {
-      setSnackbarMessage('Error: Cannot export - no view selected');
-      setShowSnackbar(true);
-      return;
+  // Capture a single view panel as PNG data URL for PDF inclusion.
+  // Dispatches selectView, waits 2 animation frames for re-render, then captures.
+  const captureView = useCallback(async (viewId: string): Promise<string> => {
+    dispatch(selectView(viewId));
+    // Wait 2 frames for React to re-render the selected view
+    await new Promise<void>(resolve => requestAnimationFrame(() => { requestAnimationFrame(() => resolve()); }));
+    const view = viewConfigurations.find(v => v.id === viewId);
+    if (view?.viewType === '3D') {
+      // Three.js WebGL canvas — requires preserveDrawingBuffer: true on R3F Canvas
+      const canvas = middlePanelRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
+      if (canvas) return canvas.toDataURL('image/png');
     }
+    // html2canvas for chart/plot views
+    if (!middlePanelRef.current) return '';
+    const captured = await html2canvas(middlePanelRef.current, { backgroundColor: '#1a1a1a' });
+    return captured.toDataURL('image/png');
+  }, [dispatch, viewConfigurations, middlePanelRef]);
 
-    const selectedView = viewConfigurations.find((v) => v.id === selectedViewId);
-    if (!selectedView) {
-      setSnackbarMessage('Error: Selected view not found');
-      setShowSnackbar(true);
-      return;
-    }
-
+  // Handle PDF export using multi-page report generator
+  const handlePDFExport = async (options: PDFExportOptions) => {
+    const originalViewId = selectedViewId;
     try {
-      await exportToPDF({
-        targetElement: middlePanelRef.current,
-        view: selectedView,
-        metadata: {
-          include: options.includeMetadata,
-          projectName,
-          frequency: displayFrequencyHz ?? undefined,
-        },
-        resolution: options.resolution,
-        filename: options.filename,
-      });
+      const submissionMeta = currentSubmission
+        ? {
+            studentName: currentSubmission.username,
+            submittedAt: currentSubmission.submitted_at,
+            status: currentSubmission.status,
+            feedback: currentSubmission.feedback || undefined,
+          }
+        : undefined;
 
-      setSnackbarMessage(`PDF exported successfully: ${options.filename}.pdf`);
+      await generatePDFReport({
+        projectName: projectName ?? 'Project',
+        authorName: currentUser?.username,
+        elements,
+        variables,
+        viewConfigurations,
+        solverConfig: {
+          frequency: currentFrequency ? currentFrequency * 1e6 : undefined,
+          numFrequencies: (frequencySweep?.frequencies?.length ?? 0) > 1 ? frequencySweep!.frequencies.length : undefined,
+          sweepStart: (frequencySweep?.frequencies?.length ?? 0) > 1 ? frequencySweep!.frequencies[0] : undefined,
+          sweepEnd: (frequencySweep?.frequencies?.length ?? 0) > 1 ? frequencySweep!.frequencies[frequencySweep!.frequencies.length - 1] : undefined,
+          method: 'peec',
+        },
+        documentationContent: '',
+        submissionMeta,
+        sections: options.sections,
+        captureView,
+        filename: options.filename,
+        onProgress: options.onProgress,
+      });
+      setSnackbarMessage(`PDF exported: ${options.filename}.pdf`);
       setShowSnackbar(true);
     } catch (error) {
       console.error('PDF export failed:', error);
       setSnackbarMessage(`Error: ${error instanceof Error ? error.message : 'PDF export failed'}`);
       setShowSnackbar(true);
+    } finally {
+      if (originalViewId) dispatch(selectView(originalViewId));
     }
   };
 
@@ -322,7 +350,17 @@ function PostprocessingTab({
       <RibbonMenu currentTab="postprocessing" />
 
       {/* EXPORT PDF DIALOG */}
-      <ExportPDFDialog projectName={projectName} onExport={handlePDFExport} />
+      <ExportPDFDialog
+        projectName={projectName}
+        authorName={currentUser?.username}
+        submissionMeta={currentSubmission ? {
+          studentName: currentSubmission.username,
+          submittedAt: currentSubmission.submitted_at,
+          status: currentSubmission.status,
+          feedback: currentSubmission.feedback || undefined,
+        } : undefined}
+        onExport={handlePDFExport}
+      />
 
       {/* SNACKBAR FOR NOTIFICATIONS */}
       <Snackbar

@@ -86,7 +86,7 @@ function DesignPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const isReadOnly = searchParams.get('readOnly') === 'true';
+  const isReadOnly = searchParams.get('readOnly') === 'true' || searchParams.get('readOnly') === '1';
   const readOnlyBackUrl = searchParams.get('back') ?? null;
   const dispatch = useAppDispatch();
   const {

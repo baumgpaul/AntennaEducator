@@ -1,6 +1,9 @@
 /**
- * ExportPDFDialog - Dialog for configuring PDF export options
- * Allows users to choose resolution, include metadata, and set filename
+ * ExportPDFDialog - Dialog for configuring structured PDF report export.
+ *
+ * Lets users choose which sections to include (Cover, Antenna Summary,
+ * Solver Config, Views, Documentation) and shows a progress bar while
+ * the multi-page PDF is being generated.
  */
 
 import { useState, useEffect } from 'react';
@@ -13,129 +16,192 @@ import {
   TextField,
   FormControlLabel,
   Checkbox,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Box,
   Typography,
+  LinearProgress,
+  FormGroup,
+  Divider,
+  Chip,
 } from '@mui/material';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   setExportPDFDialogOpen,
   selectExportPDFDialogOpen,
   selectViewConfigurations,
-  selectSelectedViewId,
 } from '@/store/postprocessingSlice';
-import { selectCurrentFrequency } from '@/store/solverSlice';
+import type { PDFSections } from '@/utils/pdfReportGenerator';
+import type { SubmissionMeta } from '@/utils/pdfDataBuilders';
 
-type Resolution = '1080p' | '1440p' | '4K';
+export interface PDFExportOptions {
+  sections: PDFSections;
+  filename: string;
+  onProgress?: (message: string, current: number, total: number) => void;
+}
 
 interface ExportPDFDialogProps {
   projectName?: string;
-  onExport: (options: {
-    includeMetadata: boolean;
-    resolution: Resolution;
-    filename: string;
-  }) => void;
+  /** Author name (logged-in user's display name). */
+  authorName?: string;
+  /** Submission metadata — shown when exporting from read-only submission viewer. */
+  submissionMeta?: SubmissionMeta;
+  onExport: (options: PDFExportOptions) => Promise<void>;
 }
 
-function ExportPDFDialog({ projectName, onExport }: ExportPDFDialogProps) {
+function ExportPDFDialog({ projectName, authorName, submissionMeta, onExport }: ExportPDFDialogProps) {
   const dispatch = useAppDispatch();
   const open = useAppSelector(selectExportPDFDialogOpen);
   const viewConfigurations = useAppSelector(selectViewConfigurations);
-  const selectedViewId = useAppSelector(selectSelectedViewId);
-  const currentFrequency = useAppSelector(selectCurrentFrequency);
 
-  const [includeMetadata, setIncludeMetadata] = useState(true);
-  const [resolution, setResolution] = useState<Resolution>('1080p');
+  // Section toggles
+  const [sections, setSections] = useState<PDFSections>({
+    cover: true,
+    antennaSummary: true,
+    solverConfig: true,
+    views: true,
+    documentation: true,
+  });
   const [filename, setFilename] = useState('');
 
-  // Generate default filename from view name
+  // Generation state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progressMessage, setProgressMessage] = useState('');
+  const [progressCurrent, setProgressCurrent] = useState(0);
+  const [progressTotal, setProgressTotal] = useState(0);
+
+  // Reset on open
   useEffect(() => {
-    if (open && selectedViewId) {
-      const currentView = viewConfigurations.find(v => v.id === selectedViewId);
-      if (currentView) {
-        // Replace spaces and special chars with underscores
-        const safeName = currentView.name.replace(/[^a-zA-Z0-9]/g, '_');
-        setFilename(safeName);
+    if (open) {
+      setSections({ cover: true, antennaSummary: true, solverConfig: true, views: true, documentation: true });
+      setIsGenerating(false);
+      setProgressMessage('');
+      setProgressCurrent(0);
+      setProgressTotal(0);
+      // Auto-generate filename from project name
+      if (projectName) {
+        const safe = projectName.replace(/[^a-zA-Z0-9]/g, '_');
+        setFilename(safe + '_report');
+      } else {
+        setFilename('antenna_report');
       }
     }
-  }, [open, selectedViewId, viewConfigurations]);
+  }, [open, projectName]);
+
+  const toggleSection = (key: keyof PDFSections) => {
+    setSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const handleClose = () => {
-    dispatch(setExportPDFDialogOpen(false));
+    if (!isGenerating) dispatch(setExportPDFDialogOpen(false));
   };
 
-  const handleExport = () => {
-    let finalFilename = filename.trim();
+  const handleExport = async () => {
+    const trimmedFilename = filename.trim();
+    if (!trimmedFilename) return;
 
-    // Add .pdf extension if not present
-    if (!finalFilename.toLowerCase().endsWith('.pdf')) {
-      finalFilename = `${finalFilename}.pdf`;
-    } else {
-      // Remove .pdf and let onExport handler add it
-      finalFilename = finalFilename.slice(0, -4);
+    setIsGenerating(true);
+    setProgressMessage('Preparing…');
+    setProgressCurrent(0);
+    setProgressTotal(0);
+
+    try {
+      await onExport({
+        sections,
+        filename: trimmedFilename,
+        onProgress: (message, current, total) => {
+          setProgressMessage(message);
+          setProgressCurrent(current);
+          setProgressTotal(total);
+        },
+      });
+      dispatch(setExportPDFDialogOpen(false));
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      setProgressMessage(`Error: ${err instanceof Error ? err.message : 'Export failed'}`);
+    } finally {
+      setIsGenerating(false);
     }
-
-    onExport({
-      includeMetadata,
-      resolution,
-      filename: finalFilename,
-    });
-
-    handleClose();
   };
 
-  const currentView = selectedViewId ? viewConfigurations.find(v => v.id === selectedViewId) : null;
-  const frequencyMHz = currentFrequency ? (currentFrequency / 1e6).toFixed(2) : 'N/A';
+  const progressPct = progressTotal > 0 ? Math.round((progressCurrent / progressTotal) * 100) : 0;
+  const hasViews = viewConfigurations.length > 0;
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Export View to PDF</DialogTitle>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <PictureAsPdfIcon color="error" />
+        Export PDF Report
+      </DialogTitle>
+
       <DialogContent>
-        <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          {/* Current View Info */}
-          {currentView && (
-            <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
-              <Typography variant="body2" color="text.secondary">
-                Exporting: <strong>{currentView.name}</strong> ({currentView.viewType})
-              </Typography>
-              {projectName && (
-                <Typography variant="body2" color="text.secondary">
-                  Project: <strong>{projectName}</strong>
-                </Typography>
-              )}
-              <Typography variant="body2" color="text.secondary">
-                Frequency: <strong>{frequencyMHz} MHz</strong>
-              </Typography>
-            </Box>
-          )}
+        <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
 
-          {/* Include Metadata */}
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={includeMetadata}
-                onChange={(e) => setIncludeMetadata(e.target.checked)}
+          {/* Project info */}
+          <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+            {projectName && (
+              <Typography variant="body2" color="text.secondary">
+                Project: <strong>{projectName}</strong>
+              </Typography>
+            )}
+            {authorName && (
+              <Typography variant="body2" color="text.secondary">
+                Author: <strong>{authorName}</strong>
+              </Typography>
+            )}
+            {submissionMeta && (
+              <Chip
+                size="small"
+                label={`Submission by ${submissionMeta.studentName} — ${submissionMeta.status}`}
+                color="warning"
+                sx={{ mt: 0.5 }}
               />
-            }
-            label="Include metadata page (project name, frequency, date)"
-          />
+            )}
+          </Box>
 
-          {/* Resolution */}
-          <FormControl fullWidth>
-            <InputLabel>Resolution</InputLabel>
-            <Select
-              value={resolution}
-              label="Resolution"
-              onChange={(e) => setResolution(e.target.value as Resolution)}
-            >
-              <MenuItem value="1080p">1080p (1920 × 1080)</MenuItem>
-              <MenuItem value="1440p">1440p (2560 × 1440)</MenuItem>
-              <MenuItem value="4K">4K (3840 × 2160)</MenuItem>
-            </Select>
-          </FormControl>
+          {/* Section selection */}
+          <Box>
+            <Typography variant="subtitle2" gutterBottom>
+              Include Sections
+            </Typography>
+            <FormGroup sx={{ pl: 1 }}>
+              <FormControlLabel
+                control={<Checkbox size="small" checked={sections.cover} onChange={() => toggleSection('cover')} />}
+                label="Cover Page (project name, author, date)"
+              />
+              <FormControlLabel
+                control={<Checkbox size="small" checked={sections.antennaSummary} onChange={() => toggleSection('antennaSummary')} />}
+                label="Antenna Design Summary (elements, variables)"
+              />
+              <FormControlLabel
+                control={<Checkbox size="small" checked={sections.solverConfig} onChange={() => toggleSection('solverConfig')} />}
+                label="Solver Configuration (frequency, Z₀, method)"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={sections.views && hasViews}
+                    onChange={() => toggleSection('views')}
+                    disabled={!hasViews}
+                  />
+                }
+                label={
+                  <span>
+                    Result Views — captures each PostprocessingTab view{' '}
+                    {hasViews
+                      ? <Chip size="small" label={String(viewConfigurations.length)} />
+                      : <Chip size="small" label="none" variant="outlined" />}
+                  </span>
+                }
+              />
+              <FormControlLabel
+                control={<Checkbox size="small" checked={sections.documentation} onChange={() => toggleSection('documentation')} />}
+                label="Documentation (project notes/markdown)"
+              />
+            </FormGroup>
+          </Box>
+
+          <Divider />
 
           {/* Filename */}
           <TextField
@@ -144,19 +210,47 @@ function ExportPDFDialog({ projectName, onExport }: ExportPDFDialogProps) {
             onChange={(e) => setFilename(e.target.value)}
             fullWidth
             required
-            helperText=".pdf extension will be added automatically"
-            error={!filename.trim()}
+            size="small"
+            helperText=".pdf extension added automatically"
+            error={!filename.trim() && !isGenerating}
+            disabled={isGenerating}
           />
+
+          {/* Progress */}
+          {isGenerating && (
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {progressMessage}
+                </Typography>
+                {progressTotal > 0 && (
+                  <Typography variant="caption" color="text.secondary">
+                    {progressCurrent}/{progressTotal}
+                  </Typography>
+                )}
+              </Box>
+              <LinearProgress
+                variant={progressTotal > 0 ? 'determinate' : 'indeterminate'}
+                value={progressPct}
+              />
+            </Box>
+          )}
+
         </Box>
       </DialogContent>
+
       <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
+        <Button onClick={handleClose} disabled={isGenerating}>
+          Cancel
+        </Button>
         <Button
           onClick={handleExport}
           variant="contained"
-          disabled={!filename.trim()}
+          color="primary"
+          disabled={!filename.trim() || isGenerating}
+          startIcon={<PictureAsPdfIcon />}
         >
-          Export PDF
+          {isGenerating ? 'Generating…' : 'Export PDF'}
         </Button>
       </DialogActions>
     </Dialog>
