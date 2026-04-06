@@ -13,6 +13,7 @@ import postprocessingReducer from './postprocessingSlice'
 import documentationReducer from './documentationSlice'
 import foldersReducer from './foldersSlice'
 import variablesReducer from './variablesSlice'
+import submissionsReducer from './submissionsSlice'
 
 export const store = configureStore({
   reducer: {
@@ -25,6 +26,7 @@ export const store = configureStore({
     documentation: documentationReducer,
     folders: foldersReducer,
     variables: variablesReducer,
+    submissions: submissionsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

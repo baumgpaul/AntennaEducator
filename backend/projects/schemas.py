@@ -106,6 +106,7 @@ class FolderResponse(BaseModel):
     parent_folder_id: Optional[str] = None
     is_course: bool = False
     source_course_id: Optional[str] = None
+    examiner_name: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -353,3 +354,53 @@ class ImageUrlResponse(BaseModel):
     """Response body for a presigned image GET URL."""
 
     url: str
+
+
+# ── Submission Schemas ────────────────────────────────────────────────────────
+
+
+class SubmissionCreate(BaseModel):
+    """Schema for submitting a project to a course."""
+
+    project_id: str = Field(..., description="Project to submit (must belong to user).")
+
+
+class SubmissionReview(BaseModel):
+    """Schema for instructor review of a submission."""
+
+    feedback: str = Field(
+        ...,
+        max_length=5000,
+        description="Text feedback from the instructor.",
+    )
+    status: str = Field(
+        default="reviewed",
+        description="New status: 'reviewed' or 'returned'.",
+    )
+
+
+class SubmissionResponse(BaseModel):
+    """Submission detail (without frozen blobs for list views)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    submission_id: str
+    course_id: str
+    project_id: str
+    user_id: str
+    username: str = ""
+    project_name: str
+    status: str
+    feedback: str = ""
+    submitted_at: str
+    reviewed_at: str = ""
+    reviewed_by: str = ""
+
+
+class SubmissionDetailResponse(SubmissionResponse):
+    """Full submission with frozen project snapshot (for read-only viewer)."""
+
+    frozen_design_state: Optional[Dict[str, Any]] = None
+    frozen_simulation_config: Optional[Dict[str, Any]] = None
+    frozen_simulation_results: Optional[Dict[str, Any]] = None
+    frozen_ui_state: Optional[Dict[str, Any]] = None

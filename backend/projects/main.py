@@ -31,6 +31,7 @@ from backend.auth.main import get_current_user_info, login, register
 from backend.common.auth import UserIdentity, get_current_user
 from backend.common.repositories.base import ProjectRepository
 from backend.common.repositories.factory import get_project_repository
+from backend.common.repositories.folder_repository import FolderRepository
 from backend.projects.documentation_service import DocumentationService, get_documentation_service
 
 # Folder & course management routes
@@ -48,6 +49,9 @@ from backend.projects.schemas import (
     ProjectUpdate,
     generate_content_preview,
 )
+
+# Submission routes
+from backend.projects.submission_routes import router as submission_router
 
 app = FastAPI(
     title="Antenna Simulator — Projects Service",
@@ -71,6 +75,9 @@ else:
 # Include folder/course management routes
 app.include_router(folder_router)
 
+# Include submission routes
+app.include_router(submission_router)
+
 
 def get_repository() -> ProjectRepository:
     return get_project_repository()
@@ -78,6 +85,23 @@ def get_repository() -> ProjectRepository:
 
 def _get_doc_service() -> DocumentationService:
     return get_documentation_service()
+
+
+async def _can_access_project(project: dict, user: UserIdentity) -> bool:
+    """Check if user owns the project or is a maintainer for its course folder."""
+    if project["user_id"] == user.id:
+        return True
+    if user.role.value in ("maintainer", "admin"):
+        folder_id = project.get("folder_id")
+        if folder_id:
+            try:
+                folder_repo = FolderRepository()
+                folder = await folder_repo.get_folder(folder_id)
+                if folder and folder.get("is_course"):
+                    return True
+            except Exception:
+                pass
+    return False
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
@@ -125,11 +149,24 @@ async def create_project(
     repo: ProjectRepository = Depends(get_repository),
     results_svc: ResultsService = Depends(get_results_service),
 ):
+    # When creating inside a course folder, store under the course owner's PK
+    # so list_course_projects (which queries by folder owner_id) can find it.
+    owner_id = user.id
+    folder_id = getattr(data, "folder_id", None)
+    if folder_id:
+        try:
+            folder_repo = FolderRepository()
+            folder = await folder_repo.get_folder(folder_id)
+            if folder and folder.get("is_course"):
+                owner_id = folder["owner_id"]
+        except Exception:
+            logger.warning("Could not resolve folder %s for owner lookup", folder_id)
+
     project = await repo.create_project(
-        user_id=user.id,
+        user_id=owner_id,
         name=data.name,
         description=data.description,
-        folder_id=getattr(data, "folder_id", None),
+        folder_id=folder_id,
     )
 
     # Set optional JSON blobs if provided on create
@@ -184,14 +221,14 @@ async def get_project(
     results_svc: ResultsService = Depends(get_results_service),
 ):
     project = await repo.get_project(project_id=project_id)
-    if not project or project["user_id"] != user.id:
+    if not project or not await _can_access_project(project, user):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     # Record when the project was last opened (for "Recent" list)
     now = datetime.now(timezone.utc).isoformat()
     repo.table.update_item(
         Key={
-            "PK": f"USER#{user.id}",
+            "PK": f"USER#{project['user_id']}",
             "SK": f"PROJECT#{project_id}",
         },
         UpdateExpression="SET LastOpenedAt = :ts",
@@ -217,7 +254,7 @@ async def update_project(
     results_svc: ResultsService = Depends(get_results_service),
 ):
     project = await repo.get_project(project_id=project_id)
-    if not project or project["user_id"] != user.id:
+    if not project or not await _can_access_project(project, user):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     # Store large results in S3, keep only keys in DynamoDB
@@ -255,7 +292,7 @@ async def delete_project(
     doc_svc: DocumentationService = Depends(_get_doc_service),
 ):
     project = await repo.get_project(project_id=project_id)
-    if not project or project["user_id"] != user.id:
+    if not project or not await _can_access_project(project, user):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     # Delete results from S3 first

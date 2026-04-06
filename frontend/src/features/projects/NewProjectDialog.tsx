@@ -27,12 +27,13 @@ type ProjectFormData = z.infer<typeof projectSchema>;
 interface NewProjectDialogProps {
   open: boolean;
   onClose: () => void;
+  folderId?: string | null;
 }
 
 /**
  * NewProjectDialog - Dialog for creating new projects
  */
-function NewProjectDialog({ open, onClose }: NewProjectDialogProps) {
+function NewProjectDialog({ open, onClose, folderId }: NewProjectDialogProps) {
   const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(false);
 
@@ -59,7 +60,7 @@ function NewProjectDialog({ open, onClose }: NewProjectDialogProps) {
   const onSubmit = async (data: ProjectFormData) => {
     setLoading(true);
     try {
-      await dispatch(createProject(data)).unwrap();
+      await dispatch(createProject({ ...data, folder_id: folderId ?? undefined })).unwrap();
       dispatch(showSuccess('Project created successfully!'));
       handleClose();
     } catch (error) {

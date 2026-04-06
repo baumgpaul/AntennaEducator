@@ -817,7 +817,7 @@ Multiple rounds of bug fixes after the unified refactor (all committed in PR #60
 
 ## Phase 5 — Postprocessing View System: Line Plots, Smith Chart, Polar Plots, Table View
 
-**Status**: ⏳ Not started
+**Status**: ✅ COMPLETE
 
 **Goal**: Complete the postprocessing view system so that all simulation results are consumed through user-added views in `PostprocessingTab`. Users add views explicitly (nothing shown by default). Remove all result displays from `SolverTab` — it becomes a pure control surface for solving and postprocessing. Four new view types join the existing 3D view: **Line Plot**, **Smith Chart**, **Polar Plot**, and **Table View**.
 
@@ -1073,21 +1073,21 @@ Extend `PostprocessingPropertiesPanel` with editors for new view types:
 
 | Artifact | Type | Status | Description |
 |----------|------|--------|-------------|
-| `frontend/src/types/plotDefinitions.ts` | Types | ⏳ | `PlotQuantity`, `PlotTrace`, `AxisConfig`, view item interfaces |
-| `frontend/src/types/plotDataExtractors.ts` | Utility | ⏳ | Pure data extraction functions for all trace sources |
-| `frontend/src/features/postprocessing/plots/UnifiedLinePlot.tsx` | Component | ⏳ | Generic multi-trace Recharts line plot |
-| `frontend/src/features/postprocessing/plots/PolarPlot.tsx` | Component | ⏳ | SVG polar radiation pattern plot |
-| `frontend/src/features/postprocessing/plots/PortQuantityTable.tsx` | Component | ⏳ | MUI table for port quantities per frequency |
-| Updated `AddViewDialog.tsx` | Component | ⏳ | 5 view type options with icons |
-| Updated `RibbonMenu.tsx` postprocessing section | Component | ⏳ | Quick preset buttons for all view types |
-| Updated `PostprocessingPropertiesPanel.tsx` | Component | ⏳ | Property editors for Line/Smith/Polar/Table |
-| Updated `PostprocessingTab.tsx` | Component | ⏳ | Remove ParameterStudyPlot, port strip; empty default state |
-| Updated `SolverTab.tsx` | Component | ⏳ | Remove all result displays; control surface only |
-| Updated `postprocessing.ts` types | Types | ⏳ | Extended `ViewType`, new item types |
-| `frontend/src/types/plotDataExtractors.test.ts` | Test | ⏳ | Unit tests for all data extractors |
-| `frontend/src/features/postprocessing/plots/UnifiedLinePlot.test.tsx` | Test | ⏳ | Render tests |
-| `frontend/src/features/postprocessing/plots/PolarPlot.test.tsx` | Test | ⏳ | SVG geometry + render tests |
-| `frontend/src/features/postprocessing/plots/PortQuantityTable.test.tsx` | Test | ⏳ | Table render + sort tests |
+| `frontend/src/types/plotDefinitions.ts` | Types | ✅ | `PlotQuantity`, `PlotTrace`, `AxisConfig`, view item interfaces |
+| `frontend/src/types/plotDataExtractors.ts` | Utility | ✅ | Pure data extraction functions for all trace sources |
+| `frontend/src/features/postprocessing/plots/UnifiedLinePlot.tsx` | Component | ✅ | Generic multi-trace Recharts line plot |
+| `frontend/src/features/postprocessing/plots/PolarPlot.tsx` | Component | ✅ | SVG polar radiation pattern plot |
+| `frontend/src/features/postprocessing/plots/PortQuantityTable.tsx` | Component | ✅ | MUI table for port quantities per frequency |
+| Updated `AddViewDialog.tsx` | Component | ✅ | 5 view type options with icons |
+| Updated `RibbonMenu.tsx` postprocessing section | Component | ✅ | Quick preset buttons for all view types |
+| Updated `PostprocessingPropertiesPanel.tsx` | Component | ✅ | Property editors for Line/Smith/Polar/Table |
+| Updated `PostprocessingTab.tsx` | Component | ✅ | Remove ParameterStudyPlot, port strip; empty default state |
+| Updated `SolverTab.tsx` | Component | ✅ | Remove all result displays; control surface only |
+| Updated `postprocessing.ts` types | Types | ✅ | Extended `ViewType`, new item types |
+| `frontend/src/types/plotDataExtractors.test.ts` | Test | ✅ | Unit tests for all data extractors |
+| `frontend/src/features/postprocessing/plots/UnifiedLinePlot.test.tsx` | Test | ✅ | Render tests |
+| `frontend/src/features/postprocessing/plots/PolarPlot.test.tsx` | Test | ✅ | SVG geometry + render tests |
+| `frontend/src/features/postprocessing/plots/PortQuantityTable.test.tsx` | Test | ✅ | Table render + sort tests |
 
 ### 5.14 — Design Decisions
 
@@ -1109,7 +1109,7 @@ Extend `PostprocessingPropertiesPanel` with editors for new view types:
 
 ---
 
-## Phase 6 — Course Submission System
+## Phase 6 — Course Submission System ✅ COMPLETE
 
 **Goal**: Students enrolled in a course can submit (hand in) a project to the instructor. The submission is a frozen snapshot. The instructor sees all submissions per course and per student in read-only mode. The student also sees their own submissions as read-only copies.
 
@@ -1201,16 +1201,22 @@ GET    /api/my-submissions                            — List all my submission
 
 ### 6.6 — Deliverables
 
-| Artifact | Type | Description |
-|----------|------|-------------|
-| `backend/common/repositories/submission_repository.py` | Repository | DynamoDB CRUD for submissions |
-| `backend/projects/submission_routes.py` | Routes | Submit, list, get, update status |
-| `backend/projects/schemas.py` additions | Schema | SubmissionCreate, SubmissionResponse, SubmissionListItem |
-| `frontend/src/features/courses/MySubmissionsPage.tsx` | Page | Student submission list |
-| `frontend/src/features/courses/SubmissionsDashboard.tsx` | Page | Instructor view |
-| `frontend/src/store/submissionsSlice.ts` | Redux | Submission state management |
-| `frontend/src/api/submissions.ts` | API | Submission API calls |
-| Read-only mode across designer | Frontend | `readOnly` prop threading |
+| Artifact | Type | Status | Description |
+|----------|------|--------|-------------|
+| `backend/common/repositories/submission_repository.py` | Repository | ✅ | DynamoDB CRUD for submissions (dual-item pattern) |
+| `backend/projects/submission_routes.py` | Routes | ✅ | Submit, list, get, review (5 endpoints) |
+| `backend/projects/schemas.py` additions | Schema | ✅ | SubmissionCreate, SubmissionReview, SubmissionResponse, SubmissionDetailResponse |
+| `frontend/src/features/courses/MySubmissionsPage.tsx` | Page | ✅ | Student submission list with status chips |
+| `frontend/src/features/courses/SubmissionsDashboard.tsx` | Page | ✅ | Instructor review dashboard with feedback dialog |
+| `frontend/src/features/courses/SubmissionViewer.tsx` | Page | ✅ | Read-only submission snapshot viewer |
+| `frontend/src/features/design/dialogs/SubmitDialog.tsx` | Dialog | ✅ | Confirmation dialog for project submission |
+| `frontend/src/store/submissionsSlice.ts` | Redux | ✅ | Submission state management (5 thunks) |
+| `frontend/src/api/submissions.ts` | API | ✅ | Submission API calls (5 functions) |
+| Submit button in RibbonMenu + DesignPage | Frontend | ✅ | Course-aware submit flow from designer |
+| Routes in App.tsx | Frontend | ✅ | 3 new routes: submissions dashboard, my-submissions, viewer |
+| `tests/unit/test_submissions.py` | Test | ✅ | 19 tests: repository + route endpoints |
+| `frontend/src/api/submissions.test.ts` | Test | ✅ | 5 API client tests |
+| `frontend/src/store/submissionsSlice.test.ts` | Test | ✅ | 8 Redux slice tests |
 
 ---
 

@@ -30,6 +30,7 @@ import {
   Radar,
   TableChart,
   Layers,
+  Send,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector, useAppStore } from '@/store/hooks';
 import {
@@ -51,6 +52,9 @@ interface RibbonMenuProps {
   onViewOption?: (option: string) => void;
   solverStatus?: 'idle' | 'preparing' | 'running' | 'completed' | 'failed' | 'cancelled';
   solverProgress?: number;
+  /** Show submit button when project belongs to a course */
+  showSubmit?: boolean;
+  onSubmit?: () => void;
 }
 
 /**
@@ -63,6 +67,8 @@ function RibbonMenu({
   currentTab = 'designer',
   onAntennaTypeSelect,
   onAnalysisAction,
+  showSubmit,
+  onSubmit,
 }: RibbonMenuProps) {
   const dispatch = useAppDispatch();
   const store = useAppStore();
@@ -405,6 +411,29 @@ function RibbonMenu({
                   </Tooltip>
                 </ButtonGroup>
               </Box>
+
+              {/* Submit to Course (only when project comes from a course) */}
+              {showSubmit && (
+                <>
+                  <Divider orientation="vertical" flexItem />
+                  <Box>
+                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
+                      Course
+                    </Box>
+                    <ButtonGroup variant="outlined" size="small">
+                      <Tooltip title="Submit this project to your course for review">
+                        <Button
+                          startIcon={<Send />}
+                          onClick={onSubmit}
+                          color="primary"
+                        >
+                          Submit
+                        </Button>
+                      </Tooltip>
+                    </ButtonGroup>
+                  </Box>
+                </>
+              )}
             </>
           )}
 

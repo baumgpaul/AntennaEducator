@@ -261,6 +261,51 @@ class DocumentationService:
         self.client.delete_object(Bucket=self.bucket_name, Key=s3_key)
         logger.info(f"Deleted image {image_key} for project {project_id}")
 
+    async def duplicate_images(
+        self,
+        source_project_id: str,
+        target_project_id: str,
+        image_keys: list[str],
+    ) -> list[str]:
+        """Copy documentation images from one project to another via S3 copy.
+
+        Args:
+            source_project_id: The source project ID.
+            target_project_id: The target project ID.
+            image_keys: List of image keys to copy.
+
+        Returns:
+            List of successfully copied image keys.
+        """
+        copied: list[str] = []
+        for key in image_keys:
+            try:
+                self.validate_image_key(key)
+                src = self.image_key(source_project_id, key)
+                dst = self.image_key(target_project_id, key)
+                self.client.copy_object(
+                    Bucket=self.bucket_name,
+                    CopySource={"Bucket": self.bucket_name, "Key": src},
+                    Key=dst,
+                )
+                copied.append(key)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to copy image %s from %s to %s: %s",
+                    key,
+                    source_project_id,
+                    target_project_id,
+                    exc,
+                )
+        logger.info(
+            "Duplicated %d/%d images from %s to %s",
+            len(copied),
+            len(image_keys),
+            source_project_id,
+            target_project_id,
+        )
+        return copied
+
     async def delete_all(self, project_id: str) -> int:
         """Delete all documentation (content + images) for a project.
 

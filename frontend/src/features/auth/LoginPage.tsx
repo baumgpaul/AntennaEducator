@@ -18,7 +18,7 @@ function LoginPage() {
   const dispatch = useAppDispatch();
   const { loading, error, isAuthenticated } = useAppSelector((state) => state.auth);
   const [rememberMe, setRememberMe] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // Get the page user was trying to access before being redirected to login
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
@@ -39,25 +39,14 @@ function LoginPage() {
   useEffect(() => {
     dispatch(clearAuthError());
 
-    // Check for debug information from previous session
-    const lastError = localStorage.getItem('last_auth_error');
+    // Check if user was redirected here due to session expiry
     const logoutReason = localStorage.getItem('logout_reason');
 
-    if (lastError || logoutReason) {
-      console.group('🔍 Debug: Previous Session Error');
-      console.log('Logout reason:', logoutReason);
-      if (lastError) {
-        console.log('Last auth error:', JSON.parse(lastError));
-      }
-      console.groupEnd();
+    if (logoutReason) {
+      console.log('[Auth] Redirected to login, reason:', logoutReason);
+      setSessionExpired(true);
 
-      // Show debug info in UI
-      if (lastError) {
-        const errorData = JSON.parse(lastError);
-        setDebugInfo(`Previous error: ${errorData.method} ${errorData.url} - ${JSON.stringify(errorData.responseData)}`);
-      }
-
-      // Clear after showing
+      // Clear after reading
       localStorage.removeItem('last_auth_error');
       localStorage.removeItem('logout_reason');
     }
@@ -100,20 +89,15 @@ function LoginPage() {
           </Typography>
 
           <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 3 }}>
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
+            {sessionExpired && (
+              <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setSessionExpired(false)}>
+                Your session has expired. Please sign in again.
               </Alert>
             )}
 
-            {debugInfo && (
-              <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setDebugInfo(null)}>
-                <Typography variant="caption" component="div">
-                  <strong>Debug Info (check console for details):</strong>
-                </Typography>
-                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
-                  {debugInfo}
-                </Typography>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
               </Alert>
             )}
 

@@ -29,8 +29,11 @@ import {
   Folder as FolderIcon,
   Description as DescriptionIcon,
   Refresh as RefreshIcon,
+  OpenInNew,
+  Assignment as AssignmentIcon,
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import {
   fetchCourses,
@@ -49,7 +52,9 @@ import {
 } from '@/store/foldersSlice';
 import type { Folder, ProjectListItem } from '@/store/foldersSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
+import { deleteProject } from '@/store/projectsSlice';
 import { FolderDialog } from '@/components/common';
+import NewProjectDialog from '@/features/projects/NewProjectDialog';
 import { formatErrorMessage } from '@/utils/errors';
 
 /**
@@ -58,6 +63,7 @@ import { formatErrorMessage } from '@/utils/errors';
  */
 function CoursesPage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const courses = useAppSelector(selectCourses);
   const courseProjects = useAppSelector(selectCourseProjects);
   const loading = useAppSelector(selectCourseLoading);
@@ -75,6 +81,7 @@ function CoursesPage() {
   // Dialog state
   const [courseDialogOpen, setCourseDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Folder | null>(null);
+  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
 
   // Context menu
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
@@ -174,6 +181,24 @@ function CoursesPage() {
     }
   };
 
+  // ── Course project actions (maintainers) ──────────────────────────────
+
+  const handleEditProject = (project: ProjectListItem) => {
+    navigate(`/project/${project.id}/design`);
+  };
+
+  const handleDeleteProject = async (project: ProjectListItem) => {
+    if (window.confirm(`Delete project "${project.name}"?`)) {
+      try {
+        await dispatch(deleteProject(project.id)).unwrap();
+        if (currentParentId) dispatch(fetchCourseProjects(currentParentId));
+        dispatch(showSuccess('Project deleted'));
+      } catch (err) {
+        dispatch(showError(`Failed to delete project: ${formatErrorMessage(err)}`));
+      }
+    }
+  };
+
   // ── Context menus ────────────────────────────────────────────────────────
 
   const openCourseMenu = (event: React.MouseEvent<HTMLElement>, course: Folder) => {
@@ -242,10 +267,15 @@ function CoursesPage() {
 
       {/* Toolbar for maintainers */}
       {isMaintainer && (
-        <Box sx={{ mb: 2 }}>
+        <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
           <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={handleCreateCourse}>
             New Course
           </Button>
+          {currentParentId && (
+            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setNewProjectDialogOpen(true)}>
+              New Project
+            </Button>
+          )}
         </Box>
       )}
 
@@ -440,23 +470,62 @@ function CoursesPage() {
                   </ListItemIcon>
                   Delete
                 </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    navigate(`/courses/${menuCourse.id}/submissions`);
+                    closeMenu();
+                  }}
+                >
+                  <ListItemIcon>
+                    <AssignmentIcon fontSize="small" />
+                  </ListItemIcon>
+                  View Submissions
+                </MenuItem>
               </>
             )}
           </>
         )}
         {/* Project menu items */}
         {menuProject && (
-          <MenuItem
-            onClick={() => {
-              handleCopyProject(menuProject);
-              closeMenu();
-            }}
-          >
-            <ListItemIcon>
-              <ContentCopy fontSize="small" />
-            </ListItemIcon>
-            Copy to My Projects
-          </MenuItem>
+          <>
+            <MenuItem
+              onClick={() => {
+                handleCopyProject(menuProject);
+                closeMenu();
+              }}
+            >
+              <ListItemIcon>
+                <ContentCopy fontSize="small" />
+              </ListItemIcon>
+              Copy to My Projects
+            </MenuItem>
+            {isMaintainer && (
+              <>
+                <MenuItem
+                  onClick={() => {
+                    handleEditProject(menuProject);
+                    closeMenu();
+                  }}
+                >
+                  <ListItemIcon>
+                    <OpenInNew fontSize="small" />
+                  </ListItemIcon>
+                  Open in Designer
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleDeleteProject(menuProject);
+                    closeMenu();
+                  }}
+                >
+                  <ListItemIcon>
+                    <Delete fontSize="small" />
+                  </ListItemIcon>
+                  Delete
+                </MenuItem>
+              </>
+            )}
+          </>
         )}
       </Menu>
 
@@ -468,6 +537,16 @@ function CoursesPage() {
         title={editingCourse ? 'Rename Course' : 'New Course'}
         initialName={editingCourse?.name ?? ''}
         submitLabel={editingCourse ? 'Rename' : 'Create'}
+      />
+
+      {/* New Project Dialog (inside course folder) */}
+      <NewProjectDialog
+        open={newProjectDialogOpen}
+        onClose={() => {
+          setNewProjectDialogOpen(false);
+          if (currentParentId) dispatch(fetchCourseProjects(currentParentId));
+        }}
+        folderId={currentParentId}
       />
     </Box>
   );

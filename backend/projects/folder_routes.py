@@ -21,6 +21,7 @@ from backend.common.repositories.factory import get_project_repository
 from backend.common.repositories.folder_repository import FolderRepository
 from backend.common.repositories.user_repository import UserRepository
 from backend.projects.documentation_service import DocumentationService, get_documentation_service
+from backend.projects.results_service import ResultsService, get_results_service
 from backend.projects.schemas import (
     CourseCreate,
     CourseOwnerUpdate,
@@ -353,8 +354,8 @@ async def list_course_projects(
     if not folder or not folder["is_course"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
-    # Course projects are owned by the course owner
-    projects = await repo.list_projects_in_folder(folder["owner_id"], folder_id)
+    # Scan all projects in this folder regardless of which maintainer created them
+    projects = await repo.list_all_projects_in_folder(folder_id)
     for p in projects:
         doc = p.get("documentation", {})
         p["has_documentation"] = bool(doc.get("has_content", False))
@@ -386,6 +387,16 @@ async def copy_course_to_user(
     if not source or not source["is_course"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
+    # Auto-enroll the user in the course so they can submit later.
+    enrollment_repo = _get_enrollment_repo()
+    if not enrollment_repo.is_enrolled(folder_id, user.id):
+        enrollment_repo.enroll_user(
+            course_id=folder_id,
+            user_id=user.id,
+            enrolled_by=user.id,
+        )
+
+    results_svc = get_results_service()
     new_root = await _deep_copy_folder(
         source_folder_id=folder_id,
         target_parent_id=data.target_folder_id,
@@ -394,7 +405,17 @@ async def copy_course_to_user(
         repo=repo,
         doc_svc=doc_svc,
         source_course_id=folder_id,
+        results_svc=results_svc,
     )
+
+    # Store examiner name on the root copy folder so the submit dialog can show it.
+    user_repo = _get_user_repo()
+    course_owner = user_repo.get_user_by_id(source["owner_id"])
+    if course_owner:
+        examiner_name = course_owner.get("username") or course_owner.get("email", "")
+        await folder_repo.update_folder(new_root["id"], examiner_name=examiner_name)
+        new_root = {**new_root, "examiner_name": examiner_name}
+
     return new_root
 
 
@@ -416,12 +437,14 @@ async def copy_course_project_to_user(
     if not original:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found.")
 
+    results_svc = get_results_service()
     new_project = await _deep_copy_project(
         original,
         target_folder_id=data.target_folder_id,
         user=user,
         repo=repo,
         doc_svc=doc_svc,
+        results_svc=results_svc,
     )
     return new_project
 
@@ -434,6 +457,7 @@ async def _deep_copy_folder(
     repo: ProjectRepository,
     doc_svc: DocumentationService,
     source_course_id: Optional[str] = None,
+    results_svc: Optional[ResultsService] = None,
 ) -> dict:
     """Recursively copy a course folder tree into the user's space."""
     source = await folder_repo.get_folder(source_folder_id)
@@ -450,8 +474,9 @@ async def _deep_copy_folder(
         source_course_id=source_course_id,
     )
 
-    # Copy projects in this folder
-    projects = await repo.list_projects_in_folder(source["owner_id"], source_folder_id)
+    # Copy projects in this folder (scan all owners — different maintainers may
+    # have created projects inside the same course folder)
+    projects = await repo.list_all_projects_in_folder(source_folder_id)
     for proj in projects:
         await _deep_copy_project(
             proj,
@@ -459,6 +484,7 @@ async def _deep_copy_folder(
             user=user,
             repo=repo,
             doc_svc=doc_svc,
+            results_svc=results_svc,
         )
 
     # Recursively copy subfolders (no source_course_id — only root gets tagged)
@@ -471,6 +497,7 @@ async def _deep_copy_folder(
             folder_repo=folder_repo,
             repo=repo,
             doc_svc=doc_svc,
+            results_svc=results_svc,
         )
 
     return new_folder
@@ -482,8 +509,9 @@ async def _deep_copy_project(
     user: UserIdentity,
     repo: ProjectRepository,
     doc_svc: DocumentationService,
+    results_svc: Optional[ResultsService] = None,
 ) -> dict:
-    """Deep-copy a single project including documentation from S3."""
+    """Deep-copy a single project including documentation and results from S3."""
     new_project = await repo.create_project(
         user_id=user.id,
         name=original["name"],
@@ -492,13 +520,40 @@ async def _deep_copy_project(
         source_project_id=original["id"],
     )
 
-    # Copy all JSON blobs
+    # Copy all JSON blobs (including simulation_results)
     await repo.update_project(
         project_id=new_project["id"],
         design_state=original.get("design_state"),
         simulation_config=original.get("simulation_config"),
+        simulation_results=original.get("simulation_results"),
         ui_state=original.get("ui_state"),
     )
+
+    # Duplicate S3 result objects (solver results, radiation patterns, etc.)
+    sim_results = original.get("simulation_results") or {}
+    result_keys = sim_results.get("result_keys", {})
+    if result_keys and results_svc:
+        try:
+            new_keys = await results_svc.duplicate_results(
+                source_project_id=original["id"],
+                target_project_id=new_project["id"],
+                result_keys=result_keys,
+            )
+            # Update the result keys in the copied simulation_results
+            if new_keys:
+                updated_sim = dict(sim_results)
+                updated_sim["result_keys"] = new_keys
+                await repo.update_project(
+                    project_id=new_project["id"],
+                    simulation_results=updated_sim,
+                )
+        except Exception as exc:
+            logger.warning(
+                "Failed to duplicate results from %s to %s: %s",
+                original["id"],
+                new_project["id"],
+                exc,
+            )
 
     # Deep-copy documentation from S3
     source_id = original["id"]
@@ -507,13 +562,23 @@ async def _deep_copy_project(
         if content_data and content_data.get("content"):
             await doc_svc.save_content(new_project["id"], content_data["content"])
 
-            # Copy documentation metadata
+            # Copy documentation metadata and images
             doc_meta = original.get("documentation", {})
             if doc_meta:
+                source_image_keys = doc_meta.get("image_keys", [])
+                copied_image_keys: list = []
+
+                if source_image_keys:
+                    copied_image_keys = await doc_svc.duplicate_images(
+                        source_project_id=source_id,
+                        target_project_id=new_project["id"],
+                        image_keys=source_image_keys,
+                    )
+
                 new_doc_meta = {
                     "has_content": doc_meta.get("has_content", False),
                     "content_preview": doc_meta.get("content_preview", ""),
-                    "image_keys": [],  # Images are not copied yet
+                    "image_keys": copied_image_keys,
                     "last_edited": doc_meta.get("last_edited"),
                     "last_edited_by": user.id,
                 }
