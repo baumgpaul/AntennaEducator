@@ -353,8 +353,8 @@ async def list_course_projects(
     if not folder or not folder["is_course"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
-    # Course projects are owned by the course owner
-    projects = await repo.list_projects_in_folder(folder["owner_id"], folder_id)
+    # Scan all projects in this folder regardless of which maintainer created them
+    projects = await repo.list_all_projects_in_folder(folder_id)
     for p in projects:
         doc = p.get("documentation", {})
         p["has_documentation"] = bool(doc.get("has_content", False))
@@ -450,8 +450,9 @@ async def _deep_copy_folder(
         source_course_id=source_course_id,
     )
 
-    # Copy projects in this folder
-    projects = await repo.list_projects_in_folder(source["owner_id"], source_folder_id)
+    # Copy projects in this folder (scan all owners — different maintainers may
+    # have created projects inside the same course folder)
+    projects = await repo.list_all_projects_in_folder(source_folder_id)
     for proj in projects:
         await _deep_copy_project(
             proj,

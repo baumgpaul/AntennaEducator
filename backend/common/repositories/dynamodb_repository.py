@@ -147,6 +147,21 @@ class DynamoDBProjectRepository(ProjectRepository):
         target = folder_id or ""
         return [p for p in all_projects if (p.get("folder_id") or "") == target]
 
+    async def list_all_projects_in_folder(self, folder_id: str) -> List[Dict[str, Any]]:
+        """List ALL projects in a folder regardless of owner.
+
+        Uses a DynamoDB scan with filter — acceptable for course folders
+        which typically contain a small number of projects.
+        """
+        resp = self.table.scan(
+            FilterExpression=("EntityType = :et AND FolderId = :fid"),
+            ExpressionAttributeValues={
+                ":et": "PROJECT",
+                ":fid": folder_id,
+            },
+        )
+        return [self._to_dict(i) for i in resp.get("Items", [])]
+
     # ── update ────────────────────────────────────────────────────────────
 
     async def update_project(
