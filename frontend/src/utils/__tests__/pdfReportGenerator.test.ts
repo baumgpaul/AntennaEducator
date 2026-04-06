@@ -227,4 +227,43 @@ describe('generatePDFReport', () => {
     await generatePDFReport(opts);
     expect(mockAddImage).toHaveBeenCalled();
   });
+
+  it('calls captureAntennaGeometry when antennaGeometry section enabled', async () => {
+    const captureAntennaGeometry = vi.fn().mockResolvedValue('data:image/png;base64,geomdata');
+    const opts = makeOptions({
+      sections: { cover: false, antennaSummary: false, solverConfig: false, antennaGeometry: true, views: false, documentation: false },
+      captureAntennaGeometry,
+    });
+    await generatePDFReport(opts);
+    expect(captureAntennaGeometry).toHaveBeenCalledTimes(1);
+    expect(mockAddImage).toHaveBeenCalled();
+  });
+
+  it('shows placeholder text when captureAntennaGeometry returns null', async () => {
+    const captureAntennaGeometry = vi.fn().mockResolvedValue(null);
+    const opts = makeOptions({
+      sections: { cover: false, antennaSummary: false, solverConfig: false, antennaGeometry: true, views: false, documentation: false },
+      captureAntennaGeometry,
+    });
+    await generatePDFReport(opts);
+    expect(mockAddImage).not.toHaveBeenCalled();
+    expect(mockText).toHaveBeenCalled(); // placeholder text
+  });
+
+  it('does not call captureAntennaGeometry when section disabled', async () => {
+    const captureAntennaGeometry = vi.fn();
+    const opts = makeOptions({
+      sections: { cover: true, antennaSummary: false, solverConfig: false, antennaGeometry: false, views: false, documentation: false },
+      captureAntennaGeometry,
+    });
+    await generatePDFReport(opts);
+    expect(captureAntennaGeometry).not.toHaveBeenCalled();
+  });
+
+  it('counts antennaGeometry as 1 step in buildTotalSteps', () => {
+    const opts = makeOptions({
+      sections: { cover: true, antennaSummary: false, solverConfig: false, antennaGeometry: true, views: false, documentation: false },
+    });
+    expect(buildTotalSteps(opts)).toBe(2); // cover + antennaGeometry
+  });
 });

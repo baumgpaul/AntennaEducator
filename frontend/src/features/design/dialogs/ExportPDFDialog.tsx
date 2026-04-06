@@ -58,6 +58,7 @@ function ExportPDFDialog({ projectName, authorName, submissionMeta, onExport }: 
     cover: true,
     antennaSummary: true,
     solverConfig: true,
+    antennaGeometry: true,
     views: true,
     documentation: true,
   });
@@ -72,7 +73,7 @@ function ExportPDFDialog({ projectName, authorName, submissionMeta, onExport }: 
   // Reset on open
   useEffect(() => {
     if (open) {
-      setSections({ cover: true, antennaSummary: true, solverConfig: true, views: true, documentation: true });
+      setSections({ cover: true, antennaSummary: true, solverConfig: true, antennaGeometry: true, views: true, documentation: true });
       setIsGenerating(false);
       setProgressMessage('');
       setProgressCurrent(0);
@@ -125,6 +126,7 @@ function ExportPDFDialog({ projectName, authorName, submissionMeta, onExport }: 
 
   const progressPct = progressTotal > 0 ? Math.round((progressCurrent / progressTotal) * 100) : 0;
   const hasViews = viewConfigurations.length > 0;
+  const has3DView = viewConfigurations.some(v => v.viewType === '3D');
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -175,8 +177,22 @@ function ExportPDFDialog({ projectName, authorName, submissionMeta, onExport }: 
               <FormControlLabel
                 control={<Checkbox size="small" checked={sections.solverConfig} onChange={() => toggleSection('solverConfig')} />}
                 label="Solver Configuration (frequency, Z₀, method)"
-              />
-              <FormControlLabel
+              />              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={sections.antennaGeometry ?? false}
+                    onChange={() => toggleSection('antennaGeometry')}
+                    disabled={!has3DView}
+                  />
+                }
+                label={
+                  <span>
+                    Antenna Geometry — 3D capture (wire mesh, feeds, fields){' '}
+                    {!has3DView && <Chip size="small" label="needs 3D view" variant="outlined" />}
+                  </span>
+                }
+              />              <FormControlLabel
                 control={
                   <Checkbox
                     size="small"

@@ -37,6 +37,8 @@ export interface PDFSections {
   cover: boolean;
   antennaSummary: boolean;
   solverConfig: boolean;
+  /** Capture of the first 3D view — shows antenna geometry, feeds, and field definitions. */
+  antennaGeometry?: boolean;
   views: boolean;
   documentation: boolean;
 }
@@ -60,6 +62,9 @@ export interface PDFReportOptions {
   sections: PDFSections;
   /** Async callback: switch to viewId, wait for render, capture → data URL. */
   captureView: (viewId: string) => Promise<string>;
+  /** Async callback: capture the first 3D view for the Antenna Geometry section.
+   *  Returns null when no 3D view exists (section renders a placeholder). */
+  captureAntennaGeometry?: () => Promise<string | null>;
   filename: string;
   onProgress?: (message: string, current: number, total: number) => void;
 }
@@ -87,6 +92,7 @@ export function buildTotalSteps(opts: PDFReportOptions): number {
   if (opts.sections.cover) steps++;
   if (opts.sections.antennaSummary) steps++;
   if (opts.sections.solverConfig) steps++;
+  if (opts.sections.antennaGeometry) steps++;
   if (opts.sections.views) steps += opts.viewConfigurations.length;
   if (opts.sections.documentation && opts.documentationContent) steps++;
   return steps;
@@ -416,6 +422,47 @@ function renderDocumentation(doc: jsPDF, opts: PDFReportOptions) {
   drawFooter(doc, opts.projectName);
 }
 
+async function renderAntennaGeometry(
+  doc: jsPDF,
+  captureAntennaGeometry: (() => Promise<string | null>) | undefined,
+  projectName: string,
+) {
+  let y = MARGIN;
+  y = drawHeading(doc, 'Antenna Geometry', y);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  setColor(doc, COLOR_SECONDARY);
+  doc.text('3D view — wire mesh, feed structure, and requested fields', MARGIN, y);
+  y += 8;
+
+  let dataUrl: string | null = null;
+  if (captureAntennaGeometry) {
+    try {
+      dataUrl = await captureAntennaGeometry();
+    } catch {
+      dataUrl = null;
+    }
+  }
+
+  if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    setColor(doc, '#757575');
+    doc.text('No 3D view available — add a 3D view in the PostprocessingTab to include a geometry capture here.', MARGIN, y);
+    drawFooter(doc, projectName);
+    return;
+  }
+
+  const maxW = CONTENT_W;
+  const maxH = PAGE_H - MARGIN * 2 - y - 10;
+  const imgW = maxW;
+  const imgH = Math.min(maxH, imgW * (9 / 16));
+  const imgFormat = dataUrl.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+  doc.addImage(dataUrl, imgFormat, MARGIN, y, imgW, imgH);
+  drawFooter(doc, projectName);
+}
+
 // ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
@@ -465,6 +512,13 @@ export async function generatePDFReport(opts: PDFReportOptions): Promise<void> {
     nextPage();
     renderSolverConfig(doc, opts);
     progress('Solver configuration');
+  }
+
+  // --- Antenna Geometry ---
+  if (opts.sections.antennaGeometry) {
+    nextPage();
+    await renderAntennaGeometry(doc, opts.captureAntennaGeometry, opts.projectName);
+    progress('Antenna geometry');
   }
 
   // --- Views ---

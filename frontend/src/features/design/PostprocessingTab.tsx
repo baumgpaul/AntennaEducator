@@ -307,6 +307,19 @@ function PostprocessingTab({
     return captured.toDataURL('image/png');
   }, [dispatch, viewConfigurations, middlePanelRef]);
 
+  // Capture the first 3D view for the "Antenna Geometry" PDF section.
+  // Returns null (not an error) when no 3D view exists — the section will
+  // render a placeholder text instead.
+  const captureAntennaGeometry = useCallback(async (): Promise<string | null> => {
+    const threeDView = viewConfigurations.find(v => v.viewType === '3D');
+    if (!threeDView) return null;
+    try {
+      return await captureView(threeDView.id);
+    } catch {
+      return null;
+    }
+  }, [viewConfigurations, captureView]);
+
   // Handle PDF export using multi-page report generator
   const handlePDFExport = async (options: PDFExportOptions) => {
     const originalViewId = selectedViewId;
@@ -337,6 +350,7 @@ function PostprocessingTab({
         submissionMeta,
         sections: options.sections,
         captureView,
+        captureAntennaGeometry,
         filename: options.filename,
         onProgress: options.onProgress,
       });
@@ -453,6 +467,7 @@ function PostprocessingTab({
         }}
       >
       <Box
+        ref={middlePanelRef}
         sx={{
           flex: '1 1 100%',
           position: 'relative',
