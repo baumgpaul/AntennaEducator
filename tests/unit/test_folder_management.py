@@ -612,7 +612,7 @@ class TestCourseEndpoints:
     def test_list_course_projects(self):
         mocks = _setup_mocks(NORMAL_USER)
         mocks["folder_repo"].get_folder = AsyncMock(return_value=MOCK_COURSE_FOLDER)
-        mocks["repo"].list_projects_in_folder = AsyncMock(return_value=[MOCK_COURSE_PROJECT])
+        mocks["repo"].list_all_projects_in_folder = AsyncMock(return_value=[MOCK_COURSE_PROJECT])
 
         client = TestClient(app)
         resp = client.get(f"/api/courses/{MOCK_COURSE_FOLDER['id']}/projects")
@@ -642,7 +642,7 @@ class TestDeepCopyEndpoints:
         mocks["folder_repo"].get_folder = AsyncMock(return_value=MOCK_COURSE_FOLDER)
         mocks["folder_repo"].create_folder = AsyncMock(return_value=new_folder)
         mocks["folder_repo"].list_subfolders = AsyncMock(return_value=[])
-        mocks["repo"].list_projects_in_folder = AsyncMock(return_value=[])
+        mocks["repo"].list_all_projects_in_folder = AsyncMock(return_value=[])
 
         client = TestClient(app)
         resp = client.post(
@@ -669,7 +669,7 @@ class TestDeepCopyEndpoints:
         mocks["folder_repo"].get_folder = AsyncMock(return_value=MOCK_COURSE_FOLDER)
         mocks["folder_repo"].create_folder = AsyncMock(return_value=new_folder)
         mocks["folder_repo"].list_subfolders = AsyncMock(return_value=[])
-        mocks["repo"].list_projects_in_folder = AsyncMock(return_value=[MOCK_COURSE_PROJECT])
+        mocks["repo"].list_all_projects_in_folder = AsyncMock(return_value=[MOCK_COURSE_PROJECT])
         mocks["repo"].create_project = AsyncMock(return_value=new_project)
         mocks["repo"].update_project = AsyncMock(return_value=new_project)
         mocks["repo"].get_project = AsyncMock(return_value=new_project)
