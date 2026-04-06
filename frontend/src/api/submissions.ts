@@ -14,6 +14,7 @@ export interface Submission {
   course_id: string;
   project_id: string;
   user_id: string;
+  username: string;
   project_name: string;
   status: 'submitted' | 'reviewed' | 'returned';
   feedback: string;

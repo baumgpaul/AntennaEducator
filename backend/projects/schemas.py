@@ -388,6 +388,7 @@ class SubmissionResponse(BaseModel):
     course_id: str
     project_id: str
     user_id: str
+    username: str = ""
     project_name: str
     status: str
     feedback: str = ""

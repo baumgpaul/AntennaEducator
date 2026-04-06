@@ -30,6 +30,7 @@ import {
   Description as DescriptionIcon,
   Refresh as RefreshIcon,
   OpenInNew,
+  Assignment as AssignmentIcon,
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -468,6 +469,17 @@ function CoursesPage() {
                     <Delete fontSize="small" />
                   </ListItemIcon>
                   Delete
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    navigate(`/courses/${menuCourse.id}/submissions`);
+                    closeMenu();
+                  }}
+                >
+                  <ListItemIcon>
+                    <AssignmentIcon fontSize="small" />
+                  </ListItemIcon>
+                  View Submissions
                 </MenuItem>
               </>
             )}

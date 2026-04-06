@@ -99,6 +99,7 @@ async def submit_project(
         course_id=course_id,
         project_id=body.project_id,
         user_id=user.id,
+        username=user.username,
         project_name=project.get("name", "Untitled"),
         frozen_design_state=project.get("design_state"),
         frozen_simulation_config=project.get("simulation_config"),
