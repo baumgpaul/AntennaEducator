@@ -29,8 +29,10 @@ import {
   Folder as FolderIcon,
   Description as DescriptionIcon,
   Refresh as RefreshIcon,
+  OpenInNew,
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import {
   fetchCourses,
@@ -49,6 +51,7 @@ import {
 } from '@/store/foldersSlice';
 import type { Folder, ProjectListItem } from '@/store/foldersSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
+import { deleteProject } from '@/store/projectsSlice';
 import { FolderDialog } from '@/components/common';
 import NewProjectDialog from '@/features/projects/NewProjectDialog';
 import { formatErrorMessage } from '@/utils/errors';
@@ -59,6 +62,7 @@ import { formatErrorMessage } from '@/utils/errors';
  */
 function CoursesPage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const courses = useAppSelector(selectCourses);
   const courseProjects = useAppSelector(selectCourseProjects);
   const loading = useAppSelector(selectCourseLoading);
@@ -173,6 +177,24 @@ function CoursesPage() {
       dispatch(showSuccess(`Project "${project.name}" copied to your projects!`));
     } catch (err) {
       dispatch(showError(`Failed to copy project: ${formatErrorMessage(err)}`));
+    }
+  };
+
+  // ── Course project actions (maintainers) ──────────────────────────────
+
+  const handleEditProject = (project: ProjectListItem) => {
+    navigate(`/project/${project.id}/design`);
+  };
+
+  const handleDeleteProject = async (project: ProjectListItem) => {
+    if (window.confirm(`Delete project "${project.name}"?`)) {
+      try {
+        await dispatch(deleteProject(project.id)).unwrap();
+        if (currentParentId) dispatch(fetchCourseProjects(currentParentId));
+        dispatch(showSuccess('Project deleted'));
+      } catch (err) {
+        dispatch(showError(`Failed to delete project: ${formatErrorMessage(err)}`));
+      }
     }
   };
 
@@ -453,17 +475,45 @@ function CoursesPage() {
         )}
         {/* Project menu items */}
         {menuProject && (
-          <MenuItem
-            onClick={() => {
-              handleCopyProject(menuProject);
-              closeMenu();
-            }}
-          >
-            <ListItemIcon>
-              <ContentCopy fontSize="small" />
-            </ListItemIcon>
-            Copy to My Projects
-          </MenuItem>
+          <>
+            <MenuItem
+              onClick={() => {
+                handleCopyProject(menuProject);
+                closeMenu();
+              }}
+            >
+              <ListItemIcon>
+                <ContentCopy fontSize="small" />
+              </ListItemIcon>
+              Copy to My Projects
+            </MenuItem>
+            {isMaintainer && (
+              <>
+                <MenuItem
+                  onClick={() => {
+                    handleEditProject(menuProject);
+                    closeMenu();
+                  }}
+                >
+                  <ListItemIcon>
+                    <OpenInNew fontSize="small" />
+                  </ListItemIcon>
+                  Open in Designer
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleDeleteProject(menuProject);
+                    closeMenu();
+                  }}
+                >
+                  <ListItemIcon>
+                    <Delete fontSize="small" />
+                  </ListItemIcon>
+                  Delete
+                </MenuItem>
+              </>
+            )}
+          </>
         )}
       </Menu>
 
