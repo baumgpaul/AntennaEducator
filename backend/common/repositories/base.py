@@ -52,6 +52,9 @@ class ProjectRepository(ABC):
     ) -> List[Dict[str, Any]]: ...
 
     @abstractmethod
+    async def list_all_projects_in_folder(self, folder_id: str) -> List[Dict[str, Any]]: ...
+
+    @abstractmethod
     async def update_project(
         self,
         project_id: str,

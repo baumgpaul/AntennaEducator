@@ -11,6 +11,8 @@ import uiReducer from '@/store/uiSlice';
 import postprocessingReducer from '@/store/postprocessingSlice';
 import documentationReducer from '@/store/documentationSlice';
 import variablesReducer from '@/store/variablesSlice';
+import submissionsReducer from '@/store/submissionsSlice';
+import foldersReducer from '@/store/foldersSlice';
 
 // Create mock navigate function at module level
 const mockNavigate = vi.fn();
@@ -77,6 +79,8 @@ const createTestStore = (initialState: Record<string, any> = {}) => {
       postprocessing: postprocessingReducer,
       documentation: documentationReducer,
       variables: variablesReducer,
+      submissions: submissionsReducer,
+      folders: foldersReducer,
     },
     preloadedState: {
       ...initialState,

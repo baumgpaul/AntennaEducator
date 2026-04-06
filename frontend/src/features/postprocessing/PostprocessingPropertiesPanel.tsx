@@ -1001,6 +1001,224 @@ const PostprocessingPropertiesPanel: React.FC = () => {
           </>
         );
 
+      case 'line-plot':
+        return (
+          <>
+            {/* Trace List */}
+            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+              Traces ({selectedItem.traces?.length ?? 0})
+            </Typography>
+            {(selectedItem.traces ?? []).map((trace, idx) => (
+              <Box
+                key={trace.id}
+                sx={{
+                  mb: 1.5,
+                  p: 1,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <input
+                    type="color"
+                    value={trace.color}
+                    onChange={(e) => {
+                      const updated = [...(selectedItem.traces ?? [])];
+                      updated[idx] = { ...trace, color: e.target.value };
+                      handleItemPropertyChange('traces', updated);
+                    }}
+                    style={{ width: 28, height: 28, cursor: 'pointer', border: '1px solid #ccc', borderRadius: 4, padding: 0 }}
+                  />
+                  <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {trace.label || `Trace ${idx + 1}`}
+                  </Typography>
+                  <Button
+                    size="small"
+                    color="error"
+                    sx={{ minWidth: 'auto', p: 0.5 }}
+                    onClick={() => {
+                      const updated = (selectedItem.traces ?? []).filter((_, i) => i !== idx);
+                      handleItemPropertyChange('traces', updated);
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </Button>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <FormControl size="small" sx={{ flex: 1 }}>
+                    <InputLabel>Style</InputLabel>
+                    <Select
+                      value={trace.lineStyle}
+                      label="Style"
+                      onChange={(e) => {
+                        const updated = [...(selectedItem.traces ?? [])];
+                        updated[idx] = { ...trace, lineStyle: e.target.value as 'solid' | 'dashed' | 'dotted' };
+                        handleItemPropertyChange('traces', updated);
+                      }}
+                    >
+                      <MenuItem value="solid">Solid</MenuItem>
+                      <MenuItem value="dashed">Dashed</MenuItem>
+                      <MenuItem value="dotted">Dotted</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <FormControl size="small" sx={{ flex: 1 }}>
+                    <InputLabel>Y-Axis</InputLabel>
+                    <Select
+                      value={trace.yAxisId}
+                      label="Y-Axis"
+                      onChange={(e) => {
+                        const updated = [...(selectedItem.traces ?? [])];
+                        updated[idx] = { ...trace, yAxisId: e.target.value as 'left' | 'right' };
+                        handleItemPropertyChange('traces', updated);
+                      }}
+                    >
+                      <MenuItem value="left">Left</MenuItem>
+                      <MenuItem value="right">Right</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Box>
+            ))}
+            {(!selectedItem.traces || selectedItem.traces.length === 0) && (
+              <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic', mb: 2 }}>
+                No traces. Use "Add Curve" to add data.
+              </Typography>
+            )}
+
+            {/* X-Axis Config */}
+            <Typography variant="body2" fontWeight={600} sx={{ mt: 2, mb: 1 }}>
+              X-Axis
+            </Typography>
+            <TextField
+              fullWidth
+              label="Label"
+              value={selectedItem.xAxisConfig?.label ?? 'Frequency'}
+              onChange={(e) =>
+                handleItemPropertyChange('xAxisConfig', {
+                  ...(selectedItem.xAxisConfig ?? { label: 'Frequency', unit: 'MHz', scale: 'linear' as const }),
+                  label: e.target.value,
+                })
+              }
+              size="small"
+              sx={{ mb: 1 }}
+            />
+            <TextField
+              fullWidth
+              label="Unit"
+              value={selectedItem.xAxisConfig?.unit ?? 'MHz'}
+              onChange={(e) =>
+                handleItemPropertyChange('xAxisConfig', {
+                  ...(selectedItem.xAxisConfig ?? { label: 'Frequency', unit: 'MHz', scale: 'linear' as const }),
+                  unit: e.target.value,
+                })
+              }
+              size="small"
+              sx={{ mb: 2 }}
+            />
+
+            {/* Left Y-Axis Config */}
+            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+              Left Y-Axis
+            </Typography>
+            <TextField
+              fullWidth
+              label="Label"
+              value={selectedItem.yAxisLeftConfig?.label ?? ''}
+              onChange={(e) =>
+                handleItemPropertyChange('yAxisLeftConfig', {
+                  ...(selectedItem.yAxisLeftConfig ?? { label: '', unit: '', scale: 'linear' as const }),
+                  label: e.target.value,
+                })
+              }
+              size="small"
+              sx={{ mb: 1 }}
+            />
+            <TextField
+              fullWidth
+              label="Unit"
+              value={selectedItem.yAxisLeftConfig?.unit ?? ''}
+              onChange={(e) =>
+                handleItemPropertyChange('yAxisLeftConfig', {
+                  ...(selectedItem.yAxisLeftConfig ?? { label: '', unit: '', scale: 'linear' as const }),
+                  unit: e.target.value,
+                })
+              }
+              size="small"
+              sx={{ mb: 1 }}
+            />
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel>Scale</InputLabel>
+              <Select
+                value={selectedItem.yAxisLeftConfig?.scale ?? 'linear'}
+                label="Scale"
+                onChange={(e) =>
+                  handleItemPropertyChange('yAxisLeftConfig', {
+                    ...(selectedItem.yAxisLeftConfig ?? { label: '', unit: '', scale: 'linear' as const }),
+                    scale: e.target.value as 'linear' | 'log' | 'dB',
+                  })
+                }
+              >
+                <MenuItem value="linear">Linear</MenuItem>
+                <MenuItem value="log">Logarithmic</MenuItem>
+                <MenuItem value="dB">dB</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Right Y-Axis Config (only if any trace uses it) */}
+            {selectedItem.traces?.some((t) => t.yAxisId === 'right') && (
+              <>
+                <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                  Right Y-Axis
+                </Typography>
+                <TextField
+                  fullWidth
+                  label="Label"
+                  value={selectedItem.yAxisRightConfig?.label ?? ''}
+                  onChange={(e) =>
+                    handleItemPropertyChange('yAxisRightConfig', {
+                      ...(selectedItem.yAxisRightConfig ?? { label: '', unit: '', scale: 'linear' as const }),
+                      label: e.target.value,
+                    })
+                  }
+                  size="small"
+                  sx={{ mb: 1 }}
+                />
+                <TextField
+                  fullWidth
+                  label="Unit"
+                  value={selectedItem.yAxisRightConfig?.unit ?? ''}
+                  onChange={(e) =>
+                    handleItemPropertyChange('yAxisRightConfig', {
+                      ...(selectedItem.yAxisRightConfig ?? { label: '', unit: '', scale: 'linear' as const }),
+                      unit: e.target.value,
+                    })
+                  }
+                  size="small"
+                  sx={{ mb: 1 }}
+                />
+                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                  <InputLabel>Scale</InputLabel>
+                  <Select
+                    value={selectedItem.yAxisRightConfig?.scale ?? 'linear'}
+                    label="Scale"
+                    onChange={(e) =>
+                      handleItemPropertyChange('yAxisRightConfig', {
+                        ...(selectedItem.yAxisRightConfig ?? { label: '', unit: '', scale: 'linear' as const }),
+                        scale: e.target.value as 'linear' | 'log' | 'dB',
+                      })
+                    }
+                  >
+                    <MenuItem value="linear">Linear</MenuItem>
+                    <MenuItem value="log">Logarithmic</MenuItem>
+                    <MenuItem value="dB">dB</MenuItem>
+                  </Select>
+                </FormControl>
+              </>
+            )}
+          </>
+        );
+
       case 'port-table':
         return (
           <Typography variant="body2" color="text.secondary">

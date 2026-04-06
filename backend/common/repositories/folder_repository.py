@@ -168,6 +168,7 @@ class FolderRepository:
         name: Optional[str] = None,
         parent_folder_id: Optional[str] = None,
         owner_id: Optional[str] = None,
+        examiner_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update folder attributes.
 
@@ -195,6 +196,10 @@ class FolderRepository:
         if owner_id is not None:
             parts.append("OwnerId = :oid")
             values[":oid"] = owner_id
+
+        if examiner_name is not None:
+            parts.append("ExaminerName = :ename")
+            values[":ename"] = examiner_name
 
         pk = COURSES_PK if folder["is_course"] else f"USER#{folder['owner_id']}"
         params: Dict[str, Any] = {
@@ -281,6 +286,7 @@ class FolderRepository:
             "parent_folder_id": item.get("ParentFolderId", "") or None,
             "is_course": item.get("IsCourse", False),
             "source_course_id": item.get("SourceCourseId") or None,
+            "examiner_name": item.get("ExaminerName") or None,
             "created_at": item.get("CreatedAt"),
             "updated_at": item.get("UpdatedAt"),
         }

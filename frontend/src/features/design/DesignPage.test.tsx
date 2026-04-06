@@ -16,6 +16,8 @@ import uiReducer from '@/store/uiSlice';
 import postprocessingReducer from '@/store/postprocessingSlice';
 import documentationReducer from '@/store/documentationSlice';
 import variablesReducer from '@/store/variablesSlice';
+import submissionsReducer from '@/store/submissionsSlice';
+import foldersReducer from '@/store/foldersSlice';
 import type { RootState } from '@/store/store';
 
 // Mock react-router-dom
@@ -40,6 +42,8 @@ function renderWithRedux(
       postprocessing: postprocessingReducer,
       documentation: documentationReducer,
       variables: variablesReducer,
+      submissions: submissionsReducer,
+      folders: foldersReducer,
     },
     preloadedState: preloadedState as PreloadedState<RootState>,
   });
