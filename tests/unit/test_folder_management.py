@@ -341,7 +341,6 @@ class TestFolderRepositoryOwnership:
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-
 # Patches started by _setup_mocks and stopped by _cleanup.
 _active_patches: list = []
 
@@ -401,8 +400,6 @@ def _cleanup():
     for p in _active_patches:
         p.stop()
     _active_patches.clear()
-
-
 
 
 # ── User Folder Endpoints ────────────────────────────────────────────────────
