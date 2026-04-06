@@ -308,17 +308,49 @@ function PostprocessingTab({
   }, [dispatch, viewConfigurations, middlePanelRef]);
 
   // Capture the first 3D view for the "Antenna Geometry" PDF section.
+  // Temporarily hides all non-antenna items (fields, directivity, currents) so the
+  // capture shows only the clean wire geometry.
   // Returns null (not an error) when no 3D view exists — the section will
   // render a placeholder text instead.
   const captureAntennaGeometry = useCallback(async (): Promise<string | null> => {
     const threeDView = viewConfigurations.find(v => v.viewType === '3D');
     if (!threeDView) return null;
-    try {
-      return await captureView(threeDView.id);
-    } catch {
-      return null;
+
+    // Identify non-antenna items that should be hidden for the clean geometry capture
+    const ANTENNA_TYPES = new Set(['antenna-system', 'single-antenna']);
+    const toHide = threeDView.items.filter(
+      item => item.visible && !ANTENNA_TYPES.has(item.type)
+    );
+
+    // Hide non-antenna items
+    for (const item of toHide) {
+      dispatch(toggleItemVisibility({ viewId: threeDView.id, itemId: item.id }));
     }
-  }, [viewConfigurations, captureView]);
+
+    // Wait extra frames for Redux dispatch → React re-render → WebGL re-render
+    await new Promise<void>(resolve =>
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => resolve())
+          )
+        )
+      )
+    );
+
+    let result: string | null = null;
+    try {
+      result = await captureView(threeDView.id);
+    } catch {
+      result = null;
+    } finally {
+      // Always restore visibility
+      for (const item of toHide) {
+        dispatch(toggleItemVisibility({ viewId: threeDView.id, itemId: item.id }));
+      }
+    }
+    return result;
+  }, [viewConfigurations, captureView, dispatch]);
 
   // Handle PDF export using multi-page report generator
   const handlePDFExport = async (options: PDFExportOptions) => {
