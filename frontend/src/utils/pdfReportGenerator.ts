@@ -357,6 +357,16 @@ async function renderView(
     return;
   }
 
+  // Guard against empty / invalid captures (e.g. WebGL context not ready)
+  if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    setColor(doc, '#B71C1C');
+    doc.text(`[View "${view.name}" could not be captured — no image data]`, MARGIN, y);
+    drawFooter(doc, projectName);
+    return;
+  }
+
   // Fit image to page width while preserving aspect ratio
   const maxW = CONTENT_W;
   const maxH = PAGE_H - MARGIN * 2 - y - 10;
@@ -366,7 +376,9 @@ async function renderView(
   const imgW = maxW;
   const imgH = Math.min(maxH, imgW * (9 / 16));
 
-  doc.addImage(dataUrl, 'PNG', MARGIN, y, imgW, imgH);
+  // Detect format from data URL prefix to avoid PNG decoder errors on non-PNG captures
+  const imgFormat = dataUrl.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+  doc.addImage(dataUrl, imgFormat, MARGIN, y, imgW, imgH);
 
   drawFooter(doc, projectName);
 }

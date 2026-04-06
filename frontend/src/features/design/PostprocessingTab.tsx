@@ -286,16 +286,23 @@ function PostprocessingTab({
   // Dispatches selectView, waits 2 animation frames for re-render, then captures.
   const captureView = useCallback(async (viewId: string): Promise<string> => {
     dispatch(selectView(viewId));
-    // Wait 2 frames for React to re-render the selected view
-    await new Promise<void>(resolve => requestAnimationFrame(() => { requestAnimationFrame(() => resolve()); }));
+    // Wait 3 frames for React + Three.js to render the selected view
+    await new Promise<void>(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    );
     const view = viewConfigurations.find(v => v.id === viewId);
     if (view?.viewType === '3D') {
       // Three.js WebGL canvas — requires preserveDrawingBuffer: true on R3F Canvas
       const canvas = middlePanelRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
-      if (canvas) return canvas.toDataURL('image/png');
+      if (canvas) {
+        const url = canvas.toDataURL('image/png');
+        // 'data:,' or any non-image result means the canvas hasn't rendered yet
+        if (url && url.startsWith('data:image/')) return url;
+      }
+      throw new Error(`3D canvas not ready for view "${view.name}"`);
     }
     // html2canvas for chart/plot views
-    if (!middlePanelRef.current) return '';
+    if (!middlePanelRef.current) throw new Error('View panel not mounted');
     const captured = await html2canvas(middlePanelRef.current, { backgroundColor: '#1a1a1a' });
     return captured.toDataURL('image/png');
   }, [dispatch, viewConfigurations, middlePanelRef]);
