@@ -106,6 +106,7 @@ class FolderResponse(BaseModel):
     parent_folder_id: Optional[str] = None
     is_course: bool = False
     source_course_id: Optional[str] = None
+    examiner_name: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

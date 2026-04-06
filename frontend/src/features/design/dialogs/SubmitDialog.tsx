@@ -14,6 +14,7 @@ import {
   Button,
   CircularProgress,
   Alert,
+  Typography,
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 
@@ -23,6 +24,7 @@ interface SubmitDialogProps {
   onConfirm: () => void;
   projectName: string;
   courseName?: string;
+  examinerName?: string;
   loading: boolean;
   error?: string | null;
 }
@@ -33,6 +35,7 @@ export default function SubmitDialog({
   onConfirm,
   projectName,
   courseName,
+  examinerName,
   loading,
   error,
 }: SubmitDialogProps) {
@@ -49,6 +52,11 @@ export default function SubmitDialog({
           )}
           .
         </DialogContentText>
+        {examinerName && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Examiner: <strong>{examinerName}</strong>
+          </Typography>
+        )}
         <DialogContentText sx={{ mb: 1 }}>
           A frozen snapshot of your current design, simulation configuration, and results
           will be created. You can continue editing your project after submission.

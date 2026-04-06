@@ -1404,6 +1404,7 @@ function DesignPage() {
         onConfirm={handleSubmitConfirm}
         projectName={currentProject?.name ?? 'Untitled'}
         courseName={projectFolder?.name}
+        examinerName={(projectFolder as { examiner_name?: string } | null | undefined)?.examiner_name}
         loading={submitLoading}
         error={submitError}
       />

@@ -387,6 +387,15 @@ async def copy_course_to_user(
     if not source or not source["is_course"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
+    # Auto-enroll the user in the course so they can submit later.
+    enrollment_repo = _get_enrollment_repo()
+    if not enrollment_repo.is_enrolled(folder_id, user.id):
+        enrollment_repo.enroll_user(
+            course_id=folder_id,
+            user_id=user.id,
+            enrolled_by=user.id,
+        )
+
     results_svc = get_results_service()
     new_root = await _deep_copy_folder(
         source_folder_id=folder_id,
@@ -398,6 +407,15 @@ async def copy_course_to_user(
         source_course_id=folder_id,
         results_svc=results_svc,
     )
+
+    # Store examiner name on the root copy folder so the submit dialog can show it.
+    user_repo = _get_user_repo()
+    course_owner = user_repo.get_user_by_id(source["owner_id"])
+    if course_owner:
+        examiner_name = course_owner.get("username") or course_owner.get("email", "")
+        await folder_repo.update_folder(new_root["id"], examiner_name=examiner_name)
+        new_root = {**new_root, "examiner_name": examiner_name}
+
     return new_root
 
 
