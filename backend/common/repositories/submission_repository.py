@@ -19,6 +19,8 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
+from backend.common.repositories.dynamodb_repository import _from_dynamodb, _to_dynamodb
+
 logger = logging.getLogger(__name__)
 
 
@@ -82,10 +84,10 @@ class SubmissionRepository:
             "ProjectName": project_name,
             "Status": "submitted",
             "Feedback": "",
-            "FrozenDesignState": frozen_design_state or {},
-            "FrozenSimulationConfig": frozen_simulation_config or {},
-            "FrozenSimulationResults": frozen_simulation_results or {},
-            "FrozenUiState": frozen_ui_state or {},
+            "FrozenDesignState": _to_dynamodb(frozen_design_state or {}),
+            "FrozenSimulationConfig": _to_dynamodb(frozen_simulation_config or {}),
+            "FrozenSimulationResults": _to_dynamodb(frozen_simulation_results or {}),
+            "FrozenUiState": _to_dynamodb(frozen_ui_state or {}),
             "SubmittedAt": now,
             "ReviewedAt": "",
             "ReviewedBy": "",
@@ -230,10 +232,10 @@ class SubmissionRepository:
             "project_name": item.get("ProjectName", ""),
             "status": item.get("Status", "submitted"),
             "feedback": item.get("Feedback", ""),
-            "frozen_design_state": item.get("FrozenDesignState", {}),
-            "frozen_simulation_config": item.get("FrozenSimulationConfig", {}),
-            "frozen_simulation_results": item.get("FrozenSimulationResults", {}),
-            "frozen_ui_state": item.get("FrozenUiState", {}),
+            "frozen_design_state": _from_dynamodb(item.get("FrozenDesignState", {})),
+            "frozen_simulation_config": _from_dynamodb(item.get("FrozenSimulationConfig", {})),
+            "frozen_simulation_results": _from_dynamodb(item.get("FrozenSimulationResults", {})),
+            "frozen_ui_state": _from_dynamodb(item.get("FrozenUiState", {})),
             "submitted_at": item.get("SubmittedAt", ""),
             "reviewed_at": item.get("ReviewedAt", ""),
             "reviewed_by": item.get("ReviewedBy", ""),
