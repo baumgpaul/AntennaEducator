@@ -7,7 +7,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   extractPortQuantities,
-  type PortQuantityRow,
 } from '../parameterStudyExtract';
 import type {
   ParameterStudyResult,

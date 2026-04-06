@@ -30,7 +30,7 @@ import {
   loadDesign,
   markAsSolved,
 } from '@/store/designSlice';
-import { updateProject, fetchProject, clearCurrentProject } from '@/store/projectsSlice';
+import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification, showSuccess } from '@/store/uiSlice';
 import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
 import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';

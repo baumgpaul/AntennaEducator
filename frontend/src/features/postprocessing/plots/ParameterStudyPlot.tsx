@@ -18,7 +18,7 @@ import {
 } from 'recharts';
 import type { ParameterStudyResult } from '@/types/parameterStudy';
 import { extractPortQuantities, type PortQuantityRow } from '@/types/parameterStudyExtract';
-import { SmithChart, type SmithChartPoint } from './SmithChart';
+import { SmithChart } from './SmithChart';
 
 // ============================================================================
 // Helpers
@@ -52,12 +52,6 @@ const COLORS = [
 
 type QuantityTab = 'impedance' | 'vswr' | 'returnLoss' | 'smith';
 
-const TAB_LABELS: Record<QuantityTab, string> = {
-  impedance: 'Impedance',
-  vswr: 'VSWR',
-  returnLoss: 'Return Loss',
-  smith: 'Smith Chart',
-};
 
 // ============================================================================
 // Props

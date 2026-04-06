@@ -1220,7 +1220,7 @@ GET    /api/my-submissions                            — List all my submission
 
 ---
 
-## Phase 7 — Structured PDF Export
+## Phase 7 — Structured PDF Export ✅ COMPLETE (PR #63)
 
 **Goal**: Multi-page PDF report containing project metadata, antenna parameters, solver settings, requested fields, simulation results (plots + 3D captures), and documentation markdown content.
 
@@ -1281,9 +1281,19 @@ Page N: Footer
 
 | Artifact | Type | Description |
 |----------|------|-------------|
-| `frontend/src/utils/pdfReportGenerator.ts` | Utility | Multi-page PDF orchestrator |
-| Updated `ExportPDFDialog.tsx` | Component | Section selection, progress |
-| `frontend/src/utils/markdownRenderer.ts` | Utility | Markdown → HTML for PDF |
+| `frontend/src/utils/pdfDataBuilders.ts` | Utility | Pure data extraction — cover, antenna, solver, views |
+| `frontend/src/utils/pdfReportGenerator.ts` | Utility | Async multi-page PDF orchestrator |
+| Updated `ExportPDFDialog.tsx` | Component | 5-section checklist, author, filename, progress |
+| Updated `PostprocessingTab.tsx` | Feature | `captureView` + `generatePDFReport` wiring |
+| Updated `Scene3D.tsx` | Component | `preserveDrawingBuffer: true` for WebGL capture |
+
+**What was built**:
+- 5 configurable report sections: Cover Page, Antenna Summary, Solver Config, 3D Views, Documentation
+- `pdfDataBuilders.ts`: pure extraction functions (36 unit tests ✅)
+- `pdfReportGenerator.ts`: async orchestrator (13 unit tests ✅)
+- `ExportPDFDialog.tsx`: full rewrite with section checkboxes, author field, filename, progress bar (12 tests ✅)
+- Submission metadata banner displayed when exporting from read-only student viewer
+- ESLint reduced from 362 → 335 warnings (under 350 threshold)
 
 ---
 
@@ -1392,7 +1402,7 @@ Phase 5 ─── Postprocessing Views (Line, Smith, Polar, Table) ⏳
    │
    ├───────────┐
    ▼           ▼
-Phase 6     Phase 7
+Phase 6     Phase 7 ✅
 Submissions PDF Export
    │           │
    ├───────────┘
@@ -1423,7 +1433,7 @@ Phase 9 ─── Deployment Rework
 | 4 — Solver | High | Medium | High | Medium — math is known, integration matters | ⏳ Next |
 | 5 — Plotting + Smith | Low | Very High | Medium | High — unified plot model + Smith chart SVG | ⏳ Pending |
 | 6 — Submissions | Medium | High | Medium | Medium — CRUD + read-only mode | ⏳ Pending |
-| 7 — PDF Export | Low | High | Low | Medium — multi-page layout orchestration | ⏳ Pending |
+| 7 — PDF Export | Low | High | Low | Medium — multi-page layout orchestration | ✅ Complete (PR #63) |
 | 8 — Hardening | Medium | Medium | Very High | Medium — systematic, not creative | ⏳ Pending |
 | 9 — Deployment | High | Low | Low | Medium — DevOps, scripting, Terraform | ⏳ Pending |
 

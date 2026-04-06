@@ -33,7 +33,6 @@ import {
   selectSolverError,
   selectSolverProgress,
   selectCurrentFrequency,
-  selectFrequencySweep,
   selectSweepInProgress,
   selectSweepProgress,
   selectResultsStale,
@@ -75,7 +74,6 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const simulationError = useSelector(selectSolverError);
   const solverProgress = useSelector(selectSolverProgress);
   const currentFrequency = useSelector(selectCurrentFrequency);
-  const frequencySweep = useSelector(selectFrequencySweep);
   const sweepInProgress = useSelector(selectSweepInProgress);
   const sweepProgress = useSelector(selectSweepProgress);
   const results = useSelector((state: RootState) => state.solver.results);
