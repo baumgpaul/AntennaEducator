@@ -218,6 +218,7 @@ class ProjectBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
     description: Optional[str] = Field(
         None,
+        max_length=5000,
         description="Human-readable project description (also accepts legacy JSON-encoded elements)",
     )
     design_state: Optional[Dict[str, Any]] = Field(
@@ -266,7 +267,7 @@ class ProjectUpdate(BaseModel):
     """Schema for updating a project — all fields optional."""
 
     name: Optional[str] = Field(None, min_length=3, max_length=100)
-    description: Optional[str] = Field(None)
+    description: Optional[str] = Field(None, max_length=5000)
     design_state: Optional[Dict[str, Any]] = None
     simulation_config: Optional[Dict[str, Any]] = None
     simulation_results: Optional[Dict[str, Any]] = None
@@ -362,7 +363,9 @@ class ImageUrlResponse(BaseModel):
 class SubmissionCreate(BaseModel):
     """Schema for submitting a project to a course."""
 
-    project_id: str = Field(..., description="Project to submit (must belong to user).")
+    project_id: str = Field(
+        ..., min_length=1, max_length=100, description="Project to submit (must belong to user)."
+    )
 
 
 class SubmissionReview(BaseModel):
