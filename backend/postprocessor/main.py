@@ -14,6 +14,7 @@ from fastapi.responses import Response
 from backend.common.auth.dependencies import get_current_user
 from backend.common.auth.identity import UserIdentity
 from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
+from backend.common.utils.error_handler import install_error_handlers
 
 from .config import settings
 from .field import compute_directivity_from_pattern, compute_far_field
@@ -57,6 +58,8 @@ app.add_middleware(
 # GZip middleware is added after CORS so it wraps outermost —
 # the body is compressed while CORS headers remain unaffected.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+install_error_handlers(app)
 
 logger.info(
     "Postprocessor service v%s starting (debug=%s, log_level=%s, log_timing=%s)",

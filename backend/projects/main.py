@@ -32,6 +32,7 @@ from backend.common.auth import UserIdentity, get_current_user
 from backend.common.repositories.base import ProjectRepository
 from backend.common.repositories.factory import get_project_repository
 from backend.common.repositories.folder_repository import FolderRepository
+from backend.common.utils.error_handler import install_error_handlers
 from backend.projects.documentation_service import DocumentationService, get_documentation_service
 
 # Folder & course management routes
@@ -71,6 +72,8 @@ if not os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
     logger.info("CORS middleware enabled (non-Lambda environment)")
 else:
     logger.info("CORS handled by Lambda Function URL — middleware disabled")
+
+install_error_handlers(app)
 
 # Include folder/course management routes
 app.include_router(folder_router)
