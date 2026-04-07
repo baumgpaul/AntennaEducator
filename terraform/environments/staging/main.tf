@@ -292,6 +292,7 @@ module "lambda_projects" {
     USE_COGNITO            = "true"   # Use Cognito JWT validation
     COGNITO_REGION         = var.aws_region
     COGNITO_USER_POOL_ID   = module.cognito.user_pool_id
+    COGNITO_CLIENT_ID      = module.cognito.client_id
     # S3 storage for simulation results
     USE_S3                 = "true"
     RESULTS_BUCKET_NAME    = module.s3_results.bucket_name
@@ -325,6 +326,7 @@ module "lambda_preprocessor" {
   environment_variables = {
     USE_COGNITO          = "true"
     COGNITO_USER_POOL_ID = module.cognito.user_pool_id
+    COGNITO_CLIENT_ID    = module.cognito.client_id
     COGNITO_REGION       = var.aws_region
     USE_DYNAMODB         = "true"
     DYNAMODB_TABLE_NAME  = module.dynamodb.table_name
@@ -357,6 +359,7 @@ module "lambda_solver" {
   environment_variables = {
     USE_COGNITO          = "true"
     COGNITO_USER_POOL_ID = module.cognito.user_pool_id
+    COGNITO_CLIENT_ID    = module.cognito.client_id
     COGNITO_REGION       = var.aws_region
     USE_DYNAMODB         = "true"
     DYNAMODB_TABLE_NAME  = module.dynamodb.table_name
@@ -389,6 +392,7 @@ module "lambda_postprocessor" {
   environment_variables = {
     USE_COGNITO             = "true"
     COGNITO_USER_POOL_ID    = module.cognito.user_pool_id
+    COGNITO_CLIENT_ID       = module.cognito.client_id
     COGNITO_REGION          = var.aws_region
     USE_DYNAMODB            = "true"
     DYNAMODB_TABLE_NAME     = module.dynamodb.table_name
