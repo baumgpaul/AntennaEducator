@@ -69,9 +69,14 @@ async def register(user_data: UserCreate):
             password=user_data.password,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    except Exception as exc:
-        logger.error("Registration error: %s", exc)
+        # Generic message to prevent username/email enumeration
+        logger.info("Registration rejected: %s", exc)
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Registration failed. Please check your input.",
+        )
+    except Exception:
+        logger.error("Registration error for user %r", user_data.username)
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed. Please try again.",
@@ -99,14 +104,14 @@ async def login(user_data: UserLogin):
         )
     except ValueError as exc:
         detail = str(exc)
-        code = (
-            status.HTTP_403_FORBIDDEN
-            if "locked" in detail.lower()
-            else status.HTTP_401_UNAUTHORIZED
+        is_locked = "locked" in detail.lower()
+        logger.info("Login rejected (locked=%s)", is_locked)
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN if is_locked else status.HTTP_401_UNAUTHORIZED,
+            detail="Account is locked." if is_locked else "Invalid credentials.",
         )
-        raise HTTPException(code, detail=detail)
-    except Exception as exc:
-        logger.error("Login error: %s", exc)
+    except Exception:
+        logger.error("Login error")
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication failed.",
