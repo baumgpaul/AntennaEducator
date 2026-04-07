@@ -1,6 +1,5 @@
 """Tests for serialization utilities — NaN/Inf handling, numpy roundtrip."""
 
-
 import numpy as np
 import pytest
 

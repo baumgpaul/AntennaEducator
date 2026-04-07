@@ -183,9 +183,16 @@ async def create_project(
         # Store large results in S3, keep only keys in DynamoDB
         slim_results = None
         if data.simulation_results:
-            slim_results, _ = await results_svc.extract_and_store(
-                project["id"], data.simulation_results
-            )
+            try:
+                slim_results, _ = await results_svc.extract_and_store(
+                    project["id"], data.simulation_results
+                )
+            except Exception as e:
+                logger.error("S3 storage failed during project create: %s", e)
+                raise HTTPException(
+                    status.HTTP_502_BAD_GATEWAY,
+                    detail="Failed to store simulation results.",
+                )
 
         project = await repo.update_project(
             project_id=project["id"],
@@ -238,9 +245,12 @@ async def get_project(
 
     # Hydrate simulation_results from S3
     if project.get("simulation_results"):
-        project["simulation_results"] = await results_svc.hydrate_results(
-            project_id, project["simulation_results"]
-        )
+        try:
+            project["simulation_results"] = await results_svc.hydrate_results(
+                project_id, project["simulation_results"]
+            )
+        except Exception as e:
+            logger.warning("Failed to hydrate results for %s: %s", project_id, e)
 
     return project
 
@@ -260,7 +270,16 @@ async def update_project(
     # Store large results in S3, keep only keys in DynamoDB
     slim_results = data.simulation_results
     if data.simulation_results:
-        slim_results, _ = await results_svc.extract_and_store(project_id, data.simulation_results)
+        try:
+            slim_results, _ = await results_svc.extract_and_store(
+                project_id, data.simulation_results
+            )
+        except Exception as e:
+            logger.error("S3 storage failed during project update: %s", e)
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to store simulation results.",
+            )
 
     updated = await repo.update_project(
         project_id=project_id,
@@ -276,9 +295,12 @@ async def update_project(
 
     # Hydrate results from S3 before returning (so frontend gets full data)
     if updated.get("simulation_results"):
-        updated["simulation_results"] = await results_svc.hydrate_results(
-            project_id, updated["simulation_results"]
-        )
+        try:
+            updated["simulation_results"] = await results_svc.hydrate_results(
+                project_id, updated["simulation_results"]
+            )
+        except Exception as e:
+            logger.warning("Failed to hydrate results for %s: %s", project_id, e)
 
     return updated
 

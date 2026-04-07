@@ -737,6 +737,8 @@ class TestDeepCopyEndpoints:
         mocks["repo"].create_project = AsyncMock(return_value=new_project)
         mocks["repo"].update_project = AsyncMock(return_value=new_project)
         mocks["doc_svc"].load_content = AsyncMock(return_value=None)
+        # Authorization check needs the folder to be a course folder
+        mocks["folder_repo"].get_folder = AsyncMock(return_value=MOCK_COURSE_FOLDER)
 
         client = TestClient(app)
         resp = client.post(

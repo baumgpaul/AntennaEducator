@@ -1,6 +1,5 @@
 """Tests for solver schema validation — bounds and NaN/Inf guards."""
 
-
 import pytest
 from pydantic import ValidationError
 
