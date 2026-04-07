@@ -110,59 +110,9 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       });
     });
 
-    it.skip('shows validation error for frequency below minimum (0.1 MHz)', async () => {
-      const user = userEvent.setup();
-      render(
-        <FrequencyInputDialog
-          open={true}
-          onClose={mockOnClose}
-          onSolve={mockOnSolve}
-        />
-      );
+    it.todo('shows validation error for frequency below minimum (0.1 MHz)');
 
-      const frequencyInput = screen.getByRole('spinbutton');
-      await user.clear(frequencyInput);
-      await user.type(frequencyInput, '0.05');
-
-      const solveButton = screen.getByRole('button', { name: /Solve/i });
-      await user.click(solveButton);
-
-      await waitFor(() => {
-        expect(screen.getByText(/Frequency must be between 0.1 MHz and 10 GHz/i)).toBeInTheDocument();
-      });
-
-      expect(mockOnSolve).not.toHaveBeenCalled();
-    });
-
-    it.skip('shows validation error for frequency above maximum (10 GHz)', async () => {
-      const user = userEvent.setup();
-      render(
-        <FrequencyInputDialog
-          open={true}
-          onClose={mockOnClose}
-          onSolve={mockOnSolve}
-        />
-      );
-
-      const frequencyInput = screen.getByRole('spinbutton');
-      await user.clear(frequencyInput);
-      await user.type(frequencyInput, '1500');
-
-      // Change unit to GHz
-      const unitSelect = screen.getByLabelText(/Unit/i);
-      await user.click(unitSelect);
-      const ghzOption = screen.getByRole('option', { name: 'GHz' });
-      await user.click(ghzOption);
-
-      const solveButton = screen.getByRole('button', { name: /Solve/i });
-      await user.click(solveButton);
-
-      await waitFor(() => {
-        expect(screen.getByText(/Frequency must be between 0.1 MHz and 10 GHz/i)).toBeInTheDocument();
-      });
-
-      expect(mockOnSolve).not.toHaveBeenCalled();
-    });
+    it.todo('shows validation error for frequency above maximum (10 GHz)');
 
     it('validates boundary value 0.1 MHz (minimum)', async () => {
       const user = userEvent.setup();
@@ -376,37 +326,6 @@ describe('FrequencyInputDialog - T4.B1.1', () => {
       });
     });
 
-    it.skip('clears validation error when user modifies input', async () => {
-      const user = userEvent.setup();
-      render(
-        <FrequencyInputDialog
-          open={true}
-          onClose={mockOnClose}
-          onSolve={mockOnSolve}
-        />
-      );
-
-      const frequencyInput = screen.getByRole('spinbutton');
-
-      // Enter invalid value
-      await user.clear(frequencyInput);
-      await user.type(frequencyInput, '0.05');
-
-      const solveButton = screen.getByRole('button', { name: /Solve/i });
-      await user.click(solveButton);
-
-      await waitFor(() => {
-        expect(screen.getByText(/Frequency must be between/i)).toBeInTheDocument();
-      });
-
-      // Modify input - this should clear the error
-      await user.clear(frequencyInput);
-      await user.type(frequencyInput, '300');
-
-      // Wait for error to be cleared
-      await waitFor(() => {
-        expect(screen.queryByText(/Frequency must be between/i)).not.toBeInTheDocument();
-      });
-    });
+    it.todo('clears validation error when user modifies input');
   });
 });

@@ -105,43 +105,9 @@ describe('AddFieldDialog - T4.B1.2', () => {
   });
 
   describe('Step 2: Shape Selection', () => {
-    it.skip('shows 2D shapes when 2D region is selected', async () => {
-      const user = userEvent.setup();
-      render(<AddFieldDialog open={true} onClose={mockOnClose} onCreate={mockOnCreate} />);
+    it.todo('shows 2D shapes when 2D region is selected');
 
-      // Select 2D and go to step 2
-      await user.click(screen.getByText('2D Region').closest('button')!);
-      await user.click(screen.getByRole('button', { name: /Next/i }));
-
-      // Open the Shape select dropdown by clicking the combobox
-      const shapeSelect = screen.getByRole('combobox', { name: /Shape/i });
-      await user.click(shapeSelect);
-
-      // MUI Select renders options in a portal, wait for them to appear
-      await waitFor(() => {
-        expect(screen.getByRole('option', { name: /Rectangular Plane/i })).toBeInTheDocument();
-      });
-      expect(screen.getByRole('option', { name: /Circle/i })).toBeInTheDocument();
-    });
-
-    it.skip('shows 3D shapes when 3D region is selected', async () => {
-      const user = userEvent.setup();
-      render(<AddFieldDialog open={true} onClose={mockOnClose} onCreate={mockOnCreate} />);
-
-      // Select 3D and go to step 2
-      await user.click(screen.getByText('3D Region').closest('button')!);
-      await user.click(screen.getByRole('button', { name: /Next/i }));
-
-      // Open the Shape select dropdown by clicking the combobox
-      const shapeSelect = screen.getByRole('combobox', { name: /Shape/i });
-      await user.click(shapeSelect);
-
-      // MUI Select renders options in a portal, wait for them to appear
-      await waitFor(() => {
-        expect(screen.getByRole('option', { name: /Sphere/i })).toBeInTheDocument();
-      });
-      expect(screen.getByRole('option', { name: /Cube/i })).toBeInTheDocument();
-    });
+    it.todo('shows 3D shapes when 3D region is selected');
   });
 
   describe('Step 3: Parameters', () => {
