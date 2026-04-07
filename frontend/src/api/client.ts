@@ -6,13 +6,6 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import type { ApiError } from '@/types/api'
 
 // Environment configuration
-const getBaseURL = () => {
-  // Use empty string for relative URLs (uses Vite proxy in dev)
-  // In production, this will be set to API Gateway URL
-  const url = import.meta.env.VITE_API_BASE_URL as string
-  return url !== undefined ? url : ''
-}
-
 const getPreprocessorURL = () => {
   return (import.meta.env.VITE_PREPROCESSOR_URL as string) || 'http://localhost:8001'
 }

@@ -30,7 +30,7 @@ const PatternMesh: React.FC<PatternMeshProps> = ({
   normalize,
 }) => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { geometry, colors } = useMemo(() => {
+  const { geometry, colors: _colors } = useMemo(() => {
     // Extract pattern values based on type
     let patternValues: number[] = []
     switch (patternType) {
