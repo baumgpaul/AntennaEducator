@@ -13,6 +13,7 @@ from backend.common.auth.dependencies import get_current_user
 from backend.common.auth.identity import UserIdentity
 from backend.common.auth.token_costs import calculate_sweep_cost
 from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
+from backend.common.utils.error_handler import install_error_handlers
 
 # Configure logging
 logging.basicConfig(
@@ -56,6 +57,8 @@ app.add_middleware(
     allow_methods=settings.cors_methods,
     allow_headers=settings.cors_headers,
 )
+
+install_error_handlers(app)
 
 
 @app.get("/health")
