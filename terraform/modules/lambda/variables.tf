@@ -82,6 +82,12 @@ variable "cors_allowed_origins" {
   default     = ["*"]
 }
 
+variable "reserved_concurrent_executions" {
+  description = "Maximum number of concurrent executions for the Lambda function (-1 = unreserved)"
+  type        = number
+  default     = -1
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

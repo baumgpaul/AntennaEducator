@@ -10,8 +10,9 @@ resource "aws_lambda_function" "this" {
   image_uri    = var.image_uri
 
   # Resource configuration
-  memory_size = var.memory_size
-  timeout     = var.timeout
+  memory_size                    = var.memory_size
+  timeout                        = var.timeout
+  reserved_concurrent_executions = var.reserved_concurrent_executions
 
   # Environment variables
   environment {

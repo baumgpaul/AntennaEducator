@@ -32,6 +32,7 @@ provider "aws" {
       Environment = "staging"
       ManagedBy   = "terraform"
       Repository  = "github.com/baumgpaul/AntennaEducator"
+      CostCenter  = "antenna-edu"
     }
   }
 }
@@ -48,6 +49,7 @@ provider "aws" {
       Environment = "staging"
       ManagedBy   = "terraform"
       Repository  = "github.com/baumgpaul/AntennaEducator"
+      CostCenter  = "antenna-edu"
     }
   }
 }
@@ -121,7 +123,7 @@ module "s3_results" {
   bucket_name                = "antenna-simulator-results-${var.environment}"
   allowed_origins            = ["https://${var.domain_name}", "http://localhost:3000"]
   enable_lifecycle           = true
-  data_retention_days        = 0  # Keep forever in staging
+  data_retention_days        = 90  # Auto-delete old simulation results after 90 days
   enable_intelligent_tiering = false  # Disable for staging (low volume)
 
   tags = {
@@ -279,8 +281,9 @@ module "lambda_projects" {
   environment   = var.environment
   region        = var.aws_region
 
-  memory_size = 512
-  timeout     = 30
+  memory_size                    = 512
+  timeout                        = 30
+  reserved_concurrent_executions = 10  # CRUD — higher traffic, cheap per call
 
   environment_variables = {
     USE_DYNAMODB           = "true"
@@ -315,8 +318,9 @@ module "lambda_preprocessor" {
   environment   = var.environment
   region        = var.aws_region
 
-  memory_size = 512
-  timeout     = 30
+  memory_size                    = 512
+  timeout                        = 30
+  reserved_concurrent_executions = 5  # Mesh generation — moderate traffic
 
   environment_variables = {
     USE_COGNITO          = "true"
@@ -346,8 +350,9 @@ module "lambda_solver" {
   environment   = var.environment
   region        = var.aws_region
 
-  memory_size = 2048
-  timeout     = 900
+  memory_size                    = 2048
+  timeout                        = 900
+  reserved_concurrent_executions = 10  # Most expensive — hard cap concurrent solves
 
   environment_variables = {
     USE_COGNITO          = "true"
@@ -377,8 +382,9 @@ module "lambda_postprocessor" {
   environment   = var.environment
   region        = var.aws_region
 
-  memory_size = 2048
-  timeout     = 300
+  memory_size                    = 2048
+  timeout                        = 300
+  reserved_concurrent_executions = 5  # Field computation — moderate traffic
 
   environment_variables = {
     USE_COGNITO             = "true"
@@ -472,4 +478,127 @@ module "cicd" {
   cloudfront_distribution_id = module.cloudfront.distribution_id
 
   tags = { Component = "cicd" }
+}
+
+# ============================================================================
+# Cost Protection — Budget & Billing Alarms
+# ============================================================================
+
+# Monthly budget with email alerts at 80% and 100%
+resource "aws_budgets_budget" "monthly_cost" {
+  count = var.alert_email != "" ? 1 : 0
+
+  name         = "antenna-simulator-${var.environment}-monthly"
+  budget_type  = "COST"
+  limit_amount = "5.00"
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
+
+  cost_filter {
+    name   = "TagKeyValue"
+    values = ["user:CostCenter$antenna-edu"]
+  }
+
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 80
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.alert_email]
+  }
+
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.alert_email]
+  }
+}
+
+# SNS topic for operational alerts
+resource "aws_sns_topic" "alerts" {
+  count = var.alert_email != "" ? 1 : 0
+  name  = "antenna-simulator-${var.environment}-alerts"
+}
+
+resource "aws_sns_topic_subscription" "email" {
+  count     = var.alert_email != "" ? 1 : 0
+  topic_arn = aws_sns_topic.alerts[0].arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+}
+
+# CloudWatch alarm: Lambda total invocations > 10,000/day
+resource "aws_cloudwatch_metric_alarm" "lambda_invocations" {
+  count = var.alert_email != "" ? 1 : 0
+
+  alarm_name          = "antenna-simulator-${var.environment}-lambda-invocations-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  threshold           = 10000
+  alarm_description   = "Lambda invocations exceeded 10,000 in 24h — possible abuse"
+  treat_missing_data  = "notBreaching"
+
+  metric_query {
+    id          = "total"
+    expression  = "SUM(METRICS())"
+    label       = "Total Lambda Invocations"
+    return_data = true
+  }
+
+  metric_query {
+    id = "projects"
+    metric {
+      metric_name = "Invocations"
+      namespace   = "AWS/Lambda"
+      period      = 86400
+      stat        = "Sum"
+      dimensions = {
+        FunctionName = module.lambda_projects.function_name
+      }
+    }
+  }
+
+  metric_query {
+    id = "preprocessor"
+    metric {
+      metric_name = "Invocations"
+      namespace   = "AWS/Lambda"
+      period      = 86400
+      stat        = "Sum"
+      dimensions = {
+        FunctionName = module.lambda_preprocessor.function_name
+      }
+    }
+  }
+
+  metric_query {
+    id = "solver"
+    metric {
+      metric_name = "Invocations"
+      namespace   = "AWS/Lambda"
+      period      = 86400
+      stat        = "Sum"
+      dimensions = {
+        FunctionName = module.lambda_solver.function_name
+      }
+    }
+  }
+
+  metric_query {
+    id = "postprocessor"
+    metric {
+      metric_name = "Invocations"
+      namespace   = "AWS/Lambda"
+      period      = 86400
+      stat        = "Sum"
+      dimensions = {
+        FunctionName = module.lambda_postprocessor.function_name
+      }
+    }
+  }
+
+  alarm_actions = [aws_sns_topic.alerts[0].arn]
+  ok_actions    = [aws_sns_topic.alerts[0].arn]
 }
