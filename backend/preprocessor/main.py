@@ -11,6 +11,9 @@ from backend.common.auth.identity import UserIdentity
 from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
 from backend.common.utils.error_handler import install_error_handlers
 from backend.common.utils.expressions import ExpressionError
+from backend.common.utils.logging_config import configure_logging
+
+logger = configure_logging("preprocessor")
 
 from .builders import (
     create_custom,

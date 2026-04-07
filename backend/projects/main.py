@@ -6,7 +6,6 @@ Large simulation results are stored in S3/MinIO and referenced by keys.
 The actual physics lives in the preprocessor / solver / postprocessor services.
 """
 
-import logging
 import os
 from datetime import datetime, timezone
 from typing import List
@@ -17,13 +16,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-logger = logging.getLogger(__name__)
-
 import backend.auth.schemas
 
 # Auth service endpoint handlers (re-mounted for combined Lambda deployment)
@@ -33,6 +25,7 @@ from backend.common.repositories.base import ProjectRepository
 from backend.common.repositories.factory import get_project_repository
 from backend.common.repositories.folder_repository import FolderRepository
 from backend.common.utils.error_handler import install_error_handlers
+from backend.common.utils.logging_config import configure_logging
 from backend.projects.documentation_service import DocumentationService, get_documentation_service
 
 # Folder & course management routes
@@ -53,6 +46,8 @@ from backend.projects.schemas import (
 
 # Submission routes
 from backend.projects.submission_routes import router as submission_router
+
+logger = configure_logging("projects")
 
 app = FastAPI(
     title="Antenna Simulator — Projects Service",
