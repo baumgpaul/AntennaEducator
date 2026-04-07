@@ -28,7 +28,10 @@ common/
 ├── storage/            # S3/MinIO file storage
 ├── utils/              # Utilities
 │   ├── serialization.py     # Complex/NumPy serialization, NumpyEncoder
-│   └── expressions.py       # Mathematical expression evaluator
+│   ├── expressions.py       # Mathematical expression evaluator
+│   ├── validation.py        # Input validators (positive, 3D vector, frequency)
+│   ├── error_handler.py     # Global error handler middleware (correlation IDs, 413/500)
+│   └── logging_config.py    # Unified logging (JSON in Lambda, plain text locally)
 └── constants.py        # Physical constants (MU_0, EPSILON_0, C_0, Z_0)
 ```
 
