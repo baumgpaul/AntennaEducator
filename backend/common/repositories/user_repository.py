@@ -19,12 +19,8 @@ class UserRepository:
 
     def __init__(self):
         """Initialize DynamoDB client."""
-        logger.info("=== UserRepository.__init__ START ===")
         self.region = os.getenv("AWS_DEFAULT_REGION", "eu-west-1")
         endpoint_url = os.getenv("DYNAMODB_ENDPOINT_URL")
-
-        logger.info(f"Region: {self.region}")
-        logger.info(f"Endpoint URL: {endpoint_url}")
 
         # Configure timeouts for reliability
         config = Config(
@@ -32,8 +28,6 @@ class UserRepository:
         )
 
         if endpoint_url:
-            # Local DynamoDB
-            logger.info("Creating boto3 resource for DynamoDB Local...")
             self.dynamodb = boto3.resource(
                 "dynamodb",
                 region_name=self.region,
@@ -42,44 +36,29 @@ class UserRepository:
                 aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY", "dummy"),
                 config=config,
             )
-            logger.info(f"Connected to DynamoDB Local at {endpoint_url}")
+            logger.info("Connected to DynamoDB Local at %s", endpoint_url)
         else:
-            # AWS DynamoDB
-            logger.info("Creating boto3 resource for AWS DynamoDB...")
             self.dynamodb = boto3.resource("dynamodb", region_name=self.region, config=config)
-            logger.info(f"Connected to AWS DynamoDB in {self.region}")
+            logger.info("Connected to AWS DynamoDB in %s", self.region)
 
         self.table_name = os.getenv("DYNAMODB_TABLE_NAME", "antenna-simulator-staging")
-        logger.info(f"Table name: {self.table_name}")
-
-        logger.info("Getting table reference...")
         self.table = self.dynamodb.Table(self.table_name)
-        logger.info("Table reference obtained")
-
-        # Ensure table exists
-        logger.info("Calling _ensure_table()...")
         self._ensure_table()
-        logger.info("=== UserRepository.__init__ COMPLETE ===")
+        logger.info("UserRepository initialised (table=%s)", self.table_name)
 
     def _ensure_table(self):
         """Ensure the DynamoDB table exists, create if not."""
-        logger.info("_ensure_table: START")
         try:
-            logger.info("_ensure_table: Calling table.load()...")
             self.table.load()
-            logger.info(f"_ensure_table: Table '{self.table_name}' exists and is ready")
-            logger.info(f"_ensure_table: Table status = {self.table.table_status}")
+            logger.debug("Table '%s' exists (status=%s)", self.table_name, self.table.table_status)
         except ClientError as e:
-            logger.info(f"_ensure_table: ClientError caught: {e.response['Error']['Code']}")
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
-                logger.info("_ensure_table: Table not found, creating...")
+                logger.info("Table '%s' not found, creating...", self.table_name)
                 self._create_table()
             else:
-                logger.error(f"_ensure_table: Error checking table: {e}")
-                # Don't raise - try to use table anyway
+                logger.error("Error checking table '%s': %s", self.table_name, e)
         except Exception as e:
-            logger.error(f"_ensure_table: Unexpected error: {type(e).__name__}: {e}")
-        logger.info("_ensure_table: END")
+            logger.error("Unexpected error checking table: %s: %s", type(e).__name__, e)
 
     def _create_table(self):
         """Create the DynamoDB table (non-blocking)."""

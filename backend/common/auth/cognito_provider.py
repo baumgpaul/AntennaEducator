@@ -85,6 +85,10 @@ class CognitoAuthProvider(AuthProvider):
     """AWS Cognito authentication with JWKS-verified JWTs."""
 
     def __init__(self) -> None:
+        if not COGNITO_USER_POOL_ID:
+            raise ValueError("COGNITO_USER_POOL_ID env var is required for Cognito auth mode")
+        if not COGNITO_CLIENT_ID:
+            raise ValueError("COGNITO_CLIENT_ID env var is required for Cognito auth mode")
         self._cognito = boto3.client("cognito-idp", region_name=COGNITO_REGION)
         self._dynamodb = boto3.resource("dynamodb", region_name=COGNITO_REGION)
         self._table = self._dynamodb.Table(DYNAMODB_TABLE_NAME)
