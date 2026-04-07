@@ -4,7 +4,7 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from backend.common.utils.error_handler import install_error_handlers
+from backend.common.utils.error_handler import MAX_BODY_BYTES, install_error_handlers
 
 
 def _make_app() -> FastAPI:
@@ -23,6 +23,10 @@ def _make_app() -> FastAPI:
     @app.get("/crash")
     async def crash():
         raise RuntimeError("unexpected boom")
+
+    @app.post("/upload")
+    async def upload():
+        return {"status": "ok"}
 
     return app
 
@@ -60,3 +64,18 @@ class TestGlobalExceptionHandler:
         resp = client.get("/http-error")
         assert resp.status_code == 422
         assert resp.json()["detail"] == "bad input"
+
+
+class TestBodySizeLimit:
+    def test_oversized_content_length_rejected(self, client):
+        resp = client.post(
+            "/upload",
+            content=b"x",
+            headers={"Content-Length": str(MAX_BODY_BYTES + 1)},
+        )
+        assert resp.status_code == 413
+        assert resp.json()["detail"] == "Request body too large"
+
+    def test_normal_body_accepted(self, client):
+        resp = client.post("/upload", content=b"small payload")
+        assert resp.status_code == 200
