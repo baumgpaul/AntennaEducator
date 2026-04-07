@@ -13,7 +13,7 @@ import {
   COMPONENT_DEFAULTS,
   COMPONENT_TYPE_LABELS,
 } from '@/types/circuitTypes';
-import type { CircuitState, CircuitComponent, CircuitNode } from '@/types/circuitTypes';
+import type { CircuitState } from '@/types/circuitTypes';
 import type { Source, LumpedElement } from '@/types/models';
 
 // ============================================================================

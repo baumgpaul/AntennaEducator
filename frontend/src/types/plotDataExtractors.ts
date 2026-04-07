@@ -12,7 +12,7 @@ import type {
   DistributionPlotQuantity,
   FarfieldPlotQuantity,
 } from './plotDefinitions';
-import type { FrequencySweepResult, MultiAntennaSolutionResponse } from './api';
+import type { FrequencySweepResult } from './api';
 import type { ParameterStudyResult } from './parameterStudy';
 
 // ============================================================================

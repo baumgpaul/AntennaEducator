@@ -96,15 +96,20 @@ function UnifiedLinePlot({
       <Box
         sx={{
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           height: '100%',
           minHeight: 200,
           p: 2,
+          gap: 1,
         }}
       >
         <Typography variant="body2" color="text.secondary">
           No data available for this plot.
+        </Typography>
+        <Typography variant="caption" color="text.disabled">
+          Run a simulation (Solve Single or Parameter Sweep) to populate this chart.
         </Typography>
       </Box>
     );
@@ -127,6 +132,17 @@ function UnifiedLinePlot({
             type="number"
             domain={['auto', 'auto']}
             label={{ value: formatAxisLabel(xAxisConfig), position: 'insideBottom', offset: -20 }}
+            tickFormatter={(v: number) => {
+              // Auto-scale Hz → MHz/GHz for frequency axes
+              const lbl = xAxisConfig.label.toLowerCase();
+              const unit = xAxisConfig.unit?.toLowerCase();
+              if (unit === 'hz' || lbl.includes('freq')) {
+                if (Math.abs(v) >= 1e9) return `${(v / 1e9).toPrecision(3)}G`;
+                if (Math.abs(v) >= 1e6) return `${(v / 1e6).toPrecision(3)}M`;
+                if (Math.abs(v) >= 1e3) return `${(v / 1e3).toPrecision(3)}k`;
+              }
+              return String(Number(v.toPrecision(4)));
+            }}
             tick={{ fontSize: 11 }}
             scale={xAxisConfig.scale === 'log' ? 'log' : 'auto'}
           />
@@ -153,20 +169,25 @@ function UnifiedLinePlot({
             labelFormatter={(label: number) => `${xAxisConfig.label}: ${label}`}
           />
           <Legend />
-          {traces.map((trace) => (
-            <Line
-              key={trace.id}
-              yAxisId={trace.yAxisId}
-              type="monotone"
-              dataKey={trace.id}
-              name={trace.label}
-              stroke={trace.color}
-              strokeDasharray={DASH_MAP[trace.lineStyle] || undefined}
-              dot={false}
-              strokeWidth={2}
-              connectNulls
-            />
-          ))}
+          {traces.map((trace) => {
+            const nPts = traceData[trace.id]?.length ?? 0;
+            // Show dots for sparse data so single points are visible
+            const dotProps = nPts <= 1 ? { r: 5 } : nPts <= 5 ? { r: 2 } : false;
+            return (
+              <Line
+                key={trace.id}
+                yAxisId={trace.yAxisId}
+                type="monotone"
+                dataKey={trace.id}
+                name={trace.label}
+                stroke={trace.color}
+                strokeDasharray={DASH_MAP[trace.lineStyle] || undefined}
+                dot={dotProps}
+                strokeWidth={2}
+                connectNulls
+              />
+            );
+          })}
         </LineChart>
       </ResponsiveContainer>
     </Box>

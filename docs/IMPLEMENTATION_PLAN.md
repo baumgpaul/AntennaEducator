@@ -1220,7 +1220,7 @@ GET    /api/my-submissions                            — List all my submission
 
 ---
 
-## Phase 7 — Structured PDF Export
+## Phase 7 — Structured PDF Export ✅ COMPLETE (PR #63)
 
 **Goal**: Multi-page PDF report containing project metadata, antenna parameters, solver settings, requested fields, simulation results (plots + 3D captures), and documentation markdown content.
 
@@ -1281,47 +1281,1063 @@ Page N: Footer
 
 | Artifact | Type | Description |
 |----------|------|-------------|
-| `frontend/src/utils/pdfReportGenerator.ts` | Utility | Multi-page PDF orchestrator |
-| Updated `ExportPDFDialog.tsx` | Component | Section selection, progress |
-| `frontend/src/utils/markdownRenderer.ts` | Utility | Markdown → HTML for PDF |
+| `frontend/src/utils/pdfDataBuilders.ts` | Utility | Pure data extraction — cover, antenna, solver, views |
+| `frontend/src/utils/pdfReportGenerator.ts` | Utility | Async multi-page PDF orchestrator |
+| Updated `ExportPDFDialog.tsx` | Component | 5-section checklist, author, filename, progress |
+| Updated `PostprocessingTab.tsx` | Feature | `captureView` + `generatePDFReport` wiring |
+| Updated `Scene3D.tsx` | Component | `preserveDrawingBuffer: true` for WebGL capture |
+
+**What was built**:
+- 5 configurable report sections: Cover Page, Antenna Summary, Solver Config, 3D Views, Documentation
+- `pdfDataBuilders.ts`: pure extraction functions (36 unit tests ✅)
+- `pdfReportGenerator.ts`: async orchestrator (13 unit tests ✅)
+- `ExportPDFDialog.tsx`: full rewrite with section checkboxes, author field, filename, progress bar (12 tests ✅)
+- Submission metadata banner displayed when exporting from read-only student viewer
+- ESLint reduced from 362 → 335 warnings (under 350 threshold)
 
 ---
 
-## Phase 8 — Refactoring & Hardening
+## Phase 8 — Refactoring & Hardening ⏳ NEXT
 
-**Goal**: Production-quality code, comprehensive tests, security, and operational robustness.
+**Goal**: Production-quality code, comprehensive tests, security, operational robustness. Module-by-module refactoring following SOLID principles, with a commit after each module. Every module gets a README, comprehensive tests, and cleaned-up code.
 
-### 8.1 — Backend
+**Approach**: Work module-by-module (bottom-up from `backend/common/` to feature modules). Each module step:
+1. Fix all warnings, lint errors, security issues
+2. Remove dead code and redundancies
+3. Add missing tests
+4. Add/update module README with data model, API surface, architecture notes
+5. Update `.github/copilot-instructions.md` if conventions change
+6. Run full CI checks → commit
 
-- [ ] **Input validation**: Add Pydantic field constraints (`ge`, `le`, `max_length`) to all request schemas. Cap array sizes (max nodes, max edges, max frequencies).
-- [ ] **Error handling**: Standardize error response format `{ detail: string, code: string }` across all services. Map solver numpy errors to user-friendly messages.
-- [ ] **Rate limiting**: Add per-user rate limits (via middleware or API Gateway) — protect simulation endpoints.
-- [ ] **Request size limits**: Cap request body size in FastAPI middleware (e.g., 10MB for custom geometry).
-- [ ] **Logging**: Structured JSON logging with correlation IDs. Log all simulation requests with user_id, duration, token cost.
-- [ ] **Security**:
-  - Dependency audit (`pip-audit`, `npm audit`)
-  - CORS: tighten origins in production (only CloudFront domain)
-  - Input sanitization for project names, descriptions (prevent stored XSS)
-  - Rate limit CSV upload size
-- [ ] **Test coverage**: Target 80%+ for backend. Add missing tests for postprocessor, projects service, auth flows.
+---
 
-### 8.2 — Frontend
+### 8.0 — Codebase Audit Summary (Pre-Phase 8)
 
-- [ ] **Error boundaries**: Add React error boundaries around 3D scene, plot panels, and each major feature area.
-- [ ] **Loading states**: Consistent skeleton loaders for async operations (project load, solve, field computation).
-- [ ] **Retry logic**: Exponential backoff for transient API failures (network errors, 502/503).
-- [ ] **Bundle optimization**: Code-split by route. Lazy-load Three.js and Recharts. Analyze bundle with `vite-plugin-visualizer`.
-- [ ] **Accessibility**: Keyboard navigation for key flows. ARIA labels on interactive elements.
-- [ ] **Fix vitest hanging**: Resolve CI test timeout issues — likely timer/async leak in test teardown.
+**Current metrics** (as of Phase 8 start):
+- **Backend**: ~800 unit tests, ~100 integration tests, ~8,500 LOC across 5 services + common
+- **Frontend**: ~90 test files, ~600 ESLint warnings (threshold 350), ~25,000 LOC across 13 features
+- **Dead code**: 5 stub directories (solver_fem, solver_mom, solver_fdtd, fdtd_preprocessor, fdtd_postprocessor), 3 unused backend endpoints, 6 stub frontend features/APIs
+- **Critical issues**: 7 security/validation gaps, 3 SOLID violations, 12 missing test areas
+- **TypeScript strict mode**: OFF (`"strict": false` in tsconfig.json)
 
-### 8.3 — Deliverables
+---
 
-| Artifact | Type | Description |
-|----------|------|-------------|
-| `backend/common/middleware/rate_limit.py` | Middleware | Per-user rate limiting |
-| `backend/common/middleware/request_size.py` | Middleware | Body size cap |
-| Error boundary components | Frontend | `ErrorBoundary.tsx` wrapper |
-| Updated CI config | DevOps | Fix hanging tests, add coverage threshold |
+### 8.1 — Dead Code Removal & Codebase Cleanup
+
+**Remove stub services and placeholder modules** that add confusion with zero functionality.
+
+#### 8.1.1 — Backend Stubs Removal
+
+| Directory | Contents | Action | Rationale |
+|-----------|----------|--------|-----------|
+| `backend/solver_fem/` | 49-line stub (health check only) | [ ] **Delete** | No solver logic; port 8004 reserved but never deployed |
+| `backend/solver_mom/` | 49-line stub (health check only) | [ ] **Delete** | No solver logic; port 8006 reserved but never deployed |
+| `backend/solver_fdtd/` | 49-line stub (health check only) | [ ] **Delete** | No solver logic; port 8005 reserved but never deployed |
+| `backend/fdtd_preprocessor/` | Empty dir (only `__pycache__`) | [ ] **Delete** | Zero files |
+| `backend/fdtd_postprocessor/` | Empty dir (only `__pycache__`) | [ ] **Delete** | Zero files |
+
+**Document in `docs/FEM_INTEGRATION_PLAN.md`**: Add a note that stubs were removed in Phase 8; future FEM/MoM/FDTD work starts from a clean branch using the existing service template pattern.
+
+#### 8.1.2 — Frontend Stubs Removal
+
+| Path | Contents | Action | Rationale |
+|------|----------|--------|-----------|
+| `frontend/src/features/solver_fem/` | `export {}` (8 lines) | [ ] **Delete** | Empty stub |
+| `frontend/src/features/solver_fdtd/` | `export {}` (8 lines) | [ ] **Delete** | Empty stub |
+| `frontend/src/features/solver_mom/` | `export {}` (8 lines) | [ ] **Delete** | Empty stub |
+| `frontend/src/api/solverFem.ts` | `checkHealth()` only | [ ] **Delete** | No solve functions; service doesn't exist |
+| `frontend/src/api/solverMom.ts` | `checkHealth()` only | [ ] **Delete** | No solve functions; service doesn't exist |
+| `frontend/src/api/solverFdtd.ts` | `checkHealth()` only | [ ] **Delete** | No solve functions; service doesn't exist |
+| `frontend/src/features/design/__tests__/HelixDialog.test.tsx` | `it.todo` stub | [ ] **Delete** | Helix removed in Phase 1 |
+
+#### 8.1.3 — Unused Backend Endpoints Analysis
+
+| Endpoint | Service | Status | Decision |
+|----------|---------|--------|----------|
+| `POST /api/solve/sweep` | solver | Frontend uses multi-call via parameterStudyThunks instead | [ ] **Keep** — useful for future batch sweep; document as "available but not wired in UI" |
+| `GET /api/info/materials` | solver | Never called from frontend | [ ] **Keep** — useful reference endpoint; document |
+| `POST /api/estimate` | solver | Never called from frontend | [ ] **Keep** — planned for token cost preview in UI |
+| `POST /api/export/vtu` | postprocessor | Frontend does VTU export client-side via `ParaViewExporter.ts` | [ ] **Evaluate** — if client-side export is sufficient, remove backend endpoint; if server-side needed for large meshes, keep |
+| `POST /api/port-quantities` | postprocessor | Port quantities computed in solver; this endpoint is redundant | [ ] **Evaluate** — check if it provides extra value over solver port results |
+| `GET /api/debug/*` | postprocessor | 3 debug endpoints | [ ] **Remove from production** — gate behind `DEBUG=true` env var or remove entirely |
+
+#### 8.1.4 — Frontend Dead Code
+
+| File | Issue | Action |
+|------|-------|--------|
+| `frontend/src/api/mockAuth.ts` | No imports found in codebase | [ ] **Verify** and delete if unused |
+| `frontend/src/api/mockProjects.ts` | Imported in `projects.ts` for `USE_MOCK_API` fallback | [ ] **Keep** — document usage |
+| `frontend/src/types/api.ts` — `PreprocessorAPI`, `SolverAPI`, `PostprocessorAPI` interfaces | Defined but never implemented or imported | [ ] **Delete** unused interfaces |
+| `frontend/src/types/api.ts` — `RequestInterceptor`, `ResponseInterceptor` | Uses `any` types; not imported | [ ] **Delete** if unused; otherwise type properly |
+
+**Commit**: `refactor: remove dead stub services and unused code`
+
+---
+
+### 8.2 — Module: `backend/common/` (Foundation Layer)
+
+**Scope**: Auth, models, repositories, storage, utils — the shared foundation for all services.
+
+#### 8.2.1 — Critical Security Fixes
+
+| Issue | File | Line | Fix | Priority |
+|-------|------|------|-----|----------|
+| **`jwt.get_unverified_claims()` does not exist in PyJWT** | `cognito_provider.py` | ~219 | [ ] Replace with `jwt.decode(token, options={"verify_signature": False}, algorithms=["RS256"])` | 🔴 CRITICAL |
+| **Unsafe default JWT secret** | `local_provider.py` | ~33 | [ ] Require `JWT_SECRET_KEY` env var; raise `ValueError` if missing | 🔴 CRITICAL |
+| **Empty COGNITO_CLIENT_ID accepted** | `cognito_provider.py` | ~37 | [ ] Fail-fast: `if not COGNITO_CLIENT_ID: raise ValueError(...)` | 🔴 CRITICAL |
+| **`get_user_by_email()` uses SCAN (O(n))** | `user_repository.py` | ~145 | [ ] Add Email-GSI to DynamoDB table; query GSI instead of scan | 🔴 CRITICAL (perf) |
+
+#### 8.2.2 — Repository Layer Refactoring
+
+**Problem**: DynamoDB table property duplicated across 4 repository classes (`dynamodb_repository.py`, `folder_repository.py`, `enrollment_repository.py`, `submission_repository.py`).
+
+**Fix — Extract `DynamoDBMixin`**:
+```python
+# backend/common/repositories/dynamodb_mixin.py
+class DynamoDBTableMixin:
+    """Lazy-init DynamoDB table access. Subclasses set `table_name`."""
+    table_name: str
+    _table = None
+    _dynamodb_resource = None
+
+    @property
+    def table(self):
+        if self._table is None:
+            endpoint = os.getenv("DYNAMODB_ENDPOINT_URL")
+            dynamo = self._dynamodb_resource or (
+                boto3.resource("dynamodb", endpoint_url=endpoint)
+                if endpoint else boto3.resource("dynamodb")
+            )
+            self._table = dynamo.Table(self.table_name)
+        return self._table
+```
+
+- [ ] Create `DynamoDBTableMixin` base class
+- [ ] Refactor all 4 repositories to use mixin
+- [ ] Add `@abstractmethod` decorators to ALL methods in `base.py` `UserRepository` and `ProjectRepository` ABCs
+- [ ] Add missing `@abstractmethod` decorators — currently some methods lack the decorator, violating the ABC contract
+
+**Additional repository fixes**:
+- [ ] `user_repository.py`: Reduce `_ensure_table()` logging from 20+ `logger.info()` to 3 key messages (start, result, error)
+- [ ] `user_repository.py`: Remove or formalize deprecated `update_user_approval()` method
+- [ ] `dynamodb_repository.py`: `list_all_projects_in_folder()` uses SCAN — add GSI `(FolderId, CreatedAt)` for efficient query; document as "acceptable for small course folders" if GSI deferred
+- [ ] `submission_repository.py`: Ensure float-to-Decimal conversion is comprehensive for all numeric fields in frozen results
+
+#### 8.2.3 — Auth Module Hardening
+
+- [ ] `token_dependency.py`: Add `exc_info=True` to exception logging in `_log_usage()` so stack traces are captured
+- [ ] `cognito_provider.py`: Add `COGNITO_USER_POOL_ID` validation at init (fail-fast)
+- [ ] `cognito_provider.py`: Fix username fallback (`user_{id[:8]}`) — add warning log when email is unknown
+- [ ] `local_provider.py`: Add JWT token expiry validation (check `exp` claim in `validate_token()`)
+- [ ] `dependencies.py`: Document `time.monotonic()` cache behavior after system sleep
+
+#### 8.2.4 — Serialization & Utils Hardening
+
+- [ ] `serialization.py`: Add `math.isfinite()` check in `serialize_complex()` — raise `ValueError` for NaN/Inf
+- [ ] `serialization.py`: Add `try-except` for `deserialize_numpy()` reshape failures
+- [ ] `geometry.py` `Source.serialize_complex()`: Add NaN/Inf validation
+- [ ] `utils/__init__.py`: Add missing exports (`get_expression_variables`, `detect_circular_dependencies`) to `__all__`
+- [ ] `expressions.py`: Improve division-by-zero error message to include operands
+
+#### 8.2.5 — Model Validation Strengthening
+
+| Model | Field | Fix |
+|-------|-------|-----|
+| `VariableContext` | `variables` | [ ] Add `max_length=100` — prevent unbounded variable lists |
+| `PortResult` | `return_loss` | [ ] Add `Field(ge=-200, le=0)` — dB range bounds |
+| `PortResult` | `input_power` | [ ] Add `Field(ge=0)` — no negative power |
+| `AntennaElement` | `parameters` | [ ] Document that `Dict[str, Any]` is intentionally unconstrained (type-specific configs vary) |
+| `SweepResultEnvelope` | `frequencies` | [ ] Add validator for ascending order and uniqueness |
+
+#### 8.2.6 — Tests to Add
+
+| Test File | Coverage Target | Tests |
+|-----------|----------------|-------|
+| `tests/unit/test_cognito_provider.py` | [ ] NEW | JWT decode fix, env var validation, username fallback, JWKS verification edge cases |
+| `tests/unit/test_local_provider.py` | [ ] NEW | Missing JWT_SECRET raises, token expiry, bcrypt edge cases |
+| `tests/unit/test_dynamodb_mixin.py` | [ ] NEW | Table property init, endpoint URL handling, resource caching |
+| `tests/unit/test_serialization.py` | [ ] NEW or EXPAND | NaN/Inf serialization, numpy reshape failures, complex roundtrip |
+| `tests/unit/test_user_repository.py` | [ ] EXPAND | Email lookup performance (mock scan vs query), token deduction race conditions |
+
+#### 8.2.7 — README
+
+- [ ] Create `backend/common/README.md` — Document:
+  - Module architecture diagram (auth → models → repositories → storage → utils)
+  - Auth strategy pattern (USE_COGNITO env var, provider ABC, factory)
+  - Repository pattern (DynamoDB single-table, GSIs, key schema)
+  - Data model: UserIdentity, AntennaElement, Variable, PortResult, SweepResultEnvelope
+  - Storage abstraction (S3/MinIO/local)
+  - Expression evaluator security model (AST whitelist, no eval)
+  - Environment variables reference table
+
+**Commit**: `refactor(common): security fixes, repository mixin, model validation, tests`
+
+---
+
+### 8.3 — Module: `backend/preprocessor/` (Geometry Engine)
+
+#### 8.3.1 — Validation & Security
+
+- [ ] `builders.py` L312: Validate complex amplitude dict — ensure `"real"` and `"imag"` are numeric (`isinstance(v, (int, float))`)
+- [ ] `builders.py`: Add boundary check for feed node indices when `segments=0` (gap dipole edge case)
+- [ ] `schemas.py`: Add `Field` constraints to all request schemas:
+  - `CustomRequest.nodes`: `max_length=5000` (prevent memory exhaustion)
+  - `CustomRequest.edges`: `max_length=10000`
+  - All `radius` fields: `Field(gt=0, le=1.0)` (max 1m wire radius — reasonable physics bound)
+  - All `segments` fields: `Field(ge=1, le=1000)`
+  - `DipoleRequest.length`: `Field(gt=0, le=100)` (100m max)
+  - `LoopRequest.radius`: `Field(gt=0, le=50)` (50m max)
+- [ ] `builders.py` L536: Add `np.isnan(normal_mag)` check for loop normal vector
+- [ ] `builders.py` L258: Validate gap < 2πr for loop antenna (gap angle overflow)
+
+#### 8.3.2 — SOLID Refactoring
+
+- [ ] `builders.py` `create_custom()` (~150 lines): Extract helper functions:
+  - `_validate_custom_nodes(nodes)` — ID uniqueness, finite coords, positive radius
+  - `_validate_custom_edges(edges, node_ids)` — reference validity, no self-loops, no duplicates
+  - `_reindex_nodes_and_edges(nodes, edges)` — contiguous 1-based re-indexing
+- [ ] `main.py`: Standardize error handling — replace bare `except Exception` with specific catches:
+  - `ValueError` → 422 (validation error with detail)
+  - `np.linalg.LinAlgError` → 500 (numerical error with user message)
+  - Other → 500 (unexpected, log full traceback)
+- [ ] `main.py`: Consider extracting `_convert_source()` and `_convert_lumped_elements()` to a shared utility (used in every endpoint handler)
+
+#### 8.3.3 — Tests to Add
+
+| Test | Scope |
+|------|-------|
+| [ ] `tests/unit/test_preprocessor_api.py` | FastAPI route tests: each endpoint with valid/invalid input, auth, error responses |
+| [ ] Expand `test_custom_builder.py` | Edge cases: max node count, zero-length edges, duplicate IDs after reindex |
+| [ ] `test_builders_amplitude.py` | Complex amplitude dict validation (missing keys, non-numeric values, NaN) |
+
+#### 8.3.4 — README
+
+- [ ] Create `backend/preprocessor/README.md` — Document:
+  - Supported antenna types (dipole, loop, rod, custom) with parameter tables
+  - Mesh data model: nodes (1-based), edges, source_edges, element mapping
+  - API endpoints with request/response schemas
+  - Builder architecture: `create_X()` → `X_to_mesh()` pattern
+  - Validation rules and error codes
+  - Expression integration (variable_context field)
+
+**Commit**: `refactor(preprocessor): input validation, builder extraction, API tests`
+
+---
+
+### 8.4 — Module: `backend/solver/` (PEEC Engine)
+
+#### 8.4.1 — Critical Fixes
+
+- [ ] `main.py` L165: **Token deduction race condition** — Replace check-then-deduct with atomic DynamoDB `UpdateExpression` using `ConditionExpression`:
+  ```python
+  # Atomic: deduct only if balance >= cost
+  table.update_item(
+      Key=...,
+      UpdateExpression="SET TokenBalance = TokenBalance - :cost",
+      ConditionExpression="TokenBalance >= :cost",
+      ExpressionAttributeValues={":cost": Decimal(str(cost))}
+  )
+  ```
+- [ ] `solver.py`: Add frequency array validation — reject NaN, Inf, negative, zero frequencies:
+  ```python
+  for freq in frequencies:
+      if not (np.isfinite(freq) and freq > 0):
+          raise ValueError(f"Invalid frequency: {freq}")
+  ```
+- [ ] `solver.py`: Add zero-length edge detection — check `edge[0] != edge[1]` before geometry computation
+- [ ] `main.py` L130: Add upper bound for node count (`max_nodes=2000`) and edge count (`max_edges=5000`) to prevent memory exhaustion
+- [ ] `system.py`: Add matrix conditioning check before `np.linalg.solve()` — warn if condition number > 1e12
+
+#### 8.4.2 — Numerical Robustness
+
+- [ ] `solver.py` L350: Add retardation phase warning — if `max(beta * dist) > 2π`, log warning about high-frequency regime
+- [ ] `resistance.py` L290: Guard skin effect calculation — skip if `frequency <= 0` or `omega == 0`
+- [ ] `inductance.py` L155: Validate Gauss quadrature order against available data in `GAUSS_LEGENDRE_DATA`; raise clear error if not found
+- [ ] `system.py`: Add self-inductance bounds check — warn if `wire_radius > edge_length` (numerical instability regime)
+
+#### 8.4.3 — SOLID Refactoring
+
+- [ ] `solver.py` `solve_peec_frequency_sweep()` (~250 lines): Extract into:
+  - `_build_topology(antennas, ...)` — topology assembly
+  - `_compute_impedance_at_frequency(freq, topology, ...)` — single-frequency solve
+  - `_extract_port_results(currents, topology, ...)` — post-processing
+- [ ] `main.py`: Standardize error responses (same as preprocessor: ValueError→422, LinAlgError→500)
+- [ ] Remove/fix `import services.estimation` if the module path is wrong
+
+#### 8.4.4 — Tests to Add
+
+| Test | Scope |
+|------|-------|
+| [ ] `tests/unit/test_solver_core.py` | Unit tests for `solve_peec_system()` with known small matrices (2-node, 3-node) |
+| [ ] `tests/unit/test_solver_validation.py` | Invalid input: NaN frequencies, zero-length edges, too many nodes, singular matrices |
+| [ ] `tests/unit/test_solver_token_atomic.py` | Atomic token deduction: concurrent requests, insufficient balance |
+| [ ] `tests/unit/test_potential_nodal.py` | Nodal potential assembly with known geometries |
+| [ ] Expand `test_solver_frequency.py` | Edge cases: single frequency, frequency=0, very high frequency (retardation regime) |
+
+#### 8.4.5 — README
+
+- [ ] Create `backend/solver/README.md` — Document:
+  - PEEC method overview (partial element equivalent circuit)
+  - MNA system assembly: incidence matrix, L/R/P matrices
+  - Retardation model and limitations
+  - Skin effect model
+  - Multi-antenna coupling
+  - Gauss quadrature integration orders
+  - API endpoints with request/response schemas
+  - Token cost model
+  - Known numerical limitations (frequency regime, mesh density requirements)
+
+**Commit**: `refactor(solver): atomic tokens, frequency validation, numerical guards, tests`
+
+---
+
+### 8.5 — Module: `backend/postprocessor/` (Field Engine)
+
+#### 8.5.1 — Validation & Security
+
+- [ ] `main.py` L130: Move observation point count check BEFORE array parsing (prevent memory allocation before validation)
+- [ ] `main.py` L145: Add validation: `len(branch_currents[0]) == len(edges)` — mismatch crashes silently
+- [ ] `field.py` L77: Cap dynamic segment count: `n_segments = min(max(5, int(...)), 100)` — prevent 1000+ segments per edge
+- [ ] `field.py` L128: Scale finite-difference step `h` by observation point distance, not just wavenumber
+- [ ] `field.py`: Add NaN check on E_theta/E_phi before Poynting vector computation
+
+#### 8.5.2 — SOLID Refactoring
+
+- [ ] `main.py` `compute_near_field()`: Extract:
+  - `_validate_field_request(request)` — input checks
+  - `_parse_field_inputs(request)` — array conversion
+  - `_assemble_field_response(E, H, S, obs_points)` — response building
+- [ ] `field.py`: Evaluate deprecated `compute_electric_field_from_potential()` — if not called from any endpoint, remove or mark with `@deprecated` docstring
+- [ ] `pattern.py`: Accept `Z_0` as parameter (not module-level constant) for testability:
+  ```python
+  def compute_radiation_intensity(E_theta, E_phi, z0=Z_0):
+  ```
+- [ ] Gate debug endpoints behind `DEBUG` env var:
+  ```python
+  if settings.debug:
+      app.include_router(debug_router)
+  ```
+
+#### 8.5.3 — Tests to Add
+
+| Test | Scope |
+|------|-------|
+| [ ] `tests/unit/test_postprocessor_api.py` | FastAPI route tests: valid/invalid field requests, observation point limits |
+| [ ] `tests/unit/test_field_edge_cases.py` | NaN inputs, zero-distance singularity, extreme frequencies |
+| [ ] `tests/unit/test_field_segmentation.py` | Dynamic segment count capping, memory bounds |
+| [ ] Expand `test_far_field.py` | Hertzian dipole reference at multiple frequencies |
+
+#### 8.5.4 — README
+
+- [ ] Create `backend/postprocessor/README.md` — Document:
+  - Near-field computation method (vector potential integral, finite differences)
+  - Far-field approximation (threshold criteria, segment adaptive refinement)
+  - Radiation pattern: directivity, gain, pattern cuts
+  - API endpoints with request/response schemas
+  - Observation point limits and performance characteristics
+  - Known limitations (singularity handling, high-frequency regime)
+
+**Commit**: `refactor(postprocessor): validation ordering, field guards, API tests`
+
+---
+
+### 8.6 — Module: `backend/projects/` (Persistence Layer)
+
+#### 8.6.1 — Security Fixes
+
+- [ ] `documentation_service.py` L192: Add file extension whitelist to `IMAGE_KEY_PATTERN`:
+  ```python
+  ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'}
+  ```
+- [ ] `folder_routes.py` L230: Add authorization check before deep-copy — verify `_can_access_project(source_project, user)`
+- [ ] `folder_routes.py`: Add folder cycle detection on move (`_check_folder_cycle()`) — prevent A→B→A loops
+- [ ] `main.py`: Wrap S3 storage calls with `try-except` — handle `BotoClientError` gracefully instead of crashing
+- [ ] `folder_routes.py` L235: Add null check after `get_folder()` before deep-copy operations
+
+#### 8.6.2 — Validation Strengthening
+
+- [ ] `schemas.py`: Add constraints to all string/list fields:
+  ```python
+  class ProjectCreate(BaseModel):
+      name: str = Field(..., min_length=1, max_length=200)
+      description: str = Field(default="", max_length=5000)
+  ```
+- [ ] `schemas.py`: Add constraints to submission schemas:
+  ```python
+  class SubmissionCreate(BaseModel):
+      project_id: str = Field(..., min_length=1, max_length=100)
+  ```
+- [ ] `results_service.py`: Replace magic strings with Enum:
+  ```python
+  class ResultKeyType(str, Enum):
+      SOLVER = "solver_results"
+      PATTERN = "radiation_pattern"
+      FIELD = "field_data"
+  ```
+
+#### 8.6.3 — SOLID Refactoring
+
+- [ ] `documentation_service.py`: Ensure S3 client is injected via constructor (not created internally) — already partially done, verify full DI
+- [ ] `results_service.py`: Same DI pattern for S3 client
+- [ ] `main.py`: Remove unused import `backend.auth.schemas` (if confirmed unused)
+
+#### 8.6.4 — Tests to Add
+
+| Test | Scope |
+|------|-------|
+| [ ] `tests/unit/test_projects_api.py` | CRUD endpoint tests: create, read, update, delete with auth |
+| [ ] `tests/unit/test_projects_authorization.py` | Authorization edge cases: deep-copy without access, folder cycle, cross-user access |
+| [ ] `tests/unit/test_documentation_security.py` | File extension validation, image key pattern, S3 error handling |
+| [ ] Expand `test_submissions.py` | Concurrent submission, immutability verification, cross-course access |
+
+#### 8.6.5 — README
+
+- [ ] Create `backend/projects/README.md` — Document:
+  - DynamoDB single-table design: PK/SK patterns, GSIs
+  - Project data model: 4 JSON blob columns (design_state, simulation_config, simulation_results, ui_state)
+  - Folder/course hierarchy model
+  - Submission lifecycle (submitted → reviewed → returned)
+  - Documentation service: S3 image storage, key patterns, allowed extensions
+  - Results service: S3 result storage, key types, extraction/storage flow
+  - API endpoints with request/response schemas
+  - Authorization model (owner, maintainer, admin)
+
+**Commit**: `refactor(projects): security fixes, schema validation, authorization hardening`
+
+---
+
+### 8.7 — Module: `backend/auth/` (Standalone Auth)
+
+#### 8.7.1 — Security Fixes
+
+- [ ] `main.py` L60: **Prevent username enumeration** — Return generic error messages:
+  ```python
+  except ValueError:
+      raise HTTPException(400, detail="Registration failed. Please check your input.")
+  ```
+- [ ] `main.py` L95: **Prevent login enumeration** — Return generic error:
+  ```python
+  except ValueError:
+      raise HTTPException(401, detail="Invalid credentials.")
+  ```
+- [ ] `main.py` L50: Sanitize user input before logging (strip email from error messages)
+
+#### 8.7.2 — Documentation
+
+- [ ] Add docstring to `main.py` clarifying this service is **standalone/Docker mode only** — in AWS, auth endpoints are re-mounted in Projects Lambda
+- [ ] Create `backend/auth/README.md` — Document:
+  - When this service is used (standalone mode, `USE_COGNITO=false`)
+  - Endpoints: register, login, profile
+  - Relationship to `backend/common/auth/` (this is a thin wrapper)
+  - JWT token flow (HS256 local vs RS256 Cognito)
+
+**Commit**: `refactor(auth): prevent user enumeration, documentation`
+
+---
+
+### 8.8 — Module: `frontend/src/store/` (State Management)
+
+#### 8.8.1 — Fix Known Issues
+
+- [ ] `variablesSlice.ts`: Memoize `selectVariableContextNumeric` with `createSelector`:
+  ```typescript
+  import { createSelector } from '@reduxjs/toolkit'
+  export const selectVariableContextNumeric = createSelector(
+    (state: RootState) => state.variables.variables,
+    (vars) => evaluateVariableContextNumeric(vars)
+  )
+  ```
+- [ ] `submissionsSlice.ts`: Add `.addCase(thunk.rejected, ...)` handlers to ALL 5 thunks — currently fails silently
+- [ ] `authSlice.ts`: Clear `error` state on `loginAsync.fulfilled` and `registerAsync.fulfilled`
+- [ ] `projectsSlice.ts`: Document dual-name fields (`items`/`projects`, `currentProject`/`selectedProject`) — add deprecation comments for legacy aliases
+
+#### 8.8.2 — Consolidate Utilities
+
+- [ ] `solverSlice.ts` L66-100: Move `parseComplex()`, `parseComplexArray()` to `frontend/src/utils/complexNumber.ts` — currently duplicated between `solverSlice.ts` and `solverHelpers.ts`
+- [ ] Create canonical complex number utilities:
+  ```typescript
+  // frontend/src/utils/complexNumber.ts
+  export function parseComplex(val: unknown): { real: number; imag: number }
+  export function parseComplexArray(arr: unknown[]): { real: number; imag: number }[]
+  export function complexToString(c: { real: number; imag: number }): string
+  ```
+
+#### 8.8.3 — Tests to Add
+
+| Test File | Scope |
+|-----------|-------|
+| [ ] `frontend/src/store/__tests__/authSlice.test.ts` | **NEW** — All 5 thunks (login, register, getCurrentUser, refreshToken, validateSession), error clearing, loading states |
+| [ ] `frontend/src/store/__tests__/uiSlice.test.ts` | **NEW** — Theme toggle, notification add/remove, layout state changes |
+| [ ] `frontend/src/store/__tests__/submissionsSlice.test.ts` | **EXPAND** — Add rejected thunk tests, verify error state populated |
+| [ ] `frontend/src/store/__tests__/variablesSlice.test.ts` | **EXPAND** — Test memoized selector, variable CRUD actions |
+
+**Commit**: `refactor(store): memoize selectors, error handling, complex utils, tests`
+
+---
+
+### 8.9 — Module: `frontend/src/api/` (API Client Layer)
+
+#### 8.9.1 — Cleanup
+
+- [ ] Delete `mockAuth.ts` if confirmed unused (no imports found in codebase)
+- [ ] `postprocessor.ts`: Standardize error handling — either wrap in custom `ApiError` or let errors bubble to thunk `rejectWithValue` (don't do both)
+- [ ] `client.ts`: Review token refresh interceptor for edge cases:
+  - Concurrent 401s during refresh
+  - Refresh token also expired
+  - Network error during refresh
+
+#### 8.9.2 — Type Safety
+
+- [ ] `api.ts`: Delete unused interfaces (`PreprocessorAPI`, `SolverAPI`, `PostprocessorAPI`, `RequestInterceptor`, `ResponseInterceptor`) or implement them
+- [ ] Add proper return types to all API functions (currently some return `any` from Axios)
+
+**Commit**: `refactor(api): cleanup unused code, standardize error handling`
+
+---
+
+### 8.10 — Module: `frontend/src/types/` (Type Definitions)
+
+- [ ] Remove unused API type interfaces (from 8.9.2)
+- [ ] Audit all `any` types in type definition files — replace with proper types where possible
+- [ ] Ensure all exported types are used (search for orphans)
+- [ ] Verify `circuitTypes.ts` `circuitToBackend()` / `backendToCircuit()` roundtrip correctness
+
+**Commit**: `refactor(types): remove unused types, improve type safety`
+
+---
+
+### 8.11 — Module: `frontend/src/features/` (UI Components)
+
+#### 8.11.1 — Missing Tests (Critical Gaps)
+
+| Feature | Test Status | Action |
+|---------|-------------|--------|
+| `features/admin/` | ❌ NO TESTS | [ ] Add AdminDashboard render tests, user management tests |
+| `features/courses/` | ❌ NO TESTS | [ ] Add CourseLibrary render tests, enrollment tests |
+| `features/auth/` | ❌ NO COMPONENT TESTS | [ ] Add LoginPage, RegisterPage render + form submission tests |
+| `features/home/` | ❌ NO TESTS | [ ] Add HomePage render test (simple) |
+| `features/design/__tests__/AddFieldDialog.test.tsx` | 2 `it.skip` | [ ] Implement or remove skipped tests |
+| `features/design/__tests__/FrequencyInputDialog.test.tsx` | 3 `it.skip` | [ ] Implement or remove skipped tests |
+
+#### 8.11.2 — Error Boundaries
+
+- [ ] Verify existing `ErrorBoundary.tsx` usage — wrap around:
+  - 3D scene (`Scene3D`, `WirePreview3D`)
+  - Plot panels (`UnifiedLinePlot`, `PolarPlot`, `SmithChart`)
+  - Circuit editor (`CircuitEditor`)
+- [ ] Add error boundary fallback UI with "Something went wrong" + retry button
+
+#### 8.11.3 — ESLint Warning Reduction
+
+Current: ~335 warnings (threshold 350). Target: <200 warnings.
+
+- [ ] Fix `@typescript-eslint/no-unused-vars` — most common warning (~100+ instances)
+- [ ] Fix `@typescript-eslint/no-explicit-any` — replace `any` with proper types
+- [ ] Fix `no-empty-pattern` in test files
+- [ ] Remove unused `eslint-disable` directives
+- [ ] Lower ESLint `--max-warnings` threshold to 200 after fixes
+
+**Commit**: `refactor(features): add missing tests, error boundaries, ESLint cleanup`
+
+---
+
+### 8.12 — Cross-Cutting: Error Response Standardization
+
+#### 8.12.1 — Backend Error Model
+
+Create a standardized error response used by ALL services:
+
+```python
+# backend/common/models/errors.py
+class ErrorResponse(BaseModel):
+    detail: str                    # Human-readable message
+    code: str                      # Machine-readable: "VALIDATION_ERROR", "INSUFFICIENT_TOKENS", etc.
+    field: str | None = None       # Optional: which field caused the error
+    correlation_id: str | None = None  # Request tracing ID
+```
+
+- [ ] Create `backend/common/models/errors.py`
+- [ ] Create `backend/common/middleware/error_handler.py` — global exception handler middleware:
+  - `ValueError` → 422 with `code="VALIDATION_ERROR"`
+  - `np.linalg.LinAlgError` → 500 with `code="NUMERICAL_ERROR"`
+  - `HTTPException` → pass through
+  - Other → 500 with `code="INTERNAL_ERROR"`, log full traceback
+- [ ] Apply middleware to all 5 services
+- [ ] Add correlation ID generation (UUID per request) via middleware
+
+#### 8.12.2 — Frontend Error Handling
+
+- [ ] Create `frontend/src/utils/apiError.ts`:
+  ```typescript
+  interface ApiError {
+    detail: string
+    code: string
+    field?: string
+    correlationId?: string
+  }
+  function parseApiError(error: unknown): ApiError
+  ```
+- [ ] Update all `rejectWithValue` calls in thunks to use `parseApiError()`
+- [ ] Display `correlationId` in error snackbars (helps debugging)
+
+**Commit**: `feat(errors): standardized error responses with correlation IDs`
+
+---
+
+### 8.13 — Cross-Cutting: Structured Logging
+
+- [ ] `backend/common/utils/logging.py` — JSON log formatter:
+  ```python
+  class JsonFormatter(logging.Formatter):
+      def format(self, record):
+          return json.dumps({
+              "timestamp": ...,
+              "level": record.levelname,
+              "service": SERVICE_NAME,
+              "correlation_id": getattr(record, "correlation_id", None),
+              "message": record.getMessage(),
+              "user_id": getattr(record, "user_id", None),
+          })
+  ```
+- [ ] Apply to all services via shared config function
+- [ ] Log simulation requests with: user_id, duration, token cost, frequency count, node count
+- [ ] Redact sensitive fields (passwords, tokens) in log output
+
+**Commit**: `feat(logging): structured JSON logging with correlation IDs`
+
+---
+
+### 8.14 — Cross-Cutting: Request Size, Rate Limiting & DDoS Hardening
+
+> **CRITICAL CONSTRAINT**: This is a **zero-budget project**. AWS costs must stay near $0 under normal use and must NOT explode under attack. Every defense must work in both AWS Lambda and local/Docker modes without breaking either deployment target.
+
+#### 8.14.1 — Request Size Limits
+
+- [ ] Create `backend/common/middleware/request_size.py`:
+  ```python
+  class RequestSizeMiddleware:
+      def __init__(self, app, max_body_size: int = 10 * 1024 * 1024):  # 10MB
+          ...
+  ```
+- [ ] Apply to all services — different limits per service:
+  - Preprocessor: 10MB (custom geometry can be large)
+  - Solver: 50MB (multi-antenna with many edges)
+  - Postprocessor: 10MB
+  - Projects: 5MB (project JSON blobs)
+- [ ] Reject oversized requests BEFORE reading body into memory (check `Content-Length` header first)
+
+#### 8.14.2 — Rate Limiting (Application Layer)
+
+- [ ] For standalone/Docker: Create `backend/common/middleware/rate_limit.py` using in-memory token bucket:
+  - Simulation endpoints: 10 requests/minute per user
+  - CRUD endpoints: 60 requests/minute per user
+  - Auth endpoints: 5 requests/minute per IP (brute-force protection)
+  - Return `429 Too Many Requests` with `Retry-After` header
+- [ ] For AWS Lambda: Rate limiting middleware is **skipped** (handled by API Gateway throttling + Lambda concurrency caps — see §8.14a)
+- [ ] Middleware auto-detects mode via `IS_LAMBDA` env var — no code change needed between deployments
+
+#### 8.14.3 — Backend Computational Limits (Both Modes)
+
+Prevent single requests from consuming excessive CPU/memory regardless of DDoS protection:
+
+- [ ] **Solver**: Cap `max_nodes=2000`, `max_edges=5000`, `max_frequencies=500` in request schemas
+- [ ] **Solver**: Add per-request timeout — `asyncio.wait_for(solve_task, timeout=120)` (2 min max per solve)
+- [ ] **Postprocessor**: Cap `max_observation_points=50000` (validated before array creation)
+- [ ] **Postprocessor**: Cap `n_segments` per edge to 100 (prevents 1000+ segments from high freq × long edge)
+- [ ] **Preprocessor**: Cap `CustomRequest.nodes` at 5000, `CustomRequest.edges` at 10000
+- [ ] **Projects**: Cap `design_state` + `simulation_results` JSON blob sizes (reject if > 2MB each)
+- [ ] **All services**: FastAPI `Request.body()` already buffers; add explicit `Content-Length` cap middleware so Lambda doesn't process huge payloads
+
+**Commit**: `feat(middleware): request size limits, rate limiting, computational caps`
+
+---
+
+### 8.14a — AWS DDoS Protection & Cost Explosion Prevention
+
+> **Design principle**: Defense in depth using **only free-tier mechanisms** — Lambda concurrency limits as the primary hard stop, application-layer rate limiting in Python, API Gateway throttling, CloudFront caching, and billing alarms as safety net. **No WAF** (costs ~$8+/month with no free tier — removed from scope).
+
+#### 8.14a.1 — Lambda Concurrency Limits (Hard Cost Cap)
+
+Lambda charges per invocation + duration. A DDoS that triggers millions of Lambdas = huge bill.
+
+- [ ] **Terraform**: Set `reserved_concurrent_executions` on each Lambda:
+  ```hcl
+  # Per-service concurrency caps
+  preprocessor  = 5    # ~5 concurrent mesh generations is plenty
+  solver        = 10   # Most expensive; 10 concurrent solves max
+  postprocessor = 5    # Field computation
+  projects      = 10   # CRUD (higher traffic, cheaper per call)
+  ```
+- [ ] Total account concurrency effectively capped at ~30 Lambdas
+- [ ] Excess requests get throttled (429) — NOT queued, NOT billed
+- [ ] **Local/Docker**: Not applicable — Docker containers have no concurrency billing
+
+#### 8.14a.2 — AWS Billing Alarms & Budget
+
+- [ ] **Terraform**: Create `aws_budgets_budget` resource:
+  ```hcl
+  resource "aws_budgets_budget" "zero_budget_alert" {
+    budget_type  = "COST"
+    limit_amount = "5.00"     # $5 USD total monthly cap
+    limit_unit   = "USD"
+    time_unit    = "MONTHLY"
+
+    notification {
+      comparison_operator = "GREATER_THAN"
+      threshold           = 80   # Alert at $4
+      threshold_type      = "PERCENTAGE"
+      notification_type   = "ACTUAL"
+      subscriber_email_addresses = [var.alert_email]
+    }
+    notification {
+      comparison_operator = "GREATER_THAN"
+      threshold           = 100  # Alert at $5
+      threshold_type      = "PERCENTAGE"
+      notification_type   = "ACTUAL"
+      subscriber_email_addresses = [var.alert_email]
+    }
+  }
+  ```
+- [ ] **CloudWatch alarm**: Lambda invocation count > 10,000/day → SNS email alert
+- [ ] **CloudWatch alarm**: DynamoDB consumed read/write capacity > 1000 RCU/WCU → alert
+- [ ] **S3 lifecycle rule**: Auto-delete objects in `simulation-results/` bucket older than 90 days (prevent storage creep)
+
+#### 8.14a.3 — DynamoDB Cost Protection
+
+- [ ] Ensure DynamoDB tables use **On-Demand** pricing (pay-per-request, no provisioned throughput to overspend)
+- [ ] Set DynamoDB table-level throttle via `aws_appautoscaling_target` if needed (max 25 WCU/25 RCU in free tier)
+- [ ] Avoid DynamoDB SCAN operations in hot paths (already addressed in §8.2.1 — GSI for email lookup)
+- [ ] Add `Condition` to all DynamoDB writes that could be triggered by unauthenticated requests (prevent write amplification)
+
+#### 8.14a.4 — CloudFront & S3 Cost Protection
+
+- [ ] CloudFront: Enable **Standard** caching (static assets cached at edge — reduces origin requests)
+- [ ] S3: Do NOT enable Transfer Acceleration (costs extra)
+- [ ] S3: Set bucket lifecycle: delete incomplete multipart uploads after 1 day
+- [ ] CloudFront: Set `price_class = "PriceClass_100"` (cheapest — US/EU edges only)
+
+#### 8.14a.5 — Cognito Cost Protection
+
+- [ ] Cognito free tier: 50,000 MAU. Set alert if approaching 40,000.
+- [ ] Disable self-service account creation if not needed (admin-only user provisioning reduces abuse)
+- [ ] Rate-limit `/api/auth/register` to 2 requests/minute per IP (prevent mass account creation)
+
+#### 8.14a.6 — Emergency Kill Switch
+
+- [ ] Create `dev_tools/emergency_disable.ps1`:
+  ```powershell
+  # Instantly disable all Lambda function URLs (stops all traffic)
+  # Sets reserved_concurrent_executions = 0 for all Lambdas
+  param([string]$Profile = "antenna-staging")
+  $lambdas = @("preprocessor","solver","postprocessor","projects")
+  foreach ($fn in $lambdas) {
+      aws lambda put-function-concurrency `
+          --function-name "antenna-simulator-$fn-staging" `
+          --reserved-concurrent-executions 0 `
+          --profile $Profile
+  }
+  Write-Host "ALL LAMBDAS DISABLED. Run restore script to re-enable."
+  ```
+- [ ] Create `dev_tools/emergency_restore.ps1` — sets concurrency back to normal values
+- [ ] Document in root `README.md` under "Emergency Procedures"
+
+**Commit**: `feat(security): AWS DDoS protection, cost caps, billing alarms, kill switch`
+
+---
+
+### 8.14c — AWS Resource Tagging for Billing Separation
+
+> If multiple projects share the same AWS account, consistent tagging is essential to distinguish costs per project in Cost Explorer and billing reports.
+
+#### 8.14c.1 — Current State (Already Good)
+
+The Terraform setup already applies `default_tags` via the AWS provider:
+
+```hcl
+# terraform/environments/staging/main.tf — already in place
+default_tags {
+  tags = {
+    Project     = "antenna-simulator"
+    Environment = "staging"
+    ManagedBy   = "terraform"
+    Repository  = "github.com/baumgpaul/AntennaEducator"
+  }
+}
+```
+
+Every module also passes `Component` and `Service` tags via `var.tags`. This means **all resources are already tagged** with project identity automatically.
+
+#### 8.14c.2 — Add `CostCenter` Tag for Multi-Project Billing
+
+- [ ] Add `CostCenter = "antenna-edu"` to `default_tags` in both providers (`eu-west-1` and `us-east-1`):
+  ```hcl
+  default_tags {
+    tags = {
+      Project     = "antenna-simulator"
+      Environment = "staging"
+      ManagedBy   = "terraform"
+      Repository  = "github.com/baumgpaul/AntennaEducator"
+      CostCenter  = "antenna-edu"   # <-- NEW: billing separation
+    }
+  }
+  ```
+- [ ] **Enable CostCenter as a cost allocation tag** in AWS Billing Console:
+  - Billing → Cost allocation tags → Activate `CostCenter` tag
+  - After activation, Cost Explorer can filter/group by `CostCenter = "antenna-edu"`
+  - Other projects on the same account use a different `CostCenter` value
+
+#### 8.14c.3 — Fix Cognito Module Tag Inconsistency
+
+The `modules/cognito/main.tf` and `modules/cognito/lambda-auto-confirm.tf` **hardcode** their own tags instead of using `merge(var.tags, ...)`, silently dropping the `Component = "authentication"` tag passed from staging:
+
+```hcl
+# CURRENT (broken — ignores var.tags):
+tags = {
+  Name        = "antenna-simulator-${var.environment}"
+  Environment = var.environment
+  Project     = "antenna-simulator"
+  ManagedBy   = "terraform"
+}
+
+# FIX — use same pattern as all other modules:
+tags = merge(var.tags, {
+  Name = "antenna-simulator-${var.environment}"
+})
+```
+
+- [ ] Fix `modules/cognito/main.tf` — `aws_cognito_user_pool` tags
+- [ ] Fix `modules/cognito/lambda-auto-confirm.tf` — `aws_lambda_function` + `aws_iam_role` tags
+- [ ] After fix, the `Component = "authentication"` tag flows through correctly
+
+#### 8.14c.4 — Fix Bootstrap Missing `Repository` Tag
+
+- [ ] Add `Repository = "github.com/baumgpaul/AntennaEducator"` to `terraform/bootstrap/main.tf` `default_tags`
+
+#### 8.14c.5 — Enable AWS Cost Explorer Tag Filtering
+
+- [ ] Document in `docs/AWS_DEPLOYMENT.md`: How to filter cost by `CostCenter` in Cost Explorer
+- [ ] Create a saved Cost Explorer report filtered by `CostCenter = "antenna-edu"` (manual step, documented)
+- [ ] Set billing alarm `aws_budgets_budget` (already in §8.14a.3) to use tag filter:
+  ```hcl
+  cost_filter {
+    name   = "TagKeyValue"
+    values = ["user:CostCenter$antenna-edu"]
+  }
+  ```
+  This ensures the $5 budget alarm only tracks antenna-simulator costs, not other projects.
+
+#### 8.14c.6 — Tagging Reference Table
+
+Full tag set applied to every antenna-simulator resource:
+
+| Tag Key | Value | Source | Purpose |
+|---------|-------|--------|---------|
+| `Project` | `antenna-simulator` | `default_tags` | Project identity |
+| `Environment` | `staging` / `production` | `default_tags` | Lifecycle stage |
+| `ManagedBy` | `terraform` | `default_tags` | IaC provenance |
+| `Repository` | `github.com/baumgpaul/AntennaEducator` | `default_tags` | Source repo |
+| `CostCenter` | `antenna-edu` | `default_tags` (NEW) | Billing separation |
+| `Component` | `backend` / `frontend` / `database` / etc. | `var.tags` per module | Architecture layer |
+| `Service` | `solver` / `preprocessor` / etc. | `var.tags` per module | Specific service |
+
+**Commit**: `chore(terraform): add CostCenter tag, fix cognito tagging, enable billing separation`
+
+---
+
+### 8.14b — Local/Docker Deployment Compatibility Guard
+
+> **RULE**: Every change in Phase 8 MUST work in both AWS Lambda mode AND local Docker/standalone mode. No feature may be AWS-only unless it's infrastructure config (Terraform).
+
+#### 8.14b.1 — Dual-Mode Compatibility Checklist
+
+For every middleware/security addition, verify:
+
+- [ ] **Rate limiting**: Application-layer rate limiting active in Docker; skipped in Lambda (API Gateway + concurrency caps handle it)
+- [ ] **Request size**: `RequestSizeMiddleware` active in both modes
+- [ ] **Computational caps**: Schema-level `Field(le=...)` constraints active in both modes
+- [ ] **Error standardization**: `ErrorResponse` model used in both modes
+- [ ] **Structured logging**: JSON formatter works in both (CloudWatch parses JSON natively; Docker `docker logs` shows readable JSON)
+- [ ] **Auth**: `LocalAuthProvider` (Docker) and `CognitoAuthProvider` (AWS) both benefit from enumeration fixes
+- [ ] **CORS**: Correctly branches: Lambda skips CORS middleware (Function URLs handle it); Docker adds CORS with localhost origins
+
+#### 8.14b.2 — Docker-Compose Smoke Test
+
+- [ ] After each Phase 8 step, verify `docker-compose up --build` still starts all services
+- [ ] Add to CI: `docker compose build` as non-blocking check (validate Dockerfiles still work)
+- [ ] Ensure no new env vars are REQUIRED (provide sensible defaults for local dev):
+  ```python
+  # Example: rate limiting disabled by default in local dev
+  ENABLE_RATE_LIMITING = os.getenv("ENABLE_RATE_LIMITING", "false").lower() == "true"
+  ```
+
+#### 8.14b.3 — Environment Variable Discipline
+
+New env vars introduced in Phase 8:
+
+| Variable | Default (Local) | AWS Value | Purpose |
+|----------|-----------------|-----------|----------|
+| `IS_LAMBDA` | `false` | `true` | Skip CORS, skip rate limiting middleware |
+| `ENABLE_RATE_LIMITING` | `false` | `false` (API Gateway handles it) | Application-layer rate limiting |
+| `JWT_SECRET_KEY` | **REQUIRED** (fail-fast) | N/A (Cognito mode) | HS256 JWT signing |
+| `DEBUG` | `true` | `false` | Enable debug endpoints, verbose logging |
+| `MAX_REQUEST_BODY_MB` | `10` | `10` | Request size cap |
+| `LOG_FORMAT` | `text` | `json` | Structured logging format |
+
+- [ ] Document all env vars in `.env.example` with comments
+- [ ] `docker-compose.yml` sets local defaults; no manual env setup needed for `docker compose up`
+
+**Commit**: `chore: verify dual-mode compatibility, env var documentation`
+
+---
+
+### 8.15 — Cross-Cutting: Dependency & Security Audit
+
+- [ ] Run `pip-audit` on `requirements.txt` — fix all known vulnerabilities
+- [ ] Run `npm audit` in `frontend/` — fix all known vulnerabilities
+- [ ] CORS: Tighten allowed origins in production:
+  ```python
+  if IS_LAMBDA:
+      origins = ["https://antennaeducator.nyakyagyawa.com"]
+  else:
+      origins = ["http://localhost:5173", "http://localhost:3000"]
+  ```
+- [ ] Review all `requirements.txt` pins — update outdated packages
+- [ ] Review `package.json` — remove unused dependencies (at minimum `react-query` if confirmed unused)
+- [ ] Replace `lodash` with `lodash-es/debounce` or native implementation (only debounce is used)
+
+**Commit**: `chore(deps): security audit, remove unused dependencies`
+
+---
+
+### 8.16 — Cross-Cutting: Frontend Bundle Optimization
+
+- [ ] Add `vite-plugin-visualizer` to analyze bundle size
+- [ ] Code-split by route using `React.lazy()`:
+  ```typescript
+  const DesignPage = React.lazy(() => import('./features/design/DesignPage'))
+  const AdminDashboard = React.lazy(() => import('./features/admin/AdminDashboard'))
+  ```
+- [ ] Lazy-load heavy dependencies:
+  - Three.js / @react-three/fiber (only needed in design page)
+  - Recharts (only needed in postprocessing views)
+  - ReactFlow (only needed in circuit editor)
+  - jsPDF / html2canvas (only needed for export)
+- [ ] Measure before/after bundle sizes
+
+**Commit**: `perf(frontend): code splitting, lazy loading heavy dependencies`
+
+---
+
+### 8.17 — Cross-Cutting: TypeScript Strictness
+
+- [ ] **Phase 1**: Enable `"noUnusedLocals": true` and `"noUnusedParameters": true` — fix all errors
+- [ ] **Phase 2**: Enable `"strictNullChecks": true` — fix nullable access patterns (this is the big one)
+- [ ] **Phase 3** (stretch): Enable `"strict": true` — full strict mode
+- [ ] Each phase: run `npx tsc --noEmit`, fix errors, commit
+
+**Commit**: `chore(typescript): enable strict null checks` (per phase)
+
+---
+
+### 8.18 — Documentation: Module READMEs
+
+Each module gets a comprehensive README (listed in module sections above). Summary:
+
+| Module | README | Contents |
+|--------|--------|----------|
+| `backend/common/` | [ ] `backend/common/README.md` | Architecture, auth pattern, repository pattern, data models, env vars |
+| `backend/preprocessor/` | [ ] `backend/preprocessor/README.md` | Antenna types, mesh model, API, builder pattern, validation |
+| `backend/solver/` | [ ] `backend/solver/README.md` | PEEC method, MNA assembly, retardation, API, token model, limitations |
+| `backend/postprocessor/` | [ ] `backend/postprocessor/README.md` | Near/far-field, radiation patterns, API, observation limits |
+| `backend/projects/` | [ ] `backend/projects/README.md` | DynamoDB schema, project model, folders, submissions, S3 storage |
+| `backend/auth/` | [ ] `backend/auth/README.md` | Standalone mode, JWT flow, relationship to common/auth |
+| `frontend/` | [ ] Update `frontend/README.md` | Feature map, store architecture, API client layer, testing approach |
+
+Additionally:
+- [ ] Update root `README.md` — ensure it reflects current architecture (5 services, not 3+stubs)
+- [ ] Update `.github/copilot-instructions.md` — remove references to helix, solver_fem/fdtd/mom stubs; update test counts and ESLint threshold
+
+---
+
+### 8.19 — Implementation Order (TDD, Module-by-Module)
+
+| Step | Module | Key Actions | Commit Message |
+|------|--------|-------------|----------------|
+| 1 | Dead code removal | Delete stubs, unused files | `refactor: remove dead stub services and unused code` |
+| 2 | `backend/common/` | Security fixes, mixin, validation, tests, README | `refactor(common): security fixes, repository mixin, model validation` |
+| 3 | `backend/preprocessor/` | Validation, builder extraction, API tests, README | `refactor(preprocessor): input validation, builder extraction` |
+| 4 | `backend/solver/` | Atomic tokens, frequency validation, numerical guards, tests, README | `refactor(solver): atomic tokens, numerical robustness` |
+| 5 | `backend/postprocessor/` | Validation ordering, field guards, API tests, README | `refactor(postprocessor): validation, field computation guards` |
+| 6 | `backend/projects/` | Auth fixes, schema validation, S3 error handling, README | `refactor(projects): security, schema validation` |
+| 7 | `backend/auth/` | Enumeration prevention, README | `refactor(auth): prevent user enumeration` |
+| 8 | Error standardization | Error model, middleware, correlation IDs | `feat(errors): standardized error responses` |
+| 9 | Structured logging | JSON formatter, request logging | `feat(logging): structured JSON logging` |
+| 10 | Middleware + DDoS | Request size, rate limiting, computational caps | `feat(middleware): request size limits, rate limiting, computational caps` |
+| 10a | AWS cost protection | Lambda concurrency, billing alarms, kill switch | `feat(security): AWS cost caps, billing alarms, kill switch` |
+| 10b | Resource tagging | CostCenter tag, fix cognito tags, enable billing separation | `chore(terraform): add CostCenter tag, fix cognito tagging` |
+| 10c | Local/Docker compat | Verify dual-mode works, env var docs, smoke test | `chore: verify dual-mode compatibility, env var documentation` |
+| 11 | `frontend/src/store/` | Memoize, error handlers, complex utils, tests | `refactor(store): memoize selectors, error handling` |
+| 12 | `frontend/src/api/` | Cleanup, type safety, error standardization | `refactor(api): cleanup, type safety` |
+| 13 | `frontend/src/types/` | Remove unused, improve types | `refactor(types): remove unused, improve safety` |
+| 14 | `frontend/src/features/` | Missing tests, error boundaries, ESLint | `refactor(features): tests, error boundaries, lint` |
+| 15 | Dependency audit | pip-audit, npm audit, remove unused packages | `chore(deps): security audit, cleanup` |
+| 16 | Bundle optimization | Code splitting, lazy loading | `perf(frontend): code splitting, lazy loading` |
+| 17 | TypeScript strictness | Enable strict checks incrementally | `chore(typescript): enable strict checks` |
+| 18 | Documentation | All READMEs, update root README, copilot-instructions | `docs: comprehensive module documentation` |
+
+---
+
+### 8.20 — Deliverables Summary
+
+| Artifact | Type | Status |
+|----------|------|--------|
+| Remove 5 dead backend directories | Cleanup | [ ] |
+| Remove 6 dead frontend stubs/APIs | Cleanup | [ ] |
+| `backend/common/repositories/dynamodb_mixin.py` | Refactor | [ ] |
+| `backend/common/models/errors.py` | New | [ ] |
+| `backend/common/middleware/error_handler.py` | New | [ ] |
+| `backend/common/middleware/request_size.py` | New | [ ] |
+| `backend/common/middleware/rate_limit.py` | New | [ ] |
+| `backend/common/utils/logging.py` | New | [ ] |
+| Lambda concurrency limits (Terraform) | Infra | [ ] |
+| AWS Budget + CloudWatch alarms (Terraform) | Infra | [ ] |
+| `CostCenter` tag in `default_tags` + cognito fix | Infra | [ ] |
+| Cost Explorer tag activation + saved report | Manual | [ ] |
+| `dev_tools/emergency_disable.ps1` | Script | [ ] |
+| `dev_tools/emergency_restore.ps1` | Script | [ ] |
+| `.env.example` with all Phase 8 env vars | Config | [ ] |
+| `frontend/src/utils/complexNumber.ts` | New | [ ] |
+| `frontend/src/utils/apiError.ts` | New | [ ] |
+| 6 module READMEs | Docs | [ ] |
+| Updated root README + copilot-instructions | Docs | [ ] |
+| ~15 new/expanded test files (backend) | Tests | [ ] |
+| ~8 new/expanded test files (frontend) | Tests | [ ] |
+| Security audit report | Audit | [ ] |
+| Bundle size before/after report | Perf | [ ] |
+| ESLint warnings reduced from ~335 to <200 | Quality | [ ] |
+| TypeScript strict null checks enabled | Quality | [ ] |
+
+### 8.21 — Success Criteria
+
+- [ ] All backend services: 0 ruff errors, 0 black/isort issues
+- [ ] Frontend: `npx tsc --noEmit` passes with strict null checks
+- [ ] Frontend: ESLint warnings < 200 (down from 335)
+- [ ] Backend unit test count: >900 (currently ~800)
+- [ ] Frontend test count: >100 test files (currently ~90)
+- [ ] `pip-audit`: 0 known vulnerabilities
+- [ ] `npm audit`: 0 high/critical vulnerabilities
+- [ ] No `any` in API client return types
+- [ ] All critical security issues from audit resolved
+- [ ] Every module has a README
+- [ ] All dead stub code removed from main branch
+- [ ] AWS monthly cost stays < $5 under normal use (billing alarm set)
+- [ ] Lambda concurrency capped per service (prevents runaway invocations)
+- [ ] Emergency kill switch tested and documented
+- [ ] All AWS resources tagged with `CostCenter = "antenna-edu"`
+- [ ] Cost Explorer filters by `CostCenter` — can distinguish antenna costs from other projects
+- [ ] Cognito module tags fixed (uses `merge(var.tags, ...)` like all others)
+- [ ] `docker-compose up --build` still works after all changes
+- [ ] No new required env vars without defaults for local dev
 
 ---
 
@@ -1387,17 +2403,22 @@ Phase 4 ─── Solver Enhancements & On-Demand Postprocessing ✅ (PR #60)
    │         Full scope: param study, Smith chart, circuit editor,
    │         ports, on-demand postprocessing, sweep merge, bug fixes
    ▼
-Phase 5 ─── Postprocessing Views (Line, Smith, Polar, Table) ⏳
+Phase 5 ─── Postprocessing Views (Line, Smith, Polar, Table) ✅
    │         Remove results from SolverTab; all results via views
    │
    ├───────────┐
    ▼           ▼
-Phase 6     Phase 7
+Phase 6 ✅  Phase 7 ✅
 Submissions PDF Export
    │           │
    ├───────────┘
    ▼
-Phase 8 ─── Refactoring & Hardening
+Phase 8 ─── Refactoring & Hardening ⏳ NEXT
+   │         18 steps: dead code removal → module-by-module
+   │         (common → preprocessor → solver → postprocessor →
+   │          projects → auth → error standardization → logging →
+   │          middleware → store → api → types → features →
+   │          deps audit → bundle opt → TS strict → docs)
    │
    ▼
 Phase 9 ─── Deployment Rework
@@ -1406,9 +2427,10 @@ Phase 9 ─── Deployment Rework
 **Key dependencies**:
 - Phase 1 (Variables) enables expression-aware inputs in Phase 2 (Custom Geometry) and Phase 3 (Lumped Elements) — both ✅ complete
 - Phase 4 (Solver enhancements + parameter variation) depends on Phase 3 (port system) and uses Phase 1 variables as sweep parameters — ✅ complete (PR #60)
-- Phase 5 (Postprocessing Views) needs Phase 4 complete — port quantities, parameter study data, field data, sweep mode all available in Redux
-- Phase 6 (Submissions) and Phase 7 (PDF) are independent of each other but need Phases 1–5 complete so submissions/exports contain full feature set
-- Phase 8 and 9 are final — polish and deploy everything built in earlier phases
+- Phase 5 (Postprocessing Views) needs Phase 4 complete — ✅ complete
+- Phase 6 (Submissions) and Phase 7 (PDF) are independent of each other — both ✅ complete
+- Phase 8 depends on Phases 0–7 complete — all feature code exists, now harden systematically
+- Phase 9 depends on Phase 8 — deploy hardened code
 
 ---
 
@@ -1420,11 +2442,11 @@ Phase 9 ─── Deployment Rework
 | 1 — Variables | Medium | High | Medium | Medium — expression parser is key risk | ✅ Complete (PR #57) + helix removal + all-field expressions + resizable panels |
 | 2 — Custom Geometry | Medium | High | Medium | High — CSV parser + 3D preview + validation | ✅ Complete (PR #58) |
 | 3 — Lumped/Ports | Low | High | Low | Medium — UI rework, model is straightforward | ✅ Complete (PR #59) |
-| 4 — Solver | High | Medium | High | Medium — math is known, integration matters | ⏳ Next |
-| 5 — Plotting + Smith | Low | Very High | Medium | High — unified plot model + Smith chart SVG | ⏳ Pending |
-| 6 — Submissions | Medium | High | Medium | Medium — CRUD + read-only mode | ⏳ Pending |
-| 7 — PDF Export | Low | High | Low | Medium — multi-page layout orchestration | ⏳ Pending |
-| 8 — Hardening | Medium | Medium | Very High | Medium — systematic, not creative | ⏳ Pending |
+| 4 — Solver | High | Medium | High | Medium — math is known, integration matters | ✅ Complete (PR #60) |
+| 5 — Plotting + Smith | Low | Very High | Medium | High — unified plot model + Smith chart SVG | ✅ Complete |
+| 6 — Submissions | Medium | High | Medium | Medium — CRUD + read-only mode | ✅ Complete |
+| 7 — PDF Export | Low | High | Low | Medium — multi-page layout orchestration | ✅ Complete (PR #63) |
+| 8 — Hardening | Very High | Very High | Very High | High — 18 steps, module-by-module, security + SOLID + tests + docs | ⏳ Next |
 | 9 — Deployment | High | Low | Low | Medium — DevOps, scripting, Terraform | ⏳ Pending |
 
 ---

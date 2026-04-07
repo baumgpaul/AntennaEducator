@@ -19,14 +19,12 @@ import {
   Background,
   Controls,
   MiniMap,
-  addEdge,
   useNodesState,
   useEdgesState,
   type Connection,
   type Node as RFNode,
   type Edge as RFEdge,
   BackgroundVariant,
-  Panel,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
@@ -35,8 +33,6 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  IconButton,
-  Tooltip,
   Typography,
   Box,
   Chip,
@@ -46,7 +42,6 @@ import {
   TextField,
 } from '@mui/material';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import SaveIcon from '@mui/icons-material/Save';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 
@@ -288,14 +283,6 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
       circuitComponentsToRF(initial.components, handleEditComponent, handleDeleteComponent),
     );
   }, [open, element, terminalNodeIndices]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Sync circuit components when rfEdges change (deletions)
-  const syncCircuitFromRF = useCallback(() => {
-    const updatedNodes = rfNodesToCircuit(rfNodes);
-    const componentIds = new Set(rfEdges.map((e) => e.id));
-    const updatedComponents = circuit.components.filter((c) => componentIds.has(c.id));
-    setCircuit({ nodes: updatedNodes, components: updatedComponents });
-  }, [rfNodes, rfEdges, circuit.components]);
 
   // Handle new connection (drag from node to node)
   const onConnect = useCallback(

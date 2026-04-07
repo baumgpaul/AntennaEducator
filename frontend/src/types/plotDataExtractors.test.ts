@@ -10,9 +10,8 @@ import {
   extractFieldTraceData,
   extractDistributionTraceData,
   extractFarfieldTraceData,
-  DataPoint,
 } from './plotDataExtractors';
-import type { PlotTrace, PortPlotQuantity, FieldPlotQuantity, DistributionPlotQuantity, FarfieldPlotQuantity } from './plotDefinitions';
+import type { PlotTrace } from './plotDefinitions';
 import type { FrequencySweepResult, MultiAntennaSolutionResponse } from './api';
 import type { ParameterStudyResult, ParameterPointResult, GridPoint } from './parameterStudy';
 

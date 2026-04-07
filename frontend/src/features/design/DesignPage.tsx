@@ -30,7 +30,7 @@ import {
   loadDesign,
   markAsSolved,
 } from '@/store/designSlice';
-import { updateProject, fetchProject, clearCurrentProject } from '@/store/projectsSlice';
+import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification, showSuccess } from '@/store/uiSlice';
 import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
 import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';
@@ -86,7 +86,7 @@ function DesignPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const isReadOnly = searchParams.get('readOnly') === 'true';
+  const isReadOnly = searchParams.get('readOnly') === 'true' || searchParams.get('readOnly') === '1';
   const readOnlyBackUrl = searchParams.get('back') ?? null;
   const dispatch = useAppDispatch();
   const {

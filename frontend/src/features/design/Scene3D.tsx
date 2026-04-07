@@ -197,7 +197,7 @@ const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
 
   return (
     <Box sx={{ width: '100%', height: '100%', position: 'relative', bgcolor: '#1a1a1a' }}>
-      <Canvas>
+      <Canvas gl={{ preserveDrawingBuffer: true }}>
         {/* Camera setup - Z-axis up, viewing from front-right-top */}
         {cameraMode === 'perspective' ? (
           <PerspectiveCamera makeDefault position={[5, 5, 5]} fov={60} up={[0, 0, 1]} />

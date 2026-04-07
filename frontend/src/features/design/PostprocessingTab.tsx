@@ -34,7 +34,11 @@ import TimeAnimationOverlay from '../postprocessing/TimeAnimationOverlay';
 import FrequencySelector from '../postprocessing/FrequencySelector';
 import { SweepVariableSelector } from '../postprocessing/SweepVariableSelector';
 import ExportPDFDialog from './dialogs/ExportPDFDialog';
-import { exportToPDF } from '@/utils/exportToPDF';
+import type { PDFExportOptions } from './dialogs/ExportPDFDialog';
+import { generatePDFReport } from '@/utils/pdfReportGenerator';
+import html2canvas from 'html2canvas';
+import { selectCurrentSubmission } from '@/store/submissionsSlice';
+import { selectVariables } from '@/store/variablesSlice';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAnimationPhase } from '@/hooks/useAnimationPhase';
 import {
@@ -76,6 +80,59 @@ import type { SolverResult, ComplexNumber } from '@/types/models';
 /** Compute magnitude of a complex number */
 function complexMag(c: ComplexNumber): number {
   return Math.sqrt((c.real || 0) * (c.real || 0) + (c.imag || 0) * (c.imag || 0));
+}
+
+/**
+ * Serialize an SVG element to a PNG data URL by drawing it onto a canvas.
+ * Works reliably for Recharts SVG charts where html2canvas drops lines.
+ */
+async function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
+  const { width, height } = svgEl.getBoundingClientRect();
+  if (width === 0 || height === 0) throw new Error('SVG has zero dimensions');
+
+  // Clone SVG and inline computed styles so the serialized SVG looks identical
+  const clone = svgEl.cloneNode(true) as SVGSVGElement;
+  clone.setAttribute('width', String(width));
+  clone.setAttribute('height', String(height));
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+  // Inline computed styles of all elements (fills, strokes, fonts, etc.)
+  const originals = svgEl.querySelectorAll('*');
+  const clones = clone.querySelectorAll('*');
+  for (let i = 0; i < originals.length; i++) {
+    const computed = window.getComputedStyle(originals[i]);
+    const el = clones[i] as SVGElement | HTMLElement;
+    if (!el.style) continue;
+    for (let j = 0; j < computed.length; j++) {
+      const prop = computed[j];
+      el.style.setProperty(prop, computed.getPropertyValue(prop));
+    }
+  }
+
+  const serializer = new XMLSerializer();
+  const svgString = serializer.serializeToString(clone);
+  const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+
+  return new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = 2; // 2x for crisp PDF
+      const canvas = document.createElement('canvas');
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { URL.revokeObjectURL(url); reject(new Error('No canvas context')); return; }
+      ctx.fillStyle = '#1a1a1a'; // dark background matching the app
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('SVG image load failed')); };
+    img.src = url;
+  });
 }
 
 /**
@@ -204,6 +261,9 @@ function PostprocessingTab({
   const sweepPointIndex = useAppSelector(selectSweepPointIndex);
 
   const parameterStudy = useAppSelector(selectParameterStudy);
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const variables = useAppSelector(selectVariables);
+  const currentSubmission = useAppSelector(selectCurrentSubmission);
 
   // Derive z0 from first element's first port (used for Smith chart)
   const portZ0 = useMemo(() => {
@@ -275,44 +335,128 @@ function PostprocessingTab({
       ?? availableFrequencies[selectedFrequencyIndex]
       ?? (currentFrequency ? currentFrequency * 1e6 : null));
 
-  // Handle PDF export
-  const handlePDFExport = async (options: {
-    includeMetadata: boolean;
-    resolution: '1080p' | '1440p' | '4K';
-    filename: string;
-  }) => {
-    if (!middlePanelRef.current || !selectedViewId) {
-      setSnackbarMessage('Error: Cannot export - no view selected');
-      setShowSnackbar(true);
-      return;
+  // Capture a single view panel as PNG data URL for PDF inclusion.
+  // Dispatches selectView, waits 2 animation frames for re-render, then captures.
+  const captureView = useCallback(async (viewId: string): Promise<string> => {
+    dispatch(selectView(viewId));
+    // Wait 3 frames for React + Three.js to render the selected view
+    await new Promise<void>(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    );
+    const view = viewConfigurations.find(v => v.id === viewId);
+    if (view?.viewType === '3D') {
+      // Three.js WebGL canvas — requires preserveDrawingBuffer: true on R3F Canvas
+      const canvas = middlePanelRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
+      if (canvas) {
+        const url = canvas.toDataURL('image/png');
+        // 'data:,' or any non-image result means the canvas hasn't rendered yet
+        if (url && url.startsWith('data:image/')) return url;
+      }
+      throw new Error(`3D canvas not ready for view "${view.name}"`);
+    }
+    // For chart/plot views: prefer serializing the Recharts SVG directly,
+    // then fall back to html2canvas. html2canvas often drops SVG line content.
+    if (!middlePanelRef.current) throw new Error('View panel not mounted');
+    const svgEl = middlePanelRef.current.querySelector('.recharts-wrapper svg') as SVGSVGElement | null;
+    if (svgEl) {
+      try {
+        const url = await svgToDataUrl(svgEl);
+        if (url && url.startsWith('data:image/')) return url;
+      } catch {
+        // Fall through to html2canvas
+      }
+    }
+    const captured = await html2canvas(middlePanelRef.current, { backgroundColor: '#1a1a1a' });
+    return captured.toDataURL('image/png');
+  }, [dispatch, viewConfigurations, middlePanelRef]);
+
+  // Capture the first 3D view for the "Antenna Geometry" PDF section.
+  // Temporarily hides all non-antenna items (fields, directivity, currents) so the
+  // capture shows only the clean wire geometry.
+  // Returns null (not an error) when no 3D view exists — the section will
+  // render a placeholder text instead.
+  const captureAntennaGeometry = useCallback(async (): Promise<string | null> => {
+    const threeDView = viewConfigurations.find(v => v.viewType === '3D');
+    if (!threeDView) return null;
+
+    // Identify non-antenna items that should be hidden for the clean geometry capture
+    const ANTENNA_TYPES = new Set(['antenna-system', 'single-antenna']);
+    const toHide = threeDView.items.filter(
+      item => item.visible && !ANTENNA_TYPES.has(item.type)
+    );
+
+    // Hide non-antenna items
+    for (const item of toHide) {
+      dispatch(toggleItemVisibility({ viewId: threeDView.id, itemId: item.id }));
     }
 
-    const selectedView = viewConfigurations.find((v) => v.id === selectedViewId);
-    if (!selectedView) {
-      setSnackbarMessage('Error: Selected view not found');
-      setShowSnackbar(true);
-      return;
-    }
+    // Wait extra frames for Redux dispatch → React re-render → WebGL re-render
+    await new Promise<void>(resolve =>
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => resolve())
+          )
+        )
+      )
+    );
 
+    let result: string | null = null;
     try {
-      await exportToPDF({
-        targetElement: middlePanelRef.current,
-        view: selectedView,
-        metadata: {
-          include: options.includeMetadata,
-          projectName,
-          frequency: displayFrequencyHz ?? undefined,
-        },
-        resolution: options.resolution,
-        filename: options.filename,
-      });
+      result = await captureView(threeDView.id);
+    } catch {
+      result = null;
+    } finally {
+      // Always restore visibility
+      for (const item of toHide) {
+        dispatch(toggleItemVisibility({ viewId: threeDView.id, itemId: item.id }));
+      }
+    }
+    return result;
+  }, [viewConfigurations, captureView, dispatch]);
 
-      setSnackbarMessage(`PDF exported successfully: ${options.filename}.pdf`);
+  // Handle PDF export using multi-page report generator
+  const handlePDFExport = async (options: PDFExportOptions) => {
+    const originalViewId = selectedViewId;
+    try {
+      const submissionMeta = currentSubmission
+        ? {
+            studentName: currentSubmission.username,
+            submittedAt: currentSubmission.submitted_at,
+            status: currentSubmission.status,
+            feedback: currentSubmission.feedback || undefined,
+          }
+        : undefined;
+
+      await generatePDFReport({
+        projectName: projectName ?? 'Project',
+        authorName: currentUser?.username,
+        elements,
+        variables,
+        viewConfigurations,
+        solverConfig: {
+          frequency: currentFrequency ? currentFrequency * 1e6 : undefined,
+          numFrequencies: (frequencySweep?.frequencies?.length ?? 0) > 1 ? frequencySweep!.frequencies.length : undefined,
+          sweepStart: (frequencySweep?.frequencies?.length ?? 0) > 1 ? frequencySweep!.frequencies[0] : undefined,
+          sweepEnd: (frequencySweep?.frequencies?.length ?? 0) > 1 ? frequencySweep!.frequencies[frequencySweep!.frequencies.length - 1] : undefined,
+          method: 'peec',
+        },
+        documentationContent: '',
+        submissionMeta,
+        sections: options.sections,
+        captureView,
+        captureAntennaGeometry,
+        filename: options.filename,
+        onProgress: options.onProgress,
+      });
+      setSnackbarMessage(`PDF exported: ${options.filename}.pdf`);
       setShowSnackbar(true);
     } catch (error) {
       console.error('PDF export failed:', error);
       setSnackbarMessage(`Error: ${error instanceof Error ? error.message : 'PDF export failed'}`);
       setShowSnackbar(true);
+    } finally {
+      if (originalViewId) dispatch(selectView(originalViewId));
     }
   };
 
@@ -322,7 +466,17 @@ function PostprocessingTab({
       <RibbonMenu currentTab="postprocessing" />
 
       {/* EXPORT PDF DIALOG */}
-      <ExportPDFDialog projectName={projectName} onExport={handlePDFExport} />
+      <ExportPDFDialog
+        projectName={projectName}
+        authorName={currentUser?.username}
+        submissionMeta={currentSubmission ? {
+          studentName: currentSubmission.username,
+          submittedAt: currentSubmission.submitted_at,
+          status: currentSubmission.status,
+          feedback: currentSubmission.feedback || undefined,
+        } : undefined}
+        onExport={handlePDFExport}
+      />
 
       {/* SNACKBAR FOR NOTIFICATIONS */}
       <Snackbar
@@ -408,6 +562,7 @@ function PostprocessingTab({
         }}
       >
       <Box
+        ref={middlePanelRef}
         sx={{
           flex: '1 1 100%',
           position: 'relative',

@@ -328,8 +328,7 @@ export const SmithChart: React.FC<SmithChartProps> = ({
   );
 
   for (let i = 0; i < data.length; i++) {
-    const pt = data[i];
-    const { gamma, mag, vswr } = gammaPoints[i];
+    const { gamma } = gammaPoints[i];
     const svg = toSvg(gamma.x, gamma.y);
     linePoints.push(`${svg.x},${svg.y}`);
     const isHovered = hoveredIndex === i;
