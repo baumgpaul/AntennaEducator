@@ -235,7 +235,6 @@ const createApiClient = (baseURL: string): AxiosInstance => {
 }
 
 // Create service-specific clients
-export const apiClient = createApiClient(getBaseURL())
 export const preprocessorClient = createApiClient(getPreprocessorURL())
 export const solverClient = createApiClient(getSolverURL())
 export const postprocessorClient = createApiClient(getPostprocessorURL())
@@ -243,7 +242,7 @@ export const projectsClient = createApiClient(getProjectsURL())
 export const authClient = createApiClient(getAuthURL())
 
 // Export URL getters for reference
-export { getBaseURL, getPreprocessorURL, getSolverURL, getPostprocessorURL, getProjectsURL, getAuthURL }
+export { getPreprocessorURL, getSolverURL, getPostprocessorURL, getProjectsURL, getAuthURL }
 
 // Helper function for handling API responses
 export const handleApiResponse = <T>(response: { data: T }): T => {
@@ -275,4 +274,4 @@ export const handleApiError = (error: unknown): ApiError => {
   }
 }
 
-export default apiClient
+

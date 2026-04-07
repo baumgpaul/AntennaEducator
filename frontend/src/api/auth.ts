@@ -55,12 +55,12 @@ export const login = async (credentials: LoginRequest): Promise<LoginResponse> =
     }
 
     return response.data
-  } catch (error: any) {
-    // Handle specific error cases
-    if (error.response?.status === 403) {
+  } catch (error: unknown) {
+    const axiosErr = error as { response?: { status?: number; data?: { detail?: string } } }
+    if (axiosErr.response?.status === 403) {
       throw new Error('Account pending admin approval. Please wait for approval.')
     }
-    if (error.response?.status === 401) {
+    if (axiosErr.response?.status === 401) {
       throw new Error('Incorrect email or password')
     }
     throw error
@@ -77,10 +77,10 @@ export const register = async (data: RegisterRequest): Promise<RegisterResponse>
     // In Docker mode, user is auto-approved and can log in immediately
     // No token returned from registration - user must login
     return response.data
-  } catch (error: any) {
-    // Handle specific error cases
-    if (error.response?.status === 400) {
-      throw new Error(error.response?.data?.detail || 'Email already registered')
+  } catch (error: unknown) {
+    const axiosErr = error as { response?: { status?: number; data?: { detail?: string } } }
+    if (axiosErr.response?.status === 400) {
+      throw new Error(axiosErr.response?.data?.detail || 'Email already registered')
     }
     throw error
   }
