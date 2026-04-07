@@ -116,20 +116,21 @@ _ROD_NUMERIC = ["length", "wire_radius"]
 class DipoleRequest(BaseModel):
     """Request to create a dipole antenna."""
 
-    length: float = Field(gt=0, description="Total length in meters")
+    length: float = Field(gt=0, le=100, description="Total length in meters")
     center_position: Tuple[float, float, float] = Field(
         default=(0.0, 0.0, 0.0), description="Center point [x, y, z] in meters"
     )
     orientation: Tuple[float, float, float] = Field(
         default=(0.0, 0.0, 1.0), description="Direction vector [dx, dy, dz]"
     )
-    wire_radius: float = Field(default=0.001, gt=0, description="Wire radius in meters")
+    wire_radius: float = Field(default=0.001, gt=0, le=1.0, description="Wire radius in meters")
     gap: float = Field(
         default=0.0, ge=0, description="Gap between dipole halves in meters (for feed point)"
     )
     segments: int = Field(
         default=21,
         ge=2,
+        le=1000,
         description="Total number of segments (split equally between halves if gap > 0)",
     )
     source: Optional[SourceRequest] = Field(default=None, description="Optional source excitation")
@@ -153,18 +154,20 @@ class DipoleRequest(BaseModel):
 class LoopRequest(BaseModel):
     """Request to create a loop antenna."""
 
-    radius: float = Field(gt=0, description="Loop radius in meters")
+    radius: float = Field(gt=0, le=50, description="Loop radius in meters")
     center_position: Tuple[float, float, float] = Field(
         default=(0.0, 0.0, 0.0), description="Center point [x, y, z] in meters"
     )
     normal_vector: Tuple[float, float, float] = Field(
         default=(0.0, 0.0, 1.0), description="Normal vector to loop plane [dx, dy, dz]"
     )
-    wire_radius: float = Field(default=0.001, gt=0, description="Wire radius in meters")
+    wire_radius: float = Field(default=0.001, gt=0, le=1.0, description="Wire radius in meters")
     gap: float = Field(
         default=0.0, ge=0, description="Gap at feed point in meters (along circumference)"
     )
-    segments: int = Field(default=36, ge=3, description="Number of segments around the loop")
+    segments: int = Field(
+        default=36, ge=3, le=1000, description="Number of segments around the loop"
+    )
     source: Optional[SourceRequest] = Field(default=None, description="Optional source excitation")
     lumped_elements: List[LumpedElementRequest] = Field(
         default_factory=list,
@@ -186,15 +189,15 @@ class LoopRequest(BaseModel):
 class RodRequest(BaseModel):
     """Request to create a rod (monopole) antenna."""
 
-    length: float = Field(gt=0, description="Rod length in meters")
+    length: float = Field(gt=0, le=100, description="Rod length in meters")
     base_position: Tuple[float, float, float] = Field(
         default=(0.0, 0.0, 0.0), description="Base point [x, y, z] in meters (ground point)"
     )
     orientation: Tuple[float, float, float] = Field(
         default=(0.0, 0.0, 1.0), description="Direction vector [dx, dy, dz] (points from base)"
     )
-    wire_radius: float = Field(default=0.001, gt=0, description="Wire radius in meters")
-    segments: int = Field(default=21, ge=1, description="Number of segments along the rod")
+    wire_radius: float = Field(default=0.001, gt=0, le=1.0, description="Wire radius in meters")
+    segments: int = Field(default=21, ge=1, le=1000, description="Number of segments along the rod")
     source: Optional[SourceRequest] = Field(default=None, description="Optional source excitation")
     lumped_elements: List[LumpedElementRequest] = Field(
         default_factory=list,
@@ -220,7 +223,9 @@ class CustomNodeInput(BaseModel):
     x: float = Field(description="X coordinate in meters")
     y: float = Field(description="Y coordinate in meters")
     z: float = Field(description="Z coordinate in meters")
-    radius: float = Field(default=0.001, gt=0, description="Wire radius at this node in meters")
+    radius: float = Field(
+        default=0.001, gt=0, le=1.0, description="Wire radius at this node in meters"
+    )
 
 
 class CustomEdgeInput(BaseModel):
@@ -241,8 +246,12 @@ class CustomRequest(BaseModel):
     """Request to create a custom wire antenna from explicit nodes and edges."""
 
     name: str = Field(default="Custom Antenna", description="Name for the element")
-    nodes: List["CustomNodeInput"] = Field(min_length=1, description="Node definitions")
-    edges: List["CustomEdgeInput"] = Field(min_length=1, description="Edge connectivity")
+    nodes: List["CustomNodeInput"] = Field(
+        min_length=1, max_length=5000, description="Node definitions"
+    )
+    edges: List["CustomEdgeInput"] = Field(
+        min_length=1, max_length=10000, description="Edge connectivity"
+    )
     sources: List[SourceRequest] = Field(
         default_factory=list, description="Source excitations with explicit node indices"
     )
