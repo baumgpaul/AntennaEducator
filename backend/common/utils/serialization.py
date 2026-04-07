@@ -3,6 +3,7 @@ Serialization utilities for complex and NumPy data types.
 """
 
 import json
+import math
 from pathlib import Path
 from typing import Any, Dict, Union
 
@@ -18,8 +19,14 @@ def serialize_complex(z: complex) -> Dict[str, float]:
 
     Returns:
         Dictionary with 'real' and 'imag' keys
+
+    Raises:
+        ValueError: If real or imaginary part is NaN or Inf.
     """
-    return {"real": float(z.real), "imag": float(z.imag)}
+    r, i = float(z.real), float(z.imag)
+    if not (math.isfinite(r) and math.isfinite(i)):
+        raise ValueError(f"Cannot serialize non-finite complex number: {z}")
+    return {"real": r, "imag": i}
 
 
 def deserialize_complex(data: Dict[str, float]) -> complex:
@@ -57,9 +64,17 @@ def deserialize_numpy(data: Dict[str, Any]) -> np.ndarray:
 
     Returns:
         NumPy array
+
+    Raises:
+        ValueError: If data cannot be reshaped to the declared shape.
     """
     arr = np.array(data["data"], dtype=data["dtype"])
-    return arr.reshape(data["shape"])
+    try:
+        return arr.reshape(data["shape"])
+    except ValueError as exc:
+        raise ValueError(
+            f"Cannot reshape array of size {arr.size} to shape {data['shape']}"
+        ) from exc
 
 
 def save_numpy_compressed(arr: np.ndarray, filepath: Union[str, Path]) -> None:
