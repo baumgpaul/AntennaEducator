@@ -69,12 +69,12 @@ resource "aws_cognito_user_pool" "main" {
     ignore_changes = [schema]
   }
 
-  tags = {
-    Name        = "antenna-simulator-${var.environment}"
-    Environment = var.environment
-    Project     = "antenna-simulator"
-    ManagedBy   = "terraform"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "antenna-simulator-${var.environment}"
+    }
+  )
 }
 
 # Cognito User Pool Client for Frontend

@@ -92,6 +92,32 @@ def _require_admin(user: UserIdentity) -> None:
         )
 
 
+async def _check_folder_cycle(
+    folder_id: str,
+    new_parent_id: str,
+    folder_repo: FolderRepository,
+    max_depth: int = 50,
+) -> None:
+    """Walk up the parent chain from *new_parent_id* and raise 400
+    if *folder_id* is encountered (which would create a cycle)."""
+    current = new_parent_id
+    for _ in range(max_depth):
+        if current == folder_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Moving this folder would create a cycle.",
+            )
+        parent = await folder_repo.get_folder(current)
+        if not parent or not parent.get("parent_folder_id"):
+            return  # reached root — no cycle
+        current = parent["parent_folder_id"]
+    # If we exceed max_depth, reject as a safety measure
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Folder nesting depth limit exceeded.",
+    )
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  USER FOLDERS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -173,6 +199,8 @@ async def update_folder(
                 status.HTTP_400_BAD_REQUEST,
                 detail="A folder cannot be its own parent.",
             )
+        # Prevent deeper cycles (A→B→…→A)
+        await _check_folder_cycle(folder_id, data.parent_folder_id, folder_repo)
 
     return await folder_repo.update_folder(
         folder_id,
@@ -429,6 +457,7 @@ async def copy_course_project_to_user(
     data: DeepCopyRequest,
     user: UserIdentity = Depends(get_current_user),
     repo: ProjectRepository = Depends(get_repo),
+    folder_repo: FolderRepository = Depends(get_folder_repository),
     doc_svc: DocumentationService = Depends(get_documentation_service),
 ):
     """Deep-copy a single course project (including documentation) into
@@ -436,6 +465,21 @@ async def copy_course_project_to_user(
     original = await repo.get_project(project_id)
     if not original:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found.")
+
+    # Authorization: only allow copying projects that live in a course folder
+    folder_id = original.get("folder_id")
+    if folder_id:
+        folder = await folder_repo.get_folder(folder_id)
+        if not folder or not folder.get("is_course"):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail="Only course projects can be copied.",
+            )
+    else:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Only course projects can be copied.",
+        )
 
     results_svc = get_results_service()
     new_project = await _deep_copy_project(

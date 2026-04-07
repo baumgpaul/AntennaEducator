@@ -15,6 +15,7 @@ import { computeFarField, computeNearField } from '@/api/postprocessor';
 import { generateObservationPoints } from '@/utils/fieldGeneration';
 import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
 import { getCurrentUserAsync } from '@/store/authSlice';
+import { parseComplex, parseComplexArray } from '@/utils/complexNumber';
 
 // ============================================================================
 // Helper Functions
@@ -61,41 +62,6 @@ function extractErrorMessage(error: any, fallback: string): string {
     return detail.message;
   }
   return error.message || fallback;
-}
-
-/**
- * Parse complex number from various formats:
- * - String: "a+bj" or "a-bj" (Python format)
- * - Object: {real: a, imag: b}
- * - Array: [a, b]
- * - Number: a (imag = 0)
- */
-function parseComplex(val: any): { real: number; imag: number } {
-  if (typeof val === 'string') {
-    // Python format: "a+bj" or "a-bj"
-    const match = val.match(/^([+-]?[\d.e+-]+)([+-][\d.e+-]+)j$/);
-    if (match) {
-      return { real: parseFloat(match[1]), imag: parseFloat(match[2]) };
-    }
-    return { real: 0, imag: 0 };
-  }
-  if (typeof val === 'object' && val !== null && 'real' in val && 'imag' in val) {
-    return { real: val.real, imag: val.imag };
-  }
-  if (Array.isArray(val) && val.length >= 2) {
-    return { real: val[0], imag: val[1] };
-  }
-  if (typeof val === 'number') {
-    return { real: val, imag: 0 };
-  }
-  return { real: 0, imag: 0 };
-}
-
-/**
- * Parse array of complex numbers
- */
-function parseComplexArray(arr: any[]): Array<{ real: number; imag: number }> {
-  return arr.map(parseComplex);
 }
 
 /**

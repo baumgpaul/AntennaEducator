@@ -154,7 +154,8 @@ function TreeViewPanel({
   onElementDuplicate,
   onElementRename,
   onElementEdit,
-  onElementLock,
+  // onElementLock reserved for future lock/unlock feature
+  onElementLock: _onElementLock,
   onElementVisibilityToggle,
   mode = 'designer',
   fieldRegions,
@@ -396,12 +397,6 @@ function TreeViewPanel({
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleLockClick = (elementId: string, currentLocked: boolean) => {
-    onElementLock?.(elementId, !currentLocked);
-    handleCloseContextMenu();
-  };
-
   const [visibilityState, setVisibilityState] = useState<Record<string, boolean>>({});
 
   const toggleVisibility = (nodeId: string) => {
@@ -450,8 +445,6 @@ function TreeViewPanel({
                       (node.type !== 'element' && selectedNodeId === node.id);
     // For element nodes, use Redux visible state; for others use local state
     const visible = node.type === 'element' ? (node.visible ?? true) : isVisible(node.id);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const element = elements?.find(el => el.id === node.elementId && node.type === 'element');
 
     if (hasChildren) {
       return (

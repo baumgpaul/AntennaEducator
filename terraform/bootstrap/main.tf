@@ -21,6 +21,8 @@ provider "aws" {
       Project     = "antenna-simulator"
       Environment = "bootstrap"
       ManagedBy   = "terraform"
+      Repository  = "github.com/baumgpaul/AntennaEducator"
+      CostCenter  = "antenna-edu"
     }
   }
 }

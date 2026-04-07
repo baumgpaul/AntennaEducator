@@ -1,7 +1,6 @@
 """FastAPI application for the Postprocessor service."""
 
 import base64
-import logging
 import time
 from datetime import datetime, timezone
 
@@ -14,6 +13,8 @@ from fastapi.responses import Response
 from backend.common.auth.dependencies import get_current_user
 from backend.common.auth.identity import UserIdentity
 from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
+from backend.common.utils.error_handler import install_error_handlers
+from backend.common.utils.logging_config import configure_logging
 
 from .config import settings
 from .field import compute_directivity_from_pattern, compute_far_field
@@ -27,12 +28,7 @@ from .models import (
     RadiationPatternResponse,
 )
 
-# Configure logging level from settings
-logging.basicConfig(
-    level=getattr(logging, settings.log_level.upper(), logging.INFO),
-    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-)
-logger = logging.getLogger(__name__)
+logger = configure_logging("postprocessor", level=settings.log_level)
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -57,6 +53,8 @@ app.add_middleware(
 # GZip middleware is added after CORS so it wraps outermost —
 # the body is compressed while CORS headers remain unaffected.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+install_error_handlers(app)
 
 logger.info(
     "Postprocessor service v%s starting (debug=%s, log_level=%s, log_timing=%s)",

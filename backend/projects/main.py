@@ -6,7 +6,6 @@ Large simulation results are stored in S3/MinIO and referenced by keys.
 The actual physics lives in the preprocessor / solver / postprocessor services.
 """
 
-import logging
 import os
 from datetime import datetime, timezone
 from typing import List
@@ -17,13 +16,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-logger = logging.getLogger(__name__)
-
 import backend.auth.schemas
 
 # Auth service endpoint handlers (re-mounted for combined Lambda deployment)
@@ -32,6 +24,8 @@ from backend.common.auth import UserIdentity, get_current_user
 from backend.common.repositories.base import ProjectRepository
 from backend.common.repositories.factory import get_project_repository
 from backend.common.repositories.folder_repository import FolderRepository
+from backend.common.utils.error_handler import install_error_handlers
+from backend.common.utils.logging_config import configure_logging
 from backend.projects.documentation_service import DocumentationService, get_documentation_service
 
 # Folder & course management routes
@@ -53,6 +47,8 @@ from backend.projects.schemas import (
 # Submission routes
 from backend.projects.submission_routes import router as submission_router
 
+logger = configure_logging("projects")
+
 app = FastAPI(
     title="Antenna Simulator — Projects Service",
     description="Project management and persistence API",
@@ -71,6 +67,8 @@ if not os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
     logger.info("CORS middleware enabled (non-Lambda environment)")
 else:
     logger.info("CORS handled by Lambda Function URL — middleware disabled")
+
+install_error_handlers(app)
 
 # Include folder/course management routes
 app.include_router(folder_router)
@@ -183,9 +181,16 @@ async def create_project(
         # Store large results in S3, keep only keys in DynamoDB
         slim_results = None
         if data.simulation_results:
-            slim_results, _ = await results_svc.extract_and_store(
-                project["id"], data.simulation_results
-            )
+            try:
+                slim_results, _ = await results_svc.extract_and_store(
+                    project["id"], data.simulation_results
+                )
+            except Exception as e:
+                logger.error("S3 storage failed during project create: %s", e)
+                raise HTTPException(
+                    status.HTTP_502_BAD_GATEWAY,
+                    detail="Failed to store simulation results.",
+                )
 
         project = await repo.update_project(
             project_id=project["id"],
@@ -238,9 +243,12 @@ async def get_project(
 
     # Hydrate simulation_results from S3
     if project.get("simulation_results"):
-        project["simulation_results"] = await results_svc.hydrate_results(
-            project_id, project["simulation_results"]
-        )
+        try:
+            project["simulation_results"] = await results_svc.hydrate_results(
+                project_id, project["simulation_results"]
+            )
+        except Exception as e:
+            logger.warning("Failed to hydrate results for %s: %s", project_id, e)
 
     return project
 
@@ -260,7 +268,16 @@ async def update_project(
     # Store large results in S3, keep only keys in DynamoDB
     slim_results = data.simulation_results
     if data.simulation_results:
-        slim_results, _ = await results_svc.extract_and_store(project_id, data.simulation_results)
+        try:
+            slim_results, _ = await results_svc.extract_and_store(
+                project_id, data.simulation_results
+            )
+        except Exception as e:
+            logger.error("S3 storage failed during project update: %s", e)
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to store simulation results.",
+            )
 
     updated = await repo.update_project(
         project_id=project_id,
@@ -276,9 +293,12 @@ async def update_project(
 
     # Hydrate results from S3 before returning (so frontend gets full data)
     if updated.get("simulation_results"):
-        updated["simulation_results"] = await results_svc.hydrate_results(
-            project_id, updated["simulation_results"]
-        )
+        try:
+            updated["simulation_results"] = await results_svc.hydrate_results(
+                project_id, updated["simulation_results"]
+            )
+        except Exception as e:
+            logger.warning("Failed to hydrate results for %s: %s", project_id, e)
 
     return updated
 

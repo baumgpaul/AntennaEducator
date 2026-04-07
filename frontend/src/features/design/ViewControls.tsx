@@ -30,17 +30,11 @@ function ViewControls({
   onResetView,
   onToggleGrid,
   onToggleFullscreen,
-  onToggleCameraMode,
+  // onToggleCameraMode reserved for future perspective/orthographic toggle
+  onToggleCameraMode: _onToggleCameraMode,
   gridVisible = true,
   isFullscreen = false,
 }: ViewControlsProps) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleViewModeChange = (_event: React.MouseEvent<HTMLElement>, newMode: string | null) => {
-    if (newMode !== null && onToggleCameraMode) {
-      onToggleCameraMode(newMode as 'perspective' | 'orthographic');
-    }
-  };
-
   return (
     <Paper
       elevation={3}

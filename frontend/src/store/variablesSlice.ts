@@ -5,7 +5,7 @@
  * can reference built-in constants and previously defined variables.
  */
 
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit'
 import type { RootState } from './store'
 import {
   evaluateVariableContext,
@@ -88,15 +88,19 @@ export const selectVariables = (state: RootState) => state.variables.variables
  * Evaluated variable context: name → value or error string.
  * Includes error messages for failed variables.
  */
-export const selectEvaluatedVariables = (state: RootState) =>
-  evaluateVariableContext(state.variables.variables)
+export const selectEvaluatedVariables = createSelector(
+  [(state: RootState) => state.variables.variables],
+  (vars) => evaluateVariableContext(vars)
+)
 
 /**
  * Numeric-only evaluated context: name → number.
  * Only includes successfully evaluated variables.
  * Used to build the context dict for ExpressionField resolution.
  */
-export const selectVariableContextNumeric = (state: RootState) =>
-  evaluateVariableContextNumeric(state.variables.variables)
+export const selectVariableContextNumeric = createSelector(
+  [(state: RootState) => state.variables.variables],
+  (vars) => evaluateVariableContextNumeric(vars)
+)
 
 export default variablesSlice.reducer

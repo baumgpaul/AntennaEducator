@@ -5,7 +5,6 @@ In AWS mode this is NOT deployed — Cognito handles registration/login
 and the projects Lambda re-mounts the /me endpoint.
 """
 
-import logging
 import os
 
 from dotenv import load_dotenv
@@ -14,15 +13,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-logger = logging.getLogger(__name__)
-
 from backend.auth.schemas import Token, UserCreate, UserLogin, UserResponse
 from backend.common.auth import UserIdentity, create_auth_provider, get_current_user
+from backend.common.utils.error_handler import install_error_handlers
+from backend.common.utils.logging_config import configure_logging
+
+logger = configure_logging("auth")
 
 app = FastAPI(
     title="Antenna Simulator — Auth Service",
@@ -39,6 +35,8 @@ if not os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+install_error_handlers(app)
 
 
 @app.get("/health")
@@ -69,9 +67,14 @@ async def register(user_data: UserCreate):
             password=user_data.password,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    except Exception as exc:
-        logger.error("Registration error: %s", exc)
+        # Generic message to prevent username/email enumeration
+        logger.info("Registration rejected: %s", exc)
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Registration failed. Please check your input.",
+        )
+    except Exception:
+        logger.error("Registration error for user %r", user_data.username)
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed. Please try again.",
@@ -99,14 +102,14 @@ async def login(user_data: UserLogin):
         )
     except ValueError as exc:
         detail = str(exc)
-        code = (
-            status.HTTP_403_FORBIDDEN
-            if "locked" in detail.lower()
-            else status.HTTP_401_UNAUTHORIZED
+        is_locked = "locked" in detail.lower()
+        logger.info("Login rejected (locked=%s)", is_locked)
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN if is_locked else status.HTTP_401_UNAUTHORIZED,
+            detail="Account is locked." if is_locked else "Invalid credentials.",
         )
-        raise HTTPException(code, detail=detail)
-    except Exception as exc:
-        logger.error("Login error: %s", exc)
+    except Exception:
+        logger.error("Login error")
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication failed.",

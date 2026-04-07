@@ -4,7 +4,6 @@
  * Shows project name and course info, warns that a frozen snapshot will be created.
  */
 
-import React from 'react';
 import {
   Dialog,
   DialogTitle,
