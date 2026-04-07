@@ -8,30 +8,36 @@ from pydantic import BaseModel, Field, field_serializer
 class FieldRequest(BaseModel):
     """Request for field computation."""
 
-    frequencies: List[float] = Field(..., description="Frequencies [Hz]")
+    frequencies: List[float] = Field(..., max_length=1000, description="Frequencies [Hz]")
     branch_currents: List[List[Union[complex, str, Dict[str, float]]]] = Field(
         ..., description="Branch currents [A] per frequency"
     )
-    nodes: List[List[float]] = Field(..., description="Node coordinates [[x,y,z], ...]")
-    edges: List[List[int]] = Field(..., description="Edge connectivity [[n1,n2], ...]")
+    nodes: List[List[float]] = Field(
+        ..., max_length=5000, description="Node coordinates [[x,y,z], ...]"
+    )
+    edges: List[List[int]] = Field(
+        ..., max_length=10000, description="Edge connectivity [[n1,n2], ...]"
+    )
     radii: List[float] = Field(..., description="Wire radii [m]")
     observation_points: List[List[float]] = Field(
-        ..., description="Points to evaluate field [[x,y,z], ...]"
+        ..., max_length=40000, description="Points to evaluate field [[x,y,z], ...]"
     )
 
 
 class FarFieldRequest(BaseModel):
     """Request for far-field radiation pattern."""
 
-    frequencies: List[float] = Field(..., description="Frequencies [Hz]")
+    frequencies: List[float] = Field(..., max_length=1000, description="Frequencies [Hz]")
     branch_currents: List[List[Union[complex, str, Dict[str, float]]]] = Field(
         ..., description="Branch currents [A] per frequency"
     )
-    nodes: List[List[float]] = Field(..., description="Node coordinates")
-    edges: List[List[int]] = Field(..., description="Edge connectivity")
+    nodes: List[List[float]] = Field(..., max_length=5000, description="Node coordinates")
+    edges: List[List[int]] = Field(..., max_length=10000, description="Edge connectivity")
     radii: List[float] = Field(..., description="Wire radii [m]")
-    theta_points: int = Field(181, description="Number of theta samples (0 to 180 deg)")
-    phi_points: int = Field(360, description="Number of phi samples (0 to 360 deg)")
+    theta_points: int = Field(
+        181, ge=2, le=721, description="Number of theta samples (0 to 180 deg)"
+    )
+    phi_points: int = Field(360, ge=2, le=721, description="Number of phi samples (0 to 360 deg)")
 
 
 class RadiationPatternResponse(BaseModel):
