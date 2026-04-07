@@ -209,12 +209,22 @@ export const computeFarField = async (request: {
   beamwidth_phi?: number
   max_direction: [number, number]
 }> => {
-  const response = await postprocessorClient.post('/api/fields/far', {
-    ...request,
-    theta_points: request.theta_points || 19,
-    phi_points: request.phi_points || 37,
-  })
-  return handleApiResponse(response)
+  try {
+    const response = await postprocessorClient.post('/api/fields/far', {
+      ...request,
+      theta_points: request.theta_points || 19,
+      phi_points: request.phi_points || 37,
+    })
+    return handleApiResponse(response)
+  } catch (error: unknown) {
+    const axiosErr = error as { response?: { status?: number; data?: unknown }; message?: string }
+    console.error(
+      '[Postprocessor] Far-field FAILED',
+      axiosErr.response ? `| HTTP ${axiosErr.response.status}` : '',
+      axiosErr.message || error,
+    )
+    throw error
+  }
 }
 
 // ============================================================================
@@ -259,8 +269,18 @@ export interface PortQuantitiesResponseOutput {
 export const computePortQuantities = async (
   request: PortQuantitiesRequestInput,
 ): Promise<PortQuantitiesResponseOutput> => {
-  const response = await postprocessorClient.post('/api/port-quantities', request)
-  return handleApiResponse(response)
+  try {
+    const response = await postprocessorClient.post('/api/port-quantities', request)
+    return handleApiResponse(response)
+  } catch (error: unknown) {
+    const axiosErr = error as { response?: { status?: number; data?: unknown }; message?: string }
+    console.error(
+      '[Postprocessor] Port quantities FAILED',
+      axiosErr.response ? `| HTTP ${axiosErr.response.status}` : '',
+      axiosErr.message || error,
+    )
+    throw error
+  }
 }
 
 // Export all functions as a single object
