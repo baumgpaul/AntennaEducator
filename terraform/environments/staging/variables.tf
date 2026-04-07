@@ -21,3 +21,9 @@ variable "domain_name" {
   type        = string
   default     = "antennaeducator.nyakyagyawa.com"
 }
+
+variable "alert_email" {
+  description = "Email address for billing and operational alerts"
+  type        = string
+  default     = ""
+}

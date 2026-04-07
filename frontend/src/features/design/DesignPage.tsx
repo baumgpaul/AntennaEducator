@@ -155,7 +155,7 @@ function DesignPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [cameraMode, setCameraMode] = useState<'perspective' | 'orthographic'>('perspective');
+  const [cameraMode, _setCameraMode] = useState<'perspective' | 'orthographic'>('perspective');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
   const [dipoleDialogOpen, setDipoleDialogOpen] = useState(false);

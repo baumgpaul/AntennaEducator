@@ -17,12 +17,12 @@ resource "aws_lambda_function" "auto_confirm_user" {
     }
   }
 
-  tags = {
-    Name        = "cognito-auto-confirm-${var.environment}"
-    Environment = var.environment
-    Project     = "antenna-simulator"
-    ManagedBy   = "terraform"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "cognito-auto-confirm-${var.environment}"
+    }
+  )
 }
 
 # IAM role for Lambda
@@ -40,12 +40,12 @@ resource "aws_iam_role" "auto_confirm_lambda" {
     }]
   })
 
-  tags = {
-    Name        = "cognito-auto-confirm-lambda-${var.environment}"
-    Environment = var.environment
-    Project     = "antenna-simulator"
-    ManagedBy   = "terraform"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "cognito-auto-confirm-lambda-${var.environment}"
+    }
+  )
 }
 
 # Attach basic Lambda execution policy

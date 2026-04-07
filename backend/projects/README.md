@@ -1,83 +1,126 @@
 # Projects Service
 
-Project management and persistence API for the PEEC Antenna Simulator.
+Workspace persistence layer for the Antenna Simulator.  Stores project
+metadata and JSON blobs (design state, simulation config, results, UI
+state) in DynamoDB.  Large simulation results and documentation content
+live in S3 and are referenced by keys.
 
-## Features
+## DynamoDB Single-Table Design
 
-- **User Authentication**: JWT-based authentication with secure password hashing
-- **Project Management**: Full CRUD operations for antenna design projects
-- **Element Management**: Add and manage antenna elements (dipoles, loops, helices, etc.)
-- **Results Storage**: Store and retrieve simulation results with frequency sweep support
-- **MinIO Integration**: S3-compatible storage for mesh and current distribution data
+| PK | SK | Purpose |
+|----|----|----|
+| `USER#{user_id}` | `PROJECT#{project_id}` | Project item |
+| `USER#{user_id}` | `FOLDER#{folder_id}` | Folder item |
+| `USER#{user_id}` | `METADATA` | User profile |
+| `COURSE#{course_id}` | `SUBMISSION#{submission_id}` | Course submission |
+| `COURSE#{course_id}` | `ENROLLMENT#{user_id}` | Course enrollment |
+
+GSI1 (`GSI1PK` / `GSI1SK`) enables lookup by project ID or folder ID
+without knowing the user.
+
+## Project Data Model
+
+Each project stores four JSON blob columns plus metadata:
+
+| Field | Purpose |
+|-------|---------|
+| `design_state` | Full snapshot: elements, sources, positions, version |
+| `simulation_config` | Solver settings: method, frequency, requested fields |
+| `simulation_results` | Solver output summary + S3 `result_keys` references |
+| `ui_state` | Frontend-only: tabs, camera, view configs |
+| `documentation` | Metadata only: `has_content`, `image_keys`, preview |
+
+## Folder & Course Hierarchy
+
+- **User folders**: personal organizers, CRUD by owner only.
+- **Course folders**: public, created by maintainers/admins.
+  Deep-copy clones the entire tree (folders + projects + docs) into a
+  student's personal space.
+- Folder moves include **cycle detection** to prevent A→B→A loops.
+
+## Submission Lifecycle
+
+1. Student submits → frozen snapshot stored (`submitted`)
+2. Instructor reviews → adds feedback (`reviewed` / `returned`)
+3. Frozen blobs are immutable after submission.
+
+## Documentation Service
+
+S3-backed markdown + image storage under
+`projects/{project_id}/documentation/`.
+
+- **Image keys**: `img_<12 hex>.<ext>` — only `.png`, `.jpg`, `.jpeg`,
+  `.gif`, `.svg`, `.webp` accepted.
+- Presigned PUT URLs for direct upload (bypasses Lambda 6 MB limit).
+- Content preview (≤200 chars) stored in DynamoDB for list views.
 
 ## API Endpoints
 
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login and get access token
-- `GET /api/auth/me` - Get current user information
+### Projects (`main.py`)
+| Method | Path | Auth |
+|--------|------|------|
+| POST | `/api/projects` | owner |
+| GET | `/api/projects` | owner |
+| GET | `/api/projects/{id}` | owner / maintainer |
+| PUT | `/api/projects/{id}` | owner / maintainer |
+| DELETE | `/api/projects/{id}` | owner / maintainer |
+| POST | `/api/projects/{id}/duplicate` | owner |
+| POST | `/api/projects/{id}/reset` | owner |
 
-### Projects
-- `POST /api/projects` - Create new project
-- `GET /api/projects` - List user's projects
-- `GET /api/projects/:id` - Get project details
-- `PUT /api/projects/:id` - Update project
-- `DELETE /api/projects/:id` - Delete project
+### Documentation (`main.py`)
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/api/projects/{id}/documentation` | owner |
+| PUT | `/api/projects/{id}/documentation` | owner |
+| POST | `/api/projects/{id}/documentation/images` | owner |
+| GET | `/api/projects/{id}/documentation/images/{key}` | owner |
+| DELETE | `/api/projects/{id}/documentation/images/{key}` | owner |
 
-### Project Elements
-- `POST /api/projects/:id/elements` - Add element to project
-- `DELETE /api/projects/:id/elements/:element_id` - Remove element
+### Folders & Courses (`folder_routes.py`)
+| Method | Path | Auth |
+|--------|------|------|
+| POST/GET/PUT/DELETE | `/api/folders[/{id}]` | owner |
+| POST/GET/PUT/DELETE | `/api/courses[/{id}]` | maintainer+ |
+| POST | `/api/courses/{id}/copy` | any authenticated |
+| POST | `/api/courses/projects/{id}/copy` | any authenticated |
 
-### Results
-- `POST /api/projects/:id/results` - Save simulation result
-- `GET /api/projects/:id/results` - List project results
+### Admin (`folder_routes.py`)
+| Method | Path | Auth |
+|--------|------|------|
+| PUT | `/api/admin/users/{id}/role` | admin |
+| GET | `/api/admin/users` | admin |
+| PUT | `/api/admin/users/{id}/tokens` | admin |
+| PUT | `/api/admin/users/{id}/flatrate` | admin |
+| PUT | `/api/admin/users/{id}/lock` | admin |
+
+### Submissions (`submission_routes.py`)
+| Method | Path | Auth |
+|--------|------|------|
+| POST | `/api/courses/{id}/submissions` | enrolled student |
+| GET | `/api/my-submissions` | any authenticated |
+| GET | `/api/courses/{id}/submissions` | maintainer (all) / student (own) |
+| GET | `/api/courses/{id}/submissions/{sid}` | maintainer / owner |
+| PATCH | `/api/courses/{id}/submissions/{sid}/review` | maintainer+ |
 
 ## Environment Variables
 
-```bash
-DATABASE_URL=postgresql://antenna:antenna123@postgres:5432/antenna_db
-MINIO_ENDPOINT=minio:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=antenna-data
-MINIO_SECURE=false
-JWT_SECRET_KEY=your-secret-key-here
-```
+| Variable | Purpose |
+|----------|---------|
+| `USE_DYNAMODB` | `true` (always) — selects DynamoDB repository |
+| `DYNAMODB_TABLE_NAME` | Table name (default `antenna-simulator-staging`) |
+| `RESULTS_BUCKET_NAME` | S3 bucket for results and documentation |
+| `S3_ENDPOINT_URL` | MinIO endpoint for local dev |
+| `AWS_REGION` | AWS region (default `eu-west-1`) |
 
 ## Development
 
-### Install Dependencies
 ```bash
-pip install -r requirements.txt
+# Run locally (from repo root, venv activated)
+uvicorn backend.projects.main:app --port 8010 --reload
+
+# Run tests
+pytest tests/unit/ -k "project or folder or submission or documentation" -v
 ```
-
-### Run Tests
-```bash
-pytest tests/ -v --cov
-```
-
-### Run Service
-```bash
-uvicorn main:app --host 0.0.0.0 --port 8010
-```
-
-### Docker
-```bash
-docker-compose up projects
-```
-
-## API Documentation
-
-Interactive API documentation available at:
-- Swagger UI: http://localhost:8010/docs
-- ReDoc: http://localhost:8010/redoc
-
-## Test Coverage
-
-- **97% overall coverage**
-- 74 tests covering all endpoints
-- Success, error, and authorization scenarios
-- Integration tests for cascading operations
 
 ## Production Features
 

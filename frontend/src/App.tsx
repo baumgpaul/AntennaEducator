@@ -1,19 +1,28 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { Box } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 import MainLayout from './components/layout/MainLayout';
 import HomePage from './features/home/HomePage';
-import ProjectsPage from './features/projects/ProjectsPage';
-import DesignPage from './features/design/DesignPage';
-import ResultsPage from './features/results/ResultsPage';
 import { LoginPage, RegisterPage, ProtectedRoute } from './features/auth';
-import { CoursesPage } from './features/courses';
-import { AdminPage } from './features/admin';
-import MySubmissionsPage from './features/courses/MySubmissionsPage';
-import SubmissionsDashboard from './features/courses/SubmissionsDashboard';
-import SubmissionViewer from './features/courses/SubmissionViewer';
 import NotFoundPage from './features/common/NotFoundPage';
 import { NotificationManager, SessionManager } from './components/common';
 import ErrorBoundary from './components/ErrorBoundary';
+
+// Route-level code splitting — heavy pages loaded on demand
+const ProjectsPage = lazy(() => import('./features/projects/ProjectsPage'));
+const DesignPage = lazy(() => import('./features/design/DesignPage'));
+const ResultsPage = lazy(() => import('./features/results/ResultsPage'));
+const CoursesPage = lazy(() => import('./features/courses/CoursesPage'));
+const AdminPage = lazy(() => import('./features/admin/AdminPage'));
+const MySubmissionsPage = lazy(() => import('./features/courses/MySubmissionsPage'));
+const SubmissionsDashboard = lazy(() => import('./features/courses/SubmissionsDashboard'));
+const SubmissionViewer = lazy(() => import('./features/courses/SubmissionViewer'));
+
+const Fallback = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+    <CircularProgress />
+  </Box>
+);
 
 /**
  * Main App component with routing configuration
@@ -36,15 +45,15 @@ function App() {
         {/* Protected routes with main layout */}
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/projects" element={<ErrorBoundary><ProjectsPage /></ErrorBoundary>} />
-          <Route path="/courses" element={<ErrorBoundary><CoursesPage /></ErrorBoundary>} />
-          <Route path="/courses/:courseId/submissions" element={<ErrorBoundary><SubmissionsDashboard /></ErrorBoundary>} />
-          <Route path="/my-submissions" element={<ErrorBoundary><MySubmissionsPage /></ErrorBoundary>} />
-          <Route path="/submission/:courseId/:submissionId" element={<ErrorBoundary><SubmissionViewer /></ErrorBoundary>} />
-          <Route path="/admin" element={<ErrorBoundary><AdminPage /></ErrorBoundary>} />
-          <Route path="/design" element={<ErrorBoundary><DesignPage /></ErrorBoundary>} />
-          <Route path="/project/:projectId/design" element={<ErrorBoundary><DesignPage /></ErrorBoundary>} />
-          <Route path="/project/:projectId/results" element={<ErrorBoundary><ResultsPage /></ErrorBoundary>} />
+          <Route path="/projects" element={<ErrorBoundary><Suspense fallback={<Fallback />}><ProjectsPage /></Suspense></ErrorBoundary>} />
+          <Route path="/courses" element={<ErrorBoundary><Suspense fallback={<Fallback />}><CoursesPage /></Suspense></ErrorBoundary>} />
+          <Route path="/courses/:courseId/submissions" element={<ErrorBoundary><Suspense fallback={<Fallback />}><SubmissionsDashboard /></Suspense></ErrorBoundary>} />
+          <Route path="/my-submissions" element={<ErrorBoundary><Suspense fallback={<Fallback />}><MySubmissionsPage /></Suspense></ErrorBoundary>} />
+          <Route path="/submission/:courseId/:submissionId" element={<ErrorBoundary><Suspense fallback={<Fallback />}><SubmissionViewer /></Suspense></ErrorBoundary>} />
+          <Route path="/admin" element={<ErrorBoundary><Suspense fallback={<Fallback />}><AdminPage /></Suspense></ErrorBoundary>} />
+          <Route path="/design" element={<ErrorBoundary><Suspense fallback={<Fallback />}><DesignPage /></Suspense></ErrorBoundary>} />
+          <Route path="/project/:projectId/design" element={<ErrorBoundary><Suspense fallback={<Fallback />}><DesignPage /></Suspense></ErrorBoundary>} />
+          <Route path="/project/:projectId/results" element={<ErrorBoundary><Suspense fallback={<Fallback />}><ResultsPage /></Suspense></ErrorBoundary>} />
         </Route>
 
         {/* 404 catch-all */}

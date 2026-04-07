@@ -1,1 +1,0 @@
-"""FEM solver microservice."""

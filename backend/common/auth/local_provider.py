@@ -32,10 +32,13 @@ def _role_from_db(user: dict) -> UserRole:
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-JWT_SECRET = os.getenv(
-    "JWT_SECRET_KEY",
-    "your-secret-key-change-in-production",
-)
+_DEFAULT_SECRET = "your-secret-key-change-in-production"
+JWT_SECRET = os.getenv("JWT_SECRET_KEY", _DEFAULT_SECRET)
+if JWT_SECRET == _DEFAULT_SECRET:
+    logger.warning(
+        "JWT_SECRET_KEY env var not set — using insecure default. "
+        "Set JWT_SECRET_KEY to a strong random value in production."
+    )
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 MIN_PASSWORD_LENGTH = 8

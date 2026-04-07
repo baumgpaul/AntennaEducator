@@ -81,7 +81,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "data" {
     filter {}
 
     abort_incomplete_multipart_upload {
-      days_after_initiation = 7
+      days_after_initiation = 1
     }
   }
 }

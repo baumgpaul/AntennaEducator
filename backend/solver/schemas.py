@@ -1,5 +1,6 @@
 """Pydantic models for Solver service API."""
 
+import math
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -62,8 +63,12 @@ class LoadInput(BaseModel):
 class SingleFrequencyRequest(BaseModel):
     """Request for single frequency solution."""
 
-    nodes: List[List[float]] = Field(..., description="Node coordinates [[x,y,z], ...] [m]")
-    edges: List[List[int]] = Field(..., description="Edge connectivity [[n1,n2], ...]")
+    nodes: List[List[float]] = Field(
+        ..., max_length=5000, description="Node coordinates [[x,y,z], ...] [m]"
+    )
+    edges: List[List[int]] = Field(
+        ..., max_length=10000, description="Edge connectivity [[n1,n2], ...]"
+    )
     radii: List[float] = Field(..., description="Wire radii [m]")
     frequency: float = Field(..., description="Frequency [Hz]", gt=0)
     voltage_sources: List[VoltageSourceInput] = Field(default_factory=list)
@@ -74,6 +79,8 @@ class SingleFrequencyRequest(BaseModel):
     @field_validator("frequency")
     @classmethod
     def validate_frequency(cls, v):
+        if not math.isfinite(v):
+            raise ValueError("frequency must be finite (not NaN or Inf)")
         if v > 100e9:
             raise ValueError("frequency too high (max 100 GHz)")
         return v
@@ -82,8 +89,12 @@ class SingleFrequencyRequest(BaseModel):
 class FrequencySweepRequest(BaseModel):
     """Request for frequency sweep solution."""
 
-    nodes: List[List[float]] = Field(..., description="Node coordinates [[x,y,z], ...] [m]")
-    edges: List[List[int]] = Field(..., description="Edge connectivity [[n1,n2], ...]")
+    nodes: List[List[float]] = Field(
+        ..., max_length=5000, description="Node coordinates [[x,y,z], ...] [m]"
+    )
+    edges: List[List[int]] = Field(
+        ..., max_length=10000, description="Edge connectivity [[n1,n2], ...]"
+    )
     radii: List[float] = Field(..., description="Wire radii [m]")
     frequencies: List[float] = Field(..., description="Frequencies [Hz]")
     voltage_sources: List[VoltageSourceInput] = Field(default_factory=list)
@@ -99,6 +110,8 @@ class FrequencySweepRequest(BaseModel):
             raise ValueError("frequencies list cannot be empty")
         if len(v) > 1000:
             raise ValueError("too many frequency points (max 1000)")
+        if any(not math.isfinite(f) for f in v):
+            raise ValueError("all frequencies must be finite (not NaN or Inf)")
         if any(f <= 0 for f in v):
             raise ValueError("all frequencies must be positive")
         return v
@@ -171,9 +184,11 @@ class AntennaInput(BaseModel):
     """
 
     antenna_id: str = Field(..., description="Unique identifier for this antenna")
-    nodes: List[List[float]] = Field(..., description="Node coordinates [[x,y,z], ...]")
+    nodes: List[List[float]] = Field(
+        ..., max_length=5000, description="Node coordinates [[x,y,z], ...]"
+    )
     edges: List[List[int]] = Field(
-        ..., description="Edge connectivity [[start, end], ...], 1-based"
+        ..., max_length=10000, description="Edge connectivity [[start, end], ...], 1-based"
     )
     radii: List[float] = Field(..., description="Wire radius for each edge [m]")
     voltage_sources: List[VoltageSourceInput] = Field(default_factory=list)

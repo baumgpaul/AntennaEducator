@@ -40,6 +40,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split heavy vendor libs into separate chunks for caching
+          'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
+          'vendor-mui': ['@mui/material', '@mui/icons-material'],
+          'vendor-charts': ['recharts'],
+        },
+      },
+    },
   },
   test: {
     globals: true,

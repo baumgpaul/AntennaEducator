@@ -422,7 +422,7 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
   useEffect(() => {
     if (!editor) return;
 
-    const handlePaste = (view: unknown, event: ClipboardEvent) => {
+    const handlePaste = (_view: unknown, event: ClipboardEvent) => {
       const items = event.clipboardData?.items;
       if (!items) return false;
 

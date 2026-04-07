@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import type { FieldDefinition, FieldDefinition1D, FieldDefinition2D, FieldDefinition3D, FieldType } from '@/types/fieldDefinitions';
 import { getEllipseAxesFromPreset } from '@/types/fieldDefinitions';
 import type { ColorMapType } from '@/utils/colorMaps';
-import { createColorArray, arrayMin, arrayMax } from '@/utils/colorMaps';
+import { createColorArray } from '@/utils/colorMaps';
 import type { DisplayQuantity } from '@/types/postprocessing';
 
 interface ComplexComponent {
@@ -659,11 +659,6 @@ function LineField({ field, opacity, colorMap, fieldData, fieldType, valueRangeM
       const posAttr = geom.getAttribute('position');
       const numVertices = posAttr.count;
       const colors = new Float32Array(numVertices * 3);
-
-      // Create color lookup from magnitudes
-      const minMag = minVal ?? arrayMin(magnitudes);
-      const maxMag = maxVal ?? arrayMax(magnitudes);
-      const range = maxMag - minMag || 1; // eslint-disable-line @typescript-eslint/no-unused-vars
 
       // Get color map function
       const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);

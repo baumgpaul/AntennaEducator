@@ -11,30 +11,7 @@ export interface ComplexNumber {
   imag: number
 }
 
-export interface Point3D {
-  x: number
-  y: number
-  z: number
-}
-
 export type Vector3D = [number, number, number]
-
-// ============================================================================
-// Geometry and Mesh Types
-// ============================================================================
-
-export interface Node {
-  id: number
-  position: Vector3D
-}
-
-export interface Edge {
-  id: number
-  node_start: number // 1-based index
-  node_end: number // 1-based index
-  radius: number
-  tag?: string
-}
 
 export interface Mesh {
   nodes: Vector3D[] // List of [x, y, z] coordinates
@@ -43,10 +20,9 @@ export interface Mesh {
   metadata?: {
     total_length?: number
     num_segments?: number
-    [key: string]: any
+    [key: string]: unknown
   }
   vertices?: Vector3D[] // Alternative to nodes for some legacy uses
-  faces?: any[] // For future 3D surface support
 }
 
 // ============================================================================
@@ -117,24 +93,6 @@ export interface LoopConfig {
   source?: Source
   lumped_elements?: LumpedElement[]
 }
-
-export interface HelixConfig {
-  radius: number
-  turns: number
-  pitch: number
-  center_position?: Vector3D
-  axis_direction?: Vector3D
-  wire_radius?: number
-  segments_per_turn?: number
-  source?: Source
-  lumped_elements?: LumpedElement[]
-  helix_mode?: 'axial' | 'normal'
-  polarization?: 'RHCP' | 'LHCP'
-  start_angle?: number
-}
-
-/** @deprecated Helix antenna type removed. Kept for backward compatibility with old projects. */
-export type _HelixConfigDeprecated = HelixConfig
 
 export interface RodConfig {
   length: number
@@ -212,7 +170,8 @@ export interface AntennaElement {
 // ============================================================================
 
 export interface PreprocessorResponse {
-  element: any // AntennaElement data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  element: any
   mesh: Mesh
   message: string
 }
@@ -245,94 +204,30 @@ export interface SolverResult {
   residual?: number
 }
 
-export interface MultiFrequencySolverRequest extends Omit<SolverRequest, 'frequency'> {
-  frequencies: number[]
-}
-
-export interface MultiFrequencySolverResult {
-  project_id: string
-  frequencies: number[]
-  results: SolverResult[]
-  computation_time_seconds: number
-}
-
-// ============================================================================
-// Postprocessor Types
-// ============================================================================
-
-export interface FieldPoint {
-  position: Vector3D
-  E_field?: Vector3D
-  H_field?: Vector3D
-  power_density?: number
-}
-
-export interface FieldComputationRequest {
-  project_id: string
-  frequency: number
-  nodes: Vector3D[]
-  edges: [number, number][]
-  branch_currents: ComplexNumber[]
-  field_points: Vector3D[]
-}
-
-export interface FieldComputationResult {
-  project_id: string
-  frequency: number
-  field_points: FieldPoint[]
-  max_field_magnitude: number
-}
-
-export interface RadiationPatternRequest {
-  project_id: string
-  frequency: number
-  nodes: Vector3D[]
-  edges: [number, number][]
-  branch_currents: ComplexNumber[]
-  theta_range?: [number, number]
-  phi_range?: [number, number]
-  theta_points?: number
-  phi_points?: number
-}
-
-export interface RadiationPatternPoint {
-  theta: number // radians
-  phi: number // radians
-  gain_dB: number
-  E_theta: ComplexNumber
-  E_phi: ComplexNumber
-}
-
-export interface RadiationPatternResult {
-  project_id: string
-  frequency: number
-  pattern_points: RadiationPatternPoint[]
-  max_gain_dB: number
-  max_gain_direction: [number, number] // [theta, phi]
-  directivity: number
-  radiation_efficiency?: number
-}
-
 // ============================================================================
 // Project and Simulation Types
 // ============================================================================
 
 export interface Project {
-  id: string | number  // Backend uses integer IDs, mock API uses string IDs
+  id: string | number
   name: string
   description?: string
-  design_state?: Record<string, any>       // Elements, sources, positions — versioned snapshot
-  simulation_config?: Record<string, any>  // Method, frequency config, requested fields, postprocessing
-  simulation_results?: Record<string, any> // Solver output summary + S3 keys
-  ui_state?: Record<string, any>           // View configs, selected tabs, camera position
-  has_documentation?: boolean              // Whether project has documentation content
-  documentation_preview?: string           // Plain-text preview of documentation content
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  design_state?: Record<string, any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  simulation_config?: Record<string, any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  simulation_results?: Record<string, any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ui_state?: Record<string, any>
+  has_documentation?: boolean
+  documentation_preview?: string
   user_id?: string | number
-  folder_id?: string | null               // Folder this project belongs to (null = root)
-  source_project_id?: string | null       // If copied from a course project, the original project ID
+  folder_id?: string | null
+  source_project_id?: string | null
   created_at: string
   updated_at: string
-  last_opened_at?: string | null          // When the project was last opened
+  last_opened_at?: string | null
 }
 
 export type SimulationStatus = 'pending' | 'running' | 'completed' | 'failed'
@@ -351,40 +246,9 @@ export interface Simulation {
   completed_at?: string
 }
 
-export interface SimulationConfig {
-  id: string
-  simulation_id: string
-  frequency_start: number
-  frequency_end: number
-  frequency_points: number
-  config_json?: Record<string, unknown>
-  created_at: string
-}
-
-// ============================================================================
-// API Response Types
-// ============================================================================
-
-export interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  error?: string
-  message?: string
-}
-
-export interface PaginatedResponse<T> {
-  items: T[]
-  total: number
-  page: number
-  page_size: number
-  total_pages: number
-}
-
 // ============================================================================
 // Authentication Types
 // ============================================================================
-
-export type UserRole = 'user' | 'maintainer' | 'admin'
 
 export interface User {
   id: string
@@ -392,7 +256,7 @@ export interface User {
   username: string
   is_approved: boolean
   is_admin: boolean
-  role?: UserRole
+  role?: 'user' | 'maintainer' | 'admin'
   cognito_sub?: string
   created_at: string
   simulation_tokens?: number
