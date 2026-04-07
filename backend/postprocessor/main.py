@@ -1,7 +1,6 @@
 """FastAPI application for the Postprocessor service."""
 
 import base64
-import logging
 import time
 from datetime import datetime, timezone
 
@@ -15,6 +14,7 @@ from backend.common.auth.dependencies import get_current_user
 from backend.common.auth.identity import UserIdentity
 from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
 from backend.common.utils.error_handler import install_error_handlers
+from backend.common.utils.logging_config import configure_logging
 
 from .config import settings
 from .field import compute_directivity_from_pattern, compute_far_field
@@ -28,12 +28,7 @@ from .models import (
     RadiationPatternResponse,
 )
 
-# Configure logging level from settings
-logging.basicConfig(
-    level=getattr(logging, settings.log_level.upper(), logging.INFO),
-    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-)
-logger = logging.getLogger(__name__)
+logger = configure_logging("postprocessor", level=settings.log_level)
 
 # Initialize FastAPI application
 app = FastAPI(

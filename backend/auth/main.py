@@ -5,7 +5,6 @@ In AWS mode this is NOT deployed — Cognito handles registration/login
 and the projects Lambda re-mounts the /me endpoint.
 """
 
-import logging
 import os
 
 from dotenv import load_dotenv
@@ -14,16 +13,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-logger = logging.getLogger(__name__)
-
 from backend.auth.schemas import Token, UserCreate, UserLogin, UserResponse
 from backend.common.auth import UserIdentity, create_auth_provider, get_current_user
 from backend.common.utils.error_handler import install_error_handlers
+from backend.common.utils.logging_config import configure_logging
+
+logger = configure_logging("auth")
 
 app = FastAPI(
     title="Antenna Simulator — Auth Service",

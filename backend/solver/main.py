@@ -1,6 +1,5 @@
 """FastAPI application for the Solver service."""
 
-import logging
 import time
 from datetime import datetime, timezone
 
@@ -14,12 +13,9 @@ from backend.common.auth.identity import UserIdentity
 from backend.common.auth.token_costs import calculate_sweep_cost
 from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
 from backend.common.utils.error_handler import install_error_handlers
+from backend.common.utils.logging_config import configure_logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+logger = configure_logging("solver")
 
 from .config import settings
 from .schemas import (
