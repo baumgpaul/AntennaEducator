@@ -14,6 +14,7 @@ import type { AddCurveResult } from './AddCurveDialog';
 import { extractPortTraceData, extractDistributionTraceData, extractFarfieldTraceData } from '@/types/plotDataExtractors';
 import type { DataPoint } from '@/types/plotDataExtractors';
 import type { AxisConfig, PlotTrace } from '@/types/plotDefinitions';
+import { TRACE_COLORS } from '@/types/plotDefinitions';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectParameterStudy, selectSelectedFrequencyHz } from '@/store/solverSlice';
 import { updateItemProperty, addItemToView } from '@/store/postprocessingSlice';
@@ -30,6 +31,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
   const radiationPattern = useAppSelector((state) => state.solver.radiationPattern);
   const radiationPatterns = useAppSelector((state) => state.solver.radiationPatterns);
   const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
+  const elements = useAppSelector((state) => state.design.elements);
   const [addCurveDialogOpen, setAddCurveDialogOpen] = useState(false);
 
   // Data availability flags for AddCurveDialog
@@ -188,6 +190,39 @@ function LineViewPanel({ view }: LineViewPanelProps) {
 
   const renderPlot = (item: ViewItem) => {
     if (item.type === 'line-plot' && item.traces && item.traces.length > 0) {
+      // Determine how many antennas have solutions
+      const numAntennas = Math.max(
+        1,
+        frequencySweep?.results?.[0]?.antenna_solutions?.length ?? 0,
+        (singleResult as any)?.antenna_solutions?.length ?? 0,
+        elements.length,
+      );
+
+      // For port traces without explicit antennaIndex, expand to one per antenna
+      const expandedTraces: PlotTrace[] = [];
+      for (const trace of item.traces) {
+        if (
+          trace.quantity.source === 'port' &&
+          trace.antennaIndex === undefined &&
+          numAntennas > 1
+        ) {
+          // Create one trace per antenna element
+          for (let ai = 0; ai < numAntennas; ai++) {
+            const elName = elements[ai]?.name ?? `Antenna ${ai + 1}`;
+            const colorIdx = (expandedTraces.length) % TRACE_COLORS.length;
+            expandedTraces.push({
+              ...trace,
+              id: `${trace.id}_ant${ai}`,
+              label: `${trace.label} (${elName})`,
+              color: TRACE_COLORS[colorIdx],
+              antennaIndex: ai,
+            });
+          }
+        } else {
+          expandedTraces.push(trace);
+        }
+      }
+
       // Build traceData from extractors
       const traceData: Record<string, DataPoint[]> = {};
       // Determine the frequency key for single-frequency extractors
@@ -200,14 +235,15 @@ function LineViewPanel({ view }: LineViewPanelProps) {
       const patternsLookup: Record<number, any> | null = radiationPatterns
         ?? (radiationPattern ? { [freqKey]: radiationPattern } : null);
 
-      for (const trace of item.traces) {
+      for (const trace of expandedTraces) {
+        const antennaIdx = trace.antennaIndex ?? 0;
         switch (trace.quantity.source) {
           case 'port':
             traceData[trace.id] = extractPortTraceData(
               trace,
               frequencySweep,
               parameterStudy,
-              0,
+              antennaIdx,
               50,
               singleResult as any,
             );
@@ -217,7 +253,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
               trace,
               frequencySweep,
               freqKey,
-              0,
+              antennaIdx,
               singleResult as any,
             );
             break;
@@ -235,7 +271,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
       return (
         <Box key={item.id} sx={{ p: 2, height: 350 }}>
           <UnifiedLinePlot
-            traces={item.traces}
+            traces={expandedTraces}
             traceData={traceData}
             xAxisConfig={item.xAxisConfig}
             yAxisLeftConfig={item.yAxisLeftConfig}

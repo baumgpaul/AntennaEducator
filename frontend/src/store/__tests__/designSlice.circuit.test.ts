@@ -3,7 +3,6 @@ import designReducer, {
   addElement,
   setElementCircuit,
   addSourceToElement,
-  addLumpedElementToElement,
 } from '../designSlice';
 import type { AntennaElement, Source, LumpedElement } from '@/types/models';
 import { describe, it, expect, beforeEach } from 'vitest';
