@@ -139,11 +139,12 @@ function drawTable(doc: jsPDF, section: PDFTableSection, startY: number): number
   const isKeyValue = headers.length === 2;
   const colWidths = isKeyValue
     ? [60, CONTENT_W - 60]
-    : distributeColumns(headers.length);
+    : smartColumnWidths(headers);
 
   let y = startY;
-  const rowH = 7;
+  const baseRowH = 7;
   const headerH = 8;
+  const fontSize = 8.5;
 
   // Header row
   const [hr, hg, hb] = hexToRgb(COLOR_LIGHT);
@@ -159,25 +160,30 @@ function drawTable(doc: jsPDF, section: PDFTableSection, startY: number): number
   }
   y += headerH;
 
-  // Data rows
+  // Data rows — word-wrap cells that exceed column width
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(fontSize);
   for (let ri = 0; ri < rows.length; ri++) {
+    // Pre-compute wrapped lines per cell to determine row height
+    const wrappedCells: string[][] = rows[ri].cells.map((cell, ci) => {
+      const cellText = cell ?? '';
+      const maxW = colWidths[ci] - 4;
+      return doc.splitTextToSize(cellText, maxW) as string[];
+    });
+    const lineCount = Math.max(1, ...wrappedCells.map(lines => lines.length));
+    const rowH = baseRowH + (lineCount - 1) * 4;
+
     if (ri % 2 === 0) {
       doc.setFillColor(250, 250, 250);
       doc.rect(MARGIN, y, CONTENT_W, rowH, 'F');
     }
     drawHLine(doc, y, 0.1, '#E0E0E0');
     cx = MARGIN + 2;
-    for (let ci = 0; ci < rows[ri].cells.length; ci++) {
-      const cellText = rows[ri].cells[ci] ?? '';
-      const maxW = colWidths[ci] - 4;
-      // Truncate long strings to fit the cell
-      const truncated = doc.getStringUnitWidth(cellText) * 8.5 > maxW * 2.835
-        ? cellText.slice(0, Math.floor(maxW * 0.6)) + '…'
-        : cellText;
+    for (let ci = 0; ci < wrappedCells.length; ci++) {
       setColor(doc, '#212121');
-      doc.text(truncated, cx, y + 5);
+      for (let li = 0; li < wrappedCells[ci].length; li++) {
+        doc.text(wrappedCells[ci][li], cx, y + 5 + li * 4);
+      }
       cx += colWidths[ci];
     }
     y += rowH;
@@ -192,10 +198,40 @@ function drawTable(doc: jsPDF, section: PDFTableSection, startY: number): number
   return y + 3;
 }
 
-/** Distribute column widths evenly. */
-function distributeColumns(n: number): number[] {
-  const w = Math.floor(CONTENT_W / n);
-  return Array(n).fill(w);
+/**
+ * Smart column widths based on header names.
+ * Known headers get fixed widths; remainder goes to the widest column.
+ */
+function smartColumnWidths(headers: string[]): number[] {
+  // Known narrow columns
+  const NARROW: Record<string, number> = {
+    '#': 10,
+    'Nodes': 18,
+    'Edges': 18,
+  };
+  const MEDIUM: Record<string, number> = {
+    'Name': 30,
+    'Type': 24,
+  };
+
+  const known = { ...NARROW, ...MEDIUM };
+  let usedWidth = 0;
+  let flexCount = 0;
+
+  for (const h of headers) {
+    if (known[h]) {
+      usedWidth += known[h];
+    } else {
+      flexCount++;
+    }
+  }
+
+  // Give remaining space to flex columns (like "Key Parameters")
+  const flexWidth = flexCount > 0
+    ? Math.floor((CONTENT_W - usedWidth) / flexCount)
+    : 0;
+
+  return headers.map(h => known[h] ?? flexWidth);
 }
 
 /** Draw a section heading (blue, bold). Returns Y after heading. */

@@ -83,6 +83,59 @@ function complexMag(c: ComplexNumber): number {
 }
 
 /**
+ * Serialize an SVG element to a PNG data URL by drawing it onto a canvas.
+ * Works reliably for Recharts SVG charts where html2canvas drops lines.
+ */
+async function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
+  const { width, height } = svgEl.getBoundingClientRect();
+  if (width === 0 || height === 0) throw new Error('SVG has zero dimensions');
+
+  // Clone SVG and inline computed styles so the serialized SVG looks identical
+  const clone = svgEl.cloneNode(true) as SVGSVGElement;
+  clone.setAttribute('width', String(width));
+  clone.setAttribute('height', String(height));
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+  // Inline computed styles of all elements (fills, strokes, fonts, etc.)
+  const originals = svgEl.querySelectorAll('*');
+  const clones = clone.querySelectorAll('*');
+  for (let i = 0; i < originals.length; i++) {
+    const computed = window.getComputedStyle(originals[i]);
+    const el = clones[i] as SVGElement | HTMLElement;
+    if (!el.style) continue;
+    for (let j = 0; j < computed.length; j++) {
+      const prop = computed[j];
+      el.style.setProperty(prop, computed.getPropertyValue(prop));
+    }
+  }
+
+  const serializer = new XMLSerializer();
+  const svgString = serializer.serializeToString(clone);
+  const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+
+  return new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = 2; // 2x for crisp PDF
+      const canvas = document.createElement('canvas');
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { URL.revokeObjectURL(url); reject(new Error('No canvas context')); return; }
+      ctx.fillStyle = '#1a1a1a'; // dark background matching the app
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('SVG image load failed')); };
+    img.src = url;
+  });
+}
+
+/**
  * Resolve the fieldType ('E' | 'H' | 'poynting') for a field-related view item.
  * Looks up the field definition from requestedFields using the item's fieldId.
  */
@@ -301,8 +354,18 @@ function PostprocessingTab({
       }
       throw new Error(`3D canvas not ready for view "${view.name}"`);
     }
-    // html2canvas for chart/plot views
+    // For chart/plot views: prefer serializing the Recharts SVG directly,
+    // then fall back to html2canvas. html2canvas often drops SVG line content.
     if (!middlePanelRef.current) throw new Error('View panel not mounted');
+    const svgEl = middlePanelRef.current.querySelector('.recharts-wrapper svg') as SVGSVGElement | null;
+    if (svgEl) {
+      try {
+        const url = await svgToDataUrl(svgEl);
+        if (url && url.startsWith('data:image/')) return url;
+      } catch {
+        // Fall through to html2canvas
+      }
+    }
     const captured = await html2canvas(middlePanelRef.current, { backgroundColor: '#1a1a1a' });
     return captured.toDataURL('image/png');
   }, [dispatch, viewConfigurations, middlePanelRef]);

@@ -88,6 +88,8 @@ export interface PlotTrace {
   lineStyle: LineStyle;
   /** Which Y-axis this trace binds to. */
   yAxisId: 'left' | 'right';
+  /** Which antenna element to extract data from (0-based). Defaults to 0. */
+  antennaIndex?: number;
 }
 
 // ============================================================================
