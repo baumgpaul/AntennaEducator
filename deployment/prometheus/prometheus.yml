@@ -1,0 +1,29 @@
+# Prometheus configuration for Antenna Educator local monitoring
+#
+# Start with:  docker compose --profile monitoring up -d
+# Access at:   http://localhost:9090
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "preprocessor"
+    static_configs:
+      - targets: ["preprocessor:8001"]
+    metrics_path: /metrics
+
+  - job_name: "solver"
+    static_configs:
+      - targets: ["solver:8002"]
+    metrics_path: /metrics
+
+  - job_name: "postprocessor"
+    static_configs:
+      - targets: ["postprocessor:8003"]
+    metrics_path: /metrics
+
+  - job_name: "projects"
+    static_configs:
+      - targets: ["projects:8010"]
+    metrics_path: /metrics
