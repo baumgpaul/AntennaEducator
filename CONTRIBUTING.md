@@ -1,6 +1,8 @@
-# Contributing to Antenna Simulator
+# Contributing to Antenna Educator
 
-Thank you for your interest in contributing! This guide covers everything you need to get started.
+Thank you for your interest in contributing!  This project is licensed under the **MIT License** (see [LICENSE](LICENSE)).
+
+This guide covers everything you need to get started.
 
 ## Branching Strategy — GitHub Flow
 
@@ -74,47 +76,51 @@ pre-commit run --all-files
 
 ## CI/CD Pipeline
 
-### On Pull Request → GitHub Actions (automatic)
+### On Pull Request (automatic — AWS CodeBuild)
 
-Every PR to `main` runs two parallel jobs:
+Every PR to `main` runs the checks defined in `buildspec-test.yml`:
 1. **Backend** — Black, isort, Ruff, pytest unit tests
 2. **Frontend** — ESLint, TypeScript type-check, Vitest
 
-PRs cannot be merged unless all checks pass (enforced by branch protection).
+PRs cannot be merged unless all checks pass.
 
 ### On Merge to main → AWS CodePipeline (automatic)
 
 When code is merged to `main`, the AWS CodePipeline triggers:
 
 1. **Source** — pulls latest `main` from GitHub
-2. **Test** — runs full lint + test suite in CodeBuild
-3. **Deploy** — builds 4 Docker images, pushes to ECR, updates Lambda functions, deploys frontend to S3, invalidates CloudFront
-4. **Manual Approval** — email notification sent; reviewer tests staging and approves
+2. **Test** — runs full lint + test suite in CodeBuild (`buildspec-test.yml`)
+3. **Deploy** — builds 4 Docker images, pushes to ECR, updates Lambda functions,
+   deploys frontend to S3, invalidates CloudFront (`buildspec-deploy.yml`)
+
+To deploy manually at any time:
+
+```PowerShell
+.\scripts\deploy.ps1 -Environment staging    # staging
+.\scripts\deploy.ps1 -Environment production  # production
+.\scripts\promote.ps1                          # staging → production image promotion
+```
 
 ## Testing Requirements
 
-All PRs must pass:
+All PRs must pass the full pre-commit suite:
 
-### Backend
+```PowerShell
+# Python (from repo root, venv activated)
+black --check backend/ tests/
+isort --check-only backend/ tests/
+ruff check backend/ tests/
+pytest tests/unit/ -x -q --tb=short
 
-```bash
-# Activate virtualenv first
-pytest tests/unit/ -x -q
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm test -- --run
-```
-
-### Type checking (frontend)
-
-```bash
+# Frontend
 cd frontend
 npx tsc --noEmit
+npm run lint
+npx vitest run
+cd ..
 ```
+
+See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) for how to test against the local Docker stack and against AWS staging.
 
 ## Project Structure Overview
 
