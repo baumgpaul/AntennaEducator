@@ -120,8 +120,6 @@ npx vitest run
 cd ..
 ```
 
-See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) for how to test against the local Docker stack and against AWS staging.
-
 ## Project Structure Overview
 
 ```
@@ -152,6 +150,4 @@ tests/
 
 ## Getting Started
 
-See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) for setup instructions.
-
-See [docs/AWS_DEPLOYMENT.md](docs/AWS_DEPLOYMENT.md) for deploying to staging.
+See the [Quick Start section in README.md](README.md#quick-start) for setup instructions.

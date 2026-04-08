@@ -94,9 +94,6 @@ test_outputs/
 /data/
 /results/
 
-# Archived docs (completed-phase artifacts)
-docs/archive/
-
 # Node (root-level, from accidental npx)
 /node_modules/
 
@@ -125,3 +122,4 @@ tfplan
 !CONTRIBUTING.md
 eslint_output.txt
 eslint_report.json
+build_log.txt

@@ -4,7 +4,7 @@ Ad-hoc utilities for local development, debugging, and testing.
 **Not part of the production code.**
 
 > **Note:** Production deployment scripts (deploy, promote, init) live in `scripts/`, not here.
-> See `docs/LOCAL_DEVELOPMENT.md` for the full development workflow.
+> See the project [README.md](../README.md) for the full development workflow.
 
 ## Directory Structure
 

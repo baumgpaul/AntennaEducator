@@ -27,7 +27,7 @@ Creates a DynamoDB table with single-table design for the antenna simulator appl
 
 ## Access Patterns
 
-See `docs/AWS_DEPLOYMENT.md` for access patterns and the full single-table schema.
+See the project [README.md](../../../README.md) for access patterns and deployment details.
 
 ## Usage
 

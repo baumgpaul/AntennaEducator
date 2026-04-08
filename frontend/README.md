@@ -53,4 +53,4 @@ src/
 
 ## Deployment
 
-Production builds deploy to S3 + CloudFront via `deploy-frontend.ps1`. See [docs/AWS_DEPLOYMENT.md](../docs/AWS_DEPLOYMENT.md).
+Production builds deploy to S3 + CloudFront via `deploy-frontend.ps1`. See the [Deploying to AWS](../README.md#deploying-to-aws) section in README.
