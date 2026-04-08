@@ -43,4 +43,4 @@ uvicorn backend.postprocessor.main:app --port 8003 --reload
 uvicorn backend.projects.main:app --port 8010 --reload
 ```
 
-See [docs/LOCAL_DEVELOPMENT.md](../docs/LOCAL_DEVELOPMENT.md) for full setup instructions.
+See [README.md](../README.md#quick-start) for full setup instructions.

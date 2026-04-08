@@ -94,9 +94,6 @@ test_outputs/
 /data/
 /results/
 
-# Archived docs (completed-phase artifacts)
-docs/archive/
-
 # Node (root-level, from accidental npx)
 /node_modules/
 
@@ -122,6 +119,7 @@ tfplan
 # Tracked docs at repo root (all other *.md in root are ignored)
 /*.md
 !README.md
-!ACTION_PLAN.md
 !CONTRIBUTING.md
+eslint_output.txt
 eslint_report.json
+build_log.txt
