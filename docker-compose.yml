@@ -33,8 +33,9 @@ services:
   # DynamoDB Local — NoSQL database (data persisted to named volume)
   dynamodb-local:
     image: amazon/dynamodb-local:latest
-    # Use a file-backed store so data survives container restarts.
-    # Mount the data directory from the named volume.
+    # Run as root so the named volume (/data owned by root) is writable.
+    # This is acceptable for local development — DynamoDB Local is not exposed externally.
+    user: root
     command: "-jar DynamoDBLocal.jar -dbPath /data -sharedDb"
     ports:
       - "${DYNAMODB_LOCAL_PORT:-8888}:8000"   # host:8888 avoids collision with api-gateway:8000
@@ -44,7 +45,7 @@ services:
       - antenna-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8000/ || exit 1"]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8000 2>/dev/null && echo ok || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -90,7 +91,7 @@ services:
       - antenna-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8001/health"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 15s
       timeout: 5s
       retries: 4
@@ -115,7 +116,7 @@ services:
         limits:
           memory: 4G
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8002/health"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
       interval: 15s
       timeout: 5s
       retries: 4
@@ -136,7 +137,7 @@ services:
       - antenna-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8003/health"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
       interval: 15s
       timeout: 5s
       retries: 4
@@ -163,7 +164,7 @@ services:
       - antenna-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8010/health"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health')"]
       interval: 15s
       timeout: 5s
       retries: 4
@@ -185,7 +186,7 @@ services:
       - antenna-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8011/health"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8011/health')"]
       interval: 15s
       timeout: 5s
       retries: 4
