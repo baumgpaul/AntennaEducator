@@ -464,7 +464,7 @@ These items were deferred from Phase 0/3 and were backfilled as TDD in the Phase
 - [x] **Circuit editor auto-layout**: dagre-based TB auto-layout in `frontend/src/features/design/circuit/autoLayout.ts` (6 tests); "Auto Layout" button (AccountTree icon) in CircuitEditor toolbar
 ---
 
-## Phase 4 — Solver Enhancements & On-Demand Postprocessing
+## Phase 4 — Solver Enhancements & On-Demand Postprocessing ✅ COMPLETE (PR #60)
 
 **Goal**: (1) Port quantities (Γ, S11, VSWR, Z_in) with explicit port definitions. (2) Parameter variation system. (3) On-demand postprocessing — solve returns currents only, user explicitly requests port quantities and field computations. (4) Merge frequency sweep and parameter study into unified "Parameter Sweep". (5) Circuit editor: ports as components + IEEE symbols + auto-layout.
 
@@ -815,7 +815,7 @@ Multiple rounds of bug fixes after the unified refactor (all committed in PR #60
 
 ---
 
-## Phase 5 — Postprocessing View System: Line Plots, Smith Chart, Polar Plots, Table View
+## Phase 5 — Postprocessing View System: Line Plots, Smith Chart, Polar Plots, Table View ✅ COMPLETE
 
 **Status**: ✅ COMPLETE
 
@@ -1297,7 +1297,7 @@ Page N: Footer
 
 ---
 
-## Phase 8 — Refactoring & Hardening ⏳ NEXT
+## Phase 8 — Refactoring & Hardening ✅ COMPLETE (PR #64)
 
 **Goal**: Production-quality code, comprehensive tests, security, operational robustness. Module-by-module refactoring following SOLID principles, with a commit after each module. Every module gets a README, comprehensive tests, and cleaned-up code.
 
