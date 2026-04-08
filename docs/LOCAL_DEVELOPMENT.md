@@ -301,3 +301,93 @@ cd ..
 | Variable | Default | Description |
 |---|---|---|
 | `GRAFANA_ADMIN_PASSWORD` | `admin` | Grafana login password |
+
+---
+
+## 6. Testing — Local vs AWS
+
+### 6a. Test against the local Docker stack
+
+All backend unit tests run without any live services (fully mocked):
+
+```bash
+# From repo root, venv activated
+pytest tests/unit/ -x -q --tb=short
+```
+
+Integration tests require the full Docker stack running:
+
+```bash
+# Start services first
+docker compose up -d
+
+# Run integration suite
+.\dev_tools\run_integration_tests.ps1   # Windows
+# python -m pytest tests/integration/  # direct
+
+# Quick smoke test (preprocessor → solver → postprocessor pipeline)
+python dev_tools/test_aws_pipeline.py --base-url http://localhost:8000
+```
+
+Health-check all services manually:
+
+```bash
+.\dev_tools\check_services.ps1
+# or curl each individually:
+# curl http://localhost:8001/health   (preprocessor)
+# curl http://localhost:8002/health   (solver)
+# curl http://localhost:8003/health   (postprocessor)
+# curl http://localhost:8010/health   (projects)
+```
+
+### 6b. Test against AWS (staging)
+
+The AWS smoke test hits the live Lambda Function URLs:
+
+```PowerShell
+# Uses Lambda Function URLs configured in frontend/.env.production
+python dev_tools/test_aws_pipeline.py
+
+# Or with explicit overrides
+python dev_tools/test_aws_pipeline.py `
+  --preprocessor-url https://<lambda-url>.lambda-url.eu-west-1.on.aws `
+  --solver-url       https://<lambda-url>.lambda-url.eu-west-1.on.aws `
+  --postprocessor-url https://<lambda-url>.lambda-url.eu-west-1.on.aws
+```
+
+To test authenticated endpoints on AWS you need a valid Cognito JWT.
+The quickest way is via the browser: log in at `https://antennaeducator.nyakyagyawa.com`,
+open DevTools → Application → Local Storage, copy the `access_token` value, then:
+
+```bash
+# e.g. with curl
+curl -H "Authorization: Bearer <token>" \
+  https://<projects-lambda-url>.lambda-url.eu-west-1.on.aws/api/projects/
+```
+
+Alternatively use the Cognito profile via AWS CLI:
+
+```PowerShell
+# Get a Cognito token via the AWS CLI (requires USER_PASSWORD_AUTH flow enabled on the App Client)
+aws cognito-idp initiate-auth `
+  --auth-flow USER_PASSWORD_AUTH `
+  --client-id 26soasclspfs76edce205l0mci `
+  --auth-parameters USERNAME=<email>,PASSWORD=<password> `
+  --region eu-west-1 `
+  --profile antenna-staging `
+  --query AuthenticationResult.AccessToken `
+  --output text
+```
+
+### 6c. Key test scripts
+
+| Script | What it does |
+|---|---|
+| `pytest tests/unit/` | All 954+ unit tests (no live services) |
+| `pytest tests/unit/ -m critical` | Gold-standard half-wave dipole validation |
+| `pytest tests/unit/ -m solver` | Solver-specific tests |
+| `dev_tools/test_aws_pipeline.py` | End-to-end: mesh → solve → postprocess |
+| `dev_tools/test_backend_quick.ps1` | Quick HTTP smoke test against local services |
+| `dev_tools/test_cognito.ps1` | Cognito register/login flow (AWS only) |
+| `frontend: npx vitest run` | All 95+ frontend tests |
+| `frontend: npx tsc --noEmit` | TypeScript type check |

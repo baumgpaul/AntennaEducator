@@ -1,10 +1,7 @@
 # Antenna Educator
 
-<!-- Badges (CI pipeline — coming soon)
-![Build](https://img.shields.io/badge/build-passing-brightgreen)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-85%25-yellow)
--->
+[![PR Checks](https://github.com/baumgpaul/AntennaEducator/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/baumgpaul/AntennaEducator/actions/workflows/pr-checks.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Cloud-native electromagnetic simulation platform based on the PEEC (Partial Element Equivalent Circuit) method. Python microservice backend, React frontend, deployed to AWS Lambda or run locally via Docker.
 
@@ -56,11 +53,15 @@ graph TB
 ### Docker (full stack)
 
 ```bash
-docker-compose up --build
-# Frontend: http://localhost:3000
+cp .env.example .env          # then set JWT_SECRET_KEY, ADMIN_EMAIL, ADMIN_PASSWORD
+docker compose up -d
+python scripts/init_local_db.py      # seed admin user + DynamoDB table
+# Frontend: http://localhost:5173
 ```
 
-### Local development
+See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) for full setup with DynamoDB Local, MinIO, environment variables, and troubleshooting.
+
+### Local development (services individually)
 
 ```bash
 # Backend
@@ -73,20 +74,34 @@ uvicorn backend.preprocessor.main:app --port 8001 --reload
 cd frontend && npm install && npm run dev          # http://localhost:5173
 ```
 
-See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) for full setup with DynamoDB Local, environment variables, and troubleshooting.
-
 ## Testing
 
+### Local
+
 ```bash
-# Backend
-pytest tests/unit/ -x -q                   # Fast unit tests
+# Backend unit tests
+pytest tests/unit/ -x -q                   # Fast unit tests (~950 tests)
 pytest -m critical -v                      # Gold-standard dipole validation
 
 # Frontend
-cd frontend && npm test
+cd frontend && npx vitest run              # Vitest unit suite
+cd frontend && npx tsc --noEmit            # TypeScript check
 ```
 
-The **half-wave dipole gold standard** test validates solver correctness against fundamental antenna theory (~73 Ω impedance, ~2.15 dBi directivity). This test must pass before merging solver changes.
+The **half-wave dipole gold standard** test validates solver correctness against fundamental antenna theory (~73 Ω impedance, ~2.15 dBi directivity).
+
+### AWS (staging)
+
+```bash
+# Deploy to staging
+.\scripts\deploy.ps1 -Environment staging
+
+# Smoke-test all four Lambda endpoints
+python dev_tools/test_aws_pipeline.py
+
+# Tail CloudWatch logs
+aws logs tail /aws/lambda/antenna-simulator-projects-staging --follow --profile antenna-staging
+```
 
 ## Project Structure
 
@@ -104,11 +119,15 @@ AntennaEducator/
 │       ├── api/              # Axios client layer (per service)
 │       ├── features/         # Feature-based components (design, results, ...)
 │       └── store/            # Redux slices (auth, projects, design, solver, ...)
+├── scripts/                  # Deployment & init scripts
+│   ├── deploy.ps1 / .sh      # Unified Lambda + frontend deploy
+│   ├── promote.ps1           # Promote staging images to production
+│   └── init_local_db.py      # Seed DynamoDB + MinIO for local dev
 ├── terraform/                # AWS infrastructure-as-code
 │   ├── environments/staging/ # Staging environment config
 │   └── modules/              # Reusable Terraform modules
-├── tests/                    # Backend test suite
-├── dev_tools/                # Development & deployment scripts
+├── tests/                    # Backend test suite (pytest)
+├── dev_tools/                # Ad-hoc test & smoke-test scripts
 ├── docs/                     # Documentation
 └── docker-compose.yml        # Full-stack local orchestration
 ```
@@ -117,7 +136,7 @@ AntennaEducator/
 
 | Document | Description |
 |---|---|
-| [Local Development](docs/LOCAL_DEVELOPMENT.md) | Python setup, DynamoDB Local, running services, env vars |
+| [Local Development](docs/LOCAL_DEVELOPMENT.md) | Docker Compose, DynamoDB Local, MinIO, running services |
 | [AWS Deployment](docs/AWS_DEPLOYMENT.md) | Terraform, Lambda deployment, frontend deploy, smoke tests |
 | [Contributing](CONTRIBUTING.md) | Branching strategy, code style, PR workflow |
 | [Backend Implementation](docs/BACKEND_IMPLEMENTATION.md) | Technical design and solver internals |
@@ -125,7 +144,7 @@ AntennaEducator/
 
 ## License
 
-*(To be determined)*
+MIT — see [LICENSE](LICENSE). Copyright © 2026 Paul Baumgartner.
 
 ## Contact
 
