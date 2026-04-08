@@ -1,132 +1,146 @@
 # Antenna Educator
 
-<!-- Badges (CI pipeline — coming soon)
-![Build](https://img.shields.io/badge/build-passing-brightgreen)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-85%25-yellow)
--->
+[![PR Checks](https://github.com/baumgpaul/AntennaEducator/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/baumgpaul/AntennaEducator/actions/workflows/pr-checks.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![React 18](https://img.shields.io/badge/react-18-61DAFB.svg)](https://react.dev/)
 
-Cloud-native electromagnetic simulation platform based on the PEEC (Partial Element Equivalent Circuit) method. Python microservice backend, React frontend, deployed to AWS Lambda or run locally via Docker.
+An open-source electromagnetic simulation platform for learning and teaching antenna design. Built on the **PEEC method** (Partial Element Equivalent Circuit), it lets you design antennas, run full-wave EM simulations, and explore results — all from your browser.
 
-**Live:** [antennaeducator.nyakyagyawa.com](https://antennaeducator.nyakyagyawa.com)
+**Live demo:** [antennaeducator.nyakyagyawa.com](https://antennaeducator.nyakyagyawa.com)
 
-## Features
+---
 
-- **Antenna design** — dipole, loop, helix, rod, custom wire geometries with lumped elements (RLC)
-- **PEEC solver** — full-wave EM analysis: impedance, currents, frequency sweeps
-- **Postprocessing** — far-field/near-field, radiation patterns, directivity, gain
-- **3D visualization** — interactive Three.js scene with current/field overlays
-- **Multi-view results** — up to 10 independent result views (3D + line plots)
-- **Dual deployment** — serverless on AWS (~$1.60/month at low usage) or Docker on-prem
+## Highlights
+
+- **Design antennas visually** — dipole, loop, helix, rod, and custom wire geometries with lumped elements (R, L, C)
+- **Full-wave PEEC solver** — impedance, currents, frequency sweeps, parameter studies
+- **Rich postprocessing** — far-field & near-field patterns, directivity, gain, S-parameters, Smith charts
+- **Interactive 3D scene** — Three.js visualization with current and field overlays
+- **Multi-view results** — open up to 10 independent result panels (3D patterns + line plots)
+- **Dual deployment** — run serverless on AWS (~$1.60/month) or self-hosted via Docker
 
 ## Architecture
 
-```mermaid
-graph TB
-    Browser["Browser"] --> CloudFront["CloudFront / Vite Dev"]
-    CloudFront --> S3["S3 (Frontend Bundle)"]
+Four independent Python microservices behind a React SPA:
 
-    Browser -->|API calls| Preprocessor["Preprocessor :8001<br/>Mesh generation"]
-    Browser -->|API calls| Solver["Solver :8002<br/>PEEC solve"]
-    Browser -->|API calls| Postprocessor["Postprocessor :8003<br/>Far-field / gain"]
-    Browser -->|API calls| Projects["Projects :8010<br/>CRUD + Auth"]
-
-    Projects --> DynamoDB["DynamoDB"]
-    Projects --> Cognito["Cognito (AWS) /<br/>Local JWT (Docker)"]
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Browser (React + Three.js + Redux)                         │
+└────┬──────────┬──────────┬──────────┬───────────────────────┘
+     │          │          │          │
+     ▼          ▼          ▼          ▼
+┌─────────┐┌─────────┐┌─────────┐┌─────────┐
+│Preproc. ││ Solver  ││Postproc.││Projects │
+│  :8001  ││  :8002  ││  :8003  ││  :8010  │
+│ Mesh gen││ PEEC EM ││Far-field││CRUD+Auth│
+└─────────┘└─────────┘└─────────┘└────┬────┘
+                                      │
+                              ┌───────┴───────┐
+                              │   DynamoDB    │
+                              │  + S3 / MinIO │
+                              └───────────────┘
 ```
 
-| Service | Port | Lambda | Purpose |
-|---|---|---|---|
-| **Preprocessor** | 8001 | `antenna-simulator-preprocessor-staging` | Geometry definition, mesh generation |
-| **Solver** | 8002 | `antenna-simulator-solver-staging` | PEEC EM solver (impedance, currents) |
-| **Postprocessor** | 8003 | `antenna-simulator-postprocessor-staging` | Far-field, near-field, directivity |
-| **Projects** | 8010 | `antenna-simulator-projects-staging` | Project CRUD, auth, persistence |
+Each service is a FastAPI app that runs as an **AWS Lambda** (container image) in production or as a plain **Docker container** locally. Auth supports both AWS Cognito and local JWT.
 
 ## Tech Stack
 
 | Layer | Technologies |
 |---|---|
-| **Backend** | Python 3.11+, FastAPI, NumPy, SciPy, Pydantic v2 |
-| **Frontend** | React 18, TypeScript, Vite, MUI 5, Redux Toolkit, Three.js |
-| **Infrastructure** | AWS Lambda (containers), DynamoDB, S3, CloudFront, Cognito, Terraform |
-| **Dev tools** | pytest, Vitest, Black, isort, ruff, pre-commit |
+| Backend | Python 3.11, FastAPI, NumPy, SciPy, Pydantic v2 |
+| Frontend | React 18, TypeScript, Vite, MUI 5, Redux Toolkit, Three.js, Recharts |
+| Infrastructure | AWS Lambda, DynamoDB, S3, CloudFront, Cognito, Terraform |
+| Quality | pytest (~950 tests), Vitest, Black, isort, Ruff, pre-commit hooks |
 
 ## Quick Start
 
-### Docker (full stack)
+### Docker (recommended)
 
 ```bash
-docker-compose up --build
-# Frontend: http://localhost:3000
+cp .env.example .env
+# Edit .env — set JWT_SECRET_KEY, ADMIN_EMAIL, ADMIN_PASSWORD
+
+docker compose up -d --build
+python scripts/init_local_db.py   # creates DynamoDB table + admin user + S3 bucket
 ```
+
+Open [http://localhost:5173](http://localhost:5173) and log in with your admin credentials.
 
 ### Local development
 
 ```bash
-# Backend
-python -m venv .venv && .venv\Scripts\activate    # Windows
+# Backend (Python venv)
+python -m venv .venv && .venv/Scripts/activate   # or source .venv/bin/activate
 pip install -e ".[dev]"
 uvicorn backend.preprocessor.main:app --port 8001 --reload
-# ... repeat for solver (8002), postprocessor (8003), projects (8010)
+# Repeat for solver (:8002), postprocessor (:8003), projects (:8010)
 
 # Frontend
-cd frontend && npm install && npm run dev          # http://localhost:5173
+cd frontend && npm install && npm run dev
 ```
-
-See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) for full setup with DynamoDB Local, environment variables, and troubleshooting.
 
 ## Testing
 
 ```bash
 # Backend
-pytest tests/unit/ -x -q                   # Fast unit tests
-pytest -m critical -v                      # Gold-standard dipole validation
+pytest tests/unit/ -x -q              # ~950 unit tests
+pytest -m critical -v                 # Gold-standard half-wave dipole validation
 
 # Frontend
-cd frontend && npm test
+cd frontend
+npx tsc --noEmit                      # TypeScript check
+npx vitest run                        # Vitest suite
 ```
 
-The **half-wave dipole gold standard** test validates solver correctness against fundamental antenna theory (~73 Ω impedance, ~2.15 dBi directivity). This test must pass before merging solver changes.
+The **half-wave dipole gold-standard test** validates the PEEC solver against analytical antenna theory (~73 Ω impedance, ~2.15 dBi directivity).
+
+## Deploying to AWS
+
+```bash
+# Build Lambda images, push to ECR, update functions
+.\dev_tools\rebuild_lambda_images.ps1
+
+# Deploy frontend to S3 + invalidate CloudFront
+.\deploy-frontend.ps1
+
+# Smoke-test all endpoints
+python dev_tools/test_aws_pipeline.py
+```
+
+Infrastructure is managed with Terraform in `terraform/`.
 
 ## Project Structure
 
 ```
 AntennaEducator/
-├── backend/                  # Python microservices
+├── backend/
 │   ├── preprocessor/         # Geometry & mesh generation
 │   ├── solver/               # PEEC electromagnetic solver
-│   ├── postprocessor/        # Field computation & analysis
-│   ├── projects/             # Project CRUD & auth endpoints
+│   ├── postprocessor/        # Far-field, near-field, directivity
+│   ├── projects/             # Project CRUD, auth, persistence
 │   ├── auth/                 # Standalone auth service (Docker only)
-│   └── common/               # Shared models, auth, constants, repositories
-├── frontend/                 # React + TypeScript + Vite
-│   └── src/
-│       ├── api/              # Axios client layer (per service)
-│       ├── features/         # Feature-based components (design, results, ...)
-│       └── store/            # Redux slices (auth, projects, design, solver, ...)
-├── terraform/                # AWS infrastructure-as-code
-│   ├── environments/staging/ # Staging environment config
-│   └── modules/              # Reusable Terraform modules
-├── tests/                    # Backend test suite
-├── dev_tools/                # Development & deployment scripts
-├── docs/                     # Documentation
+│   └── common/               # Shared: models, auth, constants, repositories
+├── frontend/src/
+│   ├── api/                  # Axios clients (one per service)
+│   ├── features/             # Feature modules: design, results, solver, ...
+│   └── store/                # Redux slices
+├── scripts/                  # Deploy & init scripts
+├── terraform/                # AWS infrastructure (Terraform)
+├── tests/                    # Backend tests (pytest)
 └── docker-compose.yml        # Full-stack local orchestration
 ```
 
-## Documentation
+## Roadmap
 
-| Document | Description |
-|---|---|
-| [Local Development](docs/LOCAL_DEVELOPMENT.md) | Python setup, DynamoDB Local, running services, env vars |
-| [AWS Deployment](docs/AWS_DEPLOYMENT.md) | Terraform, Lambda deployment, frontend deploy, smoke tests |
-| [Contributing](CONTRIBUTING.md) | Branching strategy, code style, PR workflow |
-| [Backend Implementation](docs/BACKEND_IMPLEMENTATION.md) | Technical design and solver internals |
-| [Reference Verification](docs/REFERENCE_VERIFICATION.md) | Solver validation against reference PEEC results |
+- **Optimizer tool** — automated antenna parameter optimization
+- **FEM solver** — finite-element method for complex geometries
+- **Course content** — guided tutorials and exercises for students
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branching strategy, code style, and PR workflow.
 
 ## License
 
-*(To be determined)*
-
-## Contact
-
-Paul Baumgartner — baumg.paul@gmail.com
+MIT — see [LICENSE](LICENSE). Copyright © 2024–2026 Paul Baumgartner.

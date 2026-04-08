@@ -22,16 +22,20 @@ The `nginx.conf` is mounted into the `api-gateway` container defined in the root
 ## Full Stack
 
 ```bash
-# From project root
-docker-compose up --build
+# From project root (see README.md for full walkthrough)
+cp .env.example .env   # edit JWT_SECRET_KEY, ADMIN_EMAIL, ADMIN_PASSWORD
+docker compose up -d --build
+.\scripts\init-local.ps1   # seed DB + MinIO
 
 # Access points:
-# Frontend:    http://localhost:3000
-# API Gateway: http://localhost:8000
+# Frontend:      http://localhost:5173
+# API Gateway:   http://localhost:8000
+# MinIO Console: http://localhost:9001
+# DynamoDB:      http://localhost:8888
 # DynamoDB Local (internal): http://localhost:8000
 ```
 
-See [docs/LOCAL_DEVELOPMENT.md](../docs/LOCAL_DEVELOPMENT.md) for full local development instructions.
+See [README.md](../README.md#quick-start) for full local development instructions.
 
 ## License
 

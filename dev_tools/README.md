@@ -1,7 +1,10 @@
 # Development Tools
 
-Utilities for local development, debugging, deployment, and testing.
+Ad-hoc utilities for local development, debugging, and testing.
 **Not part of the production code.**
+
+> **Note:** Production deployment scripts (deploy, promote, init) live in `scripts/`, not here.
+> See the project [README.md](../README.md) for the full development workflow.
 
 ## Directory Structure
 
@@ -17,7 +20,7 @@ dev_tools/
 ├── check_services.ps1               # Verify all backend services are running
 ├── rebuild_lambda_images.ps1        # Build + push Docker images → ECR → update Lambdas
 ├── run_integration_tests.ps1        # Run integration test suite
-├── setup_dynamodb_local.py          # Create DynamoDB Local tables
+├── setup_dynamodb_local.py          # Legacy: create DynamoDB Local tables (superseded by scripts/init_local_db.py)
 ├── start_all_services.ps1           # Start all backend services (Windows)
 ├── start_backend.ps1                # Start backend services (Linux / macOS)
 ├── start_backend_windows.ps1        # Start backend services (Windows, alternate)
