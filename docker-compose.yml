@@ -1,36 +1,79 @@
+# =============================================================================
+# Antenna Educator — Docker Compose (standalone / on-prem mode)
+#
+# Quick start:
+#   1. cp .env.example .env   (edit ADMIN_EMAIL, ADMIN_PASSWORD, JWT_SECRET_KEY)
+#   2. docker compose up -d
+#   3. scripts/init-local.ps1  (Windows) or ./scripts/init-local.sh
+#   4. Open http://localhost:5173
+#
+# Optional monitoring profile (Prometheus + Grafana):
+#   docker compose --profile monitoring up -d
+#
+# Environment variables are read from the .env file in the repo root.
+# =============================================================================
+
+# --------------------------------------------------------------------------
+# Shared environment anchor — backend services all need these settings.
+# Override per-service below only when a service has a unique requirement.
+# --------------------------------------------------------------------------
+x-backend-env: &backend-env
+  USE_COGNITO: "false"
+  USE_DYNAMODB: "true"
+  DYNAMODB_ENDPOINT_URL: "http://dynamodb-local:8000"
+  DYNAMODB_TABLE_NAME: "${DYNAMODB_TABLE_NAME:-antenna-simulator-local}"
+  AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-dummy}"
+  AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-dummy}"
+  AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-eu-west-1}"
+  JWT_SECRET_KEY: "${JWT_SECRET_KEY}"
+
 services:
-  # Frontend - React Application
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:80"
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8000
-    depends_on:
-      - api-gateway
-    networks:
-      - antenna-network
-    restart: unless-stopped
+  # ── Infrastructure ────────────────────────────────────────────────────────
 
-  # API Gateway - Nginx reverse proxy
-  api-gateway:
-    image: nginx:alpine
+  # DynamoDB Local — NoSQL database (data persisted to named volume)
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    # Use a file-backed store so data survives container restarts.
+    # Mount the data directory from the named volume.
+    command: "-jar DynamoDBLocal.jar -dbPath /data -sharedDb"
     ports:
-      - "8000:80"
+      - "${DYNAMODB_LOCAL_PORT:-8888}:8000"   # host:8888 avoids collision with api-gateway:8000
     volumes:
-      - ./deployment/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - preprocessor
-      - solver
-      - postprocessor
-      - projects
+      - dynamodb-data:/data
     networks:
       - antenna-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
 
-  # Preprocessor Service
+  # MinIO — S3-compatible object storage for simulation results
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"   # MinIO Console — http://localhost:9001
+    environment:
+      MINIO_ROOT_USER: "${AWS_ACCESS_KEY_ID:-minioadmin}"
+      MINIO_ROOT_PASSWORD: "${AWS_SECRET_ACCESS_KEY:-minioadmin}"
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - antenna-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  # ── Backend microservices ─────────────────────────────────────────────────
+
   preprocessor:
     build:
       context: .
@@ -39,12 +82,19 @@ services:
     expose:
       - "8001"
     environment:
-      - SERVICE_NAME=preprocessor
+      <<: *backend-env
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
     networks:
       - antenna-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
 
-  # Solver Service
   solver:
     build:
       context: .
@@ -53,17 +103,23 @@ services:
     expose:
       - "8002"
     environment:
-      - SERVICE_NAME=solver
+      <<: *backend-env
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
     networks:
       - antenna-network
     restart: unless-stopped
-    # Increase memory for solver
     deploy:
       resources:
         limits:
           memory: 4G
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8002/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
 
-  # Postprocessor Service
   postprocessor:
     build:
       context: .
@@ -72,39 +128,19 @@ services:
     expose:
       - "8003"
     environment:
-      - SERVICE_NAME=postprocessor
-    networks:
-      - antenna-network
-    restart: unless-stopped
-
-  # Auth Service - Authentication and user management
-  auth:
-    build:
-      context: .
-      dockerfile: ./backend/Dockerfile
-    command: uvicorn backend.auth.main:app --host 0.0.0.0 --port 8011
-    ports:
-      - "8011:8011"
-    environment:
-      - JWT_SECRET_KEY=your-secret-key-change-in-production-use-openssl-rand-hex-32
-      # Database: DynamoDB Local (same as AWS production)
-      - USE_DYNAMODB=true
-      - DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
-      - DYNAMODB_TABLE_NAME=antenna-simulator-local
-      - AWS_ACCESS_KEY_ID=dummy
-      - AWS_SECRET_ACCESS_KEY=dummy
-      - AWS_DEFAULT_REGION=eu-west-1
-      # Authentication: JWT (not Cognito) with auto-approval
-      - USE_COGNITO=false  # Docker mode: local JWT with auto-approval
-      # Note: First registered user becomes admin automatically
-      # All users are auto-approved in Docker mode
+      <<: *backend-env
     depends_on:
-      - dynamodb-local
+      dynamodb-local:
+        condition: service_healthy
     networks:
       - antenna-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8003/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
 
-  # Projects Service - Project management and persistence
   projects:
     build:
       context: .
@@ -113,64 +149,130 @@ services:
     ports:
       - "8010:8010"
     environment:
-      - JWT_SECRET_KEY=your-secret-key-change-in-production-use-openssl-rand-hex-32
-      # Database: DynamoDB Local (same as AWS production)
-      - USE_DYNAMODB=true
-      - DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
-      - DYNAMODB_TABLE_NAME=antenna-simulator-local
-      - AWS_ACCESS_KEY_ID=minioadmin
-      - AWS_SECRET_ACCESS_KEY=minioadmin
-      - AWS_DEFAULT_REGION=eu-west-1
-      # S3-compatible storage: MinIO for Docker
-      - USE_S3=true
-      - S3_ENDPOINT_URL=http://minio:9000
-      - RESULTS_BUCKET_NAME=antenna-simulator-results-local
-      # Authentication: JWT (not Cognito) with auto-approval
-      - USE_COGNITO=false  # Docker mode: local JWT with auto-approval
-      # Note: First registered user becomes admin automatically
-      # All users are auto-approved in Docker mode
+      <<: *backend-env
+      # S3-compatible storage via MinIO
+      USE_S3: "true"
+      S3_ENDPOINT_URL: "http://minio:9000"
+      RESULTS_BUCKET_NAME: "${RESULTS_BUCKET_NAME:-antenna-simulator-results-local}"
     depends_on:
-      - dynamodb-local
-      - minio
-    networks:
-      - antenna-network
-    restart: unless-stopped
-
-  # MinIO - S3-compatible object storage for simulation results
-  minio:
-    image: minio/minio:latest
-    ports:
-      - "9000:9000"
-      - "9001:9001"  # MinIO Console
-    environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio-data:/data
+      dynamodb-local:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     networks:
       - antenna-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD", "curl", "-sf", "http://localhost:8010/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
 
-  # DynamoDB Local - NoSQL database for testing
-  dynamodb-local:
-    image: amazon/dynamodb-local:latest
+  # auth service (standalone auth endpoints — used in Docker/on-prem mode)
+  auth:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    command: uvicorn backend.auth.main:app --host 0.0.0.0 --port 8011
     ports:
-      - "8000:8000"
-    command: "-jar DynamoDBLocal.jar -inMemory -sharedDb"
+      - "8011:8011"
+    environment:
+      <<: *backend-env
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+    networks:
+      - antenna-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8011/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+
+  # ── API Gateway ───────────────────────────────────────────────────────────
+
+  api-gateway:
+    image: nginx:alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./deployment/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      preprocessor:
+        condition: service_healthy
+      solver:
+        condition: service_healthy
+      postprocessor:
+        condition: service_healthy
+      projects:
+        condition: service_healthy
     networks:
       - antenna-network
     restart: unless-stopped
 
+  # ── Frontend ──────────────────────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - antenna-network
+    restart: unless-stopped
+
+  # ── Optional monitoring profile ───────────────────────────────────────────
+  # Start with:  docker compose --profile monitoring up -d
+
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - antenna-network
+    restart: unless-stopped
+
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"   # Grafana UI — http://localhost:3001
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deployment/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - antenna-network
+    restart: unless-stopped
+
+# --------------------------------------------------------------------------
+# Networks
+# --------------------------------------------------------------------------
 networks:
   antenna-network:
     driver: bridge
 
+# --------------------------------------------------------------------------
+# Volumes — all data persists across container restarts
+# --------------------------------------------------------------------------
 volumes:
+  dynamodb-data:
+    driver: local
   minio-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
     driver: local
