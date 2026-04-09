@@ -5,6 +5,7 @@
  * Each tab shows relevant action buttons in the toolbar area.
  */
 
+import { useState } from 'react'
 import {
   Box,
   Tabs,
@@ -21,6 +22,9 @@ import {
   Delete as ClearIcon,
   Undo as UndoIcon,
   FileDownload as ExportIcon,
+
+  Science as MaterialIcon,
+  BorderStyle as BCIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {
@@ -33,10 +37,14 @@ import {
 import {
   clearSolveResult,
 } from '@/store/femSolverSlice'
+import { runFEMSolve } from '@/store/femSolverThunks'
+import { exportVTK, exportCSV } from '@/api/femPostprocessor'
 import { generateFEMMesh } from '@/api/femPreprocessor'
 import type { FEMTab } from './FEMDesignPage'
 import type { MeshStatus } from '@/types/femMesh'
 import type { SolveStatus } from '@/types/femSolver'
+import AddMaterialDialog from './AddMaterialDialog'
+import AddBCDialog from './AddBCDialog'
 
 interface FEMRibbonMenuProps {
   currentTab: FEMTab
@@ -49,6 +57,10 @@ function FEMRibbonMenu({ currentTab, onTabChange, meshStatus, solveStatus }: FEM
   const dispatch = useAppDispatch()
   const geometryOps = useAppSelector(selectFEMGeometryOps)
   const discretization = useAppSelector((s) => s.femDesign.discretization)
+  const mesh = useAppSelector((s) => s.femDesign.mesh)
+  const solveResult = useAppSelector((s) => s.femSolver.result)
+  const [materialDialogOpen, setMaterialDialogOpen] = useState(false)
+  const [bcDialogOpen, setBcDialogOpen] = useState(false)
 
   const handleTabChange = (_: unknown, newValue: FEMTab) => {
     onTabChange(newValue)
@@ -68,6 +80,40 @@ function FEMRibbonMenu({ currentTab, onTabChange, meshStatus, solveStatus }: FEM
   const handleClearGeometry = () => {
     dispatch(clearGeometry())
     dispatch(clearSolveResult())
+  }
+
+  const handleSolve = () => {
+    dispatch(runFEMSolve())
+  }
+
+  const handleExportVTK = async () => {
+    if (!mesh || !solveResult) return
+    try {
+      const blob = await exportVTK(mesh, solveResult)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'fem_results.vtk'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // Export error — silently ignored for now
+    }
+  }
+
+  const handleExportCSV = async () => {
+    if (!mesh || !solveResult) return
+    try {
+      const blob = await exportCSV(mesh, solveResult)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'fem_results.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // Export error — silently ignored for now
+    }
   }
 
   return (
@@ -154,6 +200,27 @@ function FEMRibbonMenu({ currentTab, onTabChange, meshStatus, solveStatus }: FEM
           </>
         )}
 
+        {currentTab === 'physics' && (
+          <ButtonGroup size="small" variant="outlined">
+            <Tooltip title="Add material">
+              <Button
+                startIcon={<MaterialIcon />}
+                onClick={() => setMaterialDialogOpen(true)}
+              >
+                Material
+              </Button>
+            </Tooltip>
+            <Tooltip title="Add boundary condition">
+              <Button
+                startIcon={<BCIcon />}
+                onClick={() => setBcDialogOpen(true)}
+              >
+                BC
+              </Button>
+            </Tooltip>
+          </ButtonGroup>
+        )}
+
         {currentTab === 'solver' && (
           <ButtonGroup size="small" variant="outlined">
             <Tooltip title="Run FEM solver">
@@ -163,6 +230,7 @@ function FEMRibbonMenu({ currentTab, onTabChange, meshStatus, solveStatus }: FEM
                   disabled={meshStatus !== 'ready' || solveStatus === 'solving'}
                   color="primary"
                   variant="contained"
+                  onClick={handleSolve}
                 >
                   Solve
                 </Button>
@@ -174,7 +242,10 @@ function FEMRibbonMenu({ currentTab, onTabChange, meshStatus, solveStatus }: FEM
         {currentTab === 'results' && (
           <ButtonGroup size="small" variant="outlined">
             <Tooltip title="Export results as VTK">
-              <Button startIcon={<ExportIcon />}>Export VTK</Button>
+              <Button startIcon={<ExportIcon />} onClick={handleExportVTK}>Export VTK</Button>
+            </Tooltip>
+            <Tooltip title="Export integral quantities as CSV">
+              <Button startIcon={<ExportIcon />} onClick={handleExportCSV}>Export CSV</Button>
             </Tooltip>
           </ButtonGroup>
         )}
@@ -184,6 +255,10 @@ function FEMRibbonMenu({ currentTab, onTabChange, meshStatus, solveStatus }: FEM
       {(meshStatus === 'generating' || solveStatus === 'solving') && (
         <LinearProgress sx={{ mt: 0.5 }} />
       )}
+
+      {/* Dialogs */}
+      <AddMaterialDialog open={materialDialogOpen} onClose={() => setMaterialDialogOpen(false)} />
+      <AddBCDialog open={bcDialogOpen} onClose={() => setBcDialogOpen(false)} />
     </Box>
   )
 }

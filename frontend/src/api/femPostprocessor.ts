@@ -69,3 +69,16 @@ export async function exportVTK(
   )
   return response.data as Blob
 }
+
+/** Export results as CSV file. */
+export async function exportCSV(
+  mesh: FEMMesh,
+  result: FEMSolverResult
+): Promise<Blob> {
+  const response = await femPostprocessorClient.post(
+    '/api/fem/postprocess/export/csv',
+    { mesh, result },
+    { responseType: 'blob' }
+  )
+  return response.data as Blob
+}

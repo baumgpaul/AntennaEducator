@@ -23,6 +23,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Checkbox,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
@@ -250,6 +251,7 @@ function FEMPropertiesPanel({ currentTab }: FEMPropertiesPanelProps) {
 
       {/* ── Solver tab ── */}
       {currentTab === 'solver' && (
+        <>
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="body2" fontWeight={500}>
@@ -306,6 +308,72 @@ function FEMPropertiesPanel({ currentTab }: FEMPropertiesPanelProps) {
             />
           </AccordionDetails>
         </Accordion>
+
+        {/* Output requests */}
+        <Accordion defaultExpanded sx={{ mt: 1 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="body2" fontWeight={500}>
+              Output Requests
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+              Derived fields
+            </Typography>
+            {[
+              { key: 'potential', label: 'Potential (φ)' },
+              { key: 'e_field', label: 'E-field (−∇φ)' },
+              { key: 'd_field', label: 'D-field (εE)' },
+              { key: 'energy_density', label: 'Energy density' },
+            ].map(({ key, label }) => (
+              <FormControlLabel
+                key={key}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={solverConfig.requestedFields.includes(key)}
+                    onChange={(e) => {
+                      const fields = e.target.checked
+                        ? [...solverConfig.requestedFields, key]
+                        : solverConfig.requestedFields.filter((f) => f !== key)
+                      dispatch(setFEMSolverConfig({ requestedFields: fields }))
+                    }}
+                  />
+                }
+                label={<Typography variant="body2">{label}</Typography>}
+                sx={{ display: 'block', ml: 0 }}
+              />
+            ))}
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+              Integral quantities
+            </Typography>
+            {[
+              { key: 'energy', label: 'Electric energy' },
+              { key: 'charge', label: 'Total charge' },
+              { key: 'capacitance', label: 'Capacitance' },
+            ].map(({ key, label }) => (
+              <FormControlLabel
+                key={key}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={solverConfig.requestedIntegrals.includes(key)}
+                    onChange={(e) => {
+                      const integrals = e.target.checked
+                        ? [...solverConfig.requestedIntegrals, key]
+                        : solverConfig.requestedIntegrals.filter((i) => i !== key)
+                      dispatch(setFEMSolverConfig({ requestedIntegrals: integrals }))
+                    }}
+                  />
+                }
+                label={<Typography variant="body2">{label}</Typography>}
+                sx={{ display: 'block', ml: 0 }}
+              />
+            ))}
+          </AccordionDetails>
+        </Accordion>
+        </>
       )}
 
       {/* ── Results tab ── */}

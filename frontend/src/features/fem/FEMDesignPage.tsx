@@ -26,6 +26,8 @@ import GeometryCanvas from './GeometryCanvas'
 import ModelTree from './ModelTree'
 import FEMPropertiesPanel from './FEMPropertiesPanel'
 import DrawingToolbar from './DrawingToolbar'
+import FEMResultsCanvas from './FEMResultsCanvas'
+import FEMResultsPanel from './FEMResultsPanel'
 
 export type FEMTab = 'geometry' | 'physics' | 'solver' | 'results'
 
@@ -130,8 +132,15 @@ function FEMDesignPage() {
             <DrawingToolbar activeTool={activeTool} />
           )}
 
-          {/* 2D Canvas */}
-          <GeometryCanvas currentTab={currentTab} />
+          {/* 2D Canvas — use results canvas for results tab */}
+          {currentTab === 'results' ? (
+            <FEMResultsCanvas />
+          ) : (
+            <GeometryCanvas currentTab={currentTab} />
+          )}
+
+          {/* Bottom results panel (only on results tab) */}
+          {currentTab === 'results' && <FEMResultsPanel />}
         </Box>
 
         {/* Collapse/expand right panel toggle */}
