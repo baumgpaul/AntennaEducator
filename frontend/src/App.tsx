@@ -11,6 +11,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 // Route-level code splitting — heavy pages loaded on demand
 const ProjectsPage = lazy(() => import('./features/projects/ProjectsPage'));
 const DesignPage = lazy(() => import('./features/design/DesignPage'));
+const FEMDesignPage = lazy(() => import('./features/fem/FEMDesignPage'));
 const ResultsPage = lazy(() => import('./features/results/ResultsPage'));
 const CoursesPage = lazy(() => import('./features/courses/CoursesPage'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
@@ -53,6 +54,8 @@ function App() {
           <Route path="/admin" element={<ErrorBoundary><Suspense fallback={<Fallback />}><AdminPage /></Suspense></ErrorBoundary>} />
           <Route path="/design" element={<ErrorBoundary><Suspense fallback={<Fallback />}><DesignPage /></Suspense></ErrorBoundary>} />
           <Route path="/project/:projectId/design" element={<ErrorBoundary><Suspense fallback={<Fallback />}><DesignPage /></Suspense></ErrorBoundary>} />
+          <Route path="/fem" element={<ErrorBoundary><Suspense fallback={<Fallback />}><FEMDesignPage /></Suspense></ErrorBoundary>} />
+          <Route path="/project/:projectId/fem" element={<ErrorBoundary><Suspense fallback={<Fallback />}><FEMDesignPage /></Suspense></ErrorBoundary>} />
           <Route path="/project/:projectId/results" element={<ErrorBoundary><Suspense fallback={<Fallback />}><ResultsPage /></Suspense></ErrorBoundary>} />
         </Route>
 
