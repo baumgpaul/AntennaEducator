@@ -14,6 +14,8 @@ import documentationReducer from './documentationSlice'
 import foldersReducer from './foldersSlice'
 import variablesReducer from './variablesSlice'
 import submissionsReducer from './submissionsSlice'
+import femDesignReducer from './femDesignSlice'
+import femSolverReducer from './femSolverSlice'
 
 export const store = configureStore({
   reducer: {
@@ -27,6 +29,8 @@ export const store = configureStore({
     folders: foldersReducer,
     variables: variablesReducer,
     submissions: submissionsReducer,
+    femDesign: femDesignReducer,
+    femSolver: femSolverReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -36,7 +40,7 @@ export const store = configureStore({
         // Ignore these field paths in all actions
         ignoredActionPaths: ['payload.mesh', 'payload.results', 'payload.branch_currents', 'meta.arg'],
         // Ignore these paths in the state
-        ignoredPaths: ['design.mesh', 'design.results', 'solver.results', 'solver.currentDistribution'],
+        ignoredPaths: ['design.mesh', 'design.results', 'solver.results', 'solver.currentDistribution', 'femDesign.mesh', 'femSolver.result'],
       },
     }),
 })

@@ -26,6 +26,18 @@ const getAuthURL = () => {
   return (import.meta.env.VITE_AUTH_URL as string) || getProjectsURL()
 }
 
+const getFEMPreprocessorURL = () => {
+  return (import.meta.env.VITE_FEM_PREPROCESSOR_URL as string) || 'http://localhost:8004'
+}
+
+const getFEMSolverURL = () => {
+  return (import.meta.env.VITE_FEM_SOLVER_URL as string) || 'http://localhost:8005'
+}
+
+const getFEMPostprocessorURL = () => {
+  return (import.meta.env.VITE_FEM_POSTPROCESSOR_URL as string) || 'http://localhost:8006'
+}
+
 // Token refresh state management
 let isRefreshing = false
 let failedQueue: Array<{
@@ -233,9 +245,21 @@ export const solverClient = createApiClient(getSolverURL())
 export const postprocessorClient = createApiClient(getPostprocessorURL())
 export const projectsClient = createApiClient(getProjectsURL())
 export const authClient = createApiClient(getAuthURL())
+export const femPreprocessorClient = createApiClient(getFEMPreprocessorURL())
+export const femSolverClient = createApiClient(getFEMSolverURL())
+export const femPostprocessorClient = createApiClient(getFEMPostprocessorURL())
 
 // Export URL getters for reference
-export { getPreprocessorURL, getSolverURL, getPostprocessorURL, getProjectsURL, getAuthURL }
+export {
+  getPreprocessorURL,
+  getSolverURL,
+  getPostprocessorURL,
+  getProjectsURL,
+  getAuthURL,
+  getFEMPreprocessorURL,
+  getFEMSolverURL,
+  getFEMPostprocessorURL,
+}
 
 // Helper function for handling API responses
 export const handleApiResponse = <T>(response: { data: T }): T => {
