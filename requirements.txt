@@ -13,6 +13,9 @@ python-dotenv>=1.0.0
 httpx>=0.25.0
 requests>=2.30.0
 
+# Meshing (FEM preprocessor)
+gmsh>=4.12.0
+
 # AWS SDK (DynamoDB, S3, Cognito)
 boto3>=1.35.0
 
