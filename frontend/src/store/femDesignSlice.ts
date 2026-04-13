@@ -3,14 +3,17 @@
  * Manages geometry operations, mesh, materials, BCs, and physics assignments.
  */
 
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit'
 import type { RootState } from './store'
 import type {
   GeoOperation,
   EvaluatedGeometry,
   ToolType,
   ToolState,
+  NamingCounters,
 } from '@/types/femGeometry'
+import { initialNamingCounters } from '@/types/femGeometry'
+import { evaluateGeometry } from '@/types/evaluateGeometry'
 import type { FEMMesh, MeshStatus, MeshStatistics } from '@/types/femMesh'
 import type {
   PDEType,
@@ -53,7 +56,9 @@ export interface FEMDesignState {
   geometryOperations: GeoOperation[]
   evaluatedGeometry: EvaluatedGeometry | null
   selectedEntityId: string | null
-  selectedEntityType: 'point' | 'edge' | 'body' | null
+  selectedEntityType: 'point' | 'edge' | 'body' | 'surface' | null
+  /** Counters for auto-generating unique entity names. */
+  namingCounters: NamingCounters
 
   // Active drawing tool
   activeTool: ToolType
@@ -85,6 +90,7 @@ const initialState: FEMDesignState = {
   evaluatedGeometry: null,
   selectedEntityId: null,
   selectedEntityType: null,
+  namingCounters: { ...initialNamingCounters },
 
   activeTool: 'select',
   toolState: { pendingPoints: [], previewPoint: null },
@@ -115,11 +121,56 @@ const femDesignSlice = createSlice({
     // — Geometry operations —
     addGeometryOperation(state, action: PayloadAction<GeoOperation>) {
       state.geometryOperations.push(action.payload)
+      state.evaluatedGeometry = evaluateGeometry(state.geometryOperations, state.namingCounters)
       state.meshStale = true
       state.resultsStale = true
     },
     removeGeometryOperation(state, action: PayloadAction<number>) {
       state.geometryOperations.splice(action.payload, 1)
+      state.evaluatedGeometry = evaluateGeometry(state.geometryOperations, state.namingCounters)
+      state.meshStale = true
+      state.resultsStale = true
+    },
+    /** Remove a geometry operation by tag, cascading to dependent boolean ops.
+     *  For subtract: deleting the tool does NOT cascade (the hole is kept via
+     *  independent inner-loop edges). Only deleting the object cascades.
+     */
+    removeGeometryOperationByTag(state, action: PayloadAction<string>) {
+      const tag = action.payload
+      // Collect tags to remove (the target + any boolean ops that reference it)
+      const tagsToRemove = new Set<string>([tag])
+      let changed = true
+      while (changed) {
+        changed = false
+        for (const op of state.geometryOperations) {
+          const p = op.params as Record<string, unknown>
+          const opTag = String(p.tag ?? '')
+          if (tagsToRemove.has(opTag)) continue
+          if (op.type.startsWith('boolean_')) {
+            const objTag = String(p.object_tag ?? p.object ?? '')
+            const toolTag = String(p.tool_tag ?? p.tool ?? '')
+            if (op.type === 'boolean_subtract') {
+              // Subtract: cascade only when the object is deleted, not the tool
+              if (tagsToRemove.has(objTag)) {
+                tagsToRemove.add(opTag)
+                changed = true
+              }
+            } else if (tagsToRemove.has(objTag) || tagsToRemove.has(toolTag)) {
+              tagsToRemove.add(opTag)
+              changed = true
+            }
+          }
+        }
+      }
+      state.geometryOperations = state.geometryOperations.filter((op) => {
+        const opTag = String((op.params as Record<string, unknown>).tag ?? '')
+        return !tagsToRemove.has(opTag)
+      })
+      state.evaluatedGeometry = evaluateGeometry(state.geometryOperations, state.namingCounters)
+      if (state.selectedEntityId && tagsToRemove.has(state.selectedEntityId)) {
+        state.selectedEntityId = null
+        state.selectedEntityType = null
+      }
       state.meshStale = true
       state.resultsStale = true
     },
@@ -130,9 +181,30 @@ const femDesignSlice = createSlice({
       state.meshStatus = 'none'
       state.meshStale = false
       state.resultsStale = true
+      state.namingCounters = { ...initialNamingCounters }
     },
     setEvaluatedGeometry(state, action: PayloadAction<EvaluatedGeometry | null>) {
       state.evaluatedGeometry = action.payload
+    },
+    /** Increment a naming counter and return old value (for auto-naming). */
+    incrementNamingCounter(state, action: PayloadAction<keyof NamingCounters>) {
+      state.namingCounters[action.payload] += 1
+    },
+    /** Rename a surface or edge in the evaluated geometry. */
+    renameEntity(state, action: PayloadAction<{ id: string; newName: string }>) {
+      if (!state.evaluatedGeometry) return
+      const surface = state.evaluatedGeometry.surfaces.find((s) => s.id === action.payload.id)
+      if (surface) {
+        surface.name = action.payload.newName
+        // Also update in bodies alias
+        const body = state.evaluatedGeometry.bodies.find((b) => b.id === action.payload.id)
+        if (body) body.name = action.payload.newName
+        return
+      }
+      const edge = state.evaluatedGeometry.edges.find((e) => e.id === action.payload.id)
+      if (edge) {
+        edge.name = action.payload.newName
+      }
     },
 
     // — Selection —
@@ -140,7 +212,7 @@ const femDesignSlice = createSlice({
       state,
       action: PayloadAction<{
         id: string | null
-        type: 'point' | 'edge' | 'body' | null
+        type: 'point' | 'edge' | 'body' | 'surface' | null
       }>
     ) {
       state.selectedEntityId = action.payload.id
@@ -266,7 +338,33 @@ const femDesignSlice = createSlice({
 
     // — Reset —
     resetFEMDesign() {
-      return initialState
+      return { ...initialState, namingCounters: { ...initialNamingCounters } }
+    },
+
+    // — Load from persisted design_state blob —
+    loadFEMDesign(
+      state,
+      action: PayloadAction<Partial<FEMDesignState>>
+    ) {
+      const d = action.payload
+      if (d.geometryOperations) state.geometryOperations = d.geometryOperations
+      if (d.evaluatedGeometry !== undefined) state.evaluatedGeometry = d.evaluatedGeometry
+      // Re-evaluate geometry from operations if evaluatedGeometry wasn't persisted
+      if (state.geometryOperations.length > 0 && !state.evaluatedGeometry) {
+        state.evaluatedGeometry = evaluateGeometry(state.geometryOperations, state.namingCounters)
+      }
+      if (d.discretization) Object.assign(state.discretization, d.discretization)
+      if (d.mesh !== undefined) state.mesh = d.mesh
+      if (d.meshStatus) state.meshStatus = d.meshStatus
+      if (d.meshStatistics !== undefined) state.meshStatistics = d.meshStatistics
+      if (d.pdeType) state.pdeType = d.pdeType
+      if (d.materials) state.materials = d.materials
+      if (d.materialAssignments) state.materialAssignments = d.materialAssignments
+      if (d.boundaryConditions) state.boundaryConditions = d.boundaryConditions
+      if (d.excitations) state.excitations = d.excitations
+      if (d.namingCounters) state.namingCounters = d.namingCounters
+      state.meshStale = d.meshStale ?? false
+      state.resultsStale = d.resultsStale ?? false
     },
   },
 })
@@ -276,8 +374,11 @@ const femDesignSlice = createSlice({
 export const {
   addGeometryOperation,
   removeGeometryOperation,
+  removeGeometryOperationByTag,
   clearGeometry,
   setEvaluatedGeometry,
+  incrementNamingCounter,
+  renameEntity,
   selectEntity,
   setActiveTool,
   addPendingPoint,
@@ -300,21 +401,27 @@ export const {
   markResultsStale,
   clearStale,
   resetFEMDesign,
+  loadFEMDesign,
 } = femDesignSlice.actions
 
 // ── Selectors ─────────────────────────────────────────────────
 
 export const selectFEMGeometryOps = (state: RootState) =>
   state.femDesign.geometryOperations
+export const selectFEMEvaluatedGeometry = (state: RootState) =>
+  state.femDesign.evaluatedGeometry
 export const selectFEMMesh = (state: RootState) => state.femDesign.mesh
 export const selectFEMMeshStatus = (state: RootState) =>
   state.femDesign.meshStatus
 export const selectFEMActiveTool = (state: RootState) =>
   state.femDesign.activeTool
-export const selectFEMSelectedEntity = (state: RootState) => ({
-  id: state.femDesign.selectedEntityId,
-  type: state.femDesign.selectedEntityType,
-})
+export const selectFEMSelectedEntity = createSelector(
+  (state: RootState) => state.femDesign.selectedEntityId,
+  (state: RootState) => state.femDesign.selectedEntityType,
+  (id, type) => ({ id, type }),
+)
+export const selectFEMNamingCounters = (state: RootState) =>
+  state.femDesign.namingCounters
 export const selectFEMPDEType = (state: RootState) => state.femDesign.pdeType
 export const selectFEMMaterials = (state: RootState) =>
   state.femDesign.materials
@@ -322,5 +429,7 @@ export const selectFEMBoundaryConditions = (state: RootState) =>
   state.femDesign.boundaryConditions
 export const selectFEMResultsStale = (state: RootState) =>
   state.femDesign.resultsStale
+export const selectFEMDiscretization = (state: RootState) =>
+  state.femDesign.discretization
 
 export default femDesignSlice.reducer

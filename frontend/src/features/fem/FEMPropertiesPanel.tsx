@@ -8,6 +8,7 @@
  * Results tab:  Display mode, color map, color range, mesh overlay toggle
  */
 
+import { useState } from 'react'
 import {
   Box,
   Typography,
@@ -24,14 +25,27 @@ import {
   AccordionSummary,
   AccordionDetails,
   Checkbox,
+  Button,
+  Chip,
+  Stack,
 } from '@mui/material'
-import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
+import {
+  ExpandMore as ExpandMoreIcon,
+  Add as AddIcon,
+} from '@mui/icons-material'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import {
   selectFEMGeometryOps,
+  selectFEMEvaluatedGeometry,
   selectFEMSelectedEntity,
+  selectFEMMaterials,
+  selectFEMBoundaryConditions,
   setDiscretization,
   setPDEType,
+  assignMaterial,
+  addMaterial,
+  addBoundaryCondition,
+  updateBoundaryCondition,
 } from '@/store/femDesignSlice'
 import type { FEMDiscretizationSettings } from '@/store/femDesignSlice'
 import {
@@ -48,21 +62,307 @@ import {
   setSelectedField,
 } from '@/store/femSolverSlice'
 import type { FEMTab } from './FEMDesignPage'
-import type { PDEType } from '@/types/femPhysics'
+import type { PDEType, BCType } from '@/types/femPhysics'
+import { BUILTIN_MATERIALS } from '@/types/femPhysics'
 import type { DisplayMode, ColorMapName } from '@/types/femResults'
 
 interface FEMPropertiesPanelProps {
   currentTab: FEMTab
 }
 
+// ── Surface material assignment ───────────────────────────────
+
+function SurfaceMaterialSection({
+  surfaceId,
+  surfaceName,
+  assignedMaterialId,
+  materials,
+  dispatch,
+}: {
+  surfaceId: string
+  surfaceName: string
+  assignedMaterialId: string
+  materials: { id: string; name: string }[]
+  dispatch: ReturnType<typeof useAppDispatch>
+}) {
+  const [showLibrary, setShowLibrary] = useState(false)
+
+  // Combine user-defined materials + built-in library
+  const allMaterials = [
+    ...materials,
+    ...BUILTIN_MATERIALS.filter((bm) => !materials.some((m) => m.id === bm.id)),
+  ]
+
+  return (
+    <Accordion defaultExpanded sx={{ mt: 1 }}>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Typography variant="body2" fontWeight={500}>
+          Material — {surfaceName}
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails>
+        <FormControl fullWidth size="small" margin="dense">
+          <InputLabel>Assigned Material</InputLabel>
+          <Select
+            value={assignedMaterialId}
+            label="Assigned Material"
+            onChange={(e) => {
+              const matId = e.target.value as string
+              if (matId) {
+                // If it's a built-in material not yet in user list, add it
+                const exists = materials.some((m) => m.id === matId)
+                if (!exists) {
+                  const builtin = BUILTIN_MATERIALS.find((bm) => bm.id === matId)
+                  if (builtin) {
+                    dispatch(addMaterial({
+                      id: builtin.id,
+                      name: builtin.name,
+                      properties: builtin.properties,
+                    }))
+                  }
+                }
+                dispatch(assignMaterial({ bodyId: surfaceId, materialId: matId }))
+              }
+            }}
+          >
+            <MenuItem value="">
+              <em>None</em>
+            </MenuItem>
+            {allMaterials.map((m) => (
+              <MenuItem key={m.id} value={m.id}>
+                {m.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* Show library toggle */}
+        {!showLibrary && (
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => setShowLibrary(true)}
+            sx={{ mt: 0.5, textTransform: 'none' }}
+          >
+            Custom material
+          </Button>
+        )}
+
+        {showLibrary && (
+          <CustomMaterialForm
+            onAdd={(name, epsilonR) => {
+              const id = `custom_${Date.now()}`
+              dispatch(addMaterial({
+                id,
+                name,
+                properties: [{ name: 'epsilon_r', value: epsilonR, unit: '' }],
+              }))
+              dispatch(assignMaterial({ bodyId: surfaceId, materialId: id }))
+              setShowLibrary(false)
+            }}
+            onCancel={() => setShowLibrary(false)}
+          />
+        )}
+      </AccordionDetails>
+    </Accordion>
+  )
+}
+
+function CustomMaterialForm({
+  onAdd,
+  onCancel,
+}: {
+  onAdd: (name: string, epsilonR: number) => void
+  onCancel: () => void
+}) {
+  const [name, setName] = useState('')
+  const [epsilonR, setEpsilonR] = useState('1.0')
+
+  return (
+    <Box sx={{ mt: 1 }}>
+      <TextField
+        label="Name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        size="small"
+        fullWidth
+        margin="dense"
+      />
+      <TextField
+        label="εᵣ (relative permittivity)"
+        value={epsilonR}
+        onChange={(e) => setEpsilonR(e.target.value)}
+        size="small"
+        type="number"
+        fullWidth
+        margin="dense"
+        inputProps={{ step: 0.1, min: 1.0 }}
+      />
+      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+        <Button
+          size="small"
+          variant="contained"
+          disabled={!name.trim()}
+          onClick={() => onAdd(name.trim(), Number(epsilonR))}
+        >
+          Add
+        </Button>
+        <Button size="small" onClick={onCancel}>
+          Cancel
+        </Button>
+      </Stack>
+    </Box>
+  )
+}
+
+// ── Edge BC assignment ────────────────────────────────────────
+
+function EdgeBCSection({
+  edgeId,
+  edgeName,
+  existingBC,
+  dispatch,
+}: {
+  edgeId: string
+  edgeName: string
+  existingBC: { id: string; name: string; type: BCType; value: number | string; edgeIds: string[] } | null
+  dispatch: ReturnType<typeof useAppDispatch>
+}) {
+  const [bcType, setBcType] = useState<BCType>(existingBC?.type ?? 'neumann')
+  const [bcValue, setBcValue] = useState(String(existingBC?.value ?? '0'))
+
+  const handleApply = () => {
+    const val = Number(bcValue)
+    if (existingBC) {
+      // Update existing BC to include this edge
+      dispatch(updateBoundaryCondition({
+        ...existingBC,
+        type: bcType,
+        value: isNaN(val) ? bcValue : val,
+        edgeIds: existingBC.edgeIds.includes(edgeId)
+          ? existingBC.edgeIds
+          : [...existingBC.edgeIds, edgeId],
+      }))
+    } else {
+      // Create a new BC
+      const id = `bc_${Date.now()}`
+      dispatch(addBoundaryCondition({
+        id,
+        name: `${bcType}_${edgeName}`,
+        type: bcType,
+        value: isNaN(val) ? bcValue : val,
+        edgeIds: [edgeId],
+      }))
+    }
+  }
+
+  const bcTypeColor = {
+    dirichlet: '#1976d2',
+    neumann: '#2e7d32',
+    robin: '#ed6c02',
+    periodic: '#9c27b0',
+  }
+
+  return (
+    <Accordion defaultExpanded sx={{ mt: 1 }}>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="body2" fontWeight={500}>
+            Boundary Condition — {edgeName}
+          </Typography>
+          {existingBC ? (
+            <Chip
+              label={existingBC.type}
+              size="small"
+              sx={{
+                height: 18,
+                fontSize: '0.65rem',
+                bgcolor: bcTypeColor[existingBC.type] ?? '#9e9e9e',
+                color: '#fff',
+              }}
+            />
+          ) : (
+            <Chip
+              label="neumann 0 (default)"
+              size="small"
+              variant="outlined"
+              sx={{
+                height: 18,
+                fontSize: '0.65rem',
+                borderColor: bcTypeColor.neumann,
+                color: bcTypeColor.neumann,
+              }}
+            />
+          )}
+        </Stack>
+      </AccordionSummary>
+      <AccordionDetails>
+        <FormControl fullWidth size="small" margin="dense">
+          <InputLabel>BC Type</InputLabel>
+          <Select
+            value={bcType}
+            label="BC Type"
+            onChange={(e) => setBcType(e.target.value as BCType)}
+          >
+            <MenuItem value="dirichlet">Dirichlet (fixed value)</MenuItem>
+            <MenuItem value="neumann">Neumann (flux)</MenuItem>
+            <MenuItem value="robin">Robin (mixed)</MenuItem>
+          </Select>
+        </FormControl>
+
+        <TextField
+          label={bcType === 'dirichlet' ? 'Value (φ)' : bcType === 'neumann' ? 'Flux (∂φ/∂n)' : 'Value'}
+          value={bcValue}
+          onChange={(e) => setBcValue(e.target.value)}
+          size="small"
+          fullWidth
+          margin="dense"
+          type="number"
+          inputProps={{ step: 0.1 }}
+        />
+
+        <Button
+          size="small"
+          variant="contained"
+          onClick={handleApply}
+          sx={{ mt: 1, textTransform: 'none' }}
+        >
+          {existingBC ? 'Update' : 'Apply'}
+        </Button>
+      </AccordionDetails>
+    </Accordion>
+  )
+}
+
+// ── Field display names ───────────────────────────────────────
+
+const FIELD_LABELS: Record<string, string> = {
+  electric_potential: 'Electric Potential',
+  energy_density: 'Energy Density',
+  electric_field: 'Electric Field',
+  displacement_field: 'Displacement Field (D)',
+  power_density: 'Power Density',
+  current_density: 'Current Density (J)',
+}
+
+function fieldDisplayName(name: string): string {
+  return FIELD_LABELS[name] ?? name
+}
+
+// ── Main component ────────────────────────────────────────────
+
 function FEMPropertiesPanel({ currentTab }: FEMPropertiesPanelProps) {
   const dispatch = useAppDispatch()
 
   // Geometry state
   const geometryOps = useAppSelector(selectFEMGeometryOps)
+  const evaluatedGeometry = useAppSelector(selectFEMEvaluatedGeometry)
   const selectedEntity = useAppSelector(selectFEMSelectedEntity)
   const discretization = useAppSelector((s) => s.femDesign.discretization)
   const pdeType = useAppSelector((s) => s.femDesign.pdeType)
+  const materials = useAppSelector(selectFEMMaterials)
+  const boundaryConditions = useAppSelector(selectFEMBoundaryConditions)
+  const materialAssignments = useAppSelector((s) => s.femDesign.materialAssignments)
 
   // Solver state
   const solverConfig = useAppSelector(selectFEMSolverConfig)
@@ -79,6 +379,26 @@ function FEMPropertiesPanel({ currentTab }: FEMPropertiesPanelProps) {
     ? geometryOps.find(
         (op) => (op.params as Record<string, unknown>).tag === selectedEntity.id,
       )
+    : null
+
+  // Find the selected surface or edge from evaluated geometry
+  const selectedSurface =
+    selectedEntity.type === 'surface' && evaluatedGeometry
+      ? evaluatedGeometry.surfaces.find((s) => s.id === selectedEntity.id)
+      : null
+  const selectedEdge =
+    selectedEntity.type === 'edge' && evaluatedGeometry
+      ? evaluatedGeometry.edges.find((e) => e.id === selectedEntity.id)
+      : null
+
+  // Material assigned to the selected surface
+  const surfaceMaterialId = selectedSurface
+    ? materialAssignments.find((a) => a.bodyId === selectedSurface.id)?.materialId ?? ''
+    : ''
+
+  // BC assigned to the selected edge
+  const edgeBC = selectedEdge
+    ? boundaryConditions.find((bc) => bc.edgeIds.includes(selectedEdge.id))
     : null
 
   return (
@@ -119,6 +439,104 @@ function FEMPropertiesPanel({ currentTab }: FEMPropertiesPanelProps) {
             <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
               Select an entity to view properties
             </Typography>
+          )}
+
+          {/* Per-entity mesh refinement */}
+          {selectedSurface && (
+            <Accordion defaultExpanded sx={{ mt: 1 }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="body2" fontWeight={500}>
+                  Refinement — {selectedSurface.name}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <TextField
+                  label="Local element size (leave blank = global)"
+                  value={discretization.bodySizes[selectedSurface.id] ?? ''}
+                  size="small"
+                  fullWidth
+                  margin="dense"
+                  type="number"
+                  inputProps={{ step: 0.01, min: 0 }}
+                  placeholder={String(discretization.globalElementSize)}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? undefined : Number(e.target.value)
+                    const next = { ...discretization.bodySizes }
+                    if (val === undefined) {
+                      delete next[selectedSurface.id]
+                    } else {
+                      next[selectedSurface.id] = val
+                    }
+                    dispatch(setDiscretization({ bodySizes: next }))
+                  }}
+                />
+                {/* Per-edge divisions (overrides surface size on individual edges) */}
+                {evaluatedGeometry && (
+                  <>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                      Edge divisions (override surface size per edge)
+                    </Typography>
+                    {evaluatedGeometry.edges
+                      .filter((e) => e.parentSurfaceId === selectedSurface.id)
+                      .map((edge) => (
+                        <TextField
+                          key={edge.id}
+                          label={edge.name}
+                          value={discretization.edgeDivisions[edge.id] ?? ''}
+                          size="small"
+                          fullWidth
+                          margin="dense"
+                          type="number"
+                          inputProps={{ step: 1, min: 1 }}
+                          placeholder="auto"
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? undefined : Math.round(Number(e.target.value))
+                            const next = { ...discretization.edgeDivisions }
+                            if (val === undefined) {
+                              delete next[edge.id]
+                            } else {
+                              next[edge.id] = val
+                            }
+                            dispatch(setDiscretization({ edgeDivisions: next }))
+                          }}
+                        />
+                      ))}
+                  </>
+                )}
+              </AccordionDetails>
+            </Accordion>
+          )}
+
+          {selectedEdge && (
+            <Accordion defaultExpanded sx={{ mt: 1 }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="body2" fontWeight={500}>
+                  Refinement — {selectedEdge.name}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <TextField
+                  label="Number of divisions (leave blank = auto)"
+                  value={discretization.edgeDivisions[selectedEdge.id] ?? ''}
+                  size="small"
+                  fullWidth
+                  margin="dense"
+                  type="number"
+                  inputProps={{ step: 1, min: 1 }}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? undefined : Math.round(Number(e.target.value))
+                    const next = { ...discretization.edgeDivisions }
+                    if (val === undefined) {
+                      delete next[selectedEdge.id]
+                    } else {
+                      next[selectedEdge.id] = val
+                    }
+                    dispatch(setDiscretization({ edgeDivisions: next }))
+                  }}
+                />
+              </AccordionDetails>
+            </Accordion>
           )}
 
           {/* Mesh discretization settings */}
@@ -216,36 +634,69 @@ function FEMPropertiesPanel({ currentTab }: FEMPropertiesPanelProps) {
       {/* ── Physics tab ── */}
       {currentTab === 'physics' && (
         <>
+          {/* Solver category — always at the top */}
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography variant="body2" fontWeight={500}>
-                PDE Type
+              <Typography variant="body2" fontWeight={600}>
+                Solver Category
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
               <FormControl fullWidth size="small">
-                <InputLabel>PDE</InputLabel>
+                <InputLabel>Physics</InputLabel>
                 <Select
                   value={pdeType}
-                  label="PDE"
+                  label="Physics"
                   onChange={(e) =>
                     dispatch(setPDEType(e.target.value as PDEType))
                   }
                 >
-                  <MenuItem value="electrostatic">Electrostatic</MenuItem>
-                  <MenuItem value="current_flow">Current Flow</MenuItem>
-                  <MenuItem value="magnetostatic">Magnetostatic</MenuItem>
+                  <MenuItem value="electrostatic">Electrostatic (∇·εE = ρ)</MenuItem>
+                  <MenuItem value="current_flow">Current Flow (∇·σE = 0)</MenuItem>
+                  <MenuItem value="magnetostatic">Magnetostatic (∇×H = J)</MenuItem>
                   <MenuItem value="eddy_current" disabled>
                     Eddy Current (coming soon)
                   </MenuItem>
                 </Select>
               </FormControl>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                {pdeType === 'electrostatic' &&
+                  'Assigns ε material to each surface. Set Dirichlet (voltage) or Neumann (flux) BCs on edges. No excitation needed for pure electrostatics.'}
+                {pdeType === 'current_flow' &&
+                  'Assigns σ (conductivity) to surfaces. Fixed-voltage Dirichlet BCs drive current. No sources needed.'}
+                {pdeType === 'magnetostatic' &&
+                  'Assigns μ to surfaces. Dirichlet BC sets magnetic vector potential. Current sources define excitations.'}
+              </Typography>
             </AccordionDetails>
           </Accordion>
 
-          <Typography variant="caption" color="text.secondary" sx={{ px: 1, mt: 1, display: 'block' }}>
-            Use the Model Tree to add materials and boundary conditions.
-          </Typography>
+          {/* Context-sensitive: Surface selected → material assignment */}
+          {selectedSurface && (
+            <SurfaceMaterialSection
+              surfaceId={selectedSurface.id}
+              surfaceName={selectedSurface.name ?? selectedSurface.id}
+              assignedMaterialId={surfaceMaterialId}
+              materials={materials}
+              dispatch={dispatch}
+            />
+          )}
+
+          {/* Context-sensitive: Edge selected → BC assignment */}
+          {selectedEdge && (
+            <EdgeBCSection
+              edgeId={selectedEdge.id}
+              edgeName={selectedEdge.name ?? selectedEdge.id}
+              existingBC={edgeBC}
+              dispatch={dispatch}
+            />
+          )}
+
+          {/* Hint when nothing is selected */}
+          {!selectedSurface && !selectedEdge && (
+            <Typography variant="caption" color="text.secondary" sx={{ px: 1, mt: 1, display: 'block' }}>
+              Select a surface to assign a material, or an edge to assign a boundary condition.
+            </Typography>
+          )}
         </>
       )}
 
@@ -397,7 +848,7 @@ function FEMPropertiesPanel({ currentTab }: FEMPropertiesPanelProps) {
                 >
                   {solveResult.scalarFields.map((f) => (
                     <MenuItem key={f.name} value={f.name}>
-                      {f.name} [{f.unit}]
+                      {fieldDisplayName(f.name)} [{f.unit}]
                     </MenuItem>
                   ))}
                 </Select>

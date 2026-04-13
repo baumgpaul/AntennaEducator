@@ -7,6 +7,7 @@ import type { Project } from '@/types/models';
 
 export interface CreateProjectRequest {
   name: string;
+  project_type?: 'peec' | 'fem';
   description?: string;
   design_state?: Record<string, any>;
   simulation_config?: Record<string, any>;

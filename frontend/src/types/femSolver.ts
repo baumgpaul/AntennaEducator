@@ -30,6 +30,7 @@ export type SolveStatus = 'idle' | 'solving' | 'done' | 'error'
 export interface ScalarFieldResult {
   name: string
   values: number[]
+  elementValues: number[]
   unit: string
   min: number
   max: number

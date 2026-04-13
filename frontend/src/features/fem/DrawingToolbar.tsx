@@ -2,10 +2,12 @@
  * DrawingToolbar — Horizontal toolbar for FEM geometry drawing tools.
  *
  * Tools: Select, Point, Line, Arc, Rectangle, Circle, Ellipse, Polygon
+ * Boolean ops: Opens dialog for Union, Subtract, Intersect.
  * Displayed as icon toggle buttons above the canvas.
  */
 
-import { Box, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material'
+import { useState } from 'react'
+import { Box, ToggleButton, ToggleButtonGroup, Tooltip, Button, Divider } from '@mui/material'
 import {
   NearMe as SelectIcon,
   RadioButtonChecked as PointIcon,
@@ -15,34 +17,43 @@ import {
   PanoramaFishEye as CircleIcon,
   Adjust as EllipseIcon,
   ChangeHistory as PolygonIcon,
+  CallMerge as BooleanIcon,
 } from '@mui/icons-material'
-import { useAppDispatch } from '@/store/hooks'
-import { setActiveTool } from '@/store/femDesignSlice'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { setActiveTool, selectFEMSelectedEntity, selectFEMEvaluatedGeometry } from '@/store/femDesignSlice'
 import type { ToolType } from '@/types/femGeometry'
+import BooleanDialog from './BooleanDialog'
 
 interface DrawingToolbarProps {
   activeTool: ToolType
 }
 
-const tools: { tool: ToolType; icon: React.ReactNode; label: string; group: 'select' | 'draw' }[] = [
-  { tool: 'select', icon: <SelectIcon fontSize="small" />, label: 'Select (Esc)', group: 'select' },
-  { tool: 'point', icon: <PointIcon fontSize="small" />, label: 'Point', group: 'draw' },
-  { tool: 'line', icon: <LineIcon fontSize="small" />, label: 'Line (2 clicks)', group: 'draw' },
-  { tool: 'arc', icon: <ArcIcon fontSize="small" />, label: 'Arc (3 clicks)', group: 'draw' },
-  { tool: 'rectangle', icon: <RectangleIcon fontSize="small" />, label: 'Rectangle (2 clicks)', group: 'draw' },
-  { tool: 'circle', icon: <CircleIcon fontSize="small" />, label: 'Circle (center + edge)', group: 'draw' },
-  { tool: 'ellipse', icon: <EllipseIcon fontSize="small" />, label: 'Ellipse', group: 'draw' },
-  { tool: 'polygon', icon: <PolygonIcon fontSize="small" />, label: 'Polygon', group: 'draw' },
+const tools: { tool: ToolType; icon: React.ReactNode; label: string }[] = [
+  { tool: 'select', icon: <SelectIcon fontSize="small" />, label: 'Select (Esc)' },
+  { tool: 'point', icon: <PointIcon fontSize="small" />, label: 'Point' },
+  { tool: 'line', icon: <LineIcon fontSize="small" />, label: 'Line (2 clicks)' },
+  { tool: 'arc', icon: <ArcIcon fontSize="small" />, label: 'Arc (3 clicks)' },
+  { tool: 'rectangle', icon: <RectangleIcon fontSize="small" />, label: 'Rectangle (2 clicks)' },
+  { tool: 'circle', icon: <CircleIcon fontSize="small" />, label: 'Circle (center + edge)' },
+  { tool: 'ellipse', icon: <EllipseIcon fontSize="small" />, label: 'Ellipse' },
+  { tool: 'polygon', icon: <PolygonIcon fontSize="small" />, label: 'Polygon' },
 ]
 
 function DrawingToolbar({ activeTool }: DrawingToolbarProps) {
   const dispatch = useAppDispatch()
+  const selectedEntity = useAppSelector(selectFEMSelectedEntity)
+  const evaluatedGeometry = useAppSelector(selectFEMEvaluatedGeometry)
+  const [booleanOpen, setBooleanOpen] = useState(false)
 
   const handleToolChange = (_: unknown, newTool: ToolType | null) => {
     if (newTool) {
       dispatch(setActiveTool(newTool))
     }
   }
+
+  const hasSurfaces = (evaluatedGeometry?.surfaces.length ?? 0) >= 2
+  const preselectedSurface =
+    selectedEntity.type === 'surface' && selectedEntity.id ? selectedEntity.id : null
 
   return (
     <Box
@@ -55,8 +66,10 @@ function DrawingToolbar({ activeTool }: DrawingToolbarProps) {
         borderColor: 'divider',
         bgcolor: 'background.paper',
         gap: 0.5,
+        flexWrap: 'wrap',
       }}
     >
+      {/* Drawing tools */}
       <ToggleButtonGroup
         value={activeTool}
         exclusive
@@ -72,6 +85,30 @@ function DrawingToolbar({ activeTool }: DrawingToolbarProps) {
           </Tooltip>
         ))}
       </ToggleButtonGroup>
+
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+      {/* Boolean operations — opens dialog */}
+      <Tooltip title={hasSurfaces ? 'Boolean operation (union, subtract, intersect)' : 'Need at least 2 surfaces'}>
+        <span>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<BooleanIcon fontSize="small" />}
+            onClick={() => setBooleanOpen(true)}
+            disabled={!hasSurfaces}
+            sx={{ textTransform: 'none', fontSize: 12 }}
+          >
+            Boolean
+          </Button>
+        </span>
+      </Tooltip>
+
+      <BooleanDialog
+        open={booleanOpen}
+        onClose={() => setBooleanOpen(false)}
+        preselectedSurface={preselectedSurface}
+      />
     </Box>
   )
 }

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from backend.common.models.fem.boundary_conditions import BoundaryCondition, Excitation
 from backend.common.models.fem.config import FEMSolverConfig, PDEType
-from backend.common.models.fem.materials import ElectrostaticMaterial
+from backend.common.models.fem.materials import ConductionMaterial, ElectrostaticMaterial
 from backend.common.models.fem.mesh import FEMMesh
 
 
@@ -13,7 +13,7 @@ class FEMSolveRequest(BaseModel):
 
     mesh: FEMMesh
     pde_type: PDEType
-    materials: dict[str, ElectrostaticMaterial]
+    materials: dict[str, ElectrostaticMaterial | ConductionMaterial]
     boundary_conditions: list[BoundaryCondition]
     excitations: list[Excitation] = []
     config: FEMSolverConfig

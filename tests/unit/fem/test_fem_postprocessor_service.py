@@ -215,3 +215,152 @@ class TestExportCSV:
         lines = content.strip().split("\n")
         assert len(lines) == 5  # header + 4 data rows
         assert "x" in lines[0] and "y" in lines[0]
+
+
+# ── Solved data with D-field and J-field for integral endpoint tests ──
+
+
+def _make_solved_data_with_d_field():
+    """Solved dataset with displacement_field for charge/capacitance tests."""
+    base = _make_solved_data()
+    base["vector_fields"]["displacement_field"] = {
+        "field_name": "displacement_field",
+        "element_values": [[0.0, -8.854e-12], [0.0, -8.854e-12]],
+        "unit": "C/m²",
+        "max_magnitude": 8.854e-12,
+    }
+    return base
+
+
+def _make_solved_data_with_j_field():
+    """Solved dataset with current_density for current/resistance tests."""
+    base = _make_solved_data()
+    base["vector_fields"]["current_density"] = {
+        "field_name": "current_density",
+        "element_values": [[0.0, -1e5], [0.0, -1e5]],
+        "unit": "A/m",
+        "max_magnitude": 1e5,
+    }
+    return base
+
+
+class TestSurfaceCharge:
+    """POST /api/fem/postprocess/charge tests."""
+
+    def test_surface_charge_endpoint(self, client):
+        """Compute charge on a boundary."""
+        solved = _make_solved_data_with_d_field()
+        request_data = {
+            "mesh": solved["mesh"],
+            "vector_fields": solved["vector_fields"],
+            "boundary_name": "top",
+        }
+        response = client.post("/api/fem/postprocess/charge", json=request_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert "charge" in data
+        assert data["boundary_name"] == "top"
+
+    def test_charge_missing_d_field(self, client):
+        """Missing displacement_field returns 400."""
+        solved = _make_solved_data()  # no D-field
+        request_data = {
+            "mesh": solved["mesh"],
+            "vector_fields": solved["vector_fields"],
+            "boundary_name": "top",
+        }
+        response = client.post("/api/fem/postprocess/charge", json=request_data)
+        assert response.status_code == 400
+
+
+class TestCapacitance:
+    """POST /api/fem/postprocess/capacitance tests."""
+
+    def test_capacitance_endpoint(self, client):
+        """Compute capacitance from D-field."""
+        solved = _make_solved_data_with_d_field()
+        request_data = {
+            "mesh": solved["mesh"],
+            "vector_fields": solved["vector_fields"],
+            "electrode_boundary": "top",
+            "voltage_difference": 1.0,
+        }
+        response = client.post("/api/fem/postprocess/capacitance", json=request_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert "capacitance" in data
+        assert "charge" in data
+        assert data["electrode_boundary"] == "top"
+
+    def test_capacitance_missing_d_field(self, client):
+        """Missing displacement_field returns 400."""
+        solved = _make_solved_data()
+        request_data = {
+            "mesh": solved["mesh"],
+            "vector_fields": solved["vector_fields"],
+            "electrode_boundary": "top",
+            "voltage_difference": 1.0,
+        }
+        response = client.post("/api/fem/postprocess/capacitance", json=request_data)
+        assert response.status_code == 400
+
+
+class TestBoundaryCurrent:
+    """POST /api/fem/postprocess/current tests."""
+
+    def test_boundary_current_endpoint(self, client):
+        """Compute current through a boundary."""
+        solved = _make_solved_data_with_j_field()
+        request_data = {
+            "mesh": solved["mesh"],
+            "vector_fields": solved["vector_fields"],
+            "boundary_name": "top",
+        }
+        response = client.post("/api/fem/postprocess/current", json=request_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert "current" in data
+        assert data["boundary_name"] == "top"
+
+    def test_current_missing_j_field(self, client):
+        """Missing current_density returns 400."""
+        solved = _make_solved_data()
+        request_data = {
+            "mesh": solved["mesh"],
+            "vector_fields": solved["vector_fields"],
+            "boundary_name": "top",
+        }
+        response = client.post("/api/fem/postprocess/current", json=request_data)
+        assert response.status_code == 400
+
+
+class TestResistance:
+    """POST /api/fem/postprocess/resistance tests."""
+
+    def test_resistance_endpoint(self, client):
+        """Compute resistance from J-field."""
+        solved = _make_solved_data_with_j_field()
+        request_data = {
+            "mesh": solved["mesh"],
+            "vector_fields": solved["vector_fields"],
+            "electrode_boundary": "top",
+            "voltage_difference": 1.0,
+        }
+        response = client.post("/api/fem/postprocess/resistance", json=request_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert "resistance" in data
+        assert "current" in data
+        assert data["electrode_boundary"] == "top"
+
+    def test_resistance_missing_j_field(self, client):
+        """Missing current_density returns 400."""
+        solved = _make_solved_data()
+        request_data = {
+            "mesh": solved["mesh"],
+            "vector_fields": solved["vector_fields"],
+            "electrode_boundary": "top",
+            "voltage_difference": 1.0,
+        }
+        response = client.post("/api/fem/postprocess/resistance", json=request_data)
+        assert response.status_code == 400

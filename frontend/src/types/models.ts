@@ -208,9 +208,12 @@ export interface SolverResult {
 // Project and Simulation Types
 // ============================================================================
 
+export type ProjectType = 'peec' | 'fem'
+
 export interface Project {
   id: string | number
   name: string
+  project_type: ProjectType
   description?: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   design_state?: Record<string, any>

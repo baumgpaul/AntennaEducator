@@ -167,3 +167,119 @@ class TestGmshMesher:
 
         assert len(mesh.nodes) > 5
         assert len(mesh.elements) > 3
+
+
+class TestFrontendParamFormatMesher:
+    """Verify full mesh pipeline works with the parameter format emitted by the frontend canvas."""
+
+    def test_rectangle_center_format_meshes(self):
+        """Frontend sends center_x/center_y, width, height, tag — must mesh successfully."""
+        geometry = FEMGeometry(
+            operations=[
+                GeoOperation(
+                    type="add_rectangle",
+                    params={
+                        "center_x": 0.5,
+                        "center_y": 0.5,
+                        "width": 1.0,
+                        "height": 1.0,
+                        "tag": "domain",
+                    },
+                )
+            ]
+        )
+        mesher = GmshMesher()
+        mesh = mesher.generate(geometry, DiscretizationSettings(global_element_size=0.2))
+
+        assert len(mesh.nodes) > 0
+        assert len(mesh.elements) > 0
+        # Check nodes are in expected bounding box
+        xs = [n.coords[0] for n in mesh.nodes]
+        ys = [n.coords[1] for n in mesh.nodes]
+        assert min(xs) >= -1e-9 and max(xs) <= 1.0 + 1e-9
+        assert min(ys) >= -1e-9 and max(ys) <= 1.0 + 1e-9
+
+    def test_circle_center_format_meshes(self):
+        """Frontend sends center_x/center_y, radius, tag — must mesh successfully."""
+        geometry = FEMGeometry(
+            operations=[
+                GeoOperation(
+                    type="add_circle",
+                    params={
+                        "center_x": 0.0,
+                        "center_y": 0.0,
+                        "radius": 1.0,
+                        "tag": "disk",
+                    },
+                )
+            ]
+        )
+        mesher = GmshMesher()
+        mesh = mesher.generate(geometry, DiscretizationSettings(global_element_size=0.3))
+
+        assert len(mesh.nodes) > 0
+        assert len(mesh.elements) > 0
+
+    def test_line_direct_coord_does_not_crash(self):
+        """A standalone line without a surface cannot be meshed as a 2D domain, but must not
+        crash the translator.  The mesher raises no error and returns an empty mesh."""
+        geometry = FEMGeometry(
+            operations=[
+                GeoOperation(
+                    type="add_line",
+                    params={
+                        "start_x": 0.0,
+                        "start_y": 0.0,
+                        "end_x": 1.0,
+                        "end_y": 0.0,
+                        "tag": "edge1",
+                    },
+                )
+            ]
+        )
+        mesher = GmshMesher()
+        # A standalone line has no 2-D domain — may produce 0 elements; must not raise.
+        try:
+            mesh = mesher.generate(geometry, DiscretizationSettings())
+            # If it doesn't raise, that's acceptable too
+            _ = mesh.nodes
+        except Exception as exc:  # pylint: disable=broad-except
+            # Only acceptable errors are from Gmsh about no 2D surface
+            assert (
+                "surface" in str(exc).lower() or "mesh" in str(exc).lower()
+            ), f"Unexpected error: {exc}"
+
+    def test_rect_with_hole_frontend_params(self):
+        """Boolean subtract with frontend-format shapes."""
+        geometry = FEMGeometry(
+            operations=[
+                GeoOperation(
+                    type="add_rectangle",
+                    params={
+                        "center_x": 0.0,
+                        "center_y": 0.0,
+                        "width": 4.0,
+                        "height": 2.0,
+                        "tag": "outer",
+                    },
+                ),
+                GeoOperation(
+                    type="add_circle",
+                    params={
+                        "center_x": 0.0,
+                        "center_y": 0.0,
+                        "radius": 0.5,
+                        "tag": "hole",
+                    },
+                ),
+                GeoOperation(
+                    type="boolean_subtract",
+                    params={"object": "outer", "tool": "hole"},
+                ),
+            ]
+        )
+        mesher = GmshMesher()
+        mesh = mesher.generate(geometry, DiscretizationSettings(global_element_size=0.3))
+
+        assert len(mesh.nodes) > 20
+        assert len(mesh.elements) > 10

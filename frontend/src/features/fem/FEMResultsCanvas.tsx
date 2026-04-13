@@ -40,7 +40,10 @@ export function drawFilledContour(
   const fMin = colorRange ? colorRange[0] : field.min
   const fMax = colorRange ? colorRange[1] : field.max
 
-  for (const el of mesh.elements) {
+  const isElementBased = field.elementValues && field.elementValues.length > 0 && field.values.length === 0
+
+  for (let ei = 0; ei < mesh.elements.length; ei++) {
+    const el = mesh.elements[ei]
     const nids = el.nodeIds
     if (!nids || nids.length < 3) continue
 
@@ -57,10 +60,14 @@ export function drawFilledContour(
 
     if (pts.length < 3) continue
 
-    // Draw filled triangle — use average color for solid fill
-    // (true vertex interpolation requires WebGL; canvas gradient is close enough)
-    const avgVal =
-      (field.values[nids[0]] + field.values[nids[1]] + field.values[nids[2]]) / 3
+    // Compute average value: node-based or element-based
+    let avgVal: number
+    if (isElementBased) {
+      avgVal = field.elementValues[ei] ?? 0
+    } else {
+      avgVal =
+        (field.values[nids[0]] + field.values[nids[1]] + field.values[nids[2]]) / 3
+    }
     const avgT = normalizeValue(avgVal, fMin, fMax)
     const avgRgb = mapValueToColor(avgT, colorMap)
 

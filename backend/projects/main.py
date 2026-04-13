@@ -165,6 +165,7 @@ async def create_project(
         name=data.name,
         description=data.description,
         folder_id=folder_id,
+        project_type=data.project_type,
     )
 
     # Set optional JSON blobs if provided on create
@@ -282,6 +283,7 @@ async def update_project(
     updated = await repo.update_project(
         project_id=project_id,
         name=data.name,
+        project_type=data.project_type,
         description=data.description,
         design_state=data.design_state,
         simulation_config=data.simulation_config,
@@ -396,6 +398,7 @@ async def duplicate_project(
         user_id=user.id,
         name=f"{original['name']} (Copy)",
         description=original.get("description", ""),
+        project_type=original.get("project_type", "peec"),
     )
 
     # Duplicate S3 results

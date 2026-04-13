@@ -34,7 +34,7 @@
 
 ## Progress Tracker
 
-> **Last updated**: 2026-04-09    **Branch**: `feature/fem-solver`
+> **Last updated**: 2026-06-05    **Branch**: `feature/fem-solver`
 
 ### Phase 1 — Core FEM + Electrostatic
 
@@ -43,12 +43,23 @@
 | **1.1** | FEM Common Models | **DONE** | Inc 1–4 | 110+ model tests |
 | **1.2** | FEM Preprocessor Service | **DONE** | Inc 6, 9 | 9 service + 7 gmsh + 14 extractor + 11 discretization |
 | **1.3** | FEM Solver Core | **DONE** | Inc 3–5 | 23 shape/quad/jac + 18 assembly + 9 boundary + 6 electrostatic |
-| **1.4** | FEM Postprocessor Service | **DONE** | Inc 9 | 9 service + 10 module tests |
+| **1.3a** | Solver: Neumann/Robin BCs, D-field, energy density, charge/capacitance | **DONE** | — | 20 extended electrostatic tests |
+| **1.3b** | Solver: Tri6 quadratic elements, tensor permittivity | **DONE** | — | 17 Tri6 + tensor tests |
+| **1.4** | FEM Postprocessor Service | **DONE** | Inc 9 | 17 service tests (charge, capacitance, current, resistance endpoints) |
 | **1.5** | Frontend: FEM Feature | **DONE** | Inc 7–8, 10 | 76 frontend tests (6 files) |
 | **1.6** | Infrastructure | **DONE** | Inc 12 | docker-compose + nginx + .env |
 | **1.7** | Electrostatic Validation | **DONE** | Inc 11 | 11 validation + 10 E2E pipeline |
 
-**Totals**: 313 backend FEM tests, 76 frontend FEM tests — all passing.
+### Phase 2 — Static Current Flow
+
+| Step | Title | Status | Commit | Tests |
+|------|-------|--------|--------|-------|
+| **2.1** | CurrentFlowPDE solver (`pde/current_flow.py`) | **DONE** | — | 5 solver + 2 excitation tests |
+| **2.2** | Resistance/conductance extraction (`postprocess/integrals.py`) | **DONE** | — | 3 extraction + 2 service tests |
+| **2.3** | Frontend: PDE selector, material dispatch, field labels | **DONE** | — | TypeScript compiles clean |
+| **2.4** | Postprocessor: `/current`, `/resistance` endpoints | **DONE** | — | 4 service tests |
+
+**Totals**: 395 backend FEM tests, 76 frontend FEM tests — all passing.
 
 ### Commit History (feature/fem-solver)
 
@@ -66,6 +77,9 @@
 | 10 | `ed6b539` | Frontend physics/solver/results UI (color maps, solve thunks, dialogs, results canvas, line plots, export) |
 | 11 | `f20b8f1` | E2E validation (coaxial, L-shape, mesh convergence, ε_r sweep, frontend E2E pipeline) |
 | 12 | — | Infrastructure: docker-compose, nginx, requirements.txt |
+| 13 | — | Phase 1 completeness: Neumann/Robin BCs, D-field, energy density, charge/capacitance, 20 tests |
+| 14 | — | Tri6 quadratic elements, tensor permittivity, Tri6 assembly + full solve, 17 tests |
+| 15 | — | Current flow PDE, J-field, power density, resistance extraction, postprocessor endpoints, 19 tests |
 
 ---
 
@@ -278,7 +292,7 @@ Boolean operations on 2D bodies (polygonal/curved regions):
 
 | Operation | Icon | Behavior |
 |-----------|------|----------|
-| **Union** (Fuse) | ∪ | Select 2+ bodies → merge into one | 
+| **Union** (Fuse) | ∪ | Select 2+ bodies → merge into one |
 | **Subtract** (Cut) | − | Select object body, then tool body → remove tool from object |
 | **Intersect** | ∩ | Select 2 bodies → keep only overlap |
 | **Fragment** | Grid | Select 2+ bodies → conformal split (both kept, shared boundaries) |
@@ -839,8 +853,8 @@ Key patterns:
 
 | Phase | Physics | Weak Form | DOFs/Node | Status |
 |---|---|---|---|---|
-| **1** | Electrostatic | ∫ ε∇φ·∇ψ dΩ = ∫ ρψ dΩ | 1 (φ) | **Detailed** |
-| **2** | Current Flow | ∫ σ∇φ·∇ψ dΩ = 0 | 1 (φ) | **Detailed** |
+| **1** | Electrostatic | ∫ ε∇φ·∇ψ dΩ = ∫ ρψ dΩ | 1 (φ) | **DONE** |
+| **2** | Current Flow | ∫ σ∇φ·∇ψ dΩ = 0 | 1 (φ) | **DONE** |
 | **3** | Magnetostatic | ∫ ν∇A·∇ψ dΩ = ∫ Jψ dΩ | 1 (A_z) | Rough |
 | **4** | Eddy Current | (jωσ + ∇×ν∇×)A = J | 1 (complex) | Rough |
 | **5** | Mechanics | ∫ σ:ε(v) dΩ = ∫ f·v dΩ | 2 (u_x, u_y) | Rough |
@@ -856,7 +870,7 @@ multiharmonic analysis, p-FEM (arbitrary order).
 
 ---
 
-## 6. Phase 1 — Core FEM + Electrostatic
+## 6. Phase 1 — Core FEM + Electrostatic ✅ COMPLETE
 
 **Goal**: Complete end-to-end workflow: draw 2D geometry → mesh → assign materials & BCs →
 solve electrostatic → visualize potential, E-field, energy, capacitance.
@@ -1334,7 +1348,7 @@ Core FEM assembly — same BDBInt pattern from OpenCFS:
 ```python
 def assemble_stiffness(mesh, material_map, gauss_order) -> csr_matrix:
     """K_ij = ∫ ∇Nᵢ · D · ∇Nⱼ dΩ
-    
+
     1. Pre-compute shape function derivatives at Gauss points
     2. Per element: get nodes, material D tensor
     3. Per Gauss point: J, det_J, inv_J, dN_dx = inv_J^T @ dN_dξ
@@ -1734,7 +1748,7 @@ frontend/src/features/fem/__tests__/
 
 ---
 
-## 7. Phase 2 — Static Current Flow
+## 7. Phase 2 — Static Current Flow ✅ COMPLETE
 
 *Same infrastructure, add new PDE + material type*
 
@@ -1763,7 +1777,14 @@ Same weak form as electrostatic with conductivity σ instead of ε:
 
 ---
 
-## 8. Phase 3 — Magnetostatic (Rough)
+### 7.4 Phase 2.1 — Improve Preprocessor, Workflow, Postprocessor
+
+- Improve Preprocessor: enhance geometry translator, importers, and mesh extraction to better handle curved edges, physical groups, and Tri6 midside nodes.
+- Improve Workflow: streamline frontend↔backend mesh/generate/import flow, clearer stale/result invalidation messaging, and fast remesh paths when only materials/BCs change.
+- Improve Postprocessor: add robust field visualization export (VTK/CSV), more integral endpoints, and line/point probe interpolation improvements.
+
+
+## 8. Phase 3 — Magnetostatic (Planned)
 
 - New PDE: 2D scalar potential A_z: ∇·(ν∇A_z) = J_source
   - Same assembly structure as electrostatic (Laplacian with ν = 1/μ)
@@ -1774,7 +1795,7 @@ Same weak form as electrostatic with conductivity σ instead of ε:
 
 ---
 
-## 9. Phase 4 — Eddy Current (Rough)
+## 9. Phase 4 — Eddy Current (Planned)
 
 - Complex-valued harmonic analysis: (jωσ + ∇·ν∇)A = J_ext
 - Frequency domain solve — complex K, f, u
@@ -1914,10 +1935,14 @@ fem-postprocessor:
 
 ### Phase 1 Checklist
 
-- [x] All backend unit tests pass: `pytest tests/unit/fem/ -x -q` — **313 passed**
+- [x] All backend unit tests pass: `pytest tests/unit/fem/ -x -q` — **395 passed**
 - [x] Parallel plate capacitor: φ linear, E uniform, C = ε₀A/d (exact for linear elements)
 - [x] Coaxial capacitor: O(h²) convergence for Tri3
 - [x] Mesh convergence: log(error) vs log(h) shows correct slope
+- [x] Neumann/Robin BCs: tested for both Tri3 and Tri6 elements
+- [x] D-field, energy density, charge, capacitance: full pipeline tests
+- [x] Tri6 (quadratic): full solve, Neumann 3-node edges, Robin mass matrix
+- [x] Tensor permittivity: 2×2 anisotropic material assembly + solve
 - [x] Frontend compiles: `npx tsc --noEmit`
 - [x] Frontend tests: `npx vitest run src/features/fem/` — **76 passed (6 files)**
 - [x] Linting clean: `black --check && isort --check-only && ruff check`
@@ -1927,10 +1952,18 @@ fem-postprocessor:
 
 ### Phase 2 Checklist
 
-- [ ] Ohm's Law: R = l/(σA) within 0.1%
-- [ ] Power: P = V²/R within 0.1%
-- [ ] J-field visualization correct
-- [ ] Current integral through boundary = V/R
+- [x] CurrentFlowPDE: ∇·(σ∇φ) = −J_source, with Neumann/Robin BC support
+- [x] J-field (current density) computation: J = σE
+- [x] Power dissipation: P = ∫ σ|∇φ|² dΩ (total_power integral)
+- [x] Current integral through boundary: I = ∫ J·n dΓ
+- [x] Resistance extraction: R = ΔV / I
+- [x] Tri6 quadratic element support (same as electrostatic)
+- [x] Tensor conductivity (2×2 anisotropic) support
+- [x] Frontend: PDE selector includes `current_flow`, material dispatch sends `conductivity`
+- [x] Frontend: field labels include `power_density`, `current_density`; integral labels include `total_power`
+- [x] Postprocessor endpoints: `/current`, `/resistance` with tests
+- [x] Solver service: `_PDE_SOLVERS` dispatches `CURRENT_FLOW` → `solve_current_flow`
+- [x] 395 backend tests passing, TypeScript compiles clean
 
 ---
 

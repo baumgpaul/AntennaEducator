@@ -216,6 +216,10 @@ class ProjectBase(BaseModel):
     """Fields shared by create / update / response."""
 
     name: str = Field(..., min_length=3, max_length=100)
+    project_type: str = Field(
+        "peec",
+        description="Simulation method: 'peec' (antenna) or 'fem' (electrostatic).",
+    )
     description: Optional[str] = Field(
         None,
         max_length=5000,
@@ -267,6 +271,7 @@ class ProjectUpdate(BaseModel):
     """Schema for updating a project — all fields optional."""
 
     name: Optional[str] = Field(None, min_length=3, max_length=100)
+    project_type: Optional[str] = Field(None, description="Simulation method.")
     description: Optional[str] = Field(None, max_length=5000)
     design_state: Optional[Dict[str, Any]] = None
     simulation_config: Optional[Dict[str, Any]] = None
@@ -298,6 +303,7 @@ class ProjectListResponse(BaseModel):
     id: str
     user_id: str
     name: str
+    project_type: str = "peec"
     description: Optional[str] = None
     folder_id: Optional[str] = None
     source_project_id: Optional[str] = None

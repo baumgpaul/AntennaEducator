@@ -24,17 +24,23 @@ class GmshDiscretizationApplier:
         self,
         settings: DiscretizationSettings,
         surface_tags: list[int] | None = None,
+        tag_map: dict[str, int] | None = None,
     ):
         """Apply settings to the current Gmsh model.
 
         Args:
             settings: Discretization configuration.
             surface_tags: Optional list of surface tags for recombination.
+            tag_map: Optional mapping from geometry surface IDs to Gmsh surface tags,
+                used to apply per-body element sizes and per-edge divisions.
         """
         self._apply_element_size(settings)
         self._apply_algorithm(settings)
         self._apply_optimize(settings)
         self._apply_recombine(settings, surface_tags)
+        if tag_map:
+            self._apply_body_sizes(settings, tag_map)
+            self._apply_edge_divisions(settings, tag_map)
 
     def _apply_element_size(self, settings: DiscretizationSettings):
         """Set global and minimum element sizes."""
@@ -97,3 +103,62 @@ class GmshDiscretizationApplier:
         # Use ~1/10 of the diagonal as default size
         diag = ((xmax - xmin) ** 2 + (ymax - ymin) ** 2) ** 0.5
         return max(diag / 10.0, 1e-6)
+
+    def _apply_body_sizes(
+        self,
+        settings: DiscretizationSettings,
+        tag_map: dict[str, int],
+    ):
+        """Apply per-surface element sizes via Gmsh mesh size fields."""
+        if not settings.body_sizes:
+            return
+
+        field_ids = []
+        for body_key, size_value in settings.body_sizes.items():
+            gmsh_tag = tag_map.get(body_key)
+            if gmsh_tag is None:
+                continue
+            if isinstance(size_value, str):
+                continue  # Skip expression sizes (not yet supported)
+            size = float(size_value)
+
+            # MathEval field restricted to the surface region
+            restrict_id = gmsh.model.mesh.field.add("MathEval")
+            gmsh.model.mesh.field.setString(restrict_id, "F", str(size))
+            restrict_field = gmsh.model.mesh.field.add("Restrict")
+            gmsh.model.mesh.field.setNumber(restrict_field, "InField", restrict_id)
+            gmsh.model.mesh.field.setNumbers(restrict_field, "SurfacesList", [gmsh_tag])
+            field_ids.append(restrict_field)
+
+        if field_ids:
+            min_field = gmsh.model.mesh.field.add("Min")
+            gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", field_ids)
+            gmsh.model.mesh.field.setAsBackgroundMesh(min_field)
+
+    def _apply_edge_divisions(
+        self,
+        settings: DiscretizationSettings,
+        tag_map: dict[str, int],
+    ):
+        """Apply per-edge transfinite divisions, overriding surface-level sizes."""
+        if not settings.edge_divisions:
+            return
+
+        # Build mapping from edge names to Gmsh curve tags.
+        # Edge keys follow the convention "{surface_key}_e{i}" matching boundary curves.
+        for edge_key, n_divisions in settings.edge_divisions.items():
+            # Find the surface this edge belongs to
+            curve_tag = self._find_curve_tag(edge_key, tag_map)
+            if curve_tag is not None:
+                gmsh.model.mesh.setTransfiniteCurve(curve_tag, n_divisions + 1)
+
+    @staticmethod
+    def _find_curve_tag(edge_key: str, tag_map: dict[str, int]) -> int | None:
+        """Resolve an edge key to its Gmsh curve tag via physical group names."""
+        phys_groups = gmsh.model.getPhysicalGroups(dim=1)
+        for dim, phys_tag in phys_groups:
+            name = gmsh.model.getPhysicalName(dim, phys_tag)
+            if name == edge_key:
+                entities = gmsh.model.getEntitiesForPhysicalGroup(dim, phys_tag)
+                return entities[0] if entities else None
+        return None

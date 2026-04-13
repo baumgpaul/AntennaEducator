@@ -15,19 +15,40 @@ hitting DynamoDB on every single request.
 """
 
 import logging
+import os
 import time
-from typing import Dict, Tuple
+from datetime import datetime, timezone
+from typing import Dict, Optional, Tuple
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from backend.common.auth.factory import create_auth_provider
-from backend.common.auth.identity import UserIdentity
+from backend.common.auth.identity import UserIdentity, UserRole
 
 logger = logging.getLogger(__name__)
 
+# ── Dev-mode auth bypass ─────────────────────────────────────────────
+# When DISABLE_AUTH=true the service skips token validation and returns a
+# synthetic dev user.  NEVER set this in production or staging.
+_DISABLE_AUTH = os.environ.get("DISABLE_AUTH", "").lower() == "true"
+if _DISABLE_AUTH:
+    logger.warning(
+        "DISABLE_AUTH=true — all requests run as dev-user@localhost. "
+        "This MUST NOT be used outside of local development."
+    )
+
+_DEV_USER = UserIdentity(
+    id="dev-user",
+    email="dev@localhost",
+    username="dev",
+    role=UserRole.ADMIN,
+    simulation_tokens=9999,
+    flatrate_until=datetime(2099, 1, 1, tzinfo=timezone.utc),
+)
+
 # FastAPI extracts the token from the ``Authorization: Bearer <token>`` header
-_bearer_scheme = HTTPBearer()
+_bearer_scheme = HTTPBearer(auto_error=not _DISABLE_AUTH)
 
 # ── In-memory profile cache ─────────────────────────────────────────
 # Avoids a DynamoDB GetItem on every authenticated request.
@@ -42,14 +63,27 @@ def invalidate_profile_cache(user_id: str) -> None:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
 ) -> UserIdentity:
     """FastAPI dependency — returns the authenticated ``UserIdentity``.
+
+    When ``DISABLE_AUTH=true`` the bearer token is optional and a synthetic
+    dev user is returned instead.  This path is unreachable in production.
 
     Raises:
         HTTPException 401: invalid / expired token, unknown user.
         HTTPException 403: user account is locked.
     """
+    if _DISABLE_AUTH:
+        return _DEV_USER
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     provider = create_auth_provider()
     token = credentials.credentials
 

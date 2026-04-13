@@ -22,7 +22,7 @@ export interface MeshGenerateRequest {
     body_sizes: Record<string, number>
     edge_divisions: Record<string, number>
   }
-  variable_context?: Record<string, number>
+  variables?: Record<string, number>
 }
 
 /** Convert frontend discretization settings to backend snake_case format. */
@@ -42,6 +42,35 @@ function toBackendDiscretization(
   }
 }
 
+/** Convert backend snake_case mesh JSON to frontend camelCase FEMMesh. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toFEMMesh(raw: any): FEMMesh {
+  return {
+    nodes: raw.nodes,
+    elements: (raw.elements ?? []).map((e: Record<string, unknown>) => ({
+      id: e.id,
+      elementType: e.element_type ?? e.elementType,
+      nodeIds: e.node_ids ?? e.nodeIds,
+      regionId: e.region_id ?? e.regionId,
+    })),
+    regions: (raw.regions ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id,
+      name: r.name,
+      materialId: r.material_id ?? r.materialId ?? null,
+    })),
+    boundaryEdges: (raw.boundary_edges ?? raw.boundaryEdges ?? []).map(
+      (b: Record<string, unknown>) => ({
+        id: b.id,
+        nodeIds: b.node_ids ?? b.nodeIds,
+        regionName: b.region_name ?? b.regionName,
+      }),
+    ),
+    elementType: raw.element_type ?? raw.elementType,
+    dimension: raw.dimension ?? 2,
+    metadata: raw.metadata ?? {},
+  }
+}
+
 /** Generate mesh from geometry operations + discretization settings. */
 export async function generateFEMMesh(
   operations: GeoOperation[],
@@ -51,10 +80,11 @@ export async function generateFEMMesh(
   const request: MeshGenerateRequest = {
     geometry: { operations },
     discretization: toBackendDiscretization(settings),
-    variable_context: variables,
+    variables,
   }
   const response = await femPreprocessorClient.post('/api/fem/mesh/generate', request)
-  return handleApiResponse<FEMMesh>(response)
+  const data = handleApiResponse<{ mesh: Record<string, unknown>; message: string }>(response)
+  return toFEMMesh(data.mesh)
 }
 
 /** Import mesh from a file upload (.msh or .vtu). */

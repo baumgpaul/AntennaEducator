@@ -38,6 +38,7 @@ class ProjectRepository(ABC):
         description: Optional[str] = None,
         folder_id: Optional[str] = None,
         source_project_id: Optional[str] = None,
+        project_type: str = "peec",
     ) -> Dict[str, Any]: ...
 
     @abstractmethod
@@ -59,6 +60,7 @@ class ProjectRepository(ABC):
         self,
         project_id: str,
         name: Optional[str] = None,
+        project_type: Optional[str] = None,
         description: Optional[str] = None,
         design_state: Optional[Dict] = None,
         simulation_config: Optional[Dict] = None,

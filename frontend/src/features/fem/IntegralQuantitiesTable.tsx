@@ -18,6 +18,15 @@ import {
 import { useAppSelector } from '@/store/hooks'
 import { selectFEMSolveResult } from '@/store/femSolverSlice'
 
+const INTEGRAL_LABELS: Record<string, string> = {
+  electric_energy: 'Electric Energy',
+  total_power: 'Total Power Dissipation',
+}
+
+function integralDisplayName(name: string): string {
+  return INTEGRAL_LABELS[name] ?? name
+}
+
 function IntegralQuantitiesTable() {
   const result = useAppSelector(selectFEMSolveResult)
 
@@ -45,7 +54,7 @@ function IntegralQuantitiesTable() {
           {result.integralQuantities.map((q) => (
             <TableRow key={q.name}>
               <TableCell>
-                <Typography variant="body2">{q.name}</Typography>
+                <Typography variant="body2">{integralDisplayName(q.name)}</Typography>
               </TableCell>
               <TableCell align="right">
                 <Typography variant="body2" fontFamily="monospace">

@@ -6,6 +6,10 @@ import {
   Button,
   TextField,
   CircularProgress,
+  ToggleButtonGroup,
+  ToggleButton,
+  Typography,
+  Box,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,6 +24,7 @@ import { formatErrorMessage } from '@/utils/errors';
 const projectSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters').max(100, 'Name must be less than 100 characters'),
   description: z.string().max(500, 'Description must be less than 500 characters').optional(),
+  project_type: z.enum(['peec', 'fem']),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -47,6 +52,7 @@ function NewProjectDialog({ open, onClose, folderId }: NewProjectDialogProps) {
     defaultValues: {
       name: '',
       description: '',
+      project_type: 'peec',
     },
   });
 
@@ -101,6 +107,34 @@ function NewProjectDialog({ open, onClose, folderId }: NewProjectDialogProps) {
             />
           )}
         />
+        <Box sx={{ mt: 2, mb: 1 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Simulation Type
+          </Typography>
+          <Controller
+            name="project_type"
+            control={control}
+            render={({ field }) => (
+              <ToggleButtonGroup
+                value={field.value}
+                exclusive
+                onChange={(_, value) => {
+                  if (value !== null) field.onChange(value);
+                }}
+                fullWidth
+                size="small"
+                disabled={loading}
+              >
+                <ToggleButton value="peec">
+                  PEEC Antenna
+                </ToggleButton>
+                <ToggleButton value="fem">
+                  FEM Electrostatic
+                </ToggleButton>
+              </ToggleButtonGroup>
+            )}
+          />
+        </Box>
         <Controller
           name="description"
           control={control}

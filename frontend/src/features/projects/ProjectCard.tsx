@@ -55,7 +55,10 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, onReset, 
 
   const handleOpen = () => {
     if (copyOnly) return;
-    navigate(`/project/${project.id}/design`);
+    const route = project.project_type === 'fem'
+      ? `/project/${project.id}/fem`
+      : `/project/${project.id}/design`;
+    navigate(route);
   };
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -127,6 +130,15 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, onReset, 
                 color="warning"
                 variant="outlined"
                 sx={{ mt: 0.5, height: 22, fontSize: '0.7rem' }}
+              />
+            )}
+            {project.project_type === 'fem' && (
+              <Chip
+                label="FEM"
+                size="small"
+                color="secondary"
+                variant="outlined"
+                sx={{ mt: 0.5, ml: copyOnly ? 0.5 : 0, height: 22, fontSize: '0.7rem' }}
               />
             )}
           </Box>

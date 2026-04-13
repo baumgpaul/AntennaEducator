@@ -365,3 +365,153 @@ class TestUnsupportedOperation:
         translator = GmshGeometryTranslator()
         with pytest.raises(ValueError, match="Unsupported.*nonexistent_op"):
             translator.translate(geometry, variables={})
+
+
+# ─── Tests for frontend canvas parameter format ──────────────────────────────
+# The drawing tools emit center_x/center_y for shapes and direct start/end
+# coordinates for lines.  These tests verify the translator handles both formats.
+
+
+class TestFrontendParamFormat:
+    """Verify that the frontend canvas parameter conventions are translated correctly."""
+
+    def test_rectangle_center_format(self):
+        """Frontend emits center_x/center_y — should produce correct bounding box."""
+        geometry = FEMGeometry(
+            operations=[
+                GeoOperation(
+                    type="add_rectangle",
+                    params={
+                        "center_x": 1.0,
+                        "center_y": 0.5,
+                        "width": 2.0,
+                        "height": 1.0,
+                        "tag": "rect_frontend",
+                    },
+                )
+            ]
+        )
+        translator = GmshGeometryTranslator()
+        tag_map = translator.translate(geometry, variables={})
+
+        # Tag registered under "tag" key too
+        assert "rect_frontend" in tag_map
+
+        surfaces = gmsh.model.getEntities(dim=2)
+        xmin, ymin, _, xmax, ymax, _ = gmsh.model.getBoundingBox(surfaces[0][0], surfaces[0][1])
+        assert abs(xmin - 0.0) < 1e-6
+        assert abs(ymin - 0.0) < 1e-6
+        assert abs(xmax - 2.0) < 1e-6
+        assert abs(ymax - 1.0) < 1e-6
+
+    def test_circle_center_format(self):
+        """Frontend emits center_x/center_y instead of cx/cy."""
+        geometry = FEMGeometry(
+            operations=[
+                GeoOperation(
+                    type="add_circle",
+                    params={
+                        "center_x": 0.0,
+                        "center_y": 0.0,
+                        "radius": 1.0,
+                        "tag": "circle_frontend",
+                    },
+                )
+            ]
+        )
+        translator = GmshGeometryTranslator()
+        tag_map = translator.translate(geometry, variables={})
+
+        assert "circle_frontend" in tag_map
+        surfaces = gmsh.model.getEntities(dim=2)
+        assert len(surfaces) >= 1
+
+    def test_ellipse_center_and_semi_axes_format(self):
+        """Frontend emits semi_axis_a/b instead of rx/ry."""
+        geometry = FEMGeometry(
+            operations=[
+                GeoOperation(
+                    type="add_ellipse",
+                    params={
+                        "center_x": 0.0,
+                        "center_y": 0.0,
+                        "semi_axis_a": 2.0,
+                        "semi_axis_b": 1.0,
+                        "tag": "ellipse_frontend",
+                    },
+                )
+            ]
+        )
+        translator = GmshGeometryTranslator()
+        tag_map = translator.translate(geometry, variables={})
+
+        assert "ellipse_frontend" in tag_map
+        surfaces = gmsh.model.getEntities(dim=2)
+        assert len(surfaces) >= 1
+
+    def test_line_direct_coord_format(self):
+        """Frontend emits start_x/y, end_x/y instead of point ID references."""
+        geometry = FEMGeometry(
+            operations=[
+                GeoOperation(
+                    type="add_line",
+                    params={
+                        "start_x": 0.0,
+                        "start_y": 0.0,
+                        "end_x": 1.0,
+                        "end_y": 1.0,
+                        "tag": "line_frontend",
+                    },
+                )
+            ]
+        )
+        translator = GmshGeometryTranslator()
+        translator.translate(geometry, variables={})
+
+        curves = gmsh.model.getEntities(dim=1)
+        assert len(curves) >= 1
+
+    def test_arc_direct_coord_format(self):
+        """Frontend emits start_x/y, center_x/y, end_x/y instead of point IDs."""
+        # Arc: part of a unit circle, start at (1,0), center (0,0), end (0,1)
+        geometry = FEMGeometry(
+            operations=[
+                GeoOperation(
+                    type="add_arc",
+                    params={
+                        "start_x": 1.0,
+                        "start_y": 0.0,
+                        "center_x": 0.0,
+                        "center_y": 0.0,
+                        "end_x": 0.0,
+                        "end_y": 1.0,
+                        "tag": "arc_frontend",
+                    },
+                )
+            ]
+        )
+        translator = GmshGeometryTranslator()
+        translator.translate(geometry, variables={})
+
+        curves = gmsh.model.getEntities(dim=1)
+        assert len(curves) >= 1
+
+    def test_polygon_with_tag(self):
+        """Frontend emits polygon with 'tag' key instead of 'id'."""
+        geometry = FEMGeometry(
+            operations=[
+                GeoOperation(
+                    type="add_polygon",
+                    params={
+                        "vertices": [[0.0, 0.0], [2.0, 0.0], [1.0, 2.0]],
+                        "tag": "triangle_frontend",
+                    },
+                )
+            ]
+        )
+        translator = GmshGeometryTranslator()
+        tag_map = translator.translate(geometry, variables={})
+
+        assert "triangle_frontend" in tag_map
+        surfaces = gmsh.model.getEntities(dim=2)
+        assert len(surfaces) == 1

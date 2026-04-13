@@ -12,6 +12,7 @@ from backend.common.auth.token_dependency import TokenCheckResult, require_simul
 from backend.common.models.fem.config import PDEType
 from backend.common.utils.error_handler import install_error_handlers
 from backend.common.utils.logging_config import configure_logging
+from backend.fem.solver.pde.current_flow import solve_current_flow
 from backend.fem.solver.pde.electrostatic import solve_electrostatic
 
 from .config import settings
@@ -54,6 +55,7 @@ async def health_check():
 
 _PDE_SOLVERS = {
     PDEType.ELECTROSTATIC: solve_electrostatic,
+    PDEType.CURRENT_FLOW: solve_current_flow,
 }
 
 
@@ -81,6 +83,7 @@ async def solve(
             materials=request.materials,
             boundary_conditions=request.boundary_conditions,
             config=request.config,
+            excitations=request.excitations,
         )
         return result.model_dump()
     except KeyError as e:

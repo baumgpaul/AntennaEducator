@@ -6,10 +6,11 @@ from pydantic import BaseModel
 
 
 class ScalarFieldResult(BaseModel):
-    """A scalar field defined at mesh nodes (e.g. electric potential)."""
+    """A scalar field defined at mesh nodes or per element."""
 
     field_name: str
-    node_values: list[float]
+    node_values: list[float] = []
+    element_values: list[float] = []
     unit: str = ""
     min_value: float = 0.0
     max_value: float = 0.0

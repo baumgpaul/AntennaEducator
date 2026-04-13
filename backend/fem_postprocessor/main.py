@@ -15,15 +15,29 @@ from backend.common.utils.logging_config import configure_logging
 
 from .config import settings
 from .export import export_csv_scalar, export_vtk
+from .integrals import (
+    compute_capacitance,
+    compute_resistance,
+    integrate_boundary_current,
+    integrate_surface_charge,
+)
 from .line_evaluation import sample_field_along_line
 from .point_probe import probe_field_at_point
 from .schemas import (
+    BoundaryCurrentRequest,
+    BoundaryCurrentResponse,
+    CapacitanceRequest,
+    CapacitanceResponse,
     CSVExportRequest,
     FieldVisualizationRequest,
     LinePlotRequest,
     LinePlotResponse,
     PointProbeRequest,
     PointProbeResponse,
+    ResistanceRequest,
+    ResistanceResponse,
+    SurfaceChargeRequest,
+    SurfaceChargeResponse,
     VTKExportRequest,
 )
 from .visualization import prepare_scalar_field, prepare_vector_field
@@ -207,6 +221,130 @@ async def export_csv_endpoint(
         content=csv_content,
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={request.field_name}.csv"},
+    )
+
+
+@app.post(
+    f"{settings.api_prefix}/fem/postprocess/charge",
+    response_model=SurfaceChargeResponse,
+    tags=["FEM Integrals"],
+)
+async def get_surface_charge(
+    request: SurfaceChargeRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(0)),
+):
+    """Compute charge on a boundary: Q = ∫ D·n dΓ."""
+    if "displacement_field" not in request.vector_fields:
+        raise HTTPException(
+            status_code=400,
+            detail="displacement_field not found in vector_fields",
+        )
+
+    d_field = request.vector_fields["displacement_field"]
+    charge = integrate_surface_charge(request.mesh, d_field, request.boundary_name)
+
+    return SurfaceChargeResponse(charge=charge, boundary_name=request.boundary_name)
+
+
+@app.post(
+    f"{settings.api_prefix}/fem/postprocess/capacitance",
+    response_model=CapacitanceResponse,
+    tags=["FEM Integrals"],
+)
+async def get_capacitance(
+    request: CapacitanceRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(0)),
+):
+    """Compute capacitance: C = |Q| / V."""
+    if "displacement_field" not in request.vector_fields:
+        raise HTTPException(
+            status_code=400,
+            detail="displacement_field not found in vector_fields",
+        )
+
+    d_field = request.vector_fields["displacement_field"]
+
+    try:
+        capacitance = compute_capacitance(
+            request.mesh,
+            d_field,
+            request.electrode_boundary,
+            request.voltage_difference,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    charge = integrate_surface_charge(request.mesh, d_field, request.electrode_boundary)
+
+    return CapacitanceResponse(
+        capacitance=capacitance,
+        charge=charge,
+        voltage_difference=request.voltage_difference,
+        electrode_boundary=request.electrode_boundary,
+    )
+
+
+@app.post(
+    f"{settings.api_prefix}/fem/postprocess/current",
+    response_model=BoundaryCurrentResponse,
+    tags=["FEM Integrals"],
+)
+async def get_boundary_current(
+    request: BoundaryCurrentRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(0)),
+):
+    """Compute current through a boundary: I = ∫ J·n dΓ."""
+    if "current_density" not in request.vector_fields:
+        raise HTTPException(
+            status_code=400,
+            detail="current_density not found in vector_fields",
+        )
+
+    j_field = request.vector_fields["current_density"]
+    current = integrate_boundary_current(request.mesh, j_field, request.boundary_name)
+
+    return BoundaryCurrentResponse(current=current, boundary_name=request.boundary_name)
+
+
+@app.post(
+    f"{settings.api_prefix}/fem/postprocess/resistance",
+    response_model=ResistanceResponse,
+    tags=["FEM Integrals"],
+)
+async def get_resistance(
+    request: ResistanceRequest,
+    user: UserIdentity = Depends(get_current_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens(0)),
+):
+    """Compute resistance: R = V / I."""
+    if "current_density" not in request.vector_fields:
+        raise HTTPException(
+            status_code=400,
+            detail="current_density not found in vector_fields",
+        )
+
+    j_field = request.vector_fields["current_density"]
+
+    try:
+        resistance = compute_resistance(
+            request.mesh,
+            j_field,
+            request.electrode_boundary,
+            request.voltage_difference,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    current = integrate_boundary_current(request.mesh, j_field, request.electrode_boundary)
+
+    return ResistanceResponse(
+        resistance=resistance,
+        current=current,
+        voltage_difference=request.voltage_difference,
+        electrode_boundary=request.electrode_boundary,
     )
 
 

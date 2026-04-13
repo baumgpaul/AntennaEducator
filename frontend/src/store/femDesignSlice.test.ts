@@ -26,6 +26,8 @@ import femDesignReducer, {
   addExcitation,
   removeExcitation,
   resetFEMDesign,
+  incrementNamingCounter,
+  renameEntity,
   selectFEMGeometryOps,
   selectFEMMesh,
   selectFEMMeshStatus,
@@ -33,6 +35,7 @@ import femDesignReducer, {
   selectFEMSelectedEntity,
   selectFEMPDEType,
   selectFEMResultsStale,
+  selectFEMNamingCounters,
   type FEMDesignState,
 } from './femDesignSlice'
 
@@ -335,6 +338,96 @@ describe('femDesignSlice', () => {
 
       expect(selectFEMGeometryOps(store.getState())).toHaveLength(0)
       expect(selectFEMPDEType(store.getState())).toBe('electrostatic')
+    })
+
+    it('should reset naming counters on full reset', () => {
+      const store = createTestStore()
+      store.dispatch(incrementNamingCounter('rectangle'))
+      store.dispatch(incrementNamingCounter('rectangle'))
+
+      store.dispatch(resetFEMDesign())
+
+      const c = selectFEMNamingCounters(store.getState())
+      expect(c.rectangle).toBe(0)
+    })
+  })
+
+  describe('naming counters', () => {
+    it('should increment naming counter for a primitive type', () => {
+      const store = createTestStore()
+
+      store.dispatch(incrementNamingCounter('rectangle'))
+      store.dispatch(incrementNamingCounter('rectangle'))
+      store.dispatch(incrementNamingCounter('circle'))
+
+      const c = selectFEMNamingCounters(store.getState())
+      expect(c.rectangle).toBe(2)
+      expect(c.circle).toBe(1)
+      expect(c.ellipse).toBe(0)
+    })
+
+    it('should reset naming counters when geometry is cleared', () => {
+      const store = createTestStore()
+      store.dispatch(incrementNamingCounter('rectangle'))
+
+      store.dispatch(clearGeometry())
+
+      const c = selectFEMNamingCounters(store.getState())
+      expect(c.rectangle).toBe(0)
+    })
+  })
+
+  describe('entity rename', () => {
+    it('should rename a surface in evaluated geometry', () => {
+      const store = createTestStore()
+      // Set up evaluated geometry with a surface
+      const stateWithGeom: FEMDesignState = {
+        ...store.getState().femDesign,
+        evaluatedGeometry: {
+          surfaces: [{ id: 's1', name: 'rect_1', primitiveType: 'rectangle', edgeIds: ['e1'], innerLoops: [] }],
+          bodies: [{ id: 's1', name: 'rect_1', primitiveType: 'rectangle', edgeIds: ['e1'], innerLoops: [] }],
+          edges: [{ id: 'e1', name: 'rect_1_bottom', edgeType: 'line', pointIds: ['p1', 'p2'], parentSurfaceId: 's1' }],
+          points: [],
+        },
+      }
+      const storeWithGeom = createTestStore({ femDesign: stateWithGeom })
+
+      storeWithGeom.dispatch(renameEntity({ id: 's1', newName: 'my_plate' }))
+
+      const eg = storeWithGeom.getState().femDesign.evaluatedGeometry!
+      expect(eg.surfaces[0].name).toBe('my_plate')
+      expect(eg.bodies[0].name).toBe('my_plate')
+    })
+
+    it('should rename an edge in evaluated geometry', () => {
+      const store = createTestStore()
+      const stateWithGeom: FEMDesignState = {
+        ...store.getState().femDesign,
+        evaluatedGeometry: {
+          surfaces: [],
+          bodies: [],
+          edges: [{ id: 'e1', name: 'rect_1_bottom', edgeType: 'line', pointIds: ['p1', 'p2'], parentSurfaceId: 's1' }],
+          points: [],
+        },
+      }
+      const storeWithGeom = createTestStore({ femDesign: stateWithGeom })
+
+      storeWithGeom.dispatch(renameEntity({ id: 'e1', newName: 'ground_edge' }))
+
+      const eg = storeWithGeom.getState().femDesign.evaluatedGeometry!
+      expect(eg.edges[0].name).toBe('ground_edge')
+    })
+  })
+
+  describe('surface selection', () => {
+    it('should support surface entity type', () => {
+      const store = createTestStore()
+
+      store.dispatch(selectEntity({ id: 'surf_1', type: 'surface' }))
+
+      const sel = selectFEMSelectedEntity(store.getState())
+      expect(sel.id).toBe('surf_1')
+      expect(sel.type).toBe('surface')
     })
   })
 })

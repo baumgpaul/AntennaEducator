@@ -129,7 +129,7 @@ class TestSolveEndpoint:
         assert response.status_code == 422
 
     def test_solve_missing_material(self, client):
-        """Material not found for region should fail with 400."""
+        """Region with no matching material should default to vacuum (ε_r=1)."""
         mesh = _make_simple_mesh()
         request_data = {
             "mesh": mesh,
@@ -142,7 +142,7 @@ class TestSolveEndpoint:
             "config": {"pde_type": "electrostatic"},
         }
         response = client.post("/api/fem/solve", json=request_data)
-        assert response.status_code == 400
+        assert response.status_code == 200
 
     def test_solve_unsupported_pde(self, client):
         """Unsupported PDE type should fail with 400."""

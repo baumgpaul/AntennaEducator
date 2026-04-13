@@ -84,6 +84,7 @@ class DynamoDBProjectRepository(ProjectRepository):
         description: Optional[str] = None,
         folder_id: Optional[str] = None,
         source_project_id: Optional[str] = None,
+        project_type: str = "peec",
     ) -> Dict[str, Any]:
         project_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
@@ -97,6 +98,7 @@ class DynamoDBProjectRepository(ProjectRepository):
             "ProjectId": project_id,
             "UserId": user_id,
             "Name": name,
+            "ProjectType": project_type,
             "Description": description or "",
             "FolderId": folder_id or "",
             "DesignState": {},
@@ -176,6 +178,7 @@ class DynamoDBProjectRepository(ProjectRepository):
         self,
         project_id: str,
         name: Optional[str] = None,
+        project_type: Optional[str] = None,
         description: Optional[str] = None,
         design_state: Optional[Dict] = None,
         simulation_config: Optional[Dict] = None,
@@ -199,6 +202,10 @@ class DynamoDBProjectRepository(ProjectRepository):
             parts.append("#name = :name")
             values[":name"] = name
             names["#name"] = "Name"
+
+        if project_type is not None:
+            parts.append("ProjectType = :pt")
+            values[":pt"] = project_type
 
         if description is not None:
             parts.append("Description = :desc")
@@ -275,6 +282,7 @@ class DynamoDBProjectRepository(ProjectRepository):
             "id": pick("ProjectId", "project_id"),
             "user_id": pick("UserId", "user_id"),
             "name": pick("Name", "name", default=""),
+            "project_type": pick("ProjectType", "project_type", default="peec"),
             "description": pick("Description", "description", default=""),
             "design_state": _from_dynamodb(pick("DesignState", "design_state", default={})),
             "simulation_config": _from_dynamodb(

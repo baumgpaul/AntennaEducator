@@ -37,8 +37,9 @@ function Header() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(anchorEl);
 
-  // Refresh token balance whenever the user returns to this tab
+  // Refresh token balance whenever the user returns to this tab (skip in dev auth-bypass mode)
   useEffect(() => {
+    if (import.meta.env.VITE_DISABLE_AUTH === 'true') return;
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         dispatch(getCurrentUserAsync());

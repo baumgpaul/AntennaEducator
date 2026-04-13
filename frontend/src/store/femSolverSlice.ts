@@ -188,6 +188,28 @@ const femSolverSlice = createSlice({
     resetFEMSolver() {
       return initialState
     },
+
+    // — Load from persisted simulation_results blob —
+    loadFEMSolver(
+      state,
+      action: PayloadAction<Partial<FEMSolverState>>
+    ) {
+      const d = action.payload
+      if (d.config) Object.assign(state.config, d.config)
+      if (d.solveStatus) state.solveStatus = d.solveStatus
+      if (d.result !== undefined) state.result = d.result
+      if (d.selectedField !== undefined) state.selectedField = d.selectedField
+      if (d.displayMode) state.displayMode = d.displayMode
+      if (d.colorMap) state.colorMap = d.colorMap
+      if (d.colorRange !== undefined) state.colorRange = d.colorRange
+      if (d.showMeshOverlay !== undefined) state.showMeshOverlay = d.showMeshOverlay
+      if (d.showVectors !== undefined) state.showVectors = d.showVectors
+      if (d.vectorScale !== undefined) state.vectorScale = d.vectorScale
+      if (d.linePlots) state.linePlots = d.linePlots
+      if (d.linePlotData) state.linePlotData = d.linePlotData
+      if (d.probes) state.probes = d.probes
+      if (d.probeResults) state.probeResults = d.probeResults
+    },
   },
 })
 
@@ -214,6 +236,7 @@ export const {
   removeProbe,
   setProbeResult,
   resetFEMSolver,
+  loadFEMSolver,
 } = femSolverSlice.actions
 
 // ── Selectors ─────────────────────────────────────────────────

@@ -3,7 +3,7 @@
  * Manages folder tree, course library, and admin operations
  */
 
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createSelector, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from './store';
 import * as foldersApi from '@/api/folders';
 import type {
@@ -425,8 +425,7 @@ export interface FolderTreeNode extends Folder {
   children: FolderTreeNode[];
 }
 
-export const selectFolderTree = (state: RootState): FolderTreeNode[] => {
-  const flat = state.folders.folders;
+const buildTree = (flat: Folder[]): FolderTreeNode[] => {
   const map = new Map<string, FolderTreeNode>();
   const roots: FolderTreeNode[] = [];
 
@@ -443,22 +442,14 @@ export const selectFolderTree = (state: RootState): FolderTreeNode[] => {
   return roots;
 };
 
-export const selectCourseTree = (state: RootState): FolderTreeNode[] => {
-  const flat = state.folders.courses;
-  const map = new Map<string, FolderTreeNode>();
-  const roots: FolderTreeNode[] = [];
+export const selectFolderTree = createSelector(
+  (state: RootState) => state.folders.folders,
+  buildTree
+);
 
-  flat.forEach((f) => map.set(f.id, { ...f, children: [] }));
-  flat.forEach((f) => {
-    const node = map.get(f.id)!;
-    if (f.parent_folder_id && map.has(f.parent_folder_id)) {
-      map.get(f.parent_folder_id)!.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  });
-
-  return roots;
-};
+export const selectCourseTree = createSelector(
+  (state: RootState) => state.folders.courses,
+  buildTree
+);
 
 export default foldersSlice.reducer;

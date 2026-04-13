@@ -88,3 +88,73 @@ class CSVExportRequest(BaseModel):
     scalar_fields: dict[str, ScalarFieldResult] = {}
     vector_fields: dict[str, VectorFieldResult] = {}
     field_name: str
+
+
+class SurfaceChargeRequest(BaseModel):
+    """Request to compute charge on a boundary: Q = ∫ D·n dΓ."""
+
+    mesh: FEMMesh
+    vector_fields: dict[str, VectorFieldResult]
+    boundary_name: str
+
+
+class SurfaceChargeResponse(BaseModel):
+    """Surface charge integration result."""
+
+    charge: float
+    boundary_name: str
+    unit: str = "C/m"
+
+
+class CapacitanceRequest(BaseModel):
+    """Request to compute capacitance: C = Q/V."""
+
+    mesh: FEMMesh
+    vector_fields: dict[str, VectorFieldResult]
+    electrode_boundary: str
+    voltage_difference: float
+
+
+class CapacitanceResponse(BaseModel):
+    """Capacitance extraction result."""
+
+    capacitance: float
+    charge: float
+    voltage_difference: float
+    electrode_boundary: str
+    unit: str = "F/m"
+
+
+class BoundaryCurrentRequest(BaseModel):
+    """Request to compute current through a boundary: I = ∫ J·n dΓ."""
+
+    mesh: FEMMesh
+    vector_fields: dict[str, VectorFieldResult]
+    boundary_name: str
+
+
+class BoundaryCurrentResponse(BaseModel):
+    """Boundary current integration result."""
+
+    current: float
+    boundary_name: str
+    unit: str = "A/m"
+
+
+class ResistanceRequest(BaseModel):
+    """Request to compute resistance: R = V/I."""
+
+    mesh: FEMMesh
+    vector_fields: dict[str, VectorFieldResult]
+    electrode_boundary: str
+    voltage_difference: float
+
+
+class ResistanceResponse(BaseModel):
+    """Resistance extraction result."""
+
+    resistance: float
+    current: float
+    voltage_difference: float
+    electrode_boundary: str
+    unit: str = "Ω·m"

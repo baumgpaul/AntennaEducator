@@ -28,6 +28,27 @@ const initialState: AuthState = {
 
 // Load auth state from localStorage on init
 const loadAuthFromStorage = (): Partial<AuthState> => {
+  // Dev bypass: VITE_DISABLE_AUTH=true skips auth entirely.
+  // Backend must also run with DISABLE_AUTH=true for API calls to work.
+  if (import.meta.env.VITE_DISABLE_AUTH === 'true') {
+    console.warn('[DISABLE_AUTH] Skipping authentication — dev mode only.')
+    return {
+      isAuthenticated: true,
+      sessionValidated: true,
+      user: {
+        id: 'dev-user',
+        email: 'dev@localhost',
+        username: 'dev',
+        role: 'admin',
+        is_approved: true,
+        is_admin: true,
+        simulation_tokens: 9999,
+        created_at: new Date().toISOString(),
+      } as User,
+      tokens: { access_token: 'dev-token', token_type: 'Bearer' },
+    }
+  }
+
   try {
     const authService = getAuthService()
     const token = authService.getAccessToken()

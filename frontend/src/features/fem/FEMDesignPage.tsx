@@ -12,15 +12,18 @@
  *  └──────┴─────────────────────┴────────────┘
  */
 
-import { useState, useCallback, useRef } from 'react'
-import { Box, Divider, IconButton, Tooltip } from '@mui/material'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { Box, Divider, IconButton, Tooltip, Snackbar, Alert } from '@mui/material'
 import {
   ChevronLeft as CollapseLeftIcon,
   ChevronRight as CollapseRightIcon,
 } from '@mui/icons-material'
-import { useAppSelector } from '@/store/hooks'
-import { selectFEMMeshStatus, selectFEMActiveTool } from '@/store/femDesignSlice'
-import { selectFEMSolveStatus } from '@/store/femSolverSlice'
+import { debounce } from 'lodash'
+import { useParams } from 'react-router-dom'
+import { useAppSelector, useAppDispatch } from '@/store/hooks'
+import { selectFEMMeshStatus, selectFEMActiveTool, loadFEMDesign, resetFEMDesign } from '@/store/femDesignSlice'
+import { selectFEMSolveStatus, loadFEMSolver, resetFEMSolver } from '@/store/femSolverSlice'
+import { fetchProject, updateProject } from '@/store/projectsSlice'
 import FEMRibbonMenu from './FEMRibbonMenu'
 import GeometryCanvas from './GeometryCanvas'
 import ModelTree from './ModelTree'
@@ -32,15 +35,141 @@ import FEMResultsPanel from './FEMResultsPanel'
 export type FEMTab = 'geometry' | 'physics' | 'solver' | 'results'
 
 function FEMDesignPage() {
+  const { projectId } = useParams<{ projectId: string }>()
+  const dispatch = useAppDispatch()
+
   const [currentTab, setCurrentTab] = useState<FEMTab>('geometry')
   const [leftPanelOpen, setLeftPanelOpen] = useState(true)
   const [rightPanelOpen, setRightPanelOpen] = useState(true)
   const [leftWidth, setLeftWidth] = useState(240)
   const [rightWidth, setRightWidth] = useState(280)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [showSaveIndicator, setShowSaveIndicator] = useState(false)
 
   const meshStatus = useAppSelector(selectFEMMeshStatus)
   const solveStatus = useAppSelector(selectFEMSolveStatus)
   const activeTool = useAppSelector(selectFEMActiveTool)
+
+  // Full state slices for persistence
+  const femDesignState = useAppSelector((state) => state.femDesign)
+  const femSolverState = useAppSelector((state) => state.femSolver)
+  const currentProject = useAppSelector((state) => state.projects.currentProject)
+  const meshError = useAppSelector((state) => state.femDesign.meshError)
+
+  // Track project loading to skip auto-saves during initial load
+  const projectLoadingRef = useRef<boolean>(true)
+
+  // ── Load project on mount ──────────────────────────────
+  useEffect(() => {
+    if (projectId) {
+      projectLoadingRef.current = true
+      dispatch(fetchProject(projectId))
+    }
+    return () => {
+      dispatch(resetFEMDesign())
+      dispatch(resetFEMSolver())
+    }
+  }, [projectId, dispatch])
+
+  // ── Restore FEM state from loaded project ──────────────
+  useEffect(() => {
+    if (!currentProject) return
+    if (currentProject.project_type !== 'fem') return
+
+    const ds = currentProject.design_state
+    if (ds && ds.fem_design) {
+      dispatch(loadFEMDesign(ds.fem_design))
+    } else {
+      dispatch(resetFEMDesign())
+    }
+
+    const sr = currentProject.simulation_results
+    if (sr && sr.fem_solver) {
+      dispatch(loadFEMSolver(sr.fem_solver))
+    } else {
+      dispatch(resetFEMSolver())
+    }
+
+    setTimeout(() => {
+      projectLoadingRef.current = false
+    }, 500)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProject?.id, dispatch])
+
+  // ── Auto-save (debounced) ──────────────────────────────
+  const saveProjectDebounced = useRef(
+    debounce(async (
+      designData: typeof femDesignState,
+      solverData: typeof femSolverState,
+      pid: string,
+    ) => {
+      try {
+        setSaveStatus('saving')
+        setShowSaveIndicator(true)
+        await dispatch(updateProject({
+          id: pid,
+          data: {
+            design_state: {
+              project_type: 'fem',
+              fem_design: {
+                geometryOperations: designData.geometryOperations,
+                evaluatedGeometry: designData.evaluatedGeometry,
+                discretization: designData.discretization,
+                mesh: designData.mesh,
+                meshStatus: designData.meshStatus,
+                meshStatistics: designData.meshStatistics,
+                pdeType: designData.pdeType,
+                materials: designData.materials,
+                materialAssignments: designData.materialAssignments,
+                boundaryConditions: designData.boundaryConditions,
+                excitations: designData.excitations,
+                namingCounters: designData.namingCounters,
+                meshStale: designData.meshStale,
+                resultsStale: designData.resultsStale,
+              },
+              version: 1,
+            },
+            simulation_results: {
+              fem_solver: {
+                config: solverData.config,
+                solveStatus: solverData.solveStatus,
+                result: solverData.result,
+                selectedField: solverData.selectedField,
+                displayMode: solverData.displayMode,
+                colorMap: solverData.colorMap,
+                colorRange: solverData.colorRange,
+                showMeshOverlay: solverData.showMeshOverlay,
+                showVectors: solverData.showVectors,
+                vectorScale: solverData.vectorScale,
+                linePlots: solverData.linePlots,
+                linePlotData: solverData.linePlotData,
+                probes: solverData.probes,
+                probeResults: solverData.probeResults,
+              },
+            },
+          },
+        })).unwrap()
+        setSaveStatus('saved')
+        setTimeout(() => {
+          setShowSaveIndicator(false)
+          setSaveStatus('idle')
+        }, 2000)
+      } catch {
+        setSaveStatus('error')
+        setTimeout(() => {
+          setShowSaveIndicator(false)
+          setSaveStatus('idle')
+        }, 5000)
+      }
+    }, 2000)
+  ).current
+
+  // Trigger auto-save when FEM state changes
+  useEffect(() => {
+    if (projectLoadingRef.current) return
+    if (!projectId) return
+    saveProjectDebounced(femDesignState, femSolverState, projectId)
+  }, [femDesignState, femSolverState, projectId, saveProjectDebounced])
 
   // Resize logic for left panel
   const isResizingLeft = useRef(false)
@@ -170,6 +299,31 @@ function FEMDesignPage() {
           </>
         )}
       </Box>
+
+      {/* Save status indicator */}
+      <Snackbar
+        open={showSaveIndicator}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          severity={saveStatus === 'error' ? 'error' : saveStatus === 'saved' ? 'success' : 'info'}
+          variant="filled"
+          sx={{ minWidth: 200 }}
+        >
+          {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : 'Save failed'}
+        </Alert>
+      </Snackbar>
+
+      {/* Mesh error feedback */}
+      <Snackbar
+        open={!!meshError}
+        autoHideDuration={6000}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" variant="filled" sx={{ minWidth: 300 }}>
+          {meshError}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }
