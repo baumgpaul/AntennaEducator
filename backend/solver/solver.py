@@ -385,15 +385,25 @@ def solve_peec_frequency_sweep(
                 input_impedance = np.inf + 0j
 
         elif len(current_sources) > 0:
-            # Current source excitation: compute input impedance Z = V/I
-            # Use voltage at first current source node
-            isrc_node = current_sources[0].node
-            if isrc_node > 0:  # Regular mesh node (1-based)
-                input_voltage = V[isrc_node - 1]  # Convert to 0-based
+            # Current source excitation: compute input impedance Z = V_port / I
+            # Convention matches the voltage source path (Z = V_src / I_src):
+            #   - Explicit two-terminal source (node_end set): differential V[start] - V[end]
+            #   - Single-terminal / balanced-pair (node_end=None): single-ended V[node]
+            isrc = current_sources[0]
+            isrc_node = isrc.node
+            if isrc_node > 0:
+                V_start = V[isrc_node - 1]
             else:
-                input_voltage = 0.0 + 0j  # Ground
+                V_start = 0.0 + 0j
 
-            input_current = current_sources[0].value
+            if isrc.node_end is not None and isrc.node_end > 0:
+                # Explicit two-terminal: differential port voltage
+                input_voltage = V_start - V[isrc.node_end - 1]
+            else:
+                # Single-terminal or balanced-pair: single-ended (matches VS convention)
+                input_voltage = V_start
+
+            input_current = isrc.value
 
             if np.abs(input_current) > 1e-12:
                 input_impedance = input_voltage / input_current
@@ -993,15 +1003,47 @@ def distribute_solution(solution: FrequencyPoint, merged_system: MergedAntennaSy
         end_appended_0 = start_appended_0 + offset["n_appended"]
         appended_voltages = X_V[start_appended_0:end_appended_0] if offset["n_appended"] > 0 else []
 
-        # Compute input impedance from first voltage source (if exists)
+        # Compute input impedance from first voltage source (if exists),
+        # or from first current source (differential port voltage) otherwise.
         input_impedance = None
         if offset["n_voltage"] > 0 and len(voltage_source_currents) > 0:
-            # Z = V / I for first voltage source
+            # Z = V_source / I_source (use actual source voltage, not hardcoded 1.0)
+            vs_global_idx = start_voltage_0  # 0-based index into merged voltage sources list
+            vs_value = (
+                merged_system.voltage_sources[vs_global_idx].value
+                if vs_global_idx < len(merged_system.voltage_sources)
+                else complex(1.0)
+            )
             I_source = voltage_source_currents[0]
             if abs(I_source) > 1e-12:
-                # Get voltage from first voltage source
-                # Assume voltage sources have value 1.0 for impedance calc
-                input_impedance = complex(1.0) / I_source
+                input_impedance = vs_value / I_source
+        elif offset["n_current"] > 0:
+            # Current source excitation: Z = V_port / I (same convention as single-freq path)
+            # Explicit two-terminal source → differential; otherwise single-ended.
+            cs_global_idx = offset["start_current"] - 1  # 0-based index into merged CS list
+            pt_offset = offset["start_point"] - 1  # node renumber offset (added during merge)
+            n_pts = offset["n_points"]
+
+            if cs_global_idx < len(merged_system.current_sources):
+                cs0 = merged_system.current_sources[cs_global_idx]
+                if cs0.node > 0:
+                    loc0 = cs0.node - pt_offset - 1
+                    V_start = node_voltages[loc0] if 0 <= loc0 < n_pts else 0.0 + 0j
+                else:
+                    V_start = 0.0 + 0j
+
+                if cs0.node_end is not None and cs0.node_end > 0:
+                    # Explicit two-terminal: differential port voltage
+                    loc1 = cs0.node_end - pt_offset - 1
+                    input_voltage = V_start - (
+                        node_voltages[loc1] if 0 <= loc1 < n_pts else 0.0 + 0j
+                    )
+                else:
+                    # Single-terminal / balanced-pair: single-ended
+                    input_voltage = V_start
+
+                if abs(cs0.value) > 1e-12:
+                    input_impedance = input_voltage / cs0.value
 
         antenna_solutions.append(
             {
