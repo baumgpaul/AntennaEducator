@@ -69,8 +69,6 @@ const DISTRIBUTION_QUANTITIES: QuantityOption[] = [
 ];
 
 const FARFIELD_QUANTITIES: QuantityOption[] = [
-  { quantity: { source: 'farfield', quantity: 'directivity' }, label: 'Directivity', description: 'Directivity (dBi)', defaultYAxis: 'left' },
-  { quantity: { source: 'farfield', quantity: 'gain' }, label: 'Gain', description: 'Gain (dBi)', defaultYAxis: 'left' },
   { quantity: { source: 'farfield', quantity: 'E_theta' }, label: 'E_θ', description: 'Theta component of E-field', defaultYAxis: 'left' },
   { quantity: { source: 'farfield', quantity: 'E_phi' }, label: 'E_φ', description: 'Phi component of E-field', defaultYAxis: 'left' },
 ];

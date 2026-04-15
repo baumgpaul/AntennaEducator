@@ -19,6 +19,10 @@ import {
   Typography,
   IconButton,
   Tooltip,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import type { TableColumn } from '@/types/plotDefinitions';
@@ -247,6 +251,16 @@ export const PortQuantityTable: React.FC<PortQuantityTableProps> = ({
 }) => {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [selectedAntennaIndex, setSelectedAntennaIndex] = useState<number>(antennaIndex);
+
+  // Derive number of available antennas from data
+  const antennaCount = useMemo(() => {
+    const firstResult =
+      frequencySweep?.results?.[0] ??
+      (parameterStudy?.results?.[0]?.solverResponse as any) ??
+      null;
+    return (firstResult?.antenna_solutions?.length as number | undefined) ?? 1;
+  }, [frequencySweep, parameterStudy]);
 
   const columns = useMemo(
     () => buildColumns(parameterStudy, baseColumns),
@@ -254,8 +268,8 @@ export const PortQuantityTable: React.FC<PortQuantityTableProps> = ({
   );
 
   const rows = useMemo(
-    () => extractRows(frequencySweep, parameterStudy, antennaIndex, z0),
-    [frequencySweep, parameterStudy, antennaIndex, z0],
+    () => extractRows(frequencySweep, parameterStudy, selectedAntennaIndex, z0),
+    [frequencySweep, parameterStudy, selectedAntennaIndex, z0],
   );
 
   const sortedRows = useMemo(() => {
@@ -297,11 +311,28 @@ export const PortQuantityTable: React.FC<PortQuantityTableProps> = ({
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
           {title || 'Port Quantities'}
         </Typography>
-        <Tooltip title="Export CSV">
-          <IconButton size="small" onClick={handleExport}>
-            <FileDownloadIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel id="antenna-select-label">Antenna / Port</InputLabel>
+            <Select
+              labelId="antenna-select-label"
+              value={selectedAntennaIndex}
+              label="Antenna / Port"
+              onChange={(e) => setSelectedAntennaIndex(Number(e.target.value))}
+            >
+              {Array.from({ length: antennaCount }, (_, i) => (
+                <MenuItem key={i} value={i}>
+                  Antenna {i + 1}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Tooltip title="Export CSV">
+            <IconButton size="small" onClick={handleExport}>
+              <FileDownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
       <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
         <Table size="small" stickyHeader>

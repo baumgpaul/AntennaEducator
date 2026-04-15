@@ -162,11 +162,26 @@ function UnifiedLinePlot({
             />
           )}
           <Tooltip
+            cursor={{ stroke: '#666', strokeWidth: 1, strokeDasharray: '4 2' }}
             formatter={(value: number, name: string) => [
               typeof value === 'number' ? value.toFixed(4) : value,
               name,
             ]}
-            labelFormatter={(label: number) => `${xAxisConfig.label}: ${label}`}
+            labelFormatter={(label: number) => {
+              const lbl = xAxisConfig.label.toLowerCase();
+              const unit = xAxisConfig.unit?.toLowerCase();
+              let displayVal: string;
+              if (unit === 'hz' || lbl.includes('freq')) {
+                const v = Number(label);
+                if (Math.abs(v) >= 1e9) displayVal = `${(v / 1e9).toPrecision(4)} GHz`;
+                else if (Math.abs(v) >= 1e6) displayVal = `${(v / 1e6).toPrecision(4)} MHz`;
+                else if (Math.abs(v) >= 1e3) displayVal = `${(v / 1e3).toPrecision(4)} kHz`;
+                else displayVal = `${v} Hz`;
+              } else {
+                displayVal = String(Number(Number(label).toPrecision(5)));
+              }
+              return `${xAxisConfig.label}: ${displayVal}`;
+            }}
           />
           <Legend />
           {traces.map((trace) => {

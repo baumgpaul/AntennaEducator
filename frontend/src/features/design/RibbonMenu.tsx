@@ -12,7 +12,14 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import AddCurveDialog from '../postprocessing/AddCurveDialog';
 import type { AddCurveResult } from '../postprocessing/AddCurveDialog';
-import { selectParameterStudy } from '@/store/solverSlice';
+import {
+  selectParameterStudy,
+  selectFrequencySweep,
+  selectSolverResults,
+  selectCurrentDistribution,
+  selectRadiationPattern,
+  selectRadiationPatterns,
+} from '@/store/solverSlice';
 import type { PlotTrace } from '@/types/plotDefinitions';
 import {
   CableOutlined,
@@ -163,6 +170,20 @@ function RibbonMenu({
   // Add Curve dialog state (Line view)
   const [addCurveDialogOpen, setAddCurveDialogOpen] = useState(false);
   const parameterStudy = useAppSelector(selectParameterStudy);
+  const frequencySweep = useAppSelector(selectFrequencySweep);
+  const solverResults = useAppSelector(selectSolverResults);
+  const currentDistribution = useAppSelector(selectCurrentDistribution);
+  const radiationPattern = useAppSelector(selectRadiationPattern);
+  const radiationPatterns = useAppSelector(selectRadiationPatterns);
+
+  const hasPortData =
+    (frequencySweep?.results?.length ?? 0) > 0 ||
+    solverResults != null ||
+    (parameterStudy?.results?.length ?? 0) > 0;
+  const hasDistributionData =
+    currentDistribution != null ||
+    (frequencySweep?.currentDistributions?.length ?? 0) > 0;
+  const hasFarfieldData = radiationPattern != null || radiationPatterns != null;
 
   const handleAddCurveResult = (result: AddCurveResult) => {
     if (!selectedViewId) return;
@@ -714,6 +735,9 @@ function RibbonMenu({
         onAdd={handleAddCurveResult}
         parameterStudy={parameterStudy}
         existingTraceCount={existingTraceCount}
+        hasPortData={hasPortData}
+        hasDistributionData={hasDistributionData}
+        hasFarfieldData={hasFarfieldData}
       />
     </Paper>
   );
