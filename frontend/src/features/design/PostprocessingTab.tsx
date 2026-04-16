@@ -292,6 +292,7 @@ function PostprocessingTab({
   }, [frequencySweep, solverResults]);
 
   const currentUser = useAppSelector((state) => state.auth.user);
+  const documentationContent = useAppSelector((state) => state.documentation.content);
   const variables = useAppSelector(selectVariables);
   const currentSubmission = useAppSelector(selectCurrentSubmission);
 
@@ -369,13 +370,12 @@ function PostprocessingTab({
   // Dispatches selectView, waits 2 animation frames for re-render, then captures.
   const captureView = useCallback(async (viewId: string): Promise<string> => {
     dispatch(selectView(viewId));
-    // Wait 3 frames for React + Three.js to render the selected view
-    await new Promise<void>(resolve =>
-      requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-    );
     const view = viewConfigurations.find(v => v.id === viewId);
     if (view?.viewType === '3D') {
-      // Three.js WebGL canvas — requires preserveDrawingBuffer: true on R3F Canvas
+      // Three.js WebGL canvas — give React + Three.js time to fully render.
+      // requestAnimationFrame alone is not enough; a real timeout ensures the
+      // WebGL render loop has produced at least one frame.
+      await new Promise<void>(resolve => setTimeout(resolve, 400));
       const canvas = middlePanelRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
       if (canvas) {
         const url = canvas.toDataURL('image/png');
@@ -384,6 +384,10 @@ function PostprocessingTab({
       }
       throw new Error(`3D canvas not ready for view "${view.name}"`);
     }
+    // Wait 3 frames for React to render chart/plot views
+    await new Promise<void>(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    );
     // For chart/plot views: prefer serializing the Recharts SVG directly,
     // then fall back to html2canvas. html2canvas often drops SVG line content.
     if (!middlePanelRef.current) throw new Error('View panel not mounted');
@@ -420,16 +424,9 @@ function PostprocessingTab({
       dispatch(toggleItemVisibility({ viewId: threeDView.id, itemId: item.id }));
     }
 
-    // Wait extra frames for Redux dispatch → React re-render → WebGL re-render
-    await new Promise<void>(resolve =>
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => resolve())
-          )
-        )
-      )
-    );
+    // Wait for Redux dispatch → React re-render → WebGL re-render
+    // Use a real timeout so Three.js has time to produce a new frame
+    await new Promise<void>(resolve => setTimeout(resolve, 300));
 
     let result: string | null = null;
     try {
@@ -471,7 +468,7 @@ function PostprocessingTab({
           sweepEnd: (frequencySweep?.frequencies?.length ?? 0) > 1 ? frequencySweep!.frequencies[frequencySweep!.frequencies.length - 1] : undefined,
           method: 'peec',
         },
-        documentationContent: '',
+        documentationContent: documentationContent ?? '',
         submissionMeta,
         sections: options.sections,
         captureView,

@@ -11,12 +11,12 @@ import type { ViewConfiguration, ViewItem } from '@/types/postprocessing';
 import UnifiedLinePlot from './plots/UnifiedLinePlot';
 import AddCurveDialog from './AddCurveDialog';
 import type { AddCurveResult } from './AddCurveDialog';
-import { extractPortTraceData, extractDistributionTraceData, extractFarfieldTraceData } from '@/types/plotDataExtractors';
+import { extractPortTraceData, extractDistributionTraceData, extractFarfieldTraceData, extractFieldTraceData } from '@/types/plotDataExtractors';
 import type { DataPoint } from '@/types/plotDataExtractors';
 import type { AxisConfig, PlotTrace } from '@/types/plotDefinitions';
 import { TRACE_COLORS } from '@/types/plotDefinitions';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
-import { selectParameterStudy, selectSelectedFrequencyHz } from '@/store/solverSlice';
+import { selectParameterStudy, selectSelectedFrequencyHz, selectFieldData, selectRequestedFields } from '@/store/solverSlice';
 import { updateItemProperty, addItemToView } from '@/store/postprocessingSlice';
 
 interface LineViewPanelProps {
@@ -32,6 +32,8 @@ function LineViewPanel({ view }: LineViewPanelProps) {
   const radiationPatterns = useAppSelector((state) => state.solver.radiationPatterns);
   const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
   const elements = useAppSelector((state) => state.design.elements);
+  const fieldData = useAppSelector(selectFieldData);
+  const requestedFields = useAppSelector(selectRequestedFields);
   const [addCurveDialogOpen, setAddCurveDialogOpen] = useState(false);
 
   // Data availability flags for AddCurveDialog
@@ -45,12 +47,16 @@ function LineViewPanel({ view }: LineViewPanelProps) {
       frequencySweep.results.some((r) =>
         r.antenna_solutions?.some((a) => a.branch_currents?.length > 0)
       )) ||
-    (singleResult && (singleResult as any).branch_currents?.length > 0)
+    (singleResult && (
+      (singleResult as any).branch_currents?.length > 0 ||
+      (singleResult as any).antenna_solutions?.some((a: any) => a.branch_currents?.length > 0)
+    ))
   );
   const hasFarfieldData = !!(
     radiationPattern ||
     (radiationPatterns && Object.keys(radiationPatterns).length > 0)
   );
+  const hasFieldData = !!(fieldData && Object.keys(fieldData).length > 0);
 
   // Determine the x-axis context from sweep type
   const sweepVarName = parameterStudy?.config.sweepVariables[0]?.variableName;
@@ -64,6 +70,9 @@ function LineViewPanel({ view }: LineViewPanelProps) {
     }
     if (source === 'farfield') {
       return { label: 'θ', unit: '°', scale: 'linear' };
+    }
+    if (source === 'field') {
+      return { label: 'Distance', unit: 'm', scale: 'linear' };
     }
     if (isParamSweep && sweepVarName) {
       const isFreqVar = sweepVarName === 'freq' || sweepVarName === 'frequency';
@@ -183,6 +192,8 @@ function LineViewPanel({ view }: LineViewPanelProps) {
           hasPortData={hasPortData}
           hasDistributionData={hasDistributionData}
           hasFarfieldData={hasFarfieldData}
+          hasFieldData={hasFieldData}
+          requestedFields={requestedFields}
         />
       </Box>
     );
@@ -264,7 +275,13 @@ function LineViewPanel({ view }: LineViewPanelProps) {
               freqKey,
             );
             break;
-          // field extractors can be wired here when field data is available
+          case 'field':
+            traceData[trace.id] = extractFieldTraceData(
+              trace,
+              fieldData,
+              freqKey,
+            );
+            break;
         }
       }
 
@@ -322,6 +339,8 @@ function LineViewPanel({ view }: LineViewPanelProps) {
         hasPortData={hasPortData}
         hasDistributionData={hasDistributionData}
         hasFarfieldData={hasFarfieldData}
+        hasFieldData={hasFieldData}
+        requestedFields={requestedFields}
       />
     </Box>
   );
