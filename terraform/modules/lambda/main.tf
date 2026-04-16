@@ -147,7 +147,7 @@ resource "aws_lambda_function_url" "this" {
   authorization_type = var.function_url_auth_type
 
   cors {
-    allow_credentials = true
+    allow_credentials = false
     allow_origins     = var.cors_allowed_origins
     allow_methods     = ["*"]
     allow_headers     = ["*"]
