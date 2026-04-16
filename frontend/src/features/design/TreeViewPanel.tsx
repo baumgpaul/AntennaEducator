@@ -44,8 +44,6 @@ import {
 import { DEFAULT_ELEMENT_COLOR } from '@/utils/colors';
 import type { Mesh, Source, LumpedElement, AntennaElement, ComplexNumber } from '@/types/models';
 import VariablePanel from './VariablePanel';
-import { useAppSelector } from '@/store/hooks';
-import { selectFrequencySweep, selectSolverResults } from '@/store/solverSlice';
 
 /**
  * Format a source label with type, amplitude and phase.
@@ -72,36 +70,6 @@ function formatSourceLabel(source: Source): string {
   const magStr = Number.isInteger(magnitude) ? magnitude.toString() : magnitude.toFixed(2).replace(/\.?0+$/, '');
   const phaseStr = Math.round(phaseDeg).toString();
   return `${typeLabel} Source (${magStr}${unit} ∠ ${phaseStr}°)`;
-}
-
-/**
- * Compute Smith chart summary from solver results: |Γ| and VSWR at first frequency.
- * Returns null if no data is available.
- */
-function computeSmithSummary(
-  firstImpedance: unknown,
-  z0 = 50,
-): string | null {
-  if (firstImpedance == null) return null;
-  let r = 0;
-  let x = 0;
-  if (typeof firstImpedance === 'object' && 'real' in (firstImpedance as object)) {
-    r = (firstImpedance as { real: number; imag: number }).real;
-    x = (firstImpedance as { real: number; imag: number }).imag;
-  } else if (typeof firstImpedance === 'number') {
-    r = firstImpedance;
-  } else {
-    return null;
-  }
-  const denR = r + z0;
-  const denI = x;
-  const denMag2 = denR * denR + denI * denI;
-  if (denMag2 < 1e-30) return null;
-  const gamMag = Math.sqrt(((r - z0) * (r - z0) + x * x) / denMag2);
-  if (!Number.isFinite(gamMag)) return null;
-  const vswr = gamMag >= 1 ? Infinity : (1 + gamMag) / (1 - gamMag);
-  const vswrStr = Number.isFinite(vswr) ? vswr.toFixed(2) : '∞';
-  return `|Γ| = ${gamMag.toFixed(3)}, VSWR = ${vswrStr}`;
 }
 
 interface TreeNode {
@@ -163,6 +131,8 @@ interface TreeViewPanelProps {
   onItemSelect?: (viewId: string, itemId: string) => void;
   onItemDelete?: (viewId: string, itemId: string) => void;
   onItemVisibilityToggle?: (viewId: string, itemId: string) => void;
+  /** Summary string shown as secondary text on smith-chart tree items, e.g. "|Γ| = 0.12, VSWR = 1.27" */
+  smithChartSummary?: string;
 
   // Single mesh support (backward compatibility)
   mesh?: Mesh;
@@ -212,6 +182,7 @@ function TreeViewPanel({
   onItemSelect,
   onItemDelete,
   onItemVisibilityToggle,
+  smithChartSummary,
   mesh,
   sources = [],
   lumpedElements = [],
@@ -219,21 +190,6 @@ function TreeViewPanel({
   onSelectNode,
   selectedNodeId,
 }: TreeViewPanelProps) {
-  // Solver data for smart tree label decorations (Smith chart summary)
-  const frequencySweep = useAppSelector(selectFrequencySweep);
-  const solverResults = useAppSelector(selectSolverResults);
-
-  // Compute Smith summary from the first available frequency point
-  const smithSummary = useMemo(() => {
-    const firstResult =
-      frequencySweep?.results?.[0] ??
-      (solverResults ?? null);
-    const firstZ = (firstResult as any)?.antenna_solutions?.[0]?.input_impedance
-      ?? (firstResult as any)?.input_impedance
-      ?? null;
-    return computeSmithSummary(firstZ);
-  }, [frequencySweep, solverResults]);
-
   // Element context menu state
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -1076,8 +1032,8 @@ function TreeViewPanel({
                                     },
                                   }}
                                   secondary={
-                                    item.type === 'smith-chart' && smithSummary
-                                      ? smithSummary
+                                    item.type === 'smith-chart' && smithChartSummary
+                                      ? smithChartSummary
                                       : item.type
                                   }
                                   secondaryTypographyProps={{ variant: 'caption' }}

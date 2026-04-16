@@ -261,6 +261,36 @@ function PostprocessingTab({
   const sweepPointIndex = useAppSelector(selectSweepPointIndex);
 
   const parameterStudy = useAppSelector(selectParameterStudy);
+
+  // Smith chart summary: |Γ| and VSWR from first solved frequency point
+  const smithChartSummary = useMemo(() => {
+    const firstResult =
+      (frequencySweep?.results?.[0] as any) ??
+      (solverResults as any) ??
+      null;
+    const firstZ =
+      firstResult?.antenna_solutions?.[0]?.input_impedance ??
+      firstResult?.input_impedance ??
+      null;
+    if (firstZ == null) return undefined;
+    let r = 0, x = 0;
+    if (typeof firstZ === 'object' && 'real' in firstZ) {
+      r = firstZ.real; x = firstZ.imag;
+    } else if (typeof firstZ === 'number') {
+      r = firstZ;
+    } else {
+      return undefined;
+    }
+    const z0 = 50;
+    const denMag2 = (r + z0) ** 2 + x ** 2;
+    if (denMag2 < 1e-30) return undefined;
+    const gamMag = Math.sqrt((r - z0) ** 2 + x ** 2) / Math.sqrt(denMag2);
+    if (!Number.isFinite(gamMag)) return undefined;
+    const vswr = gamMag >= 1 ? Infinity : (1 + gamMag) / (1 - gamMag);
+    const vswrStr = Number.isFinite(vswr) ? vswr.toFixed(2) : '\u221e';
+    return `|\u0393| = ${gamMag.toFixed(3)}, VSWR = ${vswrStr}`;
+  }, [frequencySweep, solverResults]);
+
   const currentUser = useAppSelector((state) => state.auth.user);
   const variables = useAppSelector(selectVariables);
   const currentSubmission = useAppSelector(selectCurrentSubmission);
@@ -538,6 +568,7 @@ function PostprocessingTab({
             viewConfigurations={viewConfigurations}
             selectedViewId={selectedViewId}
             selectedItemId={selectedItemId}
+            smithChartSummary={smithChartSummary}
             onViewSelect={(viewId) => dispatch(selectView(viewId))}
             onViewDelete={(viewId) => dispatch(deleteViewConfiguration(viewId))}
             onViewRename={(viewId, newName) => dispatch(renameViewConfiguration({ viewId, name: newName }))}
