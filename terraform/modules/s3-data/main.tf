@@ -67,9 +67,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "data" {
       storage_class = "GLACIER"
     }
 
-    # Delete files older than 1 year (optional)
-    expiration {
-      days = var.data_retention_days
+    # Delete files after retention period (only if > last transition)
+    dynamic "expiration" {
+      for_each = var.data_retention_days > 90 ? [var.data_retention_days] : []
+      content {
+        days = expiration.value
+      }
     }
   }
 
