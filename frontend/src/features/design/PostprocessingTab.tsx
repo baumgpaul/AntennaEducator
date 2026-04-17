@@ -373,13 +373,20 @@ function PostprocessingTab({
     const view = viewConfigurations.find(v => v.id === viewId);
     if (view?.viewType === '3D') {
       // Three.js WebGL canvas — give React + Three.js time to fully render.
-      // requestAnimationFrame alone is not enough; a real timeout ensures the
-      // WebGL render loop has produced at least one frame.
-      // Retry up to 3 times to handle slow WebGL initialisation.
-      for (let attempt = 0; attempt < 3; attempt++) {
-        await new Promise<void>(resolve => setTimeout(resolve, attempt === 0 ? 600 : 400));
+      // The first attempt uses a longer delay because the 3D scene may need to
+      // mount from scratch (e.g. when switching from a non-3D tab).
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const delay = attempt === 0 ? 1000 : attempt === 1 ? 800 : 500;
+        await new Promise<void>(resolve => setTimeout(resolve, delay));
         const canvas = middlePanelRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
         if (canvas) {
+          // Force a fresh render frame before capturing
+          try {
+            const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+            if (gl) {
+              gl.finish();
+            }
+          } catch { /* ignore */ }
           const url = canvas.toDataURL('image/png');
           if (url && url.startsWith('data:image/') && url.length > 100) return url;
         }
@@ -429,7 +436,7 @@ function PostprocessingTab({
 
     // Wait for Redux dispatch → React re-render → WebGL re-render
     // Use a real timeout so Three.js has time to produce a new frame
-    await new Promise<void>(resolve => setTimeout(resolve, 300));
+    await new Promise<void>(resolve => setTimeout(resolve, 600));
 
     let result: string | null = null;
     try {
