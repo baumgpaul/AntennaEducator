@@ -158,8 +158,19 @@ function LineViewPanel({ view }: LineViewPanelProps) {
     }
   };
 
-  const existingTraceCount = linePlotItem?.traces?.length ?? 0;
-  const existingTraceSource: SourceType | null = linePlotItem?.traces?.[0]?.quantity?.source as SourceType ?? null;
+  // Aggregate existing trace sources across all line-plot items in this view.
+  const allLinePlotItems = view.items.filter((item) => item.type === 'line-plot');
+  let existingTraceCount = 0;
+  const existingSources = new Set<string>();
+  for (const it of allLinePlotItems) {
+    const traces = it.traces ?? [];
+    existingTraceCount += traces.length;
+    for (const t of traces) {
+      if (t?.quantity?.source) existingSources.add(t.quantity.source);
+    }
+  }
+  const existingTraceSource: SourceType | null = existingSources.size === 1 ? Array.from(existingSources)[0] as SourceType : null;
+  const existingTraceMixed = existingSources.size > 1;
 
   if (visibleItems.length === 0 && !linePlotItem) {
     return (
@@ -196,6 +207,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
           hasFieldData={hasFieldData}
           requestedFields={requestedFields}
           existingTraceSource={existingTraceSource}
+          existingTraceMixed={existingTraceMixed}
         />
       </Box>
     );

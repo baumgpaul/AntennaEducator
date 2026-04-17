@@ -135,6 +135,8 @@ interface AddCurveDialogProps {
   requestedFields?: FieldDefinition[];
   /** Source type of existing traces — when set, only this source is selectable (x-axis compatibility) */
   existingTraceSource?: SourceType | null;
+  /** True when the existing plot already contains traces with different sources */
+  existingTraceMixed?: boolean;
 }
 
 // ============================================================================
@@ -156,6 +158,7 @@ export default function AddCurveDialog({
   hasFieldData = false,
   requestedFields,
   existingTraceSource = null,
+  existingTraceMixed = false,
 }: AddCurveDialogProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [selectedSource, setSelectedSource] = useState<SourceType | null>(null);
@@ -302,15 +305,20 @@ export default function AddCurveDialog({
         {/* Step 1: Source */}
         {activeStep === 0 && (
           <List>
+            {existingTraceMixed && (
+              <Box sx={{ p: 1 }}>
+                <Typography variant="body2" color="warning.main">A plot in this view already contains traces with different x-axis types. Adding new curves is disabled to prevent incompatible overlays.</Typography>
+              </Box>
+            )}
             {SOURCE_OPTIONS.map((opt) => {
               const available = isSourceAvailable(opt.type);
-              const incompatible = existingTraceSource != null && opt.type !== existingTraceSource;
+              const incompatible = !existingTraceMixed && existingTraceSource != null && opt.type !== existingTraceSource;
               return (
                 <ListItemButton
                   key={opt.type}
                   onClick={() => handleSourceSelect(opt.type)}
                   selected={selectedSource === opt.type}
-                  disabled={!available || incompatible}
+                  disabled={!available || incompatible || existingTraceMixed}
                   sx={{ borderRadius: 1, mb: 0.5 }}
                 >
                   <ListItemIcon>{opt.icon}</ListItemIcon>

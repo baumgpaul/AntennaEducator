@@ -274,6 +274,7 @@ function UnifiedLinePlot({
               <CartesianGrid
                 stroke="#999"
                 strokeWidth={1}
+                strokeDasharray="3 3"
                 horizontal={true}
                 vertical={true}
               />
@@ -283,6 +284,7 @@ function UnifiedLinePlot({
               type="number"
               domain={xDomain}
               allowDataOverflow
+              tickCount={10}
               label={{ value: formatAxisLabel(xAxisConfig), position: 'insideBottom', offset: -20 }}
               tickFormatter={(v: number) => {
                 // Auto-scale Hz → MHz/GHz for frequency axes
@@ -302,7 +304,7 @@ function UnifiedLinePlot({
               yAxisId="left"
               label={{ value: formatAxisLabel(yAxisLeftConfig), angle: -90, position: 'insideLeft', offset: -45 }}
               tick={{ fontSize: 11 }}
-              tickCount={8}
+              tickCount={10}
               scale={yAxisLeftConfig.scale === 'log' ? 'log' : 'auto'}
             />
             {hasRightAxis && (
@@ -311,7 +313,7 @@ function UnifiedLinePlot({
                 orientation="right"
                 label={{ value: formatAxisLabel(yAxisRightConfig!), angle: 90, position: 'insideRight', offset: -45 }}
                 tick={{ fontSize: 11 }}
-                tickCount={8}
+                tickCount={10}
                 scale={yAxisRightConfig!.scale === 'log' ? 'log' : 'auto'}
               />
             )}

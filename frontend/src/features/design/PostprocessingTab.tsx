@@ -92,8 +92,15 @@ async function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
 
   // Clone SVG and inline computed styles so the serialized SVG looks identical
   const clone = svgEl.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute('width', String(width));
-  clone.setAttribute('height', String(height));
+  // Ensure explicit dimensions and a viewBox so the cloned SVG renders
+  // consistently when serialized and rasterized.
+  const intW = Math.ceil(width);
+  const intH = Math.ceil(height);
+  clone.setAttribute('width', String(intW));
+  clone.setAttribute('height', String(intH));
+  if (!clone.hasAttribute('viewBox')) {
+    clone.setAttribute('viewBox', `0 0 ${intW} ${intH}`);
+  }
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
   // Inline computed styles of all elements (fills, strokes, fonts, etc.)
@@ -116,17 +123,19 @@ async function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
 
   return new Promise<string>((resolve, reject) => {
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       const scale = 2; // 2x for crisp PDF
       const canvas = document.createElement('canvas');
-      canvas.width = width * scale;
-      canvas.height = height * scale;
+      canvas.width = intW * scale;
+      canvas.height = intH * scale;
       const ctx = canvas.getContext('2d');
       if (!ctx) { URL.revokeObjectURL(url); reject(new Error('No canvas context')); return; }
       ctx.fillStyle = '#1a1a1a'; // dark background matching the app
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.scale(scale, scale);
-      ctx.drawImage(img, 0, 0);
+      // Scale the drawing so the SVG renders at device-independent pixels
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.drawImage(img, 0, 0, intW, intH);
       URL.revokeObjectURL(url);
       resolve(canvas.toDataURL('image/png'));
     };
