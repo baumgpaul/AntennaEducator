@@ -303,7 +303,7 @@ module "lambda_projects" {
 
   create_function_url    = true
   function_url_auth_type = "NONE"
-  cors_allowed_origins   = ["*"]
+  cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
     Component = "backend"
@@ -336,7 +336,7 @@ module "lambda_preprocessor" {
 
   create_function_url    = true
   function_url_auth_type = "NONE"
-  cors_allowed_origins   = ["*"]
+  cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
     Component = "backend"
@@ -369,7 +369,7 @@ module "lambda_solver" {
 
   create_function_url    = true
   function_url_auth_type = "NONE"
-  cors_allowed_origins   = ["*"]
+  cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
     Component = "backend"
@@ -403,7 +403,7 @@ module "lambda_postprocessor" {
 
   create_function_url    = true
   function_url_auth_type = "NONE"
-  cors_allowed_origins   = ["*"]
+  cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
     Component = "backend"
