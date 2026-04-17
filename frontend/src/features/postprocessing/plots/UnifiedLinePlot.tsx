@@ -272,8 +272,8 @@ function UnifiedLinePlot({
           >
             {showGrid && (
               <CartesianGrid
-                stroke="#e0e0e0"
-                strokeWidth={0.5}
+                stroke="#999"
+                strokeWidth={1}
                 horizontal={true}
                 vertical={true}
               />

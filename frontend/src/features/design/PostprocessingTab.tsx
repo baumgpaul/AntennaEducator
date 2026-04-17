@@ -367,7 +367,7 @@ function PostprocessingTab({
       ?? (currentFrequency ? currentFrequency * 1e6 : null));
 
   // Capture a single view panel as PNG data URL for PDF inclusion.
-  // Dispatches selectView, waits 2 animation frames for re-render, then captures.
+  // Dispatches selectView, waits for re-render, then captures.
   const captureView = useCallback(async (viewId: string): Promise<string> => {
     dispatch(selectView(viewId));
     const view = viewConfigurations.find(v => v.id === viewId);
@@ -375,8 +375,8 @@ function PostprocessingTab({
       // Three.js WebGL canvas — give React + Three.js time to fully render.
       // The first attempt uses a longer delay because the 3D scene may need to
       // mount from scratch (e.g. when switching from a non-3D tab).
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const delay = attempt === 0 ? 1000 : attempt === 1 ? 800 : 500;
+      for (let attempt = 0; attempt < 7; attempt++) {
+        const delay = attempt === 0 ? 2000 : attempt === 1 ? 1000 : 500;
         await new Promise<void>(resolve => setTimeout(resolve, delay));
         const canvas = middlePanelRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
         if (canvas) {
@@ -393,23 +393,26 @@ function PostprocessingTab({
       }
       throw new Error(`3D canvas not ready for view "${view.name}"`);
     }
-    // Wait for React to render chart/plot/polar views (no animation delay needed
-    // since isAnimationActive=false on Line elements)
-    await new Promise<void>(resolve => setTimeout(resolve, 200));
-    // For chart/plot views: prefer serializing SVG directly,
-    // then fall back to html2canvas. html2canvas often drops SVG line content.
+    // For chart/plot/polar/Smith views: retry with increasing delays to give
+    // React + Recharts/SVG time to mount and render (ResponsiveContainer needs
+    // a layout pass to measure its parent before the chart SVG appears).
     if (!middlePanelRef.current) throw new Error('View panel not mounted');
-    // Try Recharts SVG first, then any SVG (e.g. PolarPlot)
-    const svgEl = (middlePanelRef.current.querySelector('.recharts-wrapper svg')
-      ?? middlePanelRef.current.querySelector('svg')) as SVGSVGElement | null;
-    if (svgEl) {
-      try {
-        const url = await svgToDataUrl(svgEl);
-        if (url && url.startsWith('data:image/')) return url;
-      } catch {
-        // Fall through to html2canvas
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const delay = attempt === 0 ? 800 : attempt === 1 ? 600 : 400;
+      await new Promise<void>(resolve => setTimeout(resolve, delay));
+      // Try Recharts SVG first, then any SVG (e.g. PolarPlot, SmithChart)
+      const svgEl = (middlePanelRef.current!.querySelector('.recharts-wrapper svg')
+        ?? middlePanelRef.current!.querySelector('svg')) as SVGSVGElement | null;
+      if (svgEl) {
+        try {
+          const url = await svgToDataUrl(svgEl);
+          if (url && url.startsWith('data:image/')) return url;
+        } catch {
+          // SVG had zero dimensions or serialization failed — retry
+        }
       }
     }
+    // Final fallback: rasterize the whole panel via html2canvas
     const captured = await html2canvas(middlePanelRef.current, { backgroundColor: '#1a1a1a' });
     return captured.toDataURL('image/png');
   }, [dispatch, viewConfigurations, middlePanelRef]);
@@ -436,7 +439,7 @@ function PostprocessingTab({
 
     // Wait for Redux dispatch → React re-render → WebGL re-render
     // Use a real timeout so Three.js has time to produce a new frame
-    await new Promise<void>(resolve => setTimeout(resolve, 600));
+    await new Promise<void>(resolve => setTimeout(resolve, 1000));
 
     let result: string | null = null;
     try {
@@ -524,22 +527,18 @@ function PostprocessingTab({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
 
-      {/* WARNING BANNER - Show when no results, results are stale, or design changed (not during sweep navigation) */}
-      {(!frequencySweep && !currentFrequency) || resultsStale || (!isSweepMode && !isSolved) ? (
+      {/* WARNING BANNER - Show when no results or results are stale */}
+      {(!frequencySweep && !currentFrequency) || resultsStale ? (
         <Alert
           severity={resultsStale ? "warning" : "info"}
           sx={{ m: 2, mb: 0 }}
         >
           <AlertTitle>
-            {resultsStale ? "Results Outdated" :
-             !currentFrequency && !frequencySweep ? "No Results Available" :
-             "Design Modified"}
+            {resultsStale ? "Results Outdated" : "No Results Available"}
           </AlertTitle>
           {resultsStale
             ? "The antenna structure or solver settings have changed. Run the solver again to update results."
-            : !currentFrequency && !frequencySweep
-            ? "No solver results found. Please run the solver first."
-            : "The antenna structure has been modified. Results shown may be outdated. Run the solver again to update."}
+            : "No solver results found. Please run the solver first."}
         </Alert>
       ) : null}
 
