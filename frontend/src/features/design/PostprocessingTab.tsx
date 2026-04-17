@@ -82,67 +82,7 @@ function complexMag(c: ComplexNumber): number {
   return Math.sqrt((c.real || 0) * (c.real || 0) + (c.imag || 0) * (c.imag || 0));
 }
 
-/**
- * Serialize an SVG element to a PNG data URL by drawing it onto a canvas.
- * Works reliably for Recharts SVG charts where html2canvas drops lines.
- */
-async function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
-  const { width, height } = svgEl.getBoundingClientRect();
-  if (width === 0 || height === 0) throw new Error('SVG has zero dimensions');
-
-  // Clone SVG and inline computed styles so the serialized SVG looks identical
-  const clone = svgEl.cloneNode(true) as SVGSVGElement;
-  // Ensure explicit dimensions and a viewBox so the cloned SVG renders
-  // consistently when serialized and rasterized.
-  const intW = Math.ceil(width);
-  const intH = Math.ceil(height);
-  clone.setAttribute('width', String(intW));
-  clone.setAttribute('height', String(intH));
-  if (!clone.hasAttribute('viewBox')) {
-    clone.setAttribute('viewBox', `0 0 ${intW} ${intH}`);
-  }
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-
-  // Inline computed styles of all elements (fills, strokes, fonts, etc.)
-  const originals = svgEl.querySelectorAll('*');
-  const clones = clone.querySelectorAll('*');
-  for (let i = 0; i < originals.length; i++) {
-    const computed = window.getComputedStyle(originals[i]);
-    const el = clones[i] as SVGElement | HTMLElement;
-    if (!el.style) continue;
-    for (let j = 0; j < computed.length; j++) {
-      const prop = computed[j];
-      el.style.setProperty(prop, computed.getPropertyValue(prop));
-    }
-  }
-
-  const serializer = new XMLSerializer();
-  const svgString = serializer.serializeToString(clone);
-  const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-
-  return new Promise<string>((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const scale = 2; // 2x for crisp PDF
-      const canvas = document.createElement('canvas');
-      canvas.width = intW * scale;
-      canvas.height = intH * scale;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { URL.revokeObjectURL(url); reject(new Error('No canvas context')); return; }
-      ctx.fillStyle = '#1a1a1a'; // dark background matching the app
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      // Scale the drawing so the SVG renders at device-independent pixels
-      ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      ctx.drawImage(img, 0, 0, intW, intH);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('SVG image load failed')); };
-    img.src = url;
-  });
-}
+// Exported helpers
 
 /**
  * Resolve the fieldType ('E' | 'H' | 'poynting') for a field-related view item.
@@ -402,28 +342,28 @@ function PostprocessingTab({
       }
       throw new Error(`3D canvas not ready for view "${view.name}"`);
     }
-    // For chart/plot/polar/Smith views: retry with increasing delays to give
-    // React + Recharts/SVG time to mount and render (ResponsiveContainer needs
-    // a layout pass to measure its parent before the chart SVG appears).
+    // For chart/plot/polar/Smith views: use html2canvas which reliably captures
+    // the full DOM including CSS-styled SVGs, Recharts charts, and polar plots.
+    // Previous approach (SVG serialization via svgToDataUrl) was unreliable —
+    // it lost CSS styles, clip paths, and produced black/blank images.
     if (!middlePanelRef.current) throw new Error('View panel not mounted');
     for (let attempt = 0; attempt < 5; attempt++) {
-      const delay = attempt === 0 ? 800 : attempt === 1 ? 600 : 400;
+      const delay = attempt === 0 ? 1200 : attempt === 1 ? 800 : 500;
       await new Promise<void>(resolve => setTimeout(resolve, delay));
-      // Try Recharts SVG first, then any SVG (e.g. PolarPlot, SmithChart)
-      const svgEl = (middlePanelRef.current!.querySelector('.recharts-wrapper svg')
-        ?? middlePanelRef.current!.querySelector('svg')) as SVGSVGElement | null;
-      if (svgEl) {
-        try {
-          const url = await svgToDataUrl(svgEl);
-          if (url && url.startsWith('data:image/')) return url;
-        } catch {
-          // SVG had zero dimensions or serialization failed — retry
-        }
+      try {
+        const captured = await html2canvas(middlePanelRef.current, {
+          backgroundColor: '#1a1a1a',
+          scale: 2, // 2x for crisp PDF
+          useCORS: true,
+          logging: false,
+        });
+        const url = captured.toDataURL('image/png');
+        if (url && url.startsWith('data:image/') && url.length > 200) return url;
+      } catch {
+        // html2canvas failed — retry after next delay
       }
     }
-    // Final fallback: rasterize the whole panel via html2canvas
-    const captured = await html2canvas(middlePanelRef.current, { backgroundColor: '#1a1a1a' });
-    return captured.toDataURL('image/png');
+    throw new Error(`Could not capture view "${view?.name ?? viewId}"`);
   }, [dispatch, viewConfigurations, middlePanelRef]);
 
   // Capture the first 3D view for the "Antenna Geometry" PDF section.
