@@ -10,7 +10,7 @@ import AddIcon from '@mui/icons-material/Add';
 import type { ViewConfiguration, ViewItem } from '@/types/postprocessing';
 import UnifiedLinePlot from './plots/UnifiedLinePlot';
 import AddCurveDialog from './AddCurveDialog';
-import type { AddCurveResult } from './AddCurveDialog';
+import type { AddCurveResult, SourceType } from './AddCurveDialog';
 import { extractPortTraceData, extractDistributionTraceData, extractFarfieldTraceData, extractFieldTraceData } from '@/types/plotDataExtractors';
 import type { DataPoint } from '@/types/plotDataExtractors';
 import type { AxisConfig, PlotTrace } from '@/types/plotDefinitions';
@@ -159,6 +159,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
   };
 
   const existingTraceCount = linePlotItem?.traces?.length ?? 0;
+  const existingTraceSource: SourceType | null = linePlotItem?.traces?.[0]?.quantity?.source as SourceType ?? null;
 
   if (visibleItems.length === 0 && !linePlotItem) {
     return (
@@ -194,6 +195,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
           hasFarfieldData={hasFarfieldData}
           hasFieldData={hasFieldData}
           requestedFields={requestedFields}
+          existingTraceSource={existingTraceSource}
         />
       </Box>
     );
@@ -341,6 +343,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
         hasFarfieldData={hasFarfieldData}
         hasFieldData={hasFieldData}
         requestedFields={requestedFields}
+        existingTraceSource={existingTraceSource}
       />
     </Box>
   );

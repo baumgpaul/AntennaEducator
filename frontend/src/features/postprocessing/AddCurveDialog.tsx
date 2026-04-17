@@ -74,7 +74,7 @@ const FARFIELD_QUANTITIES: QuantityOption[] = [
   { quantity: { source: 'farfield', quantity: 'E_phi' }, label: 'E_φ', description: 'Phi component of E-field', defaultYAxis: 'left' },
 ];
 
-type SourceType = 'port' | 'field' | 'farfield' | 'distribution';
+export type SourceType = 'port' | 'field' | 'farfield' | 'distribution';
 
 const SOURCE_OPTIONS: { type: SourceType; label: string; description: string; icon: React.ReactNode }[] = [
   { type: 'port', label: 'Port Quantities', description: 'Impedance, VSWR, return loss, reflection', icon: <ElectricalServicesIcon /> },
@@ -133,6 +133,8 @@ interface AddCurveDialogProps {
   hasFieldData?: boolean;
   /** Field definitions from solver state (needed to build field quantity options) */
   requestedFields?: FieldDefinition[];
+  /** Source type of existing traces — when set, only this source is selectable (x-axis compatibility) */
+  existingTraceSource?: SourceType | null;
 }
 
 // ============================================================================
@@ -153,6 +155,7 @@ export default function AddCurveDialog({
   hasFarfieldData = false,
   hasFieldData = false,
   requestedFields,
+  existingTraceSource = null,
 }: AddCurveDialogProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [selectedSource, setSelectedSource] = useState<SourceType | null>(null);
@@ -301,12 +304,13 @@ export default function AddCurveDialog({
           <List>
             {SOURCE_OPTIONS.map((opt) => {
               const available = isSourceAvailable(opt.type);
+              const incompatible = existingTraceSource != null && opt.type !== existingTraceSource;
               return (
                 <ListItemButton
                   key={opt.type}
                   onClick={() => handleSourceSelect(opt.type)}
                   selected={selectedSource === opt.type}
-                  disabled={!available}
+                  disabled={!available || incompatible}
                   sx={{ borderRadius: 1, mb: 0.5 }}
                 >
                   <ListItemIcon>{opt.icon}</ListItemIcon>
@@ -316,6 +320,9 @@ export default function AddCurveDialog({
                   />
                   {!available && (
                     <Chip label="No data" size="small" variant="outlined" />
+                  )}
+                  {available && incompatible && (
+                    <Chip label="Different x-axis" size="small" variant="outlined" color="warning" />
                   )}
                 </ListItemButton>
               );

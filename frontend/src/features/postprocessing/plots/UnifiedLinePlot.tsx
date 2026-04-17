@@ -270,7 +270,14 @@ function UnifiedLinePlot({
             onMouseUp={handleMouseUp}
             onDoubleClick={handleZoomReset}
           >
-            {showGrid && <CartesianGrid stroke="#e0e0e0" strokeWidth={0.5} />}
+            {showGrid && (
+              <CartesianGrid
+                stroke="#e0e0e0"
+                strokeWidth={0.5}
+                horizontal={true}
+                vertical={true}
+              />
+            )}
             <XAxis
               dataKey="x"
               type="number"
@@ -295,6 +302,7 @@ function UnifiedLinePlot({
               yAxisId="left"
               label={{ value: formatAxisLabel(yAxisLeftConfig), angle: -90, position: 'insideLeft', offset: -45 }}
               tick={{ fontSize: 11 }}
+              tickCount={8}
               scale={yAxisLeftConfig.scale === 'log' ? 'log' : 'auto'}
             />
             {hasRightAxis && (
@@ -303,6 +311,7 @@ function UnifiedLinePlot({
                 orientation="right"
                 label={{ value: formatAxisLabel(yAxisRightConfig!), angle: 90, position: 'insideRight', offset: -45 }}
                 tick={{ fontSize: 11 }}
+                tickCount={8}
                 scale={yAxisRightConfig!.scale === 'log' ? 'log' : 'auto'}
               />
             )}

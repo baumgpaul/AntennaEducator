@@ -621,31 +621,38 @@ function RibbonMenu({
               )}
 
               {/* Polar Plot Section (Polar view only) */}
-              {selectedViewData?.viewType === 'Polar' && (
+              {selectedViewData?.viewType === 'Polar' && (() => {
+                const hasSweepOverlay = selectedViewData.items.some(i => i.type === 'polar-plot' && i.sweepOverlay);
+                const hasPatternCut = selectedViewData.items.some(i => i.type === 'polar-plot' && !i.sweepOverlay);
+                return (
                 <>
                   <Box>
                     <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
                       Radiation Pattern
                     </Box>
                     <ButtonGroup variant="outlined" size="small">
-                      <Tooltip title="Add radiation pattern polar cut">
+                      <Tooltip title={hasSweepOverlay ? 'Cannot mix pattern cut with sweep overlay' : 'Add radiation pattern polar cut'}>
+                        <span>
                         <Button
                           startIcon={<RadioButtonChecked />}
                           onClick={handleAddPolarPlot}
-                          disabled={!selectedViewId}
+                          disabled={!selectedViewId || hasSweepOverlay}
                         >
                           Pattern Cut
                         </Button>
+                        </span>
                       </Tooltip>
                       {parameterStudy && parameterStudy.results.length > 1 && (
-                        <Tooltip title="Overlay all sweep points on one polar chart">
+                        <Tooltip title={hasPatternCut ? 'Cannot mix sweep overlay with pattern cut' : 'Overlay all sweep points on one polar chart'}>
+                          <span>
                           <Button
                             startIcon={<Layers />}
                             onClick={handleAddPolarSweepOverlay}
-                            disabled={!selectedViewId}
+                            disabled={!selectedViewId || hasPatternCut}
                           >
                             Sweep Overlay
                           </Button>
+                          </span>
                         </Tooltip>
                       )}
                     </ButtonGroup>
@@ -653,7 +660,8 @@ function RibbonMenu({
 
                   <Divider orientation="vertical" flexItem />
                 </>
-              )}
+                );
+              })()}
 
               {/* Table Section (Table view only) */}
               {selectedViewData?.viewType === 'Table' && (
