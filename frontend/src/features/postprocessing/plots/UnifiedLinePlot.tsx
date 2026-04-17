@@ -349,7 +349,7 @@ function UnifiedLinePlot({
               scale={xAxisConfig.scale === 'log' ? 'log' : 'auto'}
             />
             <YAxis
-              yAxisId="left"
+              yAxisId={0}
               label={{ value: formatAxisLabel(yAxisLeftConfig), angle: -90, position: 'insideLeft', offset: -45 }}
               tick={{ fontSize: 11 }}
               ticks={leftTicks}
@@ -359,7 +359,7 @@ function UnifiedLinePlot({
             />
             {hasRightAxis && (
               <YAxis
-                yAxisId="right"
+                yAxisId={1}
                 orientation="right"
                 label={{ value: formatAxisLabel(yAxisRightConfig!), angle: 90, position: 'insideRight', offset: -45 }}
                 tick={{ fontSize: 11 }}
@@ -404,7 +404,7 @@ function UnifiedLinePlot({
               return (
                 <Line
                   key={trace.id}
-                  yAxisId={trace.yAxisId}
+                  yAxisId={trace.yAxisId === 'right' ? 1 : 0}
                   type="monotone"
                   dataKey={trace.id}
                   name={trace.label}
@@ -420,7 +420,7 @@ function UnifiedLinePlot({
             {/* Selection rectangle while dragging to zoom */}
             {refAreaLeft !== null && refAreaRight !== null && (
               <ReferenceArea
-                yAxisId="left"
+                yAxisId={0}
                 x1={refAreaLeft}
                 x2={refAreaRight}
                 strokeOpacity={0.3}
