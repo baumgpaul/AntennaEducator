@@ -55,18 +55,16 @@ app = FastAPI(
     version="0.2.0",
 )
 
-# CORS — only when NOT running inside Lambda
-if not os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    logger.info("CORS middleware enabled (non-Lambda environment)")
-else:
-    logger.info("CORS handled by Lambda Function URL — middleware disabled")
+# CORS — always enabled; in Lambda environments the Function URL also adds
+# CORS headers but the middleware serves as a reliable fallback.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+logger.info("CORS middleware enabled")
 
 install_error_handlers(app)
 

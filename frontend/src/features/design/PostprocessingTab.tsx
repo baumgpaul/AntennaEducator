@@ -375,23 +375,26 @@ function PostprocessingTab({
       // Three.js WebGL canvas — give React + Three.js time to fully render.
       // requestAnimationFrame alone is not enough; a real timeout ensures the
       // WebGL render loop has produced at least one frame.
-      await new Promise<void>(resolve => setTimeout(resolve, 400));
-      const canvas = middlePanelRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
-      if (canvas) {
-        const url = canvas.toDataURL('image/png');
-        // 'data:,' or any non-image result means the canvas hasn't rendered yet
-        if (url && url.startsWith('data:image/')) return url;
+      // Retry up to 3 times to handle slow WebGL initialisation.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await new Promise<void>(resolve => setTimeout(resolve, attempt === 0 ? 600 : 400));
+        const canvas = middlePanelRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
+        if (canvas) {
+          const url = canvas.toDataURL('image/png');
+          if (url && url.startsWith('data:image/') && url.length > 100) return url;
+        }
       }
       throw new Error(`3D canvas not ready for view "${view.name}"`);
     }
-    // Wait 3 frames for React to render chart/plot views
-    await new Promise<void>(resolve =>
-      requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-    );
-    // For chart/plot views: prefer serializing the Recharts SVG directly,
+    // Wait for React to render chart/plot/polar views (no animation delay needed
+    // since isAnimationActive=false on Line elements)
+    await new Promise<void>(resolve => setTimeout(resolve, 200));
+    // For chart/plot views: prefer serializing SVG directly,
     // then fall back to html2canvas. html2canvas often drops SVG line content.
     if (!middlePanelRef.current) throw new Error('View panel not mounted');
-    const svgEl = middlePanelRef.current.querySelector('.recharts-wrapper svg') as SVGSVGElement | null;
+    // Try Recharts SVG first, then any SVG (e.g. PolarPlot)
+    const svgEl = (middlePanelRef.current.querySelector('.recharts-wrapper svg')
+      ?? middlePanelRef.current.querySelector('svg')) as SVGSVGElement | null;
     if (svgEl) {
       try {
         const url = await svgToDataUrl(svgEl);
@@ -679,14 +682,38 @@ function PostprocessingTab({
                   const d = Math.abs(phiAngles[j] - cutAngleRad);
                   if (d < bestDist) { bestDist = d; bestPhiIdx = j; }
                 }
-                return thetaAngles.map((thetaRad, thetaIdx) => {
+
+                // Also find opposite phi (phi + 180°) for the backward hemisphere
+                const oppPhiRad = cutAngleRad + Math.PI;
+                let oppPhiIdx = 0;
+                let oppDist = Infinity;
+                for (let j = 0; j < nPhi; j++) {
+                  let d = Math.abs(phiAngles[j] - oppPhiRad);
+                  d = Math.min(d, Math.abs(phiAngles[j] - oppPhiRad + 2 * Math.PI));
+                  d = Math.min(d, Math.abs(phiAngles[j] - oppPhiRad - 2 * Math.PI));
+                  if (d < oppDist) { oppDist = d; oppPhiIdx = j; }
+                }
+
+                const toValue = (dbVal: number) =>
+                  polarScale === 'linear' ? Math.pow(10, (dbVal + offset) / 10) : dbVal + offset;
+
+                // Forward hemisphere: theta 0° → 180° at phi
+                const forward = thetaAngles.map((thetaRad, thetaIdx) => {
                   const flatIdx = thetaIdx * nPhi + bestPhiIdx;
                   const dbVal = patternDb[flatIdx] ?? -40;
-                  return {
-                    angleDeg: (thetaRad * 180) / Math.PI,
-                    value: polarScale === 'linear' ? Math.pow(10, (dbVal + offset) / 10) : dbVal + offset,
-                  };
+                  return { angleDeg: (thetaRad * 180) / Math.PI, value: toValue(dbVal) };
                 });
+
+                // Backward hemisphere: theta (180°-ε) → ε at opposite phi, mapped to 180°+ → 360°-
+                const backward: PolarDataPoint[] = [];
+                for (let i = nTheta - 2; i >= 1; i--) {
+                  const flatIdx = i * nPhi + oppPhiIdx;
+                  const dbVal = patternDb[flatIdx] ?? -40;
+                  const thetaDeg = (thetaAngles[i] * 180) / Math.PI;
+                  backward.push({ angleDeg: 360 - thetaDeg, value: toValue(dbVal) });
+                }
+
+                return [...forward, ...backward];
               } else {
                 const cutAngleRad = (cutAngleDeg * Math.PI) / 180;
                 let bestThetaIdx = 0;
