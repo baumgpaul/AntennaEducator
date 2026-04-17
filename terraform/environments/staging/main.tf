@@ -324,12 +324,13 @@ module "lambda_preprocessor" {
   reserved_concurrent_executions = 5  # Mesh generation — moderate traffic
 
   environment_variables = {
-    USE_COGNITO          = "true"
-    COGNITO_USER_POOL_ID = module.cognito.user_pool_id
-    COGNITO_CLIENT_ID    = module.cognito.client_id
-    COGNITO_REGION       = var.aws_region
-    USE_DYNAMODB         = "true"
-    DYNAMODB_TABLE_NAME  = module.dynamodb.table_name
+    USE_COGNITO              = "true"
+    COGNITO_USER_POOL_ID     = module.cognito.user_pool_id
+    COGNITO_CLIENT_ID        = module.cognito.client_id
+    COGNITO_REGION           = var.aws_region
+    USE_DYNAMODB             = "true"
+    DYNAMODB_TABLE_NAME      = module.dynamodb.table_name
+    PREPROCESSOR_CORS_ORIGINS = jsonencode(["*"])
   }
 
   dynamodb_table_arns = [module.dynamodb.table_arn]
@@ -363,6 +364,7 @@ module "lambda_solver" {
     COGNITO_REGION       = var.aws_region
     USE_DYNAMODB         = "true"
     DYNAMODB_TABLE_NAME  = module.dynamodb.table_name
+    SOLVER_CORS_ORIGINS  = jsonencode(["*"])
   }
 
   dynamodb_table_arns = [module.dynamodb.table_arn]
@@ -390,13 +392,14 @@ module "lambda_postprocessor" {
   reserved_concurrent_executions = 5  # Field computation — moderate traffic
 
   environment_variables = {
-    USE_COGNITO             = "true"
-    COGNITO_USER_POOL_ID    = module.cognito.user_pool_id
-    COGNITO_CLIENT_ID       = module.cognito.client_id
-    COGNITO_REGION          = var.aws_region
-    USE_DYNAMODB            = "true"
-    DYNAMODB_TABLE_NAME     = module.dynamodb.table_name
-    POSTPROCESSOR_LOG_LEVEL = "INFO"
+    USE_COGNITO                = "true"
+    COGNITO_USER_POOL_ID       = module.cognito.user_pool_id
+    COGNITO_CLIENT_ID          = module.cognito.client_id
+    COGNITO_REGION             = var.aws_region
+    USE_DYNAMODB               = "true"
+    DYNAMODB_TABLE_NAME        = module.dynamodb.table_name
+    POSTPROCESSOR_LOG_LEVEL    = "INFO"
+    POSTPROCESSOR_CORS_ORIGINS = jsonencode(["*"])
   }
 
   dynamodb_table_arns = [module.dynamodb.table_arn]

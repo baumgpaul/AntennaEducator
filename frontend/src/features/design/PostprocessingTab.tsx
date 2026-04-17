@@ -325,19 +325,24 @@ function PostprocessingTab({
       // The first attempt uses a longer delay because the 3D scene may need to
       // mount from scratch (e.g. when switching from a non-3D tab).
       for (let attempt = 0; attempt < 7; attempt++) {
-        const delay = attempt === 0 ? 2000 : attempt === 1 ? 1000 : 500;
+        const delay = attempt === 0 ? 2500 : attempt === 1 ? 1500 : 800;
         await new Promise<void>(resolve => setTimeout(resolve, delay));
         const canvas = middlePanelRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
-        if (canvas) {
-          // Force a fresh render frame before capturing
+        if (canvas && canvas.width > 0 && canvas.height > 0) {
+          // Wait for Two animation frames so Three.js completes at least one render
+          await new Promise<void>(resolve => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          });
           try {
             const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-            if (gl) {
-              gl.finish();
-            }
+            if (gl) { gl.finish(); }
           } catch { /* ignore */ }
-          const url = canvas.toDataURL('image/png');
-          if (url && url.startsWith('data:image/') && url.length > 100) return url;
+          try {
+            const url = canvas.toDataURL('image/png');
+            if (url && url.startsWith('data:image/') && url.length > 100) return url;
+          } catch {
+            // SecurityError or other — retry next attempt
+          }
         }
       }
       throw new Error(`3D canvas not ready for view "${view.name}"`);
