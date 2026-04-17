@@ -123,7 +123,7 @@ module "s3_results" {
   bucket_name                = "antenna-simulator-results-${var.environment}"
   allowed_origins            = ["https://${var.domain_name}", "http://localhost:3000"]
   enable_lifecycle           = true
-  data_retention_days        = 90  # Auto-delete old simulation results after 90 days
+  data_retention_days        = 365  # Auto-delete old simulation results after 1 year
   enable_intelligent_tiering = false  # Disable for staging (low volume)
 
   tags = {
