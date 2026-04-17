@@ -622,8 +622,7 @@ function RibbonMenu({
 
               {/* Polar Plot Section (Polar view only) */}
               {selectedViewData?.viewType === 'Polar' && (() => {
-                const hasSweepOverlay = selectedViewData.items.some(i => i.type === 'polar-plot' && i.sweepOverlay);
-                const hasPatternCut = selectedViewData.items.some(i => i.type === 'polar-plot' && !i.sweepOverlay);
+                const hasAnyPolarItem = selectedViewData.items.some(i => i.type === 'polar-plot');
                 return (
                 <>
                   <Box>
@@ -631,24 +630,24 @@ function RibbonMenu({
                       Radiation Pattern
                     </Box>
                     <ButtonGroup variant="outlined" size="small">
-                      <Tooltip title={hasSweepOverlay ? 'Cannot mix pattern cut with sweep overlay' : 'Add radiation pattern polar cut'}>
+                      <Tooltip title={hasAnyPolarItem ? 'A radiation pattern item already exists in this view' : 'Add radiation pattern polar cut'}>
                         <span>
                         <Button
                           startIcon={<RadioButtonChecked />}
                           onClick={handleAddPolarPlot}
-                          disabled={!selectedViewId || hasSweepOverlay}
+                          disabled={!selectedViewId || hasAnyPolarItem}
                         >
                           Pattern Cut
                         </Button>
                         </span>
                       </Tooltip>
                       {parameterStudy && parameterStudy.results.length > 1 && (
-                        <Tooltip title={hasPatternCut ? 'Cannot mix sweep overlay with pattern cut' : 'Overlay all sweep points on one polar chart'}>
+                        <Tooltip title={hasAnyPolarItem ? 'A radiation pattern item already exists in this view' : 'Overlay all sweep points on one polar chart'}>
                           <span>
                           <Button
                             startIcon={<Layers />}
                             onClick={handleAddPolarSweepOverlay}
-                            disabled={!selectedViewId || hasPatternCut}
+                            disabled={!selectedViewId || hasAnyPolarItem}
                           >
                             Sweep Overlay
                           </Button>

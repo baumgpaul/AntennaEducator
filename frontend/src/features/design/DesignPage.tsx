@@ -248,7 +248,10 @@ function DesignPage() {
     const hasSolverResults = currentProject.simulation_results && Object.keys(currentProject.simulation_results).length > 0;
     const solverWasReady = hasSolverResults && (
       currentProject.simulation_results.solverState === 'solved' ||
-      currentProject.simulation_results.solverState === 'postprocessing-ready'
+      currentProject.simulation_results.solverState === 'postprocessing-ready' ||
+      // Fallback: check for actual result data (handles projects saved before solverState was persisted)
+      !!currentProject.simulation_results.results ||
+      !!currentProject.simulation_results.frequencySweep
     );
 
     // Restore design elements from design_state
