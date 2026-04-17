@@ -6,7 +6,7 @@
  * Used by the Line view type in PostprocessingTab.
  */
 
-import { useMemo, useState, useRef } from 'react';
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { Box, Typography, IconButton, Tooltip } from '@mui/material';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import GridOffIcon from '@mui/icons-material/GridOff';
@@ -84,6 +84,10 @@ function UnifiedLinePlot({
   // ── Grid state ─────────────────────────────────────────────────────────────
   const [showGrid, setShowGrid] = useState(true);
 
+  // ── Refs for wheel zoom ────────────────────────────────────────────────────
+  const lastMouseX = useRef<number | null>(null);
+  const chartBoxRef = useRef<HTMLDivElement>(null);
+
   // Check for any data
   const hasData = traces.some((t) => (traceData[t.id]?.length ?? 0) > 0);
 
@@ -117,6 +121,9 @@ function UnifiedLinePlot({
   };
 
   const handleMouseMove = (e: any) => {
+    if (e?.activeLabel !== undefined && e?.activeLabel !== null) {
+      lastMouseX.current = Number(e.activeLabel);
+    }
     if (isDragging.current && e?.activeLabel !== undefined && e?.activeLabel !== null) {
       setRefAreaRight(Number(e.activeLabel));
     }
@@ -145,6 +152,56 @@ function UnifiedLinePlot({
     setRefAreaRight(null);
     isDragging.current = false;
   };
+
+  // ── Mouse-wheel zoom (non-passive so preventDefault works) ──────────────
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
+      e.preventDefault();
+      if (chartData.length < 2) return;
+
+      const dataXMin = chartData[0].x;
+      const dataXMax = chartData[chartData.length - 1].x;
+      const fullRange = dataXMax - dataXMin;
+      if (fullRange <= 0) return;
+
+      const curMin = xDomain[0] === 'auto' ? dataXMin : (xDomain[0] as number);
+      const curMax = xDomain[1] === 'auto' ? dataXMax : (xDomain[1] as number);
+      const range = curMax - curMin;
+
+      const factor = e.deltaY > 0 ? 1.15 : 0.85;
+      const newRange = range * factor;
+
+      if (newRange >= fullRange) {
+        setXDomain(['auto', 'auto']);
+        setIsZoomed(false);
+        return;
+      }
+
+      const center =
+        lastMouseX.current != null
+          ? Math.max(curMin, Math.min(curMax, lastMouseX.current))
+          : (curMin + curMax) / 2;
+      const ratio = range > 0 ? (center - curMin) / range : 0.5;
+      let newMin = center - newRange * ratio;
+      let newMax = center + newRange * (1 - ratio);
+
+      if (newMin < dataXMin) { newMax += dataXMin - newMin; newMin = dataXMin; }
+      if (newMax > dataXMax) { newMin -= newMax - dataXMax; newMax = dataXMax; }
+      newMin = Math.max(newMin, dataXMin);
+      newMax = Math.min(newMax, dataXMax);
+
+      setXDomain([newMin, newMax]);
+      setIsZoomed(true);
+    },
+    [chartData, xDomain],
+  );
+
+  useEffect(() => {
+    const el = chartBoxRef.current;
+    if (!el) return;
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [handleWheel]);
 
   if (!hasData) {
     return (
@@ -200,19 +257,20 @@ function UnifiedLinePlot({
       </Box>
 
       <Box
+        ref={chartBoxRef}
         sx={{ cursor: refAreaLeft !== null ? 'crosshair' : 'default', userSelect: 'none' }}
         onMouseLeave={handleMouseUp}
       >
         <ResponsiveContainer width="100%" height={height}>
           <LineChart
             data={chartData}
-            margin={{ top: 5, right: hasRightAxis ? 60 : 20, bottom: 30, left: 60 }}
+            margin={{ top: 5, right: hasRightAxis ? 70 : 20, bottom: 30, left: 60 }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onDoubleClick={handleZoomReset}
           >
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />}
+            {showGrid && <CartesianGrid stroke="#e0e0e0" strokeWidth={0.5} />}
             <XAxis
               dataKey="x"
               type="number"
@@ -270,7 +328,12 @@ function UnifiedLinePlot({
                 return `${xAxisConfig.label}: ${displayVal}`;
               }}
             />
-            <Legend />
+            <Legend
+              verticalAlign="top"
+              height={36}
+              iconType="plainline"
+              wrapperStyle={{ paddingBottom: 4, fontSize: 11 }}
+            />
             {traces.map((trace) => {
               const nPts = traceData[trace.id]?.length ?? 0;
               // Show dots for sparse data so single points are visible
@@ -287,6 +350,7 @@ function UnifiedLinePlot({
                   dot={dotProps}
                   strokeWidth={2}
                   connectNulls
+                  isAnimationActive={false}
                 />
               );
             })}

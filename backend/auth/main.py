@@ -5,8 +5,6 @@ In AWS mode this is NOT deployed — Cognito handles registration/login
 and the projects Lambda re-mounts the /me endpoint.
 """
 
-import os
-
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,15 +24,14 @@ app = FastAPI(
     version="0.2.0",
 )
 
-# CORS — only when NOT running inside Lambda
-if not os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+# CORS — always enabled
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 install_error_handlers(app)
 
