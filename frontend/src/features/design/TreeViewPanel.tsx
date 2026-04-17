@@ -228,8 +228,6 @@ function TreeViewPanel({
 
   // Build tree data from elements or single mesh
   const treeData = useMemo<TreeNode[]>(() => {
-    console.log('[TreeViewPanel] Building tree from elements:', elements?.map(e => ({ id: e.id, name: e.name })));
-
     const result: TreeNode[] = [];
 
     if (elements && elements.length > 0) {

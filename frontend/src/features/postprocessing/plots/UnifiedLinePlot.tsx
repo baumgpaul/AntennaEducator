@@ -229,6 +229,54 @@ function UnifiedLinePlot({
 
   const hasRightAxis = yAxisRightConfig && traces.some((t) => t.yAxisId === 'right');
 
+  // ── Compute explicit Y-axis ticks (D3's advisory tickCount is unreliable) ──
+  const { leftTicks, rightTicks } = useMemo(() => {
+    const computeNiceTicks = (min: number, max: number, count: number): number[] => {
+      if (min === max) {
+        // Single value — create a range around it
+        const offset = Math.abs(min) * 0.1 || 1;
+        min -= offset;
+        max += offset;
+      }
+      const range = max - min;
+      // Find a "nice" step size
+      const rawStep = range / (count - 1);
+      const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+      const residual = rawStep / magnitude;
+      let niceStep: number;
+      if (residual <= 1.5) niceStep = magnitude;
+      else if (residual <= 3) niceStep = 2 * magnitude;
+      else if (residual <= 7) niceStep = 5 * magnitude;
+      else niceStep = 10 * magnitude;
+
+      const niceMin = Math.floor(min / niceStep) * niceStep;
+      const niceMax = Math.ceil(max / niceStep) * niceStep;
+      const ticks: number[] = [];
+      for (let v = niceMin; v <= niceMax + niceStep * 0.01; v += niceStep) {
+        ticks.push(parseFloat(v.toPrecision(12)));
+      }
+      return ticks;
+    };
+
+    const leftTraceIds = new Set(traces.filter((t) => t.yAxisId !== 'right').map((t) => t.id));
+    const rightTraceIds = new Set(traces.filter((t) => t.yAxisId === 'right').map((t) => t.id));
+
+    let lMin = Infinity, lMax = -Infinity;
+    let rMin = Infinity, rMax = -Infinity;
+    for (const row of chartData) {
+      for (const [key, val] of Object.entries(row)) {
+        if (key === 'x' || typeof val !== 'number') continue;
+        if (leftTraceIds.has(key)) { lMin = Math.min(lMin, val); lMax = Math.max(lMax, val); }
+        if (rightTraceIds.has(key)) { rMin = Math.min(rMin, val); rMax = Math.max(rMax, val); }
+      }
+    }
+
+    return {
+      leftTicks: isFinite(lMin) && isFinite(lMax) ? computeNiceTicks(lMin, lMax, 10) : undefined,
+      rightTicks: isFinite(rMin) && isFinite(rMax) ? computeNiceTicks(rMin, rMax, 10) : undefined,
+    };
+  }, [chartData, traces]);
+
   return (
     <Box sx={{ width: '100%', height: '100%', minHeight: height, p: 1 }}>
       {/* Title + toolbar row */}
@@ -304,8 +352,10 @@ function UnifiedLinePlot({
               yAxisId="left"
               label={{ value: formatAxisLabel(yAxisLeftConfig), angle: -90, position: 'insideLeft', offset: -45 }}
               tick={{ fontSize: 11 }}
-              tickCount={10}
+              ticks={leftTicks}
+              domain={leftTicks ? [leftTicks[0], leftTicks[leftTicks.length - 1]] : undefined}
               scale={yAxisLeftConfig.scale === 'log' ? 'log' : 'auto'}
+              allowDataOverflow
             />
             {hasRightAxis && (
               <YAxis
@@ -313,8 +363,10 @@ function UnifiedLinePlot({
                 orientation="right"
                 label={{ value: formatAxisLabel(yAxisRightConfig!), angle: 90, position: 'insideRight', offset: -45 }}
                 tick={{ fontSize: 11 }}
-                tickCount={10}
+                ticks={rightTicks}
+                domain={rightTicks ? [rightTicks[0], rightTicks[rightTicks.length - 1]] : undefined}
                 scale={yAxisRightConfig!.scale === 'log' ? 'log' : 'auto'}
+                allowDataOverflow
               />
             )}
             <RechartsTooltip

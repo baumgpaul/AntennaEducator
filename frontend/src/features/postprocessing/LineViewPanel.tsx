@@ -115,6 +115,17 @@ function LineViewPanel({ view }: LineViewPanelProps) {
   const linePlotItem = view.items.find((item) => item.type === 'line-plot');
 
   const handleAddCurve = (result: AddCurveResult) => {
+    // Guard: prevent adding traces with incompatible sources
+    const newSource = result.traces[0]?.quantity.source;
+    if (newSource && existingTraceSource && newSource !== existingTraceSource) {
+      console.warn('[LineViewPanel] Blocked adding trace with incompatible source:', newSource, 'vs existing:', existingTraceSource);
+      return;
+    }
+    if (newSource && existingTraceMixed) {
+      console.warn('[LineViewPanel] Blocked adding trace — view already has mixed sources');
+      return;
+    }
+
     if (linePlotItem) {
       // Append traces to existing line-plot item
       const existingTraces = linePlotItem.traces ?? [];
@@ -356,6 +367,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
         hasFieldData={hasFieldData}
         requestedFields={requestedFields}
         existingTraceSource={existingTraceSource}
+        existingTraceMixed={existingTraceMixed}
       />
     </Box>
   );

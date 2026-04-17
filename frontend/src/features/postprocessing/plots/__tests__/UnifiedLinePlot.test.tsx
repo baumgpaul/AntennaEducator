@@ -22,8 +22,8 @@ vi.mock('recharts', () => ({
   XAxis: ({ label, tickCount }: any) => (
     <div data-testid="x-axis" data-label={label?.value} data-tickcount={tickCount} />
   ),
-  YAxis: ({ yAxisId, label, tickCount }: any) => (
-    <div data-testid={`y-axis-${yAxisId ?? 'left'}`} data-label={label?.value} data-tickcount={tickCount} />
+  YAxis: ({ yAxisId, label, tickCount, ticks }: any) => (
+    <div data-testid={`y-axis-${yAxisId ?? 'left'}`} data-label={label?.value} data-tickcount={tickCount} data-ticks={ticks ? JSON.stringify(ticks) : undefined} />
   ),
   CartesianGrid: ({ stroke, strokeWidth, strokeDasharray, horizontal, vertical }: any) => (
     <div
@@ -174,11 +174,11 @@ describe('UnifiedLinePlot', () => {
     expect(grid).toHaveAttribute('data-vertical', 'true');
   });
 
-  it('renders axes with tickCount=10', () => {
+  it('renders axes with explicit ticks for grid lines', () => {
     render(
       <UnifiedLinePlot
         traces={[makeTrace('t1', 'Re(Z)', '#1976d2')]}
-        traceData={{ t1: [{ x: 100, y: 73 }] }}
+        traceData={{ t1: [{ x: 100, y: 73 }, { x: 200, y: 80 }] }}
         xAxisConfig={xAxis}
         yAxisLeftConfig={yAxisLeft}
       />,
@@ -186,6 +186,10 @@ describe('UnifiedLinePlot', () => {
     const xAxisEl = screen.getByTestId('x-axis');
     expect(xAxisEl).toHaveAttribute('data-tickcount', '10');
     const yAxisEl = screen.getByTestId('y-axis-left');
-    expect(yAxisEl).toHaveAttribute('data-tickcount', '10');
+    // YAxis now receives explicit ticks array instead of tickCount
+    const ticksStr = yAxisEl.getAttribute('data-ticks');
+    expect(ticksStr).toBeTruthy();
+    const ticks = JSON.parse(ticksStr!);
+    expect(ticks.length).toBeGreaterThanOrEqual(5);
   });
 });
