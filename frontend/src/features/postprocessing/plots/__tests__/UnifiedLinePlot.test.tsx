@@ -127,8 +127,8 @@ describe('UnifiedLinePlot', () => {
         yAxisRightConfig={yAxisRight}
       />,
     );
-    expect(screen.getByTestId('y-axis-left')).toBeInTheDocument();
-    expect(screen.getByTestId('y-axis-right')).toBeInTheDocument();
+    expect(screen.getByTestId('y-axis-0')).toBeInTheDocument();
+    expect(screen.getByTestId('y-axis-1')).toBeInTheDocument();
   });
 
   it('renders title when provided', () => {
@@ -185,7 +185,7 @@ describe('UnifiedLinePlot', () => {
     );
     const xAxisEl = screen.getByTestId('x-axis');
     expect(xAxisEl).toHaveAttribute('data-tickcount', '10');
-    const yAxisEl = screen.getByTestId('y-axis-left');
+    const yAxisEl = screen.getByTestId('y-axis-0');
     // YAxis now receives explicit ticks array instead of tickCount
     const ticksStr = yAxisEl.getAttribute('data-ticks');
     expect(ticksStr).toBeTruthy();
