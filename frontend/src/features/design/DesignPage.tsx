@@ -244,11 +244,21 @@ function DesignPage() {
       dispatch(clearViewConfigurations());
     }
 
+    // Determine if the project was solved (needed for loadDesign to set isSolved)
+    const hasSolverResults = currentProject.simulation_results && Object.keys(currentProject.simulation_results).length > 0;
+    const solverWasReady = hasSolverResults && (
+      currentProject.simulation_results.solverState === 'solved' ||
+      currentProject.simulation_results.solverState === 'postprocessing-ready' ||
+      // Fallback: check for actual result data (handles projects saved before solverState was persisted)
+      !!currentProject.simulation_results.results ||
+      !!currentProject.simulation_results.frequencySweep
+    );
+
     // Restore design elements from design_state
     const designState = currentProject.design_state;
     if (designState?.elements && Array.isArray(designState.elements) && designState.elements.length > 0) {
       console.log('Restored design elements from design_state:', designState.elements);
-      dispatch(loadDesign({ elements: designState.elements }));
+      dispatch(loadDesign({ elements: designState.elements, isSolved: solverWasReady }));
     } else {
       console.log('Empty project loaded, clearing design state');
       dispatch(loadDesign({ elements: [] }));
@@ -263,12 +273,9 @@ function DesignPage() {
     }
 
     // Mark design as solved if project has solver results
-    // (loadDesign resets isSolved to false, so this must come AFTER)
-    if (currentProject.simulation_results && Object.keys(currentProject.simulation_results).length > 0) {
-      const solverState = currentProject.simulation_results.solverState;
-      if (solverState === 'solved' || solverState === 'postprocessing-ready') {
-        dispatch(markAsSolved());
-      }
+    // (Belt-and-suspenders: also dispatch markAsSolved in case loadDesign didn't set it)
+    if (solverWasReady) {
+      dispatch(markAsSolved());
     }
 
     // Mark project loading complete after state settles (skip auto-saves until then)

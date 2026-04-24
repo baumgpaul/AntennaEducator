@@ -28,8 +28,11 @@ import {
   setAddViewDialogOpen,
   createViewConfiguration,
   selectAddViewDialogOpen,
+  selectViewConfigurations,
 } from '@/store/postprocessingSlice';
 import type { ViewType } from '@/types/postprocessing';
+import { MAX_VIEW_CONFIGURATIONS } from '@/types/postprocessing';
+import Alert from '@mui/material/Alert';
 
 const VIEW_TYPE_OPTIONS: Array<{
   value: ViewType;
@@ -72,6 +75,8 @@ const VIEW_TYPE_OPTIONS: Array<{
 function AddViewDialog() {
   const dispatch = useAppDispatch();
   const open = useAppSelector(selectAddViewDialogOpen);
+  const viewConfigurations = useAppSelector(selectViewConfigurations);
+  const atLimit = viewConfigurations.length >= MAX_VIEW_CONFIGURATIONS;
 
   const [name, setName] = useState('');
   const [viewType, setViewType] = useState<ViewType>('3D');
@@ -83,6 +88,7 @@ function AddViewDialog() {
   };
 
   const handleSubmit = () => {
+    if (atLimit) return;
     dispatch(createViewConfiguration({
       name: name.trim() || undefined,
       viewType,
@@ -95,6 +101,11 @@ function AddViewDialog() {
       <DialogTitle>Create New View</DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {atLimit && (
+            <Alert severity="warning">
+              Maximum of {MAX_VIEW_CONFIGURATIONS} views reached. Delete an existing view to create a new one.
+            </Alert>
+          )}
           <TextField
             label="View Name (Optional)"
             placeholder="Result View 1"
@@ -129,7 +140,7 @@ function AddViewDialog() {
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button onClick={handleSubmit} variant="contained">
+        <Button onClick={handleSubmit} variant="contained" disabled={atLimit}>
           Create View
         </Button>
       </DialogActions>

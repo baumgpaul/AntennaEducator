@@ -19,13 +19,25 @@ vi.mock('recharts', () => ({
   Line: ({ dataKey, name, stroke }: any) => (
     <div data-testid={`line-${dataKey}`} data-name={name} data-stroke={stroke} />
   ),
-  XAxis: ({ label }: any) => <div data-testid="x-axis" data-label={label?.value} />,
-  YAxis: ({ yAxisId, label }: any) => (
-    <div data-testid={`y-axis-${yAxisId ?? 'left'}`} data-label={label?.value} />
+  XAxis: ({ label, tickCount }: any) => (
+    <div data-testid="x-axis" data-label={label?.value} data-tickcount={tickCount} />
   ),
-  CartesianGrid: () => <div data-testid="grid" />,
+  YAxis: ({ yAxisId, label, tickCount, ticks }: any) => (
+    <div data-testid={`y-axis-${yAxisId ?? 'left'}`} data-label={label?.value} data-tickcount={tickCount} data-ticks={ticks ? JSON.stringify(ticks) : undefined} />
+  ),
+  CartesianGrid: ({ stroke, strokeWidth, strokeDasharray, horizontal, vertical }: any) => (
+    <div
+      data-testid="grid"
+      data-stroke={stroke}
+      data-strokewidth={strokeWidth}
+      data-strokedasharray={strokeDasharray}
+      data-horizontal={String(horizontal)}
+      data-vertical={String(vertical)}
+    />
+  ),
   Tooltip: () => <div data-testid="tooltip" />,
   Legend: () => <div data-testid="legend" />,
+  ReferenceArea: () => null,
 }));
 
 const makeTrace = (
@@ -115,8 +127,8 @@ describe('UnifiedLinePlot', () => {
         yAxisRightConfig={yAxisRight}
       />,
     );
-    expect(screen.getByTestId('y-axis-left')).toBeInTheDocument();
-    expect(screen.getByTestId('y-axis-right')).toBeInTheDocument();
+    expect(screen.getByTestId('y-axis-0')).toBeInTheDocument();
+    expect(screen.getByTestId('y-axis-1')).toBeInTheDocument();
   });
 
   it('renders title when provided', () => {
@@ -143,5 +155,41 @@ describe('UnifiedLinePlot', () => {
     );
     // Should show empty state since t1 has no data
     expect(screen.getByText(/no data/i)).toBeInTheDocument();
+  });
+
+  it('renders CartesianGrid with correct styling', () => {
+    render(
+      <UnifiedLinePlot
+        traces={[makeTrace('t1', 'Re(Z)', '#1976d2')]}
+        traceData={{ t1: [{ x: 100, y: 73 }] }}
+        xAxisConfig={xAxis}
+        yAxisLeftConfig={yAxisLeft}
+      />,
+    );
+    const grid = screen.getByTestId('grid');
+    expect(grid).toHaveAttribute('data-stroke', '#999');
+    expect(grid).toHaveAttribute('data-strokewidth', '1');
+    expect(grid).toHaveAttribute('data-strokedasharray', '3 3');
+    expect(grid).toHaveAttribute('data-horizontal', 'true');
+    expect(grid).toHaveAttribute('data-vertical', 'true');
+  });
+
+  it('renders axes with explicit ticks for grid lines', () => {
+    render(
+      <UnifiedLinePlot
+        traces={[makeTrace('t1', 'Re(Z)', '#1976d2')]}
+        traceData={{ t1: [{ x: 100, y: 73 }, { x: 200, y: 80 }] }}
+        xAxisConfig={xAxis}
+        yAxisLeftConfig={yAxisLeft}
+      />,
+    );
+    const xAxisEl = screen.getByTestId('x-axis');
+    expect(xAxisEl).toHaveAttribute('data-tickcount', '10');
+    const yAxisEl = screen.getByTestId('y-axis-0');
+    // YAxis now receives explicit ticks array instead of tickCount
+    const ticksStr = yAxisEl.getAttribute('data-ticks');
+    expect(ticksStr).toBeTruthy();
+    const ticks = JSON.parse(ticksStr!);
+    expect(ticks.length).toBeGreaterThanOrEqual(5);
   });
 });

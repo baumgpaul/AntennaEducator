@@ -103,12 +103,20 @@ def test_current_source_dipole_golden_standard():
     assert len(element.sources) == 2, f"Expected 2 sources, got {len(element.sources)}"
     assert element.sources[0].type == "current", "Source 1 should be current type"
     assert element.sources[1].type == "current", "Source 2 should be current type"
-    assert (
-        element.sources[0].node_start == 1
-    ), f"Source 1 should be at node 1, got {element.sources[0].node_start}"
-    assert (
-        element.sources[1].node_start == 7
-    ), f"Source 2 should be at node 7, got {element.sources[1].node_start}"
+    # Source nodes should be at the feed gap (the last/first node of each arm).
+    # The exact node numbers depend on n_seg = max(total_segments // 2, 1), so we
+    # check them dynamically rather than with hardcoded constants.
+    n_seg = max(segments // 2, 1)
+    expected_feed_lower = n_seg + 1  # last node of lower arm (at gap)
+    expected_feed_upper = n_seg + 2  # first node of upper arm (at gap)
+    assert element.sources[0].node_start == expected_feed_lower, (
+        f"Source 1 should be at feed_lower (node {expected_feed_lower}), "
+        f"got {element.sources[0].node_start}"
+    )
+    assert element.sources[1].node_start == expected_feed_upper, (
+        f"Source 2 should be at feed_upper (node {expected_feed_upper}), "
+        f"got {element.sources[1].node_start}"
+    )
     assert element.sources[0].amplitude == complex(
         current_amplitude, 0.0
     ), "Source 1 amplitude mismatch"
@@ -186,9 +194,14 @@ def test_current_source_dipole_golden_standard():
         print(f"  Edge {i+1}: {I.real:+.6f} {I.imag:+.6f}j A")
 
     # Check for symmetry (upper and lower half should be anti-symmetric due to opposite current)
+    n_edges_total = len(mesh.edges)
+    n_edges_per_half = n_edges_total // 2
     print("\nSymmetry check:")
-    print(f"  Upper half current (edge 1): {branch_currents[0]:.6f} A")
-    print(f"  Lower half current (edge 6): {branch_currents[5]:.6f} A")
+    print(f"  Upper half first edge current (edge 1): {branch_currents[0]:.6f} A")
+    if n_edges_per_half < n_edges_total:
+        print(
+            f"  Lower half first edge current (edge {n_edges_per_half + 1}): {branch_currents[n_edges_per_half]:.6f} A"
+        )
     print("  Expected relationship: approximately equal magnitude, opposite sign")
 
     # Verify basic physics constraints
@@ -196,6 +209,18 @@ def test_current_source_dipole_golden_standard():
     assert not np.any(np.isinf(node_voltages)), "Node voltages contain Inf"
     assert not np.any(np.isnan(branch_currents)), "Branch currents contain NaN"
     assert not np.any(np.isinf(branch_currents)), "Branch currents contain Inf"
+
+    # Impedance must be a finite, non-zero complex number with positive real part.
+    # This validates the current-source impedance computation (V[feed_node] / I).
+    assert input_impedance is not None, "Input impedance must not be None for current source"
+    assert not np.isnan(input_impedance), "Input impedance is NaN"
+    assert not np.isinf(input_impedance), "Input impedance is Inf (open circuit)"
+    assert (
+        input_impedance.real > 0
+    ), f"Impedance real part should be positive (radiation resistance), got {input_impedance.real:.2f}"
+    print("\nImpedance validation:")
+    print(f"  Re(Z) = {input_impedance.real:.2f} Ω  (must be > 0)")
+    print(f"  Im(Z) = {input_impedance.imag:.2f} Ω")
 
     print(f"\n{'='*80}")
     print("✓ Golden standard test PASSED - Current source dipole matches reference implementation!")

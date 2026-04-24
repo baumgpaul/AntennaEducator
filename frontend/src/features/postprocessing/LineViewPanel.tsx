@@ -10,13 +10,13 @@ import AddIcon from '@mui/icons-material/Add';
 import type { ViewConfiguration, ViewItem } from '@/types/postprocessing';
 import UnifiedLinePlot from './plots/UnifiedLinePlot';
 import AddCurveDialog from './AddCurveDialog';
-import type { AddCurveResult } from './AddCurveDialog';
-import { extractPortTraceData, extractDistributionTraceData, extractFarfieldTraceData } from '@/types/plotDataExtractors';
+import type { AddCurveResult, SourceType } from './AddCurveDialog';
+import { extractPortTraceData, extractDistributionTraceData, extractFarfieldTraceData, extractFieldTraceData } from '@/types/plotDataExtractors';
 import type { DataPoint } from '@/types/plotDataExtractors';
 import type { AxisConfig, PlotTrace } from '@/types/plotDefinitions';
 import { TRACE_COLORS } from '@/types/plotDefinitions';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
-import { selectParameterStudy, selectSelectedFrequencyHz } from '@/store/solverSlice';
+import { selectParameterStudy, selectSelectedFrequencyHz, selectFieldData, selectRequestedFields } from '@/store/solverSlice';
 import { updateItemProperty, addItemToView } from '@/store/postprocessingSlice';
 
 interface LineViewPanelProps {
@@ -32,6 +32,8 @@ function LineViewPanel({ view }: LineViewPanelProps) {
   const radiationPatterns = useAppSelector((state) => state.solver.radiationPatterns);
   const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
   const elements = useAppSelector((state) => state.design.elements);
+  const fieldData = useAppSelector(selectFieldData);
+  const requestedFields = useAppSelector(selectRequestedFields);
   const [addCurveDialogOpen, setAddCurveDialogOpen] = useState(false);
 
   // Data availability flags for AddCurveDialog
@@ -45,12 +47,16 @@ function LineViewPanel({ view }: LineViewPanelProps) {
       frequencySweep.results.some((r) =>
         r.antenna_solutions?.some((a) => a.branch_currents?.length > 0)
       )) ||
-    (singleResult && (singleResult as any).branch_currents?.length > 0)
+    (singleResult && (
+      (singleResult as any).branch_currents?.length > 0 ||
+      (singleResult as any).antenna_solutions?.some((a: any) => a.branch_currents?.length > 0)
+    ))
   );
   const hasFarfieldData = !!(
     radiationPattern ||
     (radiationPatterns && Object.keys(radiationPatterns).length > 0)
   );
+  const hasFieldData = !!(fieldData && Object.keys(fieldData).length > 0);
 
   // Determine the x-axis context from sweep type
   const sweepVarName = parameterStudy?.config.sweepVariables[0]?.variableName;
@@ -64,6 +70,9 @@ function LineViewPanel({ view }: LineViewPanelProps) {
     }
     if (source === 'farfield') {
       return { label: 'θ', unit: '°', scale: 'linear' };
+    }
+    if (source === 'field') {
+      return { label: 'Distance', unit: 'm', scale: 'linear' };
     }
     if (isParamSweep && sweepVarName) {
       const isFreqVar = sweepVarName === 'freq' || sweepVarName === 'frequency';
@@ -106,6 +115,17 @@ function LineViewPanel({ view }: LineViewPanelProps) {
   const linePlotItem = view.items.find((item) => item.type === 'line-plot');
 
   const handleAddCurve = (result: AddCurveResult) => {
+    // Guard: prevent adding traces with incompatible sources
+    const newSource = result.traces[0]?.quantity.source;
+    if (newSource && existingTraceSource && newSource !== existingTraceSource) {
+      console.warn('[LineViewPanel] Blocked adding trace with incompatible source:', newSource, 'vs existing:', existingTraceSource);
+      return;
+    }
+    if (newSource && existingTraceMixed) {
+      console.warn('[LineViewPanel] Blocked adding trace — view already has mixed sources');
+      return;
+    }
+
     if (linePlotItem) {
       // Append traces to existing line-plot item
       const existingTraces = linePlotItem.traces ?? [];
@@ -149,7 +169,19 @@ function LineViewPanel({ view }: LineViewPanelProps) {
     }
   };
 
-  const existingTraceCount = linePlotItem?.traces?.length ?? 0;
+  // Aggregate existing trace sources across all line-plot items in this view.
+  const allLinePlotItems = view.items.filter((item) => item.type === 'line-plot');
+  let existingTraceCount = 0;
+  const existingSources = new Set<string>();
+  for (const it of allLinePlotItems) {
+    const traces = it.traces ?? [];
+    existingTraceCount += traces.length;
+    for (const t of traces) {
+      if (t?.quantity?.source) existingSources.add(t.quantity.source);
+    }
+  }
+  const existingTraceSource: SourceType | null = existingSources.size === 1 ? Array.from(existingSources)[0] as SourceType : null;
+  const existingTraceMixed = existingSources.size > 1;
 
   if (visibleItems.length === 0 && !linePlotItem) {
     return (
@@ -183,6 +215,10 @@ function LineViewPanel({ view }: LineViewPanelProps) {
           hasPortData={hasPortData}
           hasDistributionData={hasDistributionData}
           hasFarfieldData={hasFarfieldData}
+          hasFieldData={hasFieldData}
+          requestedFields={requestedFields}
+          existingTraceSource={existingTraceSource}
+          existingTraceMixed={existingTraceMixed}
         />
       </Box>
     );
@@ -264,7 +300,13 @@ function LineViewPanel({ view }: LineViewPanelProps) {
               freqKey,
             );
             break;
-          // field extractors can be wired here when field data is available
+          case 'field':
+            traceData[trace.id] = extractFieldTraceData(
+              trace,
+              fieldData,
+              freqKey,
+            );
+            break;
         }
       }
 
@@ -322,6 +364,10 @@ function LineViewPanel({ view }: LineViewPanelProps) {
         hasPortData={hasPortData}
         hasDistributionData={hasDistributionData}
         hasFarfieldData={hasFarfieldData}
+        hasFieldData={hasFieldData}
+        requestedFields={requestedFields}
+        existingTraceSource={existingTraceSource}
+        existingTraceMixed={existingTraceMixed}
       />
     </Box>
   );

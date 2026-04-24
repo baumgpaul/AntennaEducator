@@ -82,58 +82,7 @@ function complexMag(c: ComplexNumber): number {
   return Math.sqrt((c.real || 0) * (c.real || 0) + (c.imag || 0) * (c.imag || 0));
 }
 
-/**
- * Serialize an SVG element to a PNG data URL by drawing it onto a canvas.
- * Works reliably for Recharts SVG charts where html2canvas drops lines.
- */
-async function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
-  const { width, height } = svgEl.getBoundingClientRect();
-  if (width === 0 || height === 0) throw new Error('SVG has zero dimensions');
-
-  // Clone SVG and inline computed styles so the serialized SVG looks identical
-  const clone = svgEl.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute('width', String(width));
-  clone.setAttribute('height', String(height));
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-
-  // Inline computed styles of all elements (fills, strokes, fonts, etc.)
-  const originals = svgEl.querySelectorAll('*');
-  const clones = clone.querySelectorAll('*');
-  for (let i = 0; i < originals.length; i++) {
-    const computed = window.getComputedStyle(originals[i]);
-    const el = clones[i] as SVGElement | HTMLElement;
-    if (!el.style) continue;
-    for (let j = 0; j < computed.length; j++) {
-      const prop = computed[j];
-      el.style.setProperty(prop, computed.getPropertyValue(prop));
-    }
-  }
-
-  const serializer = new XMLSerializer();
-  const svgString = serializer.serializeToString(clone);
-  const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-
-  return new Promise<string>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = 2; // 2x for crisp PDF
-      const canvas = document.createElement('canvas');
-      canvas.width = width * scale;
-      canvas.height = height * scale;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { URL.revokeObjectURL(url); reject(new Error('No canvas context')); return; }
-      ctx.fillStyle = '#1a1a1a'; // dark background matching the app
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.scale(scale, scale);
-      ctx.drawImage(img, 0, 0);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('SVG image load failed')); };
-    img.src = url;
-  });
-}
+// Exported helpers
 
 /**
  * Resolve the fieldType ('E' | 'H' | 'poynting') for a field-related view item.
@@ -261,7 +210,38 @@ function PostprocessingTab({
   const sweepPointIndex = useAppSelector(selectSweepPointIndex);
 
   const parameterStudy = useAppSelector(selectParameterStudy);
+
+  // Smith chart summary: |Γ| and VSWR from first solved frequency point
+  const smithChartSummary = useMemo(() => {
+    const firstResult =
+      (frequencySweep?.results?.[0] as any) ??
+      (solverResults as any) ??
+      null;
+    const firstZ =
+      firstResult?.antenna_solutions?.[0]?.input_impedance ??
+      firstResult?.input_impedance ??
+      null;
+    if (firstZ == null) return undefined;
+    let r = 0, x = 0;
+    if (typeof firstZ === 'object' && 'real' in firstZ) {
+      r = firstZ.real; x = firstZ.imag;
+    } else if (typeof firstZ === 'number') {
+      r = firstZ;
+    } else {
+      return undefined;
+    }
+    const z0 = 50;
+    const denMag2 = (r + z0) ** 2 + x ** 2;
+    if (denMag2 < 1e-30) return undefined;
+    const gamMag = Math.sqrt((r - z0) ** 2 + x ** 2) / Math.sqrt(denMag2);
+    if (!Number.isFinite(gamMag)) return undefined;
+    const vswr = gamMag >= 1 ? Infinity : (1 + gamMag) / (1 - gamMag);
+    const vswrStr = Number.isFinite(vswr) ? vswr.toFixed(2) : '\u221e';
+    return `|\u0393| = ${gamMag.toFixed(3)}, VSWR = ${vswrStr}`;
+  }, [frequencySweep, solverResults]);
+
   const currentUser = useAppSelector((state) => state.auth.user);
+  const documentationContent = useAppSelector((state) => state.documentation.content);
   const variables = useAppSelector(selectVariables);
   const currentSubmission = useAppSelector(selectCurrentSubmission);
 
@@ -336,38 +316,59 @@ function PostprocessingTab({
       ?? (currentFrequency ? currentFrequency * 1e6 : null));
 
   // Capture a single view panel as PNG data URL for PDF inclusion.
-  // Dispatches selectView, waits 2 animation frames for re-render, then captures.
+  // Dispatches selectView, waits for re-render, then captures.
   const captureView = useCallback(async (viewId: string): Promise<string> => {
     dispatch(selectView(viewId));
-    // Wait 3 frames for React + Three.js to render the selected view
-    await new Promise<void>(resolve =>
-      requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-    );
     const view = viewConfigurations.find(v => v.id === viewId);
     if (view?.viewType === '3D') {
-      // Three.js WebGL canvas — requires preserveDrawingBuffer: true on R3F Canvas
-      const canvas = middlePanelRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
-      if (canvas) {
-        const url = canvas.toDataURL('image/png');
-        // 'data:,' or any non-image result means the canvas hasn't rendered yet
-        if (url && url.startsWith('data:image/')) return url;
+      // Three.js WebGL canvas — give React + Three.js time to fully render.
+      // The first attempt uses a longer delay because the 3D scene may need to
+      // mount from scratch (e.g. when switching from a non-3D tab).
+      for (let attempt = 0; attempt < 7; attempt++) {
+        const delay = attempt === 0 ? 2500 : attempt === 1 ? 1500 : 800;
+        await new Promise<void>(resolve => setTimeout(resolve, delay));
+        const canvas = middlePanelRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
+        if (canvas && canvas.width > 0 && canvas.height > 0) {
+          // Wait for Two animation frames so Three.js completes at least one render
+          await new Promise<void>(resolve => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          });
+          try {
+            const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+            if (gl) { gl.finish(); }
+          } catch { /* ignore */ }
+          try {
+            const url = canvas.toDataURL('image/png');
+            if (url && url.startsWith('data:image/') && url.length > 100) return url;
+          } catch {
+            // SecurityError or other — retry next attempt
+          }
+        }
       }
       throw new Error(`3D canvas not ready for view "${view.name}"`);
     }
-    // For chart/plot views: prefer serializing the Recharts SVG directly,
-    // then fall back to html2canvas. html2canvas often drops SVG line content.
+    // For chart/plot/polar/Smith views: use html2canvas which reliably captures
+    // the full DOM including CSS-styled SVGs, Recharts charts, and polar plots.
+    // Previous approach (SVG serialization via svgToDataUrl) was unreliable —
+    // it lost CSS styles, clip paths, and produced black/blank images.
     if (!middlePanelRef.current) throw new Error('View panel not mounted');
-    const svgEl = middlePanelRef.current.querySelector('.recharts-wrapper svg') as SVGSVGElement | null;
-    if (svgEl) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const delay = attempt === 0 ? 1200 : attempt === 1 ? 800 : 500;
+      await new Promise<void>(resolve => setTimeout(resolve, delay));
       try {
-        const url = await svgToDataUrl(svgEl);
-        if (url && url.startsWith('data:image/')) return url;
+        const captured = await html2canvas(middlePanelRef.current, {
+          backgroundColor: '#1a1a1a',
+          scale: 2, // 2x for crisp PDF
+          useCORS: true,
+          logging: false,
+        });
+        const url = captured.toDataURL('image/png');
+        if (url && url.startsWith('data:image/') && url.length > 200) return url;
       } catch {
-        // Fall through to html2canvas
+        // html2canvas failed — retry after next delay
       }
     }
-    const captured = await html2canvas(middlePanelRef.current, { backgroundColor: '#1a1a1a' });
-    return captured.toDataURL('image/png');
+    throw new Error(`Could not capture view "${view?.name ?? viewId}"`);
   }, [dispatch, viewConfigurations, middlePanelRef]);
 
   // Capture the first 3D view for the "Antenna Geometry" PDF section.
@@ -390,16 +391,9 @@ function PostprocessingTab({
       dispatch(toggleItemVisibility({ viewId: threeDView.id, itemId: item.id }));
     }
 
-    // Wait extra frames for Redux dispatch → React re-render → WebGL re-render
-    await new Promise<void>(resolve =>
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => resolve())
-          )
-        )
-      )
-    );
+    // Wait for Redux dispatch → React re-render → WebGL re-render
+    // Use a real timeout so Three.js has time to produce a new frame
+    await new Promise<void>(resolve => setTimeout(resolve, 1000));
 
     let result: string | null = null;
     try {
@@ -441,7 +435,7 @@ function PostprocessingTab({
           sweepEnd: (frequencySweep?.frequencies?.length ?? 0) > 1 ? frequencySweep!.frequencies[frequencySweep!.frequencies.length - 1] : undefined,
           method: 'peec',
         },
-        documentationContent: '',
+        documentationContent: documentationContent ?? '',
         submissionMeta,
         sections: options.sections,
         captureView,
@@ -487,22 +481,18 @@ function PostprocessingTab({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
 
-      {/* WARNING BANNER - Show when no results, results are stale, or design changed (not during sweep navigation) */}
-      {(!frequencySweep && !currentFrequency) || resultsStale || (!isSweepMode && !isSolved) ? (
+      {/* WARNING BANNER - Show when no results or results are stale */}
+      {(!frequencySweep && !currentFrequency) || resultsStale ? (
         <Alert
           severity={resultsStale ? "warning" : "info"}
           sx={{ m: 2, mb: 0 }}
         >
           <AlertTitle>
-            {resultsStale ? "Results Outdated" :
-             !currentFrequency && !frequencySweep ? "No Results Available" :
-             "Design Modified"}
+            {resultsStale ? "Results Outdated" : "No Results Available"}
           </AlertTitle>
           {resultsStale
             ? "The antenna structure or solver settings have changed. Run the solver again to update results."
-            : !currentFrequency && !frequencySweep
-            ? "No solver results found. Please run the solver first."
-            : "The antenna structure has been modified. Results shown may be outdated. Run the solver again to update."}
+            : "No solver results found. Please run the solver first."}
         </Alert>
       ) : null}
 
@@ -538,6 +528,7 @@ function PostprocessingTab({
             viewConfigurations={viewConfigurations}
             selectedViewId={selectedViewId}
             selectedItemId={selectedItemId}
+            smithChartSummary={smithChartSummary}
             onViewSelect={(viewId) => dispatch(selectView(viewId))}
             onViewDelete={(viewId) => dispatch(deleteViewConfiguration(viewId))}
             onViewRename={(viewId, newName) => dispatch(renameViewConfiguration({ viewId, name: newName }))}
@@ -651,14 +642,38 @@ function PostprocessingTab({
                   const d = Math.abs(phiAngles[j] - cutAngleRad);
                   if (d < bestDist) { bestDist = d; bestPhiIdx = j; }
                 }
-                return thetaAngles.map((thetaRad, thetaIdx) => {
+
+                // Also find opposite phi (phi + 180°) for the backward hemisphere
+                const oppPhiRad = cutAngleRad + Math.PI;
+                let oppPhiIdx = 0;
+                let oppDist = Infinity;
+                for (let j = 0; j < nPhi; j++) {
+                  let d = Math.abs(phiAngles[j] - oppPhiRad);
+                  d = Math.min(d, Math.abs(phiAngles[j] - oppPhiRad + 2 * Math.PI));
+                  d = Math.min(d, Math.abs(phiAngles[j] - oppPhiRad - 2 * Math.PI));
+                  if (d < oppDist) { oppDist = d; oppPhiIdx = j; }
+                }
+
+                const toValue = (dbVal: number) =>
+                  polarScale === 'linear' ? Math.pow(10, (dbVal + offset) / 10) : dbVal + offset;
+
+                // Forward hemisphere: theta 0° → 180° at phi
+                const forward = thetaAngles.map((thetaRad, thetaIdx) => {
                   const flatIdx = thetaIdx * nPhi + bestPhiIdx;
                   const dbVal = patternDb[flatIdx] ?? -40;
-                  return {
-                    angleDeg: (thetaRad * 180) / Math.PI,
-                    value: polarScale === 'linear' ? Math.pow(10, (dbVal + offset) / 10) : dbVal + offset,
-                  };
+                  return { angleDeg: (thetaRad * 180) / Math.PI, value: toValue(dbVal) };
                 });
+
+                // Backward hemisphere: theta (180°-ε) → ε at opposite phi, mapped to 180°+ → 360°-
+                const backward: PolarDataPoint[] = [];
+                for (let i = nTheta - 2; i >= 1; i--) {
+                  const flatIdx = i * nPhi + oppPhiIdx;
+                  const dbVal = patternDb[flatIdx] ?? -40;
+                  const thetaDeg = (thetaAngles[i] * 180) / Math.PI;
+                  backward.push({ angleDeg: 360 - thetaDeg, value: toValue(dbVal) });
+                }
+
+                return [...forward, ...backward];
               } else {
                 const cutAngleRad = (cutAngleDeg * Math.PI) / 180;
                 let bestThetaIdx = 0;

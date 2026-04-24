@@ -33,9 +33,10 @@ import ElectricalServicesIcon from '@mui/icons-material/ElectricalServices';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import RadarIcon from '@mui/icons-material/Radar';
 import TimelineIcon from '@mui/icons-material/Timeline';
-import type { PlotTrace, PlotQuantity, LineStyle } from '@/types/plotDefinitions';
+import type { PlotTrace, PlotQuantity, LineStyle, FieldPlotQuantity } from '@/types/plotDefinitions';
 import { TRACE_COLORS } from '@/types/plotDefinitions';
 import type { ParameterStudyResult } from '@/types/parameterStudy';
+import type { FieldDefinition } from '@/types/fieldDefinitions';
 
 // ============================================================================
 // Quantity catalog
@@ -69,27 +70,39 @@ const DISTRIBUTION_QUANTITIES: QuantityOption[] = [
 ];
 
 const FARFIELD_QUANTITIES: QuantityOption[] = [
-  { quantity: { source: 'farfield', quantity: 'directivity' }, label: 'Directivity', description: 'Directivity (dBi)', defaultYAxis: 'left' },
-  { quantity: { source: 'farfield', quantity: 'gain' }, label: 'Gain', description: 'Gain (dBi)', defaultYAxis: 'left' },
   { quantity: { source: 'farfield', quantity: 'E_theta' }, label: 'E_θ', description: 'Theta component of E-field', defaultYAxis: 'left' },
   { quantity: { source: 'farfield', quantity: 'E_phi' }, label: 'E_φ', description: 'Phi component of E-field', defaultYAxis: 'left' },
 ];
 
-type SourceType = 'port' | 'field' | 'farfield' | 'distribution';
+export type SourceType = 'port' | 'field' | 'farfield' | 'distribution';
 
 const SOURCE_OPTIONS: { type: SourceType; label: string; description: string; icon: React.ReactNode }[] = [
   { type: 'port', label: 'Port Quantities', description: 'Impedance, VSWR, return loss, reflection', icon: <ElectricalServicesIcon /> },
   { type: 'distribution', label: 'Current/Voltage Distribution', description: 'Along wire: |I|, |V|, phase', icon: <TimelineIcon /> },
   { type: 'farfield', label: 'Far-Field', description: 'Directivity, gain, Eθ, Eφ', icon: <RadarIcon /> },
-  { type: 'field', label: 'Near-Field', description: 'E/H magnitudes at observation points', icon: <SensorsIcon /> },
+  { type: 'field', label: 'Field', description: 'E/H magnitudes along observation line', icon: <SensorsIcon /> },
 ];
 
-function getQuantitiesForSource(source: SourceType): QuantityOption[] {
+function getQuantitiesForSource(
+  source: SourceType,
+  requestedFields?: FieldDefinition[],
+): QuantityOption[] {
   switch (source) {
     case 'port': return PORT_QUANTITIES;
     case 'distribution': return DISTRIBUTION_QUANTITIES;
     case 'farfield': return FARFIELD_QUANTITIES;
-    case 'field': return []; // Placeholder until field extractors are wired
+    case 'field': {
+      if (!requestedFields || requestedFields.length === 0) return [];
+      const opts: QuantityOption[] = [];
+      for (const field of requestedFields) {
+        const label = field.name ?? field.id;
+        opts.push(
+          { quantity: { source: 'field', fieldId: field.id, quantity: 'E_magnitude' } as FieldPlotQuantity, label: `|E| — ${label}`, description: 'E-field magnitude (V/m)', defaultYAxis: 'left' },
+          { quantity: { source: 'field', fieldId: field.id, quantity: 'H_magnitude' } as FieldPlotQuantity, label: `|H| — ${label}`, description: 'H-field magnitude (A/m)', defaultYAxis: 'right' },
+        );
+      }
+      return opts;
+    }
   }
 }
 
@@ -116,6 +129,14 @@ interface AddCurveDialogProps {
   hasDistributionData?: boolean;
   /** Whether far-field/radiation pattern data is available */
   hasFarfieldData?: boolean;
+  /** Whether near/computed field data is available */
+  hasFieldData?: boolean;
+  /** Field definitions from solver state (needed to build field quantity options) */
+  requestedFields?: FieldDefinition[];
+  /** Source type of existing traces — when set, only this source is selectable (x-axis compatibility) */
+  existingTraceSource?: SourceType | null;
+  /** True when the existing plot already contains traces with different sources */
+  existingTraceMixed?: boolean;
 }
 
 // ============================================================================
@@ -134,6 +155,10 @@ export default function AddCurveDialog({
   hasPortData = false,
   hasDistributionData = false,
   hasFarfieldData = false,
+  hasFieldData = false,
+  requestedFields,
+  existingTraceSource = null,
+  existingTraceMixed = false,
 }: AddCurveDialogProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [selectedSource, setSelectedSource] = useState<SourceType | null>(null);
@@ -151,7 +176,7 @@ export default function AddCurveDialog({
       case 'port': return hasPortData;
       case 'distribution': return hasDistributionData;
       case 'farfield': return hasFarfieldData;
-      case 'field': return false; // Not yet wired
+      case 'field': return hasFieldData;
     }
   };
 
@@ -280,14 +305,20 @@ export default function AddCurveDialog({
         {/* Step 1: Source */}
         {activeStep === 0 && (
           <List>
+            {existingTraceMixed && (
+              <Box sx={{ p: 1 }}>
+                <Typography variant="body2" color="warning.main">A plot in this view already contains traces with different x-axis types. Adding new curves is disabled to prevent incompatible overlays.</Typography>
+              </Box>
+            )}
             {SOURCE_OPTIONS.map((opt) => {
               const available = isSourceAvailable(opt.type);
+              const incompatible = !existingTraceMixed && existingTraceSource != null && opt.type !== existingTraceSource;
               return (
                 <ListItemButton
                   key={opt.type}
                   onClick={() => handleSourceSelect(opt.type)}
                   selected={selectedSource === opt.type}
-                  disabled={!available}
+                  disabled={!available || incompatible || existingTraceMixed}
                   sx={{ borderRadius: 1, mb: 0.5 }}
                 >
                   <ListItemIcon>{opt.icon}</ListItemIcon>
@@ -297,6 +328,9 @@ export default function AddCurveDialog({
                   />
                   {!available && (
                     <Chip label="No data" size="small" variant="outlined" />
+                  )}
+                  {available && incompatible && (
+                    <Chip label="Different x-axis" size="small" variant="outlined" color="warning" />
                   )}
                 </ListItemButton>
               );
@@ -311,7 +345,7 @@ export default function AddCurveDialog({
               Choose a quantity to plot:
             </Typography>
             <List dense>
-              {getQuantitiesForSource(selectedSource).map((opt) => (
+              {getQuantitiesForSource(selectedSource, requestedFields).map((opt) => (
                 <ListItemButton
                   key={opt.quantity.quantity}
                   onClick={() => handleQuantitySelect(opt)}
