@@ -131,6 +131,8 @@ interface TreeViewPanelProps {
   onItemSelect?: (viewId: string, itemId: string) => void;
   onItemDelete?: (viewId: string, itemId: string) => void;
   onItemVisibilityToggle?: (viewId: string, itemId: string) => void;
+  /** Summary string shown as secondary text on smith-chart tree items, e.g. "|Γ| = 0.12, VSWR = 1.27" */
+  smithChartSummary?: string;
 
   // Single mesh support (backward compatibility)
   mesh?: Mesh;
@@ -180,6 +182,7 @@ function TreeViewPanel({
   onItemSelect,
   onItemDelete,
   onItemVisibilityToggle,
+  smithChartSummary,
   mesh,
   sources = [],
   lumpedElements = [],
@@ -225,8 +228,6 @@ function TreeViewPanel({
 
   // Build tree data from elements or single mesh
   const treeData = useMemo<TreeNode[]>(() => {
-    console.log('[TreeViewPanel] Building tree from elements:', elements?.map(e => ({ id: e.id, name: e.name })));
-
     const result: TreeNode[] = [];
 
     if (elements && elements.length > 0) {
@@ -1028,7 +1029,11 @@ function TreeViewPanel({
                                       opacity: item.visible === false ? 0.5 : 1,
                                     },
                                   }}
-                                  secondary={item.type}
+                                  secondary={
+                                    item.type === 'smith-chart' && smithChartSummary
+                                      ? smithChartSummary
+                                      : item.type
+                                  }
                                   secondaryTypographyProps={{ variant: 'caption' }}
                                 />
                               </ListItemButton>

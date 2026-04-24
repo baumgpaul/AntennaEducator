@@ -893,6 +893,24 @@ const PostprocessingPropertiesPanel: React.FC = () => {
       case 'polar-plot':
         return (
           <>
+            {/* Display Mode — mutually exclusive */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Display Mode
+              </Typography>
+              <RadioGroup
+                row
+                value={selectedItem.sweepOverlay ? 'sweep' : 'cut'}
+                onChange={(e) => {
+                  const isSweep = e.target.value === 'sweep';
+                  handleItemPropertyChange('sweepOverlay', isSweep);
+                }}
+              >
+                <FormControlLabel value="cut" control={<Radio size="small" />} label="Pattern Cut" />
+                <FormControlLabel value="sweep" control={<Radio size="small" />} label="Sweep Overlay" />
+              </RadioGroup>
+            </Box>
+
             {/* Scale */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
@@ -907,31 +925,34 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               </RadioGroup>
             </Box>
 
-            {/* Cut Plane */}
-            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-              <InputLabel>Cut Plane</InputLabel>
-              <Select
-                value={selectedItem.polarCutPlane ?? 'phi'}
-                label="Cut Plane"
-                onChange={(e) => handleItemPropertyChange('polarCutPlane', e.target.value)}
-              >
-                <MenuItem value="phi">φ-cut (E-plane)</MenuItem>
-                <MenuItem value="theta">θ-cut (H-plane)</MenuItem>
-              </Select>
-            </FormControl>
+            {/* Cut Plane + Cut Angle — only shown for Pattern Cut mode */}
+            {!selectedItem.sweepOverlay && (
+              <>
+                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                  <InputLabel>Cut Plane</InputLabel>
+                  <Select
+                    value={selectedItem.polarCutPlane ?? 'phi'}
+                    label="Cut Plane"
+                    onChange={(e) => handleItemPropertyChange('polarCutPlane', e.target.value)}
+                  >
+                    <MenuItem value="phi">φ-cut (E-plane)</MenuItem>
+                    <MenuItem value="theta">θ-cut (H-plane)</MenuItem>
+                  </Select>
+                </FormControl>
 
-            {/* Cut Angle */}
-            <TextField
-              fullWidth
-              label="Cut Angle (°)"
-              type="number"
-              value={selectedItem.polarCutAngleDeg ?? 90}
-              onChange={(e) => handleItemPropertyChange('polarCutAngleDeg', parseFloat(e.target.value) || 90)}
-              size="small"
-              sx={{ mb: 2 }}
-            />
+                <TextField
+                  fullWidth
+                  label="Cut Angle (°)"
+                  type="number"
+                  value={selectedItem.polarCutAngleDeg ?? 90}
+                  onChange={(e) => handleItemPropertyChange('polarCutAngleDeg', parseFloat(e.target.value) || 90)}
+                  size="small"
+                  sx={{ mb: 2 }}
+                />
+              </>
+            )}
 
-            {/* Sweep overlay series toggle */}
+            {/* Sweep overlay series toggle — only shown for Sweep Overlay mode */}
             {selectedItem.sweepOverlay && parameterStudy && parameterStudy.results.length > 0 && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2" gutterBottom>

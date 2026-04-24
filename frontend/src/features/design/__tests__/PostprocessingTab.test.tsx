@@ -9,6 +9,7 @@ import solverReducer from '@/store/solverSlice';
 import variablesReducer from '@/store/variablesSlice';
 import authReducer from '@/store/authSlice';
 import submissionsReducer from '@/store/submissionsSlice';
+import documentationReducer from '@/store/documentationSlice';
 import type { AntennaElement } from '@/types/models';
 import type { ViewConfiguration } from '@/types/postprocessing';
 
@@ -46,6 +47,7 @@ function renderWithStore(
       variables: variablesReducer,
       auth: authReducer,
       submissions: submissionsReducer,
+      documentation: documentationReducer,
     },
     preloadedState: {
       postprocessing: {

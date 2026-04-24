@@ -31,7 +31,7 @@ if not os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )

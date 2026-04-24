@@ -1,5 +1,6 @@
 """FastAPI application for the Postprocessor service."""
 
+# noqa: trigger CI build
 import base64
 import time
 from datetime import datetime, timezone

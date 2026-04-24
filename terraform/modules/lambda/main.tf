@@ -146,11 +146,16 @@ resource "aws_lambda_function_url" "this" {
   function_name      = aws_lambda_function.this.function_name
   authorization_type = var.function_url_auth_type
 
-  cors {
-    allow_credentials = true
-    allow_origins     = var.cors_allowed_origins
-    allow_methods     = ["*"]
-    allow_headers     = ["*"]
-    max_age           = 86400
+  # CORS block is optional — omit when cors_allowed_origins is empty
+  # to avoid double CORS headers when FastAPI middleware also adds them.
+  dynamic "cors" {
+    for_each = length(var.cors_allowed_origins) > 0 ? [1] : []
+    content {
+      allow_credentials = false
+      allow_origins     = var.cors_allowed_origins
+      allow_methods     = ["*"]
+      allow_headers     = ["*"]
+      max_age           = 86400
+    }
   }
 }

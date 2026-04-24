@@ -123,7 +123,7 @@ module "s3_results" {
   bucket_name                = "antenna-simulator-results-${var.environment}"
   allowed_origins            = ["https://${var.domain_name}", "http://localhost:3000"]
   enable_lifecycle           = true
-  data_retention_days        = 90  # Auto-delete old simulation results after 90 days
+  data_retention_days        = 365  # Auto-delete old simulation results after 1 year
   enable_intelligent_tiering = false  # Disable for staging (low volume)
 
   tags = {
@@ -303,7 +303,7 @@ module "lambda_projects" {
 
   create_function_url    = true
   function_url_auth_type = "NONE"
-  cors_allowed_origins   = ["*"]
+  cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
     Component = "backend"
@@ -324,19 +324,20 @@ module "lambda_preprocessor" {
   reserved_concurrent_executions = 5  # Mesh generation — moderate traffic
 
   environment_variables = {
-    USE_COGNITO          = "true"
-    COGNITO_USER_POOL_ID = module.cognito.user_pool_id
-    COGNITO_CLIENT_ID    = module.cognito.client_id
-    COGNITO_REGION       = var.aws_region
-    USE_DYNAMODB         = "true"
-    DYNAMODB_TABLE_NAME  = module.dynamodb.table_name
+    USE_COGNITO              = "true"
+    COGNITO_USER_POOL_ID     = module.cognito.user_pool_id
+    COGNITO_CLIENT_ID        = module.cognito.client_id
+    COGNITO_REGION           = var.aws_region
+    USE_DYNAMODB             = "true"
+    DYNAMODB_TABLE_NAME      = module.dynamodb.table_name
+    PREPROCESSOR_CORS_ORIGINS = jsonencode(["*"])
   }
 
   dynamodb_table_arns = [module.dynamodb.table_arn]
 
   create_function_url    = true
   function_url_auth_type = "NONE"
-  cors_allowed_origins   = ["*"]
+  cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
     Component = "backend"
@@ -363,13 +364,14 @@ module "lambda_solver" {
     COGNITO_REGION       = var.aws_region
     USE_DYNAMODB         = "true"
     DYNAMODB_TABLE_NAME  = module.dynamodb.table_name
+    SOLVER_CORS_ORIGINS  = jsonencode(["*"])
   }
 
   dynamodb_table_arns = [module.dynamodb.table_arn]
 
   create_function_url    = true
   function_url_auth_type = "NONE"
-  cors_allowed_origins   = ["*"]
+  cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
     Component = "backend"
@@ -390,20 +392,21 @@ module "lambda_postprocessor" {
   reserved_concurrent_executions = 5  # Field computation — moderate traffic
 
   environment_variables = {
-    USE_COGNITO             = "true"
-    COGNITO_USER_POOL_ID    = module.cognito.user_pool_id
-    COGNITO_CLIENT_ID       = module.cognito.client_id
-    COGNITO_REGION          = var.aws_region
-    USE_DYNAMODB            = "true"
-    DYNAMODB_TABLE_NAME     = module.dynamodb.table_name
-    POSTPROCESSOR_LOG_LEVEL = "INFO"
+    USE_COGNITO                = "true"
+    COGNITO_USER_POOL_ID       = module.cognito.user_pool_id
+    COGNITO_CLIENT_ID          = module.cognito.client_id
+    COGNITO_REGION             = var.aws_region
+    USE_DYNAMODB               = "true"
+    DYNAMODB_TABLE_NAME        = module.dynamodb.table_name
+    POSTPROCESSOR_LOG_LEVEL    = "INFO"
+    POSTPROCESSOR_CORS_ORIGINS = jsonencode(["*"])
   }
 
   dynamodb_table_arns = [module.dynamodb.table_arn]
 
   create_function_url    = true
   function_url_auth_type = "NONE"
-  cors_allowed_origins   = ["*"]
+  cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
     Component = "backend"

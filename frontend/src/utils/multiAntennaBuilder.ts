@@ -124,57 +124,41 @@ export function convertElementToAntennaInput(element: AntennaElement): AntennaIn
   if (element.sources && element.sources.length > 0) {
     console.log(`Processing ${element.sources.length} sources for ${element.name}`, element.sources);
 
-    // Check for balanced feed pattern: two voltage sources from node_start=0
-    const centerTapSources = element.sources.filter(
-      s => s.type === 'voltage' && s.node_start === 0 && s.node_end !== 0
-    );
-
-    if (centerTapSources.length === 2) {
-      // Convert balanced feed (two center-tap sources) to gap source
-      const source1 = centerTapSources[0];
-      const source2 = centerTapSources[1];
-
-      console.log(`Converting balanced feed to gap source for ${element.name}: nodes ${source1.node_end} → ${source2.node_end}`);
-
-      voltage_sources.push({
-        node_start: source1.node_end,
-        node_end: source2.node_end,
-        value: extractComplexValue(source1.amplitude),
-        R: source1.series_R || 0.0,
-        L: source1.series_L || 0.0,
-        C_inv: source1.series_C_inv || 0.0,
-      });
-    } else {
-      // Process sources normally (non-balanced feed)
-      for (const source of element.sources) {
-        if (source.type === 'voltage') {
-          // Sources with node_start=0 are valid (ground reference)
-          // Only skip if BOTH nodes are 0
-          if (source.node_start === 0 && source.node_end === 0) {
-            console.warn(`Skipping invalid source with both nodes=0: ${element.name}`);
-            continue;
-          }
-
-          voltage_sources.push({
-            node_start: source.node_start,
-            node_end: source.node_end,
-            value: extractComplexValue(source.amplitude),
-            R: source.series_R || 0.0,
-            L: source.series_L || 0.0,
-            C_inv: source.series_C_inv || 0.0,
-          })
-        } else if (source.type === 'current') {
-          if (source.node_start === 0) {
-            console.warn(`Skipping current source with node=0 (invalid for solver API): ${element.name}`);
-            continue;
-          }
-
-          current_sources.push({
-            node: source.node_start,
-            value: extractComplexValue(source.amplitude),
-            ...(source.node_end != null ? { node_end: source.node_end } : {}),
-          })
+    // Process all sources – pass them directly to the solver without conversion.
+    //
+    // Previously, two balanced ±V sources from ground (node_start=0) were collapsed
+    // into a single gap source.  That conversion doubles the PEEC-reported input
+    // impedance (Z = V_src1 / I_branch1 — the solver uses the FIRST source's value,
+    // not the full gap voltage), so a half-wave dipole would show ~146 Ω instead of
+    // the correct ~73 Ω.  Passing the balanced sources unchanged matches the gold-
+    // standard test convention and produces the physically correct impedance.
+    for (const source of element.sources) {
+      if (source.type === 'voltage') {
+        // Skip degenerate sources where both terminals are ground
+        if (source.node_start === 0 && source.node_end === 0) {
+          console.warn(`Skipping invalid source with both nodes=0: ${element.name}`);
+          continue;
         }
+
+        voltage_sources.push({
+          node_start: source.node_start,
+          node_end: source.node_end,
+          value: extractComplexValue(source.amplitude),
+          R: source.series_R || 0.0,
+          L: source.series_L || 0.0,
+          C_inv: source.series_C_inv || 0.0,
+        })
+      } else if (source.type === 'current') {
+        if (source.node_start === 0) {
+          console.warn(`Skipping current source with node=0 (invalid for solver API): ${element.name}`)
+          continue
+        }
+
+        current_sources.push({
+          node: source.node_start,
+          value: extractComplexValue(source.amplitude),
+          ...(source.node_end != null ? { node_end: source.node_end } : {}),
+        })
       }
     }
   } else {

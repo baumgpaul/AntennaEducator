@@ -31,7 +31,8 @@ class TestCreateS3Client:
     @patch("backend.common.storage.s3_client.boto3")
     def test_plain_aws_client(self, mock_boto3):
         """Without endpoint_url, creates a simple regional client."""
-        create_s3_client(region_name="us-east-1")
+        with patch.dict("os.environ", {}, clear=True):
+            create_s3_client(region_name="us-east-1")
 
         mock_boto3.client.assert_called_once_with("s3", region_name="us-east-1")
 

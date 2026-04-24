@@ -12,7 +12,14 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import AddCurveDialog from '../postprocessing/AddCurveDialog';
 import type { AddCurveResult } from '../postprocessing/AddCurveDialog';
-import { selectParameterStudy } from '@/store/solverSlice';
+import {
+  selectParameterStudy,
+  selectFrequencySweep,
+  selectSolverResults,
+  selectCurrentDistribution,
+  selectRadiationPattern,
+  selectRadiationPatterns,
+} from '@/store/solverSlice';
 import type { PlotTrace } from '@/types/plotDefinitions';
 import {
   CableOutlined,
@@ -163,6 +170,20 @@ function RibbonMenu({
   // Add Curve dialog state (Line view)
   const [addCurveDialogOpen, setAddCurveDialogOpen] = useState(false);
   const parameterStudy = useAppSelector(selectParameterStudy);
+  const frequencySweep = useAppSelector(selectFrequencySweep);
+  const solverResults = useAppSelector(selectSolverResults);
+  const currentDistribution = useAppSelector(selectCurrentDistribution);
+  const radiationPattern = useAppSelector(selectRadiationPattern);
+  const radiationPatterns = useAppSelector(selectRadiationPatterns);
+
+  const hasPortData =
+    (frequencySweep?.results?.length ?? 0) > 0 ||
+    solverResults != null ||
+    (parameterStudy?.results?.length ?? 0) > 0;
+  const hasDistributionData =
+    currentDistribution != null ||
+    (frequencySweep?.currentDistributions?.length ?? 0) > 0;
+  const hasFarfieldData = radiationPattern != null || radiationPatterns != null;
 
   const handleAddCurveResult = (result: AddCurveResult) => {
     if (!selectedViewId) return;
@@ -600,31 +621,37 @@ function RibbonMenu({
               )}
 
               {/* Polar Plot Section (Polar view only) */}
-              {selectedViewData?.viewType === 'Polar' && (
+              {selectedViewData?.viewType === 'Polar' && (() => {
+                const hasAnyPolarItem = selectedViewData.items.some(i => i.type === 'polar-plot');
+                return (
                 <>
                   <Box>
                     <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
                       Radiation Pattern
                     </Box>
                     <ButtonGroup variant="outlined" size="small">
-                      <Tooltip title="Add radiation pattern polar cut">
+                      <Tooltip title={hasAnyPolarItem ? 'A radiation pattern item already exists in this view' : 'Add radiation pattern polar cut'}>
+                        <span>
                         <Button
                           startIcon={<RadioButtonChecked />}
                           onClick={handleAddPolarPlot}
-                          disabled={!selectedViewId}
+                          disabled={!selectedViewId || hasAnyPolarItem}
                         >
                           Pattern Cut
                         </Button>
+                        </span>
                       </Tooltip>
                       {parameterStudy && parameterStudy.results.length > 1 && (
-                        <Tooltip title="Overlay all sweep points on one polar chart">
+                        <Tooltip title={hasAnyPolarItem ? 'A radiation pattern item already exists in this view' : 'Overlay all sweep points on one polar chart'}>
+                          <span>
                           <Button
                             startIcon={<Layers />}
                             onClick={handleAddPolarSweepOverlay}
-                            disabled={!selectedViewId}
+                            disabled={!selectedViewId || hasAnyPolarItem}
                           >
                             Sweep Overlay
                           </Button>
+                          </span>
                         </Tooltip>
                       )}
                     </ButtonGroup>
@@ -632,7 +659,8 @@ function RibbonMenu({
 
                   <Divider orientation="vertical" flexItem />
                 </>
-              )}
+                );
+              })()}
 
               {/* Table Section (Table view only) */}
               {selectedViewData?.viewType === 'Table' && (
@@ -714,6 +742,9 @@ function RibbonMenu({
         onAdd={handleAddCurveResult}
         parameterStudy={parameterStudy}
         existingTraceCount={existingTraceCount}
+        hasPortData={hasPortData}
+        hasDistributionData={hasDistributionData}
+        hasFarfieldData={hasFarfieldData}
       />
     </Paper>
   );
