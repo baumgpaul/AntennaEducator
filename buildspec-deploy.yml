@@ -71,4 +71,20 @@ phases:
     commands:
       - echo "=== Running smoke tests ==="
       - cd $CODEBUILD_SRC_DIR && python dev_tools/test_aws_pipeline.py
+
+      - echo "=== Seeding Antenna Theory PEEC course ==="
+      - pip install requests --quiet
+      - |
+        # Obtain a temporary admin token via the projects Lambda auth endpoint
+        PROJECTS_URL=$(aws lambda get-function-url-config \
+          --function-name "antenna-simulator-projects-${ENVIRONMENT}" \
+          --query 'FunctionUrl' --output text 2>/dev/null || echo "")
+        if [ -z "$PROJECTS_URL" ]; then
+          echo "WARNING: Could not resolve projects Lambda URL — skipping course seed."
+        else
+          export SEED_BASE_URL="${PROJECTS_URL%/}"
+          export SEED_ADMIN_TOKEN="$SEED_ADMIN_TOKEN"  # injected as CodeBuild env var
+          python dev_tools/seed_courses.py || echo "WARNING: Course seeding failed (non-fatal)."
+        fi
+
       - echo "Deployment complete!"
