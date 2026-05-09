@@ -564,9 +564,12 @@ async def _deep_copy_project(
         source_project_id=original["id"],
     )
 
-    # Copy all JSON blobs (including simulation_results)
+    # Copy all JSON blobs (including simulation_results).
+    # Pass user_id directly to avoid a GSI lookup on a newly created item
+    # (GSI is eventually consistent and may not yet reflect the new row).
     await repo.update_project(
         project_id=new_project["id"],
+        user_id=user.id,
         design_state=original.get("design_state"),
         simulation_config=original.get("simulation_config"),
         simulation_results=original.get("simulation_results"),
@@ -589,6 +592,7 @@ async def _deep_copy_project(
                 updated_sim["result_keys"] = new_keys
                 await repo.update_project(
                     project_id=new_project["id"],
+                    user_id=user.id,
                     simulation_results=updated_sim,
                 )
         except Exception as exc:
