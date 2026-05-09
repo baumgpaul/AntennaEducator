@@ -55,8 +55,13 @@ app = FastAPI(
     version="0.2.0",
 )
 
+# Error handlers registered first (inner) so that CORSMiddleware (outer)
+# always wraps every response — including 500 error responses — with CORS headers.
+install_error_handlers(app)
+
 # CORS — always enabled (Lambda Function URL CORS can be unreliable for
-# preflight / non-simple requests; belt-and-suspenders with FastAPI middleware)
+# preflight / non-simple requests; belt-and-suspenders with FastAPI middleware).
+# Must be added AFTER install_error_handlers so it becomes the outermost middleware.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -65,8 +70,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 logger.info("CORS middleware enabled")
-
-install_error_handlers(app)
 
 # Include folder/course management routes
 app.include_router(folder_router)
