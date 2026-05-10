@@ -226,6 +226,40 @@ services:
       - antenna-network
     restart: unless-stopped
 
+  # ── Course seeder (one-shot) ──────────────────────────────────────────────
+  # Seeds the Antenna Theory PEEC mini-course after the projects service starts.
+  # Profile "seed" keeps it optional:  docker compose --profile seed up course-seeder
+  # Or include in default compose up by removing the profile line.
+
+  course-seeder:
+    profiles: ["seed"]
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    command: >
+      sh -c "echo 'Waiting for projects service...' &&
+             sleep 10 &&
+             python dev_tools/seed_courses.py"
+    environment:
+      <<: *backend-env
+      USE_S3: "true"
+      S3_ENDPOINT_URL: "http://minio:9000"
+      RESULTS_BUCKET_NAME: "${RESULTS_BUCKET_NAME:-antenna-simulator-results-local}"
+      SEED_BASE_URL: "http://projects:8010"
+      SEED_USERNAME: "${ADMIN_EMAIL}"
+      SEED_PASSWORD: "${ADMIN_PASSWORD}"
+    depends_on:
+      projects:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./courses:/app/courses:ro
+      - ./dev_tools:/app/dev_tools:ro
+    networks:
+      - antenna-network
+    restart: "no"
+
   # ── Optional monitoring profile ───────────────────────────────────────────
   # Start with:  docker compose --profile monitoring up -d
 
