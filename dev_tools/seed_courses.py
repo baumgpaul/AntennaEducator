@@ -5,12 +5,19 @@ seed_courses.py — Idempotent seeder for the Antenna Theory PEEC mini-course.
 Reads fixture JSONs from courses/antenna_theory_peec/ and seeds them via the
 Projects service HTTP API. Runs against local Docker Compose or AWS Lambda.
 
+Flat structure: projects live directly inside the root course folder — no
+one-sub-folder-per-module wrapper.  If an older deployment used the sub-folder
+structure (one course sub-folder per module), the seeder automatically migrates
+it: it reads the live documentation for each sub-folder project (preserving any
+admin edits), re-creates the project at the root level, then deletes the empty
+sub-folder course.
+
 Usage (local Docker Compose):
     python dev_tools/seed_courses.py
 
 Usage (AWS / staging):
-    SEED_BASE_URL=https://<lambda-fn-url>.lambda-url.eu-west-1.on.aws \
-    SEED_ADMIN_TOKEN=<cognito-id-token> \
+    SEED_BASE_URL=https://<lambda-fn-url>.lambda-url.eu-west-1.on.aws \\
+    SEED_ADMIN_TOKEN=<cognito-id-token> \\
     python dev_tools/seed_courses.py
 
 Environment variables:
@@ -116,6 +123,9 @@ class Seeder:
     def put(self, path: str, **kwargs) -> requests.Response:
         return self.session.put(self._url(path), timeout=self.timeout, **kwargs)
 
+    def delete(self, path: str, **kwargs) -> requests.Response:
+        return self.session.delete(self._url(path), timeout=self.timeout, **kwargs)
+
     # ── Helpers ────────────────────────────────────────────────────────────
 
     def find_course_by_name(self, name: str, parent_id: str = None) -> dict | None:
@@ -129,6 +139,12 @@ class Seeder:
             if folder["name"] == name:
                 return folder
         return None
+
+    def list_sub_courses(self, parent_id: str) -> list[dict]:
+        """Return all direct sub-course folders of a parent course."""
+        resp = self.get("/api/courses", params={"parent_folder_id": parent_id})
+        resp.raise_for_status()
+        return resp.json()
 
     def create_course(self, name: str, parent_id: str = None) -> dict:
         payload = {"name": name}
@@ -152,6 +168,19 @@ class Seeder:
             if p["name"] == project_name:
                 return p
         return None
+
+    def list_projects_in_folder(self, folder_id: str) -> list[dict]:
+        resp = self.get(f"/api/courses/{folder_id}/projects")
+        resp.raise_for_status()
+        return resp.json()
+
+    def fetch_documentation(self, project_id: str) -> str | None:
+        """Fetch current markdown documentation content from S3 (may be empty)."""
+        resp = self.get(f"/api/projects/{project_id}/documentation")
+        if not resp.ok:
+            return None
+        data = resp.json()
+        return data.get("content") or None
 
     def create_project(
         self,
@@ -185,6 +214,88 @@ class Seeder:
             log.error("  Upload documentation failed: %s — %s", resp.status_code, resp.text[:400])
             resp.raise_for_status()
 
+    def delete_course_folder(self, folder_id: str) -> None:
+        """Delete a course sub-folder (admin only). Cascades to sub-folders."""
+        resp = self.delete(f"/api/courses/{folder_id}")
+        if not resp.ok and resp.status_code != 404:
+            log.warning(
+                "  Could not delete sub-folder %s: %s — %s",
+                folder_id,
+                resp.status_code,
+                resp.text[:200],
+            )
+
+    # ── Migration ──────────────────────────────────────────────────────────
+
+    def migrate_subfolder_structure(self, root_id: str) -> None:
+        """Migrate the old one-subfolder-per-module layout to flat projects in root.
+
+        For each sub-course of root:
+          - Fetches live documentation (preserving any admin edits)
+          - Creates a matching root-level project if one doesn't already exist
+          - Deletes the sub-course folder after migration
+        Sub-courses that contain no recognised module project are left untouched.
+        """
+        known_project_names = {m["project_name"] for m in MODULES}
+        sub_courses = self.list_sub_courses(root_id)
+        if not sub_courses:
+            return
+
+        log.info("  Found %d sub-folder(s) — checking for old structure to migrate...", len(sub_courses))
+        for sub in sub_courses:
+            sub_id = sub["id"]
+            sub_name = sub["name"]
+            projects = self.list_projects_in_folder(sub_id)
+
+            # Only migrate sub-folders that contain exactly one known module project
+            module_projects = [p for p in projects if p["name"] in known_project_names]
+            if not module_projects:
+                log.info("  Sub-folder '%s' has no recognised module projects — skipping.", sub_name)
+                continue
+
+            for proj in module_projects:
+                proj_name = proj["name"]
+                # Check if root-level project already exists (idempotent)
+                if self.find_project_in_folder(root_id, proj_name):
+                    log.info(
+                        "  '%s' already in root — removing orphaned sub-folder '%s'.",
+                        proj_name,
+                        sub_name,
+                    )
+                else:
+                    # Fetch live documentation to preserve any admin edits
+                    live_doc = self.fetch_documentation(proj["id"])
+                    log.info(
+                        "  Migrating '%s' from sub-folder '%s' to root (doc: %s chars) ...",
+                        proj_name,
+                        sub_name,
+                        len(live_doc) if live_doc else 0,
+                    )
+                    new_proj = self.create_project(
+                        name=proj_name,
+                        description=proj.get("description", ""),
+                        folder_id=root_id,
+                        design_state=proj.get("design_state") or {},
+                        simulation_config=proj.get("simulation_config") or {},
+                        simulation_results=proj.get("simulation_results") or {},
+                    )
+                    if live_doc:
+                        self.upload_documentation(new_proj["id"], live_doc)
+                    else:
+                        # Fall back to local fixture if live doc is empty
+                        for module in MODULES:
+                            if module["project_name"] == proj_name:
+                                doc_path = COURSES_DIR / module["dir"] / "documentation.md"
+                                if doc_path.exists():
+                                    self.upload_documentation(
+                                        new_proj["id"], doc_path.read_text(encoding="utf-8")
+                                    )
+                                break
+
+            # Delete the (now empty or stale) sub-folder
+            log.info("  Deleting sub-folder '%s' (%s) ...", sub_name, sub_id)
+            self.delete_course_folder(sub_id)
+
     # ── Main seeding logic ─────────────────────────────────────────────────
 
     def seed(self) -> int:
@@ -197,7 +308,11 @@ class Seeder:
         root_id = root_folder["id"]
         log.info("  Root course ID: %s (%s)", root_id, "created" if created else "existed")
 
-        # 2. Modules
+        # 2. Migrate any old sub-folder structure to flat layout
+        if not created:
+            self.migrate_subfolder_structure(root_id)
+
+        # 3. Seed modules as flat projects inside root
         for module in MODULES:
             log.info("")
             log.info("Module '%s' ...", module["name"])
@@ -210,6 +325,7 @@ class Seeder:
         return failures
 
     def _seed_module(self, root_id: str, module: dict) -> None:
+        """Create a project directly in the root course (flat — no sub-folder)."""
         module_dir = COURSES_DIR / module["dir"]
 
         # Load fixture files
@@ -233,15 +349,8 @@ class Seeder:
         with open(doc_path, encoding="utf-8") as f:
             documentation_md = f.read()
 
-        # a. Module sub-folder (course)
-        module_folder, m_created = self.get_or_create_course(module["name"], parent_id=root_id)
-        module_folder_id = module_folder["id"]
-        log.info(
-            "  Sub-folder ID: %s (%s)", module_folder_id, "created" if m_created else "existed"
-        )
-
-        # b. Project in module folder
-        existing_project = self.find_project_in_folder(module_folder_id, module["project_name"])
+        # Check if the project already exists in root (idempotent — honours live edits)
+        existing_project = self.find_project_in_folder(root_id, module["project_name"])
         if existing_project:
             log.info("  Project '%s' already exists — skipping.", module["project_name"])
             return
@@ -250,7 +359,7 @@ class Seeder:
         project = self.create_project(
             name=module["project_name"],
             description=module["description"],
-            folder_id=module_folder_id,
+            folder_id=root_id,
             design_state=design_state,
             simulation_config=simulation_config,
             simulation_results=simulation_results,
@@ -258,7 +367,7 @@ class Seeder:
         project_id = project["id"]
         log.info("  Project ID: %s", project_id)
 
-        # c. Upload documentation (markdown)
+        # Upload documentation (markdown)
         log.info("  Uploading documentation (%d chars) ...", len(documentation_md))
         self.upload_documentation(project_id, documentation_md)
         log.info("  Done.")

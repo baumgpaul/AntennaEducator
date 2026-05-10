@@ -166,7 +166,7 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
   const dispatch = useAppDispatch();
   const { content, loading, saving, dirty, error } = useAppSelector((s) => s.documentation);
 
-  const [mode, setMode] = useState<'edit' | 'view'>('edit');
+  const [mode, setMode] = useState<'edit' | 'view'>('view');
   const [formulaMenuAnchor, setFormulaMenuAnchor] = useState<null | HTMLElement>(null);
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
 
