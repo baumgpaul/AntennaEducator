@@ -2,6 +2,7 @@ import { useRef, useMemo, useEffect, useImperativeHandle, forwardRef } from 'rea
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, PerspectiveCamera, OrthographicCamera, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { Box } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { ScaleIndicator, AxisLabels } from '@/components/visualization';
 import type { AntennaElement, Mesh } from '@/types/models';
 import * as THREE from 'three';
@@ -181,6 +182,8 @@ const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeo
 const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
   function Scene3D({ children, showScale: _showScale = true, showAxisLabels = true, elements, mesh, gridVisible = true, onGridVisibilityChange: _onGridVisibilityChange, cameraMode = 'perspective', disableCameraAutoAdjust = false }, ref) {
   const controlsRef = useRef<any>(null);
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
 
   // Calculate scene bounds based on antenna geometry
   const bounds = useMemo(() => {
@@ -196,7 +199,7 @@ const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
   const scaleIndicatorSize = Math.max(bounds.size * 0.3, 0.5); // 30% of antenna size, min 0.5m
 
   return (
-    <Box sx={{ width: '100%', height: '100%', position: 'relative', bgcolor: '#1a1a1a' }}>
+    <Box sx={{ width: '100%', height: '100%', position: 'relative', bgcolor: isDark ? '#1a1a1a' : '#f5f5f5' }}>
       <Canvas gl={{ preserveDrawingBuffer: true }}>
         {/* Camera setup - Z-axis up, viewing from front-right-top */}
         {cameraMode === 'perspective' ? (
