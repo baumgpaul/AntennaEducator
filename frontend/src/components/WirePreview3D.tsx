@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
 import { Box } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import * as THREE from 'three';
 
 // ---------------------------------------------------------------------------
@@ -383,6 +384,9 @@ export const WirePreview3D: React.FC<WirePreview3DProps> = ({
   width = '100%',
   height = 300,
 }) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const bgColor = isDark ? '#1a1a2e' : '#f5f5f5';
   if (nodes.length === 0) {
     return (
       <Box
@@ -392,7 +396,7 @@ export const WirePreview3D: React.FC<WirePreview3DProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          bgcolor: '#1a1a2e',
+          bgcolor: bgColor,
           borderRadius: 1,
           color: '#666',
         }}
@@ -432,7 +436,7 @@ export const WirePreview3D: React.FC<WirePreview3DProps> = ({
     >
       <Canvas
         camera={{ fov: 50, near: 0.001, far: 1000 }}
-        style={{ background: '#1a1a2e' }}
+        style={{ background: bgColor }}
       >
         <ambientLight intensity={0.5} />
         <directionalLight position={[10, 10, 10]} intensity={0.7} />
@@ -460,7 +464,7 @@ export const WirePreview3D: React.FC<WirePreview3DProps> = ({
 
         {/* Adaptive grid */}
         <gridHelper
-          args={[gridSize, 20, '#333344', '#222233']}
+          args={[gridSize, 20, isDark ? '#333344' : '#aaaacc', isDark ? '#222233' : '#ccccdd']}
           rotation={[Math.PI / 2, 0, 0]}
         />
 

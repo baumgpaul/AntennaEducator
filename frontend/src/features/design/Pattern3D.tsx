@@ -7,6 +7,7 @@ import React, { useMemo } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei'
 import * as THREE from 'three'
+import { useTheme } from '@mui/material/styles'
 import type { RadiationPatternData } from './RadiationPatternPanel'
 
 interface Pattern3DProps {
@@ -162,8 +163,10 @@ const Pattern3D: React.FC<Pattern3DProps> = ({
   scaleType,
   normalize,
 }) => {
+  const theme = useTheme()
+  const bgColor = theme.palette.mode === 'dark' ? '#1a1a1a' : '#f5f5f5'
   return (
-    <Canvas style={{ background: '#1a1a1a' }}>
+    <Canvas style={{ background: bgColor }}>
       <PerspectiveCamera makeDefault position={[2, 2, 2]} />
       <OrbitControls enableDamping dampingFactor={0.05} />
 
