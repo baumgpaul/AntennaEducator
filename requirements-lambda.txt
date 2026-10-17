@@ -1,8 +1,8 @@
 # Runtime dependencies of the Lambda images only (backend/*/Dockerfile.lambda).
 # No dev/test tools and no uvicorn (Mangum serves the app); boto3 is provided
 # by the Lambda base image. Keep in sync with [project.dependencies].
-numpy==2.4.6
-scipy==1.17.1
+numpy==2.2.6  # newest with manylinux2014 wheels (Lambda base image: glibc 2.26)
+scipy==1.15.3  # same constraint; 1.16+ needs glibc 2.28
 fastapi>=0.104.0
 pydantic[email]>=2.0.0
 pydantic-settings>=2.0.0

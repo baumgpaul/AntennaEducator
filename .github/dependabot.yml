@@ -7,6 +7,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: mui-color-input
+        versions: [">=5"]
+      # 0.5 requires ESLint 9 (flat config migration not done yet)
+      - dependency-name: eslint-plugin-react-refresh
+        versions: [">=0.5"]
+      - dependency-name: eslint
+        versions: [">=9"]
     groups:
       frontend-minor-patch:
         update-types: [minor, patch]
@@ -23,6 +31,12 @@ updates:
       # bcrypt 5 breaks passlib (local-mode login) — see requirements.txt
       - dependency-name: bcrypt
         versions: [">=5"]
+      # The Lambda base image (Amazon Linux 2, glibc 2.26) only installs
+      # manylinux2014 wheels; newer numpy/scipy releases need glibc 2.28.
+      - dependency-name: numpy
+        versions: [">=2.3"]
+      - dependency-name: scipy
+        versions: [">=1.16"]
 
   - package-ecosystem: github-actions
     directory: /
