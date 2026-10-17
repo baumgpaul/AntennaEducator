@@ -29,7 +29,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from backend.common.constants import C_0
+from backend.common.constants import C_0, MU_0
 from backend.solver.geometry import build_edge_geometries
 from backend.solver.inductance import assemble_inductance_matrix
 from backend.solver.potential_nodal import assemble_nodal_potential_matrix_with_cap_elem
@@ -48,6 +48,44 @@ from backend.solver.system import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _balanced_voltage_partner(voltage_sources) -> Optional[int]:
+    """Index of the source that forms a balanced feed with ``voltage_sources[0]``.
+
+    The preprocessor feeds gap dipoles with two sources from ground, +V on one
+    gap node and -V on the other. The port voltage is then the difference
+    (2V), not the first source alone — using V alone reported half the
+    impedance (issue #70).
+    """
+    if len(voltage_sources) < 2:
+        return None
+    first = voltage_sources[0]
+    if first.node_start != 0:
+        return None
+    for k, vs in enumerate(voltage_sources[1:], start=1):
+        if (
+            vs.node_start == 0
+            and vs.node_end != first.node_end
+            and abs(vs.value + first.value) <= 1e-9 * max(abs(first.value), 1e-30)
+        ):
+            return k
+    return None
+
+
+def _balanced_current_partner(current_sources) -> Optional[int]:
+    """Index of the single-terminal source injecting -I next to ``current_sources[0]``."""
+    if len(current_sources) < 2 or current_sources[0].node_end is not None:
+        return None
+    first = current_sources[0]
+    for k, cs in enumerate(current_sources[1:], start=1):
+        if (
+            cs.node_end is None
+            and cs.node != first.node
+            and abs(cs.value + first.value) <= 1e-9 * max(abs(first.value), 1e-30)
+        ):
+            return k
+    return None
 
 
 @dataclass
@@ -338,7 +376,9 @@ def solve_peec_frequency_sweep(
                 physical_radii,
                 frequency=freq,
                 resistivity=config.resistivity,
-                permeability=config.permeability,
+                # config holds the RELATIVE mu_r; the resistance model expects H/m.
+                # Passing mu_r made the skin depth ~890x too thin (issue #70).
+                permeability=MU_0 * config.permeability,
                 include_skin_effect=config.include_skin_effect,
             )
             for i, idx_i in enumerate(physical_edge_indices):
@@ -378,6 +418,10 @@ def solve_peec_frequency_sweep(
             vsrc_branch_idx = n_edges  # First voltage source after edges
             input_current = I[vsrc_branch_idx]
             input_voltage = voltage_sources[0].value
+            partner = _balanced_voltage_partner(voltage_sources)
+            if partner is not None:
+                # Balanced feed: port voltage across the gap = V(+) - V(-)
+                input_voltage = voltage_sources[0].value - voltage_sources[partner].value
 
             if np.abs(input_current) > 1e-12:
                 input_impedance = input_voltage / input_current
@@ -396,11 +440,15 @@ def solve_peec_frequency_sweep(
             else:
                 V_start = 0.0 + 0j
 
+            cs_partner = _balanced_current_partner(current_sources)
             if isrc.node_end is not None and isrc.node_end > 0:
                 # Explicit two-terminal: differential port voltage
                 input_voltage = V_start - V[isrc.node_end - 1]
+            elif cs_partner is not None and current_sources[cs_partner].node > 0:
+                # Balanced pair (+I / -I into the two gap nodes): differential
+                input_voltage = V_start - V[current_sources[cs_partner].node - 1]
             else:
-                # Single-terminal or balanced-pair: single-ended (matches VS convention)
+                # Single-terminal source against ground
                 input_voltage = V_start
 
             input_current = isrc.value
@@ -1015,6 +1063,13 @@ def distribute_solution(solution: FrequencyPoint, merged_system: MergedAntennaSy
                 if vs_global_idx < len(merged_system.voltage_sources)
                 else complex(1.0)
             )
+            antenna_vs = merged_system.voltage_sources[
+                start_voltage_0 : start_voltage_0 + offset["n_voltage"]
+            ]
+            partner = _balanced_voltage_partner(antenna_vs)
+            if partner is not None:
+                # Balanced feed: port voltage across the gap = V(+) - V(-)
+                vs_value = antenna_vs[0].value - antenna_vs[partner].value
             I_source = voltage_source_currents[0]
             if abs(I_source) > 1e-12:
                 input_impedance = vs_value / I_source
@@ -1033,14 +1088,24 @@ def distribute_solution(solution: FrequencyPoint, merged_system: MergedAntennaSy
                 else:
                     V_start = 0.0 + 0j
 
+                antenna_cs = merged_system.current_sources[
+                    cs_global_idx : cs_global_idx + offset["n_current"]
+                ]
+                cs_partner = _balanced_current_partner(antenna_cs)
                 if cs0.node_end is not None and cs0.node_end > 0:
                     # Explicit two-terminal: differential port voltage
                     loc1 = cs0.node_end - pt_offset - 1
                     input_voltage = V_start - (
                         node_voltages[loc1] if 0 <= loc1 < n_pts else 0.0 + 0j
                     )
+                elif cs_partner is not None and antenna_cs[cs_partner].node > 0:
+                    # Balanced pair: differential across the gap
+                    loc1 = antenna_cs[cs_partner].node - pt_offset - 1
+                    input_voltage = V_start - (
+                        node_voltages[loc1] if 0 <= loc1 < n_pts else 0.0 + 0j
+                    )
                 else:
-                    # Single-terminal / balanced-pair: single-ended
+                    # Single-terminal source against ground
                     input_voltage = V_start
 
                 if abs(cs0.value) > 1e-12:

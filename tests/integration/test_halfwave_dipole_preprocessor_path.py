@@ -9,17 +9,10 @@ Frontend parameters that reproduce the gold standard:
   length=0.5 m, gap=0.05 m, segments=10, wire_radius=0.001 m
   frequency=299.792458 MHz, voltage source amplitude=1 V, feed=gap
 
-The preprocessor generates two ±1 V sources from ground (balanced feed).
-The frontend's multiAntennaBuilder passes them unchanged to the solver.
-The solver computes Z = V_src1 / I_branch1 = ~73 Ω, matching the gold standard.
-
-PEEC FACTOR-OF-2 NOTE
-----------------------
-A single 1 V gap source (node_gap_lower → node_gap_upper) yields Z ≈ 146 Ω
-because the solver formula (Z = V_source / I_source) gives double the answer
-when the balanced ±1 V sources span an effective 2 V differential.
-The balanced convention is the physically correct one for this PEEC formulation
-and matches standard dipole theory (Z ≈ 73 Ω).
+The preprocessor generates two ±1 V sources from ground (balanced feed), i.e.
+2 V across the gap. The solver's port voltage for such a pair is the difference
+V(+) - V(-); the impedance therefore does not depend on whether the feed is
+described as a balanced pair or as one gap source (issue #70).
 """
 
 import numpy as np
@@ -123,97 +116,81 @@ class TestPreprocessorDipoleGeometry:
 
 
 # ===========================================================================
-# Solver tests — balanced source convention (= gold standard)
+# Solver tests — well-posed half-wave dipole via the preprocessor path
 # ===========================================================================
+# Re-baselined 2026-10 (issue #70): the old "73 Ohm" on the coarse geometry
+# above came from a resistance ~890x too large and from reporting V/I of one
+# balanced source (half the port voltage). The geometry tests above still
+# check the preprocessor; impedance is validated on a thin lambda/2 dipole.
+
+VALID_LENGTH = 0.5  # lambda/2 at FREQUENCY
+VALID_GAP = 0.005  # lambda/200
+VALID_RADIUS = 0.001  # lambda/1000
+VALID_SEGMENTS = 80
+
+
+def _solve_valid(feed: str, resistivity: float = 1.68e-8):
+    from backend.solver.solver import SolverConfiguration
+
+    element = create_dipole(
+        length=VALID_LENGTH,
+        wire_radius=VALID_RADIUS,
+        gap=VALID_GAP,
+        segments=VALID_SEGMENTS,
+        source={"type": "voltage", "amplitude": SOURCE_AMPLITUDE},
+    )
+    mesh = dipole_to_mesh(element)
+    s1, s2 = element.sources
+    if feed == "balanced":
+        vs = [
+            VoltageSource(node_start=s.node_start, node_end=s.node_end, value=complex(s.amplitude))
+            for s in (s1, s2)
+        ]
+    else:  # one source across the gap, same 2 V port voltage
+        vs = [VoltageSource(node_start=s1.node_end, node_end=s2.node_end, value=2.0 + 0j)]
+    result = solve_peec_frequency_sweep(
+        nodes=np.array(mesh.nodes),
+        edges=mesh.edges,
+        radii=np.array(mesh.radii),
+        frequencies=np.array([FREQUENCY]),
+        voltage_sources=vs,
+        reference_impedance=REFERENCE_IMPEDANCE,
+        config=SolverConfiguration(resistivity=resistivity),
+    )
+    return complex(result.frequency_solutions[0].input_impedance)
 
 
 @pytest.mark.solver
-class TestPreprocessorDipoleImpedance:
-    """Verify solver results for the preprocessor path match the gold standard."""
+class TestHalfWaveDipoleImpedance:
+    """Physics validation of the PEEC impedance for a thin half-wave dipole."""
 
     @pytest.fixture(scope="class")
-    def result_balanced(self):
-        """Solve using the balanced ±1 V sources that the preprocessor generates."""
-        element, mesh = _build_mesh()
-        nodes = np.array(mesh.nodes)
-        vs = [
-            VoltageSource(node_start=s.node_start, node_end=s.node_end, value=complex(s.amplitude))
-            for s in element.sources
-        ]
-        return solve_peec_frequency_sweep(
-            nodes=nodes,
-            edges=mesh.edges,
-            radii=np.array(mesh.radii),
-            frequencies=np.array([FREQUENCY]),
-            voltage_sources=vs,
-            reference_impedance=REFERENCE_IMPEDANCE,
-        )
+    def z_balanced(self):
+        return _solve_valid("balanced")
 
-    @pytest.fixture(scope="class")
-    def result_gap_source(self):
-        """Solve using the 1 V gap source produced by multiAntennaBuilder's conversion."""
-        element, mesh = _build_mesh()
-        nodes = np.array(mesh.nodes)
-        s1, s2 = element.sources
-        gap_vs = VoltageSource(
-            node_start=s1.node_end, node_end=s2.node_end, value=complex(s1.amplitude)
-        )
-        return solve_peec_frequency_sweep(
-            nodes=nodes,
-            edges=mesh.edges,
-            radii=np.array(mesh.radii),
-            frequencies=np.array([FREQUENCY]),
-            voltage_sources=[gap_vs],
-            reference_impedance=REFERENCE_IMPEDANCE,
-        )
+    def test_resistance_matches_thin_wire_theory(self, z_balanced):
+        """R_in of a lambda/2 dipole ~ 73 Ohm (thin-wire theory)."""
+        assert abs(z_balanced.real - 73.0) < 10.0, f"R_in = {z_balanced.real:.2f} Ohm"
 
-    # --- Balanced source path (same convention as gold standard) ---
+    def test_feed_descriptions_agree(self, z_balanced):
+        """Balanced +/-1 V from ground and one 2 V gap source are the same port:
+        the impedance must not depend on how the feed is described (it used to
+        differ by exactly 2x). Not bit-identical: two branches to the ground
+        reference vs one branch across the gap are slightly different circuits
+        in PEEC (measured difference ~0.01 %)."""
+        z_gap = _solve_valid("gap")
+        assert abs(z_gap - z_balanced) < 1e-3 * abs(z_balanced), f"{z_gap} vs {z_balanced}"
 
-    def test_balanced_resistance_matches_gold_standard(self, result_balanced):
-        """Balanced ±1 V path: resistance ≈ 73 Ω (gold standard tolerance ±20 Ω)."""
-        z = result_balanced.frequency_solutions[0].input_impedance
-        assert (
-            abs(z.real - 73.0) < 20.0
-        ), f"Resistance {z.real:.2f} Ω deviates from 73 Ω by more than 20 Ω"
+    def test_copper_loss_is_negligible(self, z_balanced):
+        """Ohmic loss of a 1 mm copper wire at 300 MHz is far below 1 Ohm
+        (it was ~50 Ohm while mu_r was passed as absolute permeability)."""
+        z_lossless = _solve_valid("balanced", resistivity=1e-30)
+        assert 0.0 <= z_balanced.real - z_lossless.real < 1.0
 
-    def test_balanced_resistance_precise(self, result_balanced):
-        """Balanced ±1 V path: resistance is within 5 Ω of gold standard value (73.07 Ω)."""
-        z = result_balanced.frequency_solutions[0].input_impedance
-        # Gold standard measured value: 73.07 Ω
-        assert (
-            abs(z.real - 73.07) < 5.0
-        ), f"Preprocessor path resistance {z.real:.2f} Ω diverges from gold standard 73.07 Ω"
-
-    def test_balanced_reactance_within_tolerance(self, result_balanced):
-        """Balanced ±1 V path: reactance < 120 Ω (coarse-mesh tolerance from gold standard)."""
-        z = result_balanced.frequency_solutions[0].input_impedance
-        assert abs(z.imag) < 120.0, f"Reactance {z.imag:.2f} Ω exceeds 120 Ω tolerance"
-
-    # --- PEEC factor-of-2 property: gap source gives 2× the balanced-source Z ---
-
-    def test_peec_gap_source_resistance_is_double_balanced(
-        self, result_balanced, result_gap_source
-    ):
-        """PEEC property: a single 1 V gap source gives ~2× the resistance of balanced ±1 V sources.
-
-        This is NOT the frontend path (multiAntennaBuilder passes balanced sources unchanged).
-        It documents a PEEC formulation characteristic so any change in that behavior is caught.
-        """
-        z_bal = result_balanced.frequency_solutions[0].input_impedance
-        z_gap = result_gap_source.frequency_solutions[0].input_impedance
-        ratio = z_gap.real / z_bal.real
-        assert abs(ratio - 2.0) < 0.1, (
-            f"Expected gap/balanced resistance ratio ≈ 2.0, got {ratio:.3f} "
-            f"(Z_gap={z_gap.real:.1f} Ω, Z_bal={z_bal.real:.1f} Ω)"
-        )
-
-    def test_peec_gap_source_resistance_approx_146_ohm(self, result_gap_source):
-        """PEEC property: single 1 V gap source gives ≈ 146 Ω (2× gold-standard 73 Ω).
-
-        The frontend passes balanced ±1 V sources (not this gap convention), so the
-        displayed impedance is ~73 Ω, not 146 Ω.
-        """
-        z = result_gap_source.frequency_solutions[0].input_impedance
-        assert (
-            abs(z.real - 146.0) < 20.0
-        ), f"Single gap source resistance {z.real:.2f} Ω not ≈ 146 Ω (PEEC factor-of-2 property)"
+    @pytest.mark.xfail(
+        strict=True,
+        reason="issue #71: reactance depends on feed gap and does not converge with mesh "
+        "refinement (~+1 Ohm here vs thin-wire theory ~+42 Ohm)",
+    )
+    def test_reactance_matches_thin_wire_theory(self, z_balanced):
+        assert abs(z_balanced.imag - 42.5) < 15.0, f"X_in = {z_balanced.imag:.2f} Ohm"

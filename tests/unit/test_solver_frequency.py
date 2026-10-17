@@ -90,27 +90,38 @@ class TestSingleFrequency:
         assert np.isfinite(solution.input_impedance)
 
     def test_skin_effect_increases_resistance(self):
-        """Test that AC resistance increases with frequency due to skin effect."""
-        # Use dipole geometry (same as working test)
-        nodes = np.array([[0, 0, 0], [0, 0, 0.05], [0, 0, 0.1]])
+        """AC resistance follows R = rho*L / (2*pi*a*delta) and grows with frequency.
+
+        Checked on the resistance model directly: at the input terminals the
+        radiation resistance dominates, so Re(Z) is not a skin-effect probe.
+        """
+        from backend.common.constants import MU_0
+        from backend.solver.resistance import compute_ac_resistance, compute_skin_depth
+
+        rho, length, a = 1.68e-8, 0.1, 0.001
+        r_1mhz = compute_ac_resistance(length, a, 1e6, rho, MU_0)
+        r_1ghz = compute_ac_resistance(length, a, 1e9, rho, MU_0)
+        assert r_1ghz > r_1mhz
+        delta = compute_skin_depth(1e9, rho, MU_0)
+        assert r_1ghz == pytest.approx(rho * length / (2 * np.pi * a * delta), rel=0.05)
+
+    def test_solver_passes_absolute_permeability(self):
+        """config.permeability is the RELATIVE mu_r; the resistance model needs
+        H/m. Passing mu_r directly made R ~890x too large (issue #70)."""
+        from unittest.mock import patch
+
+        import backend.solver.solver as solver_module
+        from backend.common.constants import MU_0
+
+        nodes = np.array([[0, 0, -0.25], [0, 0, 0], [0, 0, 0.25]])
         edges = [[1, 2], [2, 3]]
         radii = np.array([0.001, 0.001])
-
-        vsrc = VoltageSource(node_start=2, node_end=0, value=1.0)
-
-        # Solve at low and high frequency
-        config_with_skin = SolverConfiguration(include_skin_effect=True)
-        config_no_skin = SolverConfiguration(include_skin_effect=False)
-
-        sol_low = solve_single_frequency(nodes, edges, radii, 1e3, [vsrc], config=config_with_skin)
-        sol_high = solve_single_frequency(nodes, edges, radii, 1e9, [vsrc], config=config_with_skin)
-        sol_dc = solve_single_frequency(nodes, edges, radii, 1e6, [vsrc], config=config_no_skin)
-
-        # High frequency should have more resistance (higher real part of Z)
-        assert np.real(sol_high.input_impedance) > np.real(sol_low.input_impedance)
-
-        # DC case should have lowest resistance
-        assert np.real(sol_dc.input_impedance) <= np.real(sol_high.input_impedance)
+        real = solver_module.assemble_resistance_matrix
+        with patch.object(solver_module, "assemble_resistance_matrix", wraps=real) as spy:
+            solve_single_frequency(
+                nodes, edges, radii, 3e8, [VoltageSource(node_start=2, node_end=0, value=1.0)]
+            )
+        assert spy.call_args.kwargs["permeability"] == pytest.approx(MU_0)
 
 
 class TestFrequencySweep:
