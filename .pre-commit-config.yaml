@@ -61,17 +61,20 @@ repos:
         pass_filenames: false
 
       # Frontend — TypeScript type-check
+      # npm --prefix runs the script inside frontend/ so tsconfig is found
+      # (npx --prefix ran from the repo root and checked nothing).
       - id: frontend-typecheck
         name: frontend typecheck
         language: system
-        entry: npx --prefix frontend tsc --noEmit
+        entry: npm --prefix frontend run typecheck
         files: ^frontend/src/
         pass_filenames: false
 
-      # Frontend — Vitest unit tests
+      # Frontend — Vitest unit tests (inside frontend/ so vitest.config.ts and
+      # its jsdom environment are used — from the root every DOM test failed)
       - id: frontend-test
         name: frontend tests
         language: system
-        entry: npx --prefix frontend vitest run --reporter=dot
+        entry: npm --prefix frontend run test:run -- --reporter=dot
         files: ^frontend/
         pass_filenames: false
