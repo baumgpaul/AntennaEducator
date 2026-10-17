@@ -5,10 +5,7 @@ from typing import Any, List, Optional, Tuple, Union
 from pydantic import BaseModel, Field, model_validator
 
 from backend.common.models.variables import Variable, VariableContext
-from backend.common.utils.expressions import (
-    ExpressionError,
-    parse_numeric_or_expression,
-)
+from backend.common.utils.expressions import ExpressionError, parse_numeric_or_expression
 
 
 class ComplexNumber(BaseModel):
@@ -131,7 +128,10 @@ class DipoleRequest(BaseModel):
         default=21,
         ge=2,
         le=1000,
-        description="Total number of segments (split equally between halves if gap > 0)",
+        description=(
+            "Total number of segments for the whole dipole. With gap > 0 each arm "
+            "gets half; odd totals are rounded up to the next even number."
+        ),
     )
     source: Optional[SourceRequest] = Field(default=None, description="Optional source excitation")
     lumped_elements: List[LumpedElementRequest] = Field(

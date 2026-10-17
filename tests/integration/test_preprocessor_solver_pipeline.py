@@ -64,7 +64,7 @@ class TestPreprocessorSolverPipeline:
             "length": 1.5,  # meters
             "wire_radius": 0.001,  # 1mm wire
             "gap": 0.001,  # 1mm feed gap
-            "segments": 10,  # segments per half
+            "segments": 20,  # TOTAL segments, 10 per arm
         }
 
         response = requests.post(
@@ -77,12 +77,13 @@ class TestPreprocessorSolverPipeline:
         assert "nodes" in geometry
         assert "edges" in geometry
         assert "radii" in geometry
-        assert len(geometry["nodes"]) == 22  # 2*(segments+1) for two halves
-        assert len(geometry["edges"]) == 20  # 2*segments
+        assert len(geometry["nodes"]) == 22  # 2 arms x (10 + 1) nodes
+        assert len(geometry["edges"]) == 20  # segments is the total
         assert len(geometry["radii"]) == 20
 
         # Step 2: Solve at resonant frequency
-        # Feed is at gap (1-based indexing: node 1 of upper half, node 12 of lower half)
+        # Feed across the gap. Nodes run lower tip -> gap (1..11), then upper gap -> tip
+        # (12..22), so the gap nodes are 11 and 12 (1-based).
         solver_request = {
             "nodes": geometry["nodes"],
             "edges": geometry["edges"],
@@ -90,8 +91,8 @@ class TestPreprocessorSolverPipeline:
             "frequency": 100e6,  # 100 MHz
             "voltage_sources": [
                 {
-                    "node_start": 1,  # first node of upper half (1-based)
-                    "node_end": 12,  # first node of lower half (1-based)
+                    "node_start": 11,  # lower arm, gap end
+                    "node_end": 12,  # upper arm, gap end
                     "value": 1.0,
                     "impedance": 50.0,
                 }
@@ -127,7 +128,7 @@ class TestPreprocessorSolverPipeline:
         Tests VSWR calculation and multi-frequency response.
         """
         # Generate geometry
-        dipole_request = {"length": 1.5, "wire_radius": 0.001, "gap": 0.001, "segments": 10}
+        dipole_request = {"length": 1.5, "wire_radius": 0.001, "gap": 0.001, "segments": 20}
 
         response = requests.post(f"{PREPROCESSOR_URL}/api/antenna/dipole", json=dipole_request)
         assert response.status_code == 200
@@ -139,7 +140,9 @@ class TestPreprocessorSolverPipeline:
             "edges": geometry["edges"],
             "radii": geometry["radii"],
             "frequencies": [90e6, 100e6, 110e6],  # 90-110 MHz
-            "voltage_sources": [{"node_start": 1, "node_end": 12, "value": 1.0, "impedance": 50.0}],
+            "voltage_sources": [
+                {"node_start": 11, "node_end": 12, "value": 1.0, "impedance": 50.0}
+            ],
             "reference_impedance": 50.0,
         }
 
@@ -242,7 +245,7 @@ class TestPreprocessorSolverPipeline:
             "length": 1.5,
             "wire_radius": 0.001,
             "gap": 0.001,
-            "segments": 25,  # 25 segments per half = 50 total
+            "segments": 50,  # TOTAL, 25 per arm
         }
 
         response = requests.post(f"{PREPROCESSOR_URL}/api/antenna/dipole", json=dipole_request)
@@ -257,7 +260,10 @@ class TestPreprocessorSolverPipeline:
             "edges": geometry["edges"],
             "radii": geometry["radii"],
             "frequency": 100e6,
-            "voltage_sources": [{"node_start": 1, "node_end": 27, "value": 1.0, "impedance": 50.0}],
+            # Gap nodes: 26 (lower arm end) and 27 (upper arm start)
+            "voltage_sources": [
+                {"node_start": 26, "node_end": 27, "value": 1.0, "impedance": 50.0}
+            ],
         }
 
         response = requests.post(f"{SOLVER_URL}/api/solve/single", json=solver_request)
@@ -293,7 +299,10 @@ class TestPreprocessorSolverPipeline:
             "edges": geometry["edges"],
             "radii": geometry["radii"],
             "frequency": 100e6,
-            "voltage_sources": [{"node_start": 1, "node_end": 12, "value": 1.0, "impedance": 50.0}],
+            # 10 total segments -> 5 per arm; gap nodes are 6 and 7. A single gap
+            # source reads 2x the balanced-feed impedance (see the gold standard
+            # in test_halfwave_dipole_preprocessor_path.py for the physics check).
+            "voltage_sources": [{"node_start": 6, "node_end": 7, "value": 1.0, "impedance": 50.0}],
         }
 
         response = requests.post(f"{SOLVER_URL}/api/solve/single", json=solver_request)

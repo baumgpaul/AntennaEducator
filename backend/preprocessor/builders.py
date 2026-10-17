@@ -18,7 +18,7 @@ def create_dipole(
     orientation: Tuple[float, float, float] = (0.0, 0.0, 1.0),
     wire_radius: float = 0.001,
     gap: float = 0.01,
-    segments: int = 21,
+    segments: int = 20,
     source: Optional[dict] = None,
     lumped_elements: Optional[List[dict]] = None,
     name: Optional[str] = None,
@@ -32,7 +32,9 @@ def create_dipole(
         orientation: Direction vector [dx, dy, dz] (will be normalized)
         wire_radius: Wire radius in meters
         gap: Gap between dipole halves in meters (creates two separate poles)
-        segments: Total number of segments (split equally between halves if gap > 0)
+        segments: Total number of segments for the whole dipole. With a gap the two
+                  arms get half each, so an odd total is rounded up to the next even
+                  number (the stored parameters show the count actually used).
         source: Optional source configuration dict with keys:
                 - type: "voltage" or "current"
                 - amplitude: complex number (real or dict with real/imag)
@@ -57,6 +59,12 @@ def create_dipole(
         raise ValueError("Gap must be less than total length")
     if segments < 1:
         raise ValueError("Number of segments must be at least 1")
+
+    # Gap-fed dipoles need two equal arms. An odd total used to silently lose a
+    # segment (21 -> 20, TEST_PLAN B19); round up so the mesh is never coarser
+    # than requested.
+    if gap > 0 and segments % 2:
+        segments += 1
 
     # Normalize orientation vector
     orientation_array = np.array(orientation)
@@ -157,7 +165,8 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         # Create two separate poles with gap in between (symmetric about center).
         # Node ordering matches the frontend preview: lower arm first
         # (tip → gap), then upper arm (gap → tip).
-        n_seg = max(total_segments_param // 2, 1)
+        # Round up: elements stored before the B19 fix may hold an odd total
+        n_seg = max(-(-total_segments_param // 2), 1)
 
         # Lower arm: from -(length-gap)/2 (tip) to -gap/2 (gap edge)
         z_start_lower = -(length - gap) / 2.0

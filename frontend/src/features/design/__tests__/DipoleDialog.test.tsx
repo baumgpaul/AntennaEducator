@@ -364,7 +364,7 @@ describe('DipoleDialog - T4.A1: Frequency Input Removal', () => {
       expect(lengthInput.value).toBe('wavelength / 2');
       expect(radiusInput.value).toBe('0.001');
       expect(gapInput.value).toBe('0.001');
-      expect(segmentsInput.value).toBe('21');
+      expect(segmentsInput.value).toBe('20');
     });
   });
 

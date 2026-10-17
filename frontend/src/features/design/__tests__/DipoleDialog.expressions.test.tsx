@@ -64,14 +64,14 @@ describe('DipoleDialog — Expression Fields', () => {
       expect(input.value).toBe('0.001');
     });
 
-    it('segments field defaults to "21"', () => {
+    it('segments field defaults to "20" (even: two equal arms)', () => {
       render(
         <Provider store={createTestStore()}>
           <DipoleDialog {...defaultProps} />
         </Provider>
       );
       const input = screen.getByLabelText(/Segments/i) as HTMLInputElement;
-      expect(input.value).toBe('21');
+      expect(input.value).toBe('20');
     });
 
     it('amplitude field defaults to "1"', () => {
@@ -188,7 +188,7 @@ describe('DipoleDialog — Expression Fields', () => {
       expect(callData.length).toBeCloseTo(expectedLength, 4);
     });
 
-    it('submit with default values resolves segments to 21', async () => {
+    it('submit with default values resolves segments to 20', async () => {
       const onGenerate = vi.fn().mockResolvedValue(undefined);
       const user = userEvent.setup();
       render(
@@ -204,7 +204,7 @@ describe('DipoleDialog — Expression Fields', () => {
       });
 
       const callData = onGenerate.mock.calls[0][0];
-      expect(callData.segments).toBe(21);
+      expect(callData.segments).toBe(20);
     });
 
     it('onGenerate call data has expressions dict with all keys', async () => {
@@ -244,7 +244,7 @@ describe('DipoleDialog — Expression Fields', () => {
       // Verify expression values match defaults
       expect(callData.expressions.length).toBe('wavelength / 2');
       expect(callData.expressions.radius).toBe('0.001');
-      expect(callData.expressions.segments).toBe('21');
+      expect(callData.expressions.segments).toBe('20');
     });
 
     it('resolves numeric values for amplitude, phase, position', async () => {
@@ -271,6 +271,22 @@ describe('DipoleDialog — Expression Fields', () => {
   });
 
   describe('Segments rounding', () => {
+    it('asks for an even total when the dipole has a feed gap (B19)', async () => {
+      const user = userEvent.setup();
+      render(
+        <Provider store={createTestStore()}>
+          <DipoleDialog {...defaultProps} />
+        </Provider>
+      );
+
+      const input = screen.getByLabelText(/Segments/i);
+      await user.clear(input);
+      await user.type(input, '21');
+      await user.tab();
+
+      expect(await screen.findByText(/Use an even number/i)).toBeInTheDocument();
+    });
+
     it('entering "21.7" in segments results in submitted value 22', async () => {
       const onGenerate = vi.fn().mockResolvedValue(undefined);
       const user = userEvent.setup();
