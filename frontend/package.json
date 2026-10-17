@@ -21,7 +21,7 @@
     "@hookform/resolvers": "^5.9.1",
     "@mui/icons-material": "^5.15.3",
     "@mui/material": "^5.15.3",
-    "@react-three/drei": "^9.95.0",
+    "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^8.15.16",
     "@reduxjs/toolkit": "^2.13.0",
     "@tiptap/extension-code-block-lowlight": "^3.32.0",
