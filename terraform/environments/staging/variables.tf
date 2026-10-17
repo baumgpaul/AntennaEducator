@@ -31,5 +31,5 @@ variable "alert_email" {
 variable "api_origin_signing" {
   description = "Stage B of the CloudFront API front door: sign origin requests (OAC) and require AWS_IAM on the Lambda Function URLs, so they cannot be called directly"
   type        = bool
-  default     = false
+  default     = true
 }
