@@ -42,18 +42,17 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Split heavy vendor libs into separate chunks for caching
-          'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
-          'vendor-mui': ['@mui/material', '@mui/icons-material'],
-          'vendor-charts': ['recharts'],
+        // Split heavy vendor libs into separate chunks for caching.
+        // Function form: Vite 8 (rolldown) no longer accepts the object form.
+        // Module ids use forward slashes on every OS.
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return undefined
+          if (/\/node_modules\/(three|@react-three)\//.test(id)) return 'vendor-three'
+          if (/\/node_modules\/@mui\//.test(id)) return 'vendor-mui'
+          if (/\/node_modules\/recharts\//.test(id)) return 'vendor-charts'
+          return undefined
         },
       },
     },
-  },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: './src/test/setup.ts',
   },
 })

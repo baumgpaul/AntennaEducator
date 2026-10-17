@@ -29,7 +29,9 @@ const mockInternal = {
 };
 
 vi.mock('jspdf', () => ({
-  default: vi.fn().mockImplementation(() => ({
+  // `function`, not an arrow: jsPDF is called with `new` (Vitest 4+ calls
+  // the implementation as a constructor)
+  default: vi.fn().mockImplementation(function () { return ({
     save: mockSave,
     addPage: mockAddPage,
     text: mockText,
@@ -45,7 +47,7 @@ vi.mock('jspdf', () => ({
     setTextColor: vi.fn(),
     setLineWidth: vi.fn(),
     splitTextToSize: vi.fn((text: string) => [text]),
-  })),
+  }); }),
 }));
 
 // ---------------------------------------------------------------------------

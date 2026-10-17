@@ -20,6 +20,10 @@ updates:
         versions: [">=0.5"]
       - dependency-name: eslint
         versions: [">=9"]
+      # msw 3 no longer intercepts jsdom's XHR in our Vitest setup (requests
+      # go out to the network); needs a test-setup migration first
+      - dependency-name: msw
+        versions: [">=3"]
     groups:
       frontend-minor-patch:
         update-types: [minor, patch]

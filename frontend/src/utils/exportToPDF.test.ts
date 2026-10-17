@@ -34,7 +34,8 @@ describe('exportToPDF', () => {
       setFont: vi.fn(),
       internal: { pageSize: { getWidth: () => 297, getHeight: () => 210 } },
     };
-    (jsPDF as any).mockImplementation(() => mockPDF);
+    // `function`, not an arrow: jsPDF is called with `new` (Vitest 4+)
+    (jsPDF as any).mockImplementation(function () { return mockPDF; });
 
     // Create mock target element
     mockTargetElement = document.createElement('div');
