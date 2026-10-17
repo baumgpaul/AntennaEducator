@@ -41,7 +41,7 @@
     "jspdf": "^4.0.0",
     "katex": "^0.16.29",
     "lodash": "^4.17.21",
-    "mui-color-input": "^4.0.2",
+    "mui-color-input": "^9.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-error-boundary": "^6.0.1",
