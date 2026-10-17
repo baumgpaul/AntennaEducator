@@ -9,7 +9,7 @@
 #
 # Cost Explorer views after activation (data appears within ~24 h; use
 # `aws ce start-cost-allocation-tag-backfill` once to backfill history):
-#   - Group by Cost Category "AntennaEducator"  → CI/CD vs Operations
+#   - Group by Cost Category "AntennaEducator"  → CICD vs Operations
 #   - Group by tag "Environment"                → staging vs cefc vs …
 #   - Group by tag "Component"                  → backend, frontend, storage, cicd …
 
@@ -26,7 +26,7 @@ resource "aws_ce_cost_category" "workload" {
 
   # Rules are evaluated in order: first match wins.
   rule {
-    value = "CI/CD"
+    value = "CICD"
     rule {
       and {
         tags {
@@ -56,7 +56,7 @@ resource "aws_ce_cost_category" "workload" {
     }
   }
 
-  default_value = "Other (not AntennaEducator)"
+  default_value = "Other"
 
   depends_on = [aws_ce_cost_allocation_tag.this]
 }
