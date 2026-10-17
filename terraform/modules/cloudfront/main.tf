@@ -9,6 +9,52 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
+# Security headers on every response (HSTS, nosniff, framing, referrer, CSP).
+# The CSP starts in report-only mode: violations show in the browser console
+# without blocking anything; switch csp_report_only = false once clean.
+resource "aws_cloudfront_response_headers_policy" "security" {
+  name    = "antenna-simulator-security-${var.environment}"
+  comment = "Security headers for the Antenna Educator SPA (${var.environment})"
+
+  security_headers_config {
+    strict_transport_security {
+      access_control_max_age_sec = 31536000 # 1 year
+      include_subdomains         = false    # parent domain hosts other sites
+      preload                    = false
+      override                   = true
+    }
+    content_type_options {
+      override = true
+    }
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+    dynamic "content_security_policy" {
+      for_each = var.csp_report_only ? [] : [1]
+      content {
+        content_security_policy = var.content_security_policy
+        override                = true
+      }
+    }
+  }
+
+  dynamic "custom_headers_config" {
+    for_each = var.csp_report_only ? [1] : []
+    content {
+      items {
+        header   = "Content-Security-Policy-Report-Only"
+        value    = var.content_security_policy
+        override = true
+      }
+    }
+  }
+}
+
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -27,6 +73,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   default_cache_behavior {
     target_origin_id       = "S3-${var.s3_bucket_name}"
     viewer_protocol_policy = "redirect-to-https"  # Force HTTPS
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
 
     allowed_methods = ["GET", "HEAD", "OPTIONS"]
     cached_methods  = ["GET", "HEAD"]
