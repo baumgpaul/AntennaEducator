@@ -1,0 +1,35 @@
+# Weekly dependency update PRs. Grouped per ecosystem to keep the PR count
+# low; majors come as separate PRs so breaking upgrades stay reviewable.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      frontend-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # bcrypt 5 breaks passlib (local-mode login) — see requirements.txt
+      - dependency-name: bcrypt
+        versions: [">=5"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: terraform
+    directory: /terraform/environments/staging
+    schedule:
+      interval: monthly
