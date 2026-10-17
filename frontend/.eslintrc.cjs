@@ -20,6 +20,16 @@ module.exports = {
     // previous render") — always an error.
     'react-hooks/rules-of-hooks': 'error',
     'no-empty': 'warn',
-    '@typescript-eslint/no-var-requires': 'warn',
+    '@typescript-eslint/no-require-imports': 'warn',
+    // eslint-plugin-react-hooks 7 added React Compiler readiness rules to its
+    // recommended set. They flag code the compiler cannot optimise, not
+    // runtime bugs — warnings until the app adopts the React Compiler.
+    'react-hooks/set-state-in-effect': 'warn',
+    'react-hooks/refs': 'warn',
+    'react-hooks/purity': 'warn',
+    'react-hooks/immutability': 'warn',
+    'react-hooks/static-components': 'warn',
+    'react-hooks/preserve-manual-memoization': 'warn',
+    'react-hooks/use-memo': 'warn',
   },
 }
