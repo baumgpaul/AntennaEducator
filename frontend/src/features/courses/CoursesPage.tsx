@@ -56,6 +56,7 @@ import { deleteProject } from '@/store/projectsSlice';
 import { FolderDialog } from '@/components/common';
 import NewProjectDialog from '@/features/projects/NewProjectDialog';
 import { formatErrorMessage } from '@/utils/errors';
+import { hasRole } from '@/features/auth/RequireRole';
 
 /**
  * CoursesPage — Browse and copy public courses.
@@ -71,7 +72,7 @@ function CoursesPage() {
   const error = useAppSelector(selectFoldersError);
   const user = useAppSelector((state) => state.auth.user);
 
-  const isMaintainer = user?.role === 'maintainer' || user?.role === 'admin';
+  const isMaintainer = hasRole(user, 'maintainer');
 
   // Navigation state for nested course folders
   const [pathStack, setPathStack] = useState<Folder[]>([]);

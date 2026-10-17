@@ -18,6 +18,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar } from '@/store/uiSlice';
+import { hasRole } from '@/features/auth/RequireRole';
 
 /**
  * Sidebar component with navigation menu and project list
@@ -29,7 +30,7 @@ function Sidebar() {
   const sidebarOpen = useAppSelector((state) => state.ui.layout.sidebarOpen);
   const user = useAppSelector((state) => state.auth.user);
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = hasRole(user, 'admin');
 
   const handleSidebarClose = () => {
     dispatch(toggleSidebar());
