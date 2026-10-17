@@ -37,6 +37,19 @@ jobs:
           ./gitleaks git . --config .gitleaks.toml --redact --no-banner \
             --log-opts="origin/${{ github.base_ref }}..HEAD"
 
+  # ── Lambda image dependencies install on the real base image ────────
+  # The base image only takes manylinux2014 wheels (glibc 2.26); a too-new
+  # numpy/scipy otherwise only fails at deploy time.
+  lambda-deps:
+    name: Lambda dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: pip install --dry-run in public.ecr.aws/lambda/python:3.11
+        run: |
+          docker run --rm -v "$PWD/requirements-lambda.txt:/tmp/req.txt:ro"             --entrypoint pip public.ecr.aws/lambda/python:3.11             install --dry-run --only-binary=:all: -r /tmp/req.txt
+
   # ── Backend: lint + unit tests ──────────────────────────────────────
   backend:
     name: Backend
@@ -83,7 +96,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"  # Node 18 is end-of-life
           cache: npm
