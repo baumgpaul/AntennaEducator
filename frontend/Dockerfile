@@ -1,5 +1,6 @@
 # Multi-stage build for production frontend
-FROM node:18-alpine AS builder
+# Vite 8 needs Node >= 20.19
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 

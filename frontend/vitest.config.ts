@@ -12,13 +12,9 @@ export default defineConfig({
     hookTimeout: 10000,
     teardownTimeout: 5000,
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        // Limit concurrency to avoid OOM on CI containers (2 vCPUs / 4 GB).
-        maxForks: 4,
-        minForks: 1,
-      },
-    },
+    // Limit concurrency to avoid OOM on CI containers (2 vCPUs / 4 GB).
+    // (Vitest 4+ replaced poolOptions.forks.maxForks with maxWorkers.)
+    maxWorkers: 4,
   },
   resolve: {
     alias: {

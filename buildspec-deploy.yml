@@ -14,6 +14,9 @@ env:
     SERVICES: "preprocessor solver postprocessor projects"
 
 phases:
+  install:
+    runtime-versions:
+      nodejs: 20  # Vite 8 needs Node >= 20.19 (newest the CodeBuild image offers)
   pre_build:
     commands:
       - echo "Logging in to Amazon ECR..."
