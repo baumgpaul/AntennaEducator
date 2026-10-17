@@ -69,8 +69,9 @@ def test_halfwave_dipole_complete():
     MUST pass before any solver changes are merged.
 
     Validates:
-    - Input impedance: 73 ± 20 Ohms (resistive)
-    - Reactance: < 50 Ohms (near resonance)
+    - Input resistance: 73 ± 10 Ohms (thin-wire theory)
+    - Reactance: sanity bound only — theory is ~+42 Ohm, the PEEC model gives
+      ~0 Ohm at L = lambda/2 (tracked in issue #71 / xfail test below)
     - Maximum directivity: 2.15 ± 0.5 dBi
     - Current distribution: Sinusoidal with max at center, zero at ends
     """
@@ -79,45 +80,32 @@ def test_halfwave_dipole_complete():
     print(" GOLD STANDARD TEST: LAMBDA/2 DIPOLE")
     print("=" * 80)
 
-    # Setup (matching the reference PEEC test case)
-    frequency = 299.792458e6
-    gap = 0.05
-    radius = 0.001
+    # Setup: well-posed thin half-wave dipole (re-baselined 2026-10, issue #70).
+    # The former geometry (5 cm gap = 10 % of the length, 10 segments) only
+    # "matched" 73 Ohm because the resistance was ~890x too large.
+    frequency = 299.792458e6  # lambda = 1 m
+    wavelength = 299_792_458.0 / frequency
+    length = wavelength / 2
+    gap = wavelength / 200  # small delta-like feed gap
+    radius = wavelength / 1000
+    n_arm = 40  # segments per arm (80 total)
 
-    # 12 nodes: Nodes 1-6 are upper arm, nodes 7-12 are lower arm
-    # Node 1 at +2.5cm (upper gap edge), Node 7 at -2.5cm (lower gap edge)
-    z_upper = np.linspace(gap / 2, 0.225, 6)  # Nodes 1-6: from +2.5cm to +20cm
-    z_lower = np.linspace(-gap / 2, -0.225, 6)  # Nodes 7-12: from -2.5cm to -20cm
-    z_coords = np.concatenate([z_upper, z_lower])
-    nodes = np.zeros((12, 3))
-    nodes[:, 2] = z_coords
+    # Upper arm: nodes 1..n_arm+1 from the gap (+gap/2) to the tip;
+    # lower arm: nodes n_arm+2..2n_arm+2 from the gap (-gap/2) to the tip.
+    z_upper = np.linspace(gap / 2, length / 2, n_arm + 1)
+    z_lower = np.linspace(-gap / 2, -length / 2, n_arm + 1)
+    nodes = np.zeros((2 * (n_arm + 1), 3))
+    nodes[:, 2] = np.concatenate([z_upper, z_lower])
+    lower0 = n_arm + 2  # first lower-arm node (1-based)
+    edges = [[i, i + 1] for i in range(1, n_arm + 1)] + [
+        [i, i + 1] for i in range(lower0, lower0 + n_arm)
+    ]
+    radii = np.full(len(edges), radius)
 
-    print("Node positions:")
-    for i in range(12):
-        print(f"  Node {i+1}: z = {nodes[i,2]*100:+.2f} cm")
-    print()
-
-    # 10 edges: 5 on upper arm + 5 on lower arm
-    edges = [
-        [1, 2],
-        [2, 3],
-        [3, 4],
-        [4, 5],
-        [5, 6],  # Upper arm: 5 edges
-        [7, 8],
-        [8, 9],
-        [9, 10],
-        [10, 11],
-        [11, 12],
-    ]  # Lower arm: 5 edges
-    radii = np.full(10, radius)
-
-    # 2 voltage sources: FROM ground (node 0) TO nodes 1 and 7
-    # Order matters to match reference source vector [+1, -1]
-    vs_upper = VoltageSource(node_start=0, node_end=1, value=1.0, R=0.0, L=0.0, C_inv=0.0)  # First
-    vs_lower = VoltageSource(
-        node_start=0, node_end=7, value=-1.0, R=0.0, L=0.0, C_inv=0.0
-    )  # Second
+    # Balanced feed: +1 V from ground to the upper gap node, -1 V to the lower
+    # one -> 2 V across the gap (port voltage = difference, issue #70)
+    vs_upper = VoltageSource(node_start=0, node_end=1, value=1.0, R=0.0, L=0.0, C_inv=0.0)
+    vs_lower = VoltageSource(node_start=0, node_end=lower0, value=-1.0, R=0.0, L=0.0, C_inv=0.0)
 
     # ========================================================================
     # STEP 1: SOLVE FOR IMPEDANCE AND CURRENTS
@@ -172,13 +160,11 @@ def test_halfwave_dipole_complete():
     # Note: With 10 segments and 5cm gap, we expect some reactance
     # A perfect resonance would require tuning the length or using more segments
     assert (
-        impedance_error < 20.0
-    ), f"Impedance error {impedance_error:.2f} Ohm exceeds 20 Ohm tolerance"
-    assert (
-        reactance < 120.0
-    ), f"Reactance {reactance:.2f} Ohm exceeds 120 Ohm tolerance (coarse segmentation)"
+        impedance_error < 10.0
+    ), f"Resistance error {impedance_error:.2f} Ohm exceeds 10 Ohm tolerance"
+    assert reactance < 120.0, f"Reactance {reactance:.2f} Ohm exceeds 120 Ohm sanity bound"
 
-    if impedance_error < 20.0:
+    if impedance_error < 10.0:
         print("  [PASS] PASS: Impedance within acceptable range")
 
     if reactance < 50.0:
@@ -234,7 +220,7 @@ def test_halfwave_dipole_complete():
     print(f"  End/Max current ratio: {end_current_ratio:.3f}")
 
     # ASSERTION: End currents should be much smaller than center current
-    # With only 10 segments, allow up to 40% at ends
+    # Allow up to 40% at the end segments
     assert (
         end_current_ratio < 0.4
     ), f"End current ratio {end_current_ratio:.3f} exceeds 0.4 (not sinusoidal)"
@@ -543,7 +529,7 @@ def test_halfwave_dipole_complete():
 
     print("\nValidation Summary:")
     print(f"  [PASS] Impedance: {z_input.real:.1f} Ohm (within ±20 Ohm)")
-    print(f"  [PASS] Reactance: {reactance:.1f} Ohm (< 120 Ohm, coarse segmentation)")
+    print(f"  [PASS] Reactance: {reactance:.1f} Ohm (< 120 Ohm sanity bound; see issue #71)")
     print(f"  [PASS] Current Distribution: End/Max ratio = {end_current_ratio:.3f} (< 0.3)")
     print(f"  [PASS] Directivity: {directivity_dBi:.2f} dBi (within ±1 dB)")
 
