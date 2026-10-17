@@ -81,7 +81,7 @@ Each microservice uses `pydantic_settings.BaseSettings` with env prefix (e.g., `
 
 ### Frontend: API Client Layer (`frontend/src/api/`)
 - Separate Axios instances per backend service (`projectsClient`, `solverClient`, `preprocessorClient`, `postprocessorClient`) in `client.ts`.
-- **Production URLs** (Lambda Function URLs) configured in `frontend/.env.production`. Local dev URLs in `.env.development`.
+- **Production URLs** (Lambda Function URLs) come from Terraform outputs (CodeBuild `VITE_*` env vars); `frontend/.env.production` is gitignored. Local dev URLs in `.env.development`.
 - Path alias `@/` maps to `frontend/src/`.
 
 ### Frontend: Feature-Based Structure

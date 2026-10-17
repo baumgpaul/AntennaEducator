@@ -117,6 +117,19 @@ class CognitoAuthProvider(AuthProvider):
         except JWTError as exc:
             raise ValueError(f"Invalid Cognito token: {exc}")
 
+        # Access tokens carry no ``aud`` claim (python-jose then skips the
+        # audience check), so the app client must be verified via ``client_id``.
+        # Without this, tokens minted for any other client of the pool pass.
+        token_use = payload.get("token_use")
+        if token_use == "access":
+            if payload.get("client_id") != COGNITO_CLIENT_ID:
+                raise ValueError("Token was not issued for this app client")
+        elif token_use == "id":
+            if payload.get("aud") != COGNITO_CLIENT_ID:
+                raise ValueError("Token was not issued for this app client")
+        else:
+            raise ValueError(f"Unsupported token_use: {token_use!r}")
+
         user_id = payload.get("sub")
         if not user_id:
             raise ValueError("Token missing 'sub' claim")

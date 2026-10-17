@@ -42,6 +42,18 @@ variable "password_minimum_length" {
   default     = 8
 }
 
+variable "password_require_numbers" {
+  description = "Whether Cognito passwords must contain at least one number"
+  type        = bool
+  default     = true
+}
+
+variable "password_require_uppercase" {
+  description = "Whether Cognito passwords must contain at least one uppercase letter"
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Additional tags to apply to resources"
   type        = map(string)

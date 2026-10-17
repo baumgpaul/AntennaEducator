@@ -10,6 +10,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {
   ViewInAr as View3DIcon,
   ShowChart as ChartsIcon,
@@ -153,6 +154,8 @@ function ResultsVisualizationPanel({
 
 // 3D View Component
 function View3D({ mesh, currentDistribution }: { mesh: Mesh | null; currentDistribution: number[] | null }) {
+  const theme = useTheme();
+  const bgColor = theme.palette.mode === 'dark' ? '#1a1a1a' : '#f5f5f5';
   if (!mesh) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -162,7 +165,7 @@ function View3D({ mesh, currentDistribution }: { mesh: Mesh | null; currentDistr
   }
 
   return (
-    <Canvas style={{ width: '100%', height: '100%' }}>
+    <Canvas style={{ width: '100%', height: '100%', background: bgColor }}>
       <Suspense fallback={null}>
         {/* Camera */}
         <PerspectiveCamera makeDefault position={[5, 5, 5]} up={[0, 0, 1]} />

@@ -1,7 +1,7 @@
 """Quick end-to-end smoke test against AWS Lambda services.
 
-Reads service URLs from environment variables or falls back to
-frontend/.env.production when run locally.
+Reads service URLs from environment variables (VITE_*_URL are injected into
+CodeBuild by Terraform) or falls back to frontend/.env.production locally.
 
 When COGNITO_USER_POOL_ID and COGNITO_CLIENT_ID env vars are set
 together with SMOKE_TEST_USERNAME / SMOKE_TEST_PASSWORD, the script
@@ -71,10 +71,38 @@ def _get_cognito_token() -> str | None:
 
 _env = _load_env_production()
 
-PREPROCESSOR = os.getenv("PREPROCESSOR_URL", _env.get("VITE_PREPROCESSOR_URL", ""))
-SOLVER = os.getenv("SOLVER_URL", _env.get("VITE_SOLVER_URL", ""))
-POSTPROCESSOR = os.getenv("POSTPROCESSOR_URL", _env.get("VITE_POSTPROCESSOR_URL", ""))
-PROJECTS = os.getenv("PROJECTS_URL", _env.get("VITE_PROJECTS_URL", ""))
+
+def _service_url(name: str) -> str:
+    """<NAME>_URL env, else VITE_<NAME>_URL env (injected into CodeBuild by
+    Terraform), else frontend/.env.production (local runs)."""
+    url = (
+        os.getenv(f"{name}_URL")
+        or os.getenv(f"VITE_{name}_URL")
+        or _env.get(f"VITE_{name}_URL", "")
+    )
+    return url.rstrip("/")
+
+
+PREPROCESSOR = _service_url("PREPROCESSOR")
+SOLVER = _service_url("SOLVER")
+POSTPROCESSOR = _service_url("POSTPROCESSOR")
+PROJECTS = _service_url("PROJECTS")
+
+_missing = [
+    n
+    for n, u in [
+        ("PREPROCESSOR", PREPROCESSOR),
+        ("SOLVER", SOLVER),
+        ("POSTPROCESSOR", POSTPROCESSOR),
+        ("PROJECTS", PROJECTS),
+    ]
+    if not u
+]
+if _missing:
+    sys.exit(
+        f"No URL configured for: {', '.join(_missing)}. Set VITE_<NAME>_URL (CI) or "
+        "create frontend/.env.production from .env.production.example (local)."
+    )
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────

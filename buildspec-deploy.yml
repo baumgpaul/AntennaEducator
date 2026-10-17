@@ -57,6 +57,12 @@ phases:
 
       # ── Build & deploy frontend ──
       - echo "=== Building frontend ==="
+      # VITE_* come from the CodeBuild project env (terraform/modules/cicd);
+      # fail fast instead of shipping a bundle that points nowhere.
+      - |
+        for V in VITE_PROJECTS_URL VITE_PREPROCESSOR_URL VITE_SOLVER_URL VITE_POSTPROCESSOR_URL VITE_COGNITO_USER_POOL_ID VITE_COGNITO_CLIENT_ID; do
+          if [ -z "$(printenv $V)" ]; then echo "Missing $V in CodeBuild environment — run terraform apply in terraform/environments/<env>"; exit 1; fi
+        done
       - cd frontend && npm ci && NODE_OPTIONS="--max-old-space-size=4096" npm run build && cd ..
 
       - echo "=== Deploying frontend to S3 ==="

@@ -1,5 +1,6 @@
 """FastAPI application for the Solver service."""
 
+import os
 import time
 from datetime import datetime, timezone
 
@@ -11,7 +12,12 @@ from fastapi.responses import JSONResponse
 from backend.common.auth.dependencies import get_current_user
 from backend.common.auth.identity import UserIdentity
 from backend.common.auth.token_costs import calculate_sweep_cost
-from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
+from backend.common.auth.token_dependency import (
+    TokenCheckResult,
+    charge_simulation_tokens,
+    check_simulation_tokens,
+    require_simulation_tokens,
+)
 from backend.common.utils.error_handler import install_error_handlers
 from backend.common.utils.logging_config import configure_logging
 
@@ -46,13 +52,14 @@ app = FastAPI(
 )
 
 # Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=settings.cors_credentials,
-    allow_methods=settings.cors_methods,
-    allow_headers=settings.cors_headers,
-)
+if os.getenv("USE_FUNCTION_URL_CORS", "").lower() != "true":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=settings.cors_credentials,
+        allow_methods=settings.cors_methods,
+        allow_headers=settings.cors_headers,
+    )
 
 install_error_handlers(app)
 
@@ -69,6 +76,24 @@ async def health_check():
             "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     )
+
+
+def _ensure_finite(**values) -> None:
+    """Reject results that cannot be represented in JSON (NaN/inf).
+
+    Typically the source current is zero (open feed), which makes the input
+    impedance infinite. Used to surface as an opaque 500 (B29).
+    """
+    bad = [name for name, v in values.items() if not np.all(np.isfinite(np.asarray(v)))]
+    if bad:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Solution is undefined ({', '.join(bad)} not finite). This usually "
+                "means the source current is zero — check the source amplitude and "
+                "that the feed is connected."
+            ),
+        )
 
 
 def _convert_sources(request):
@@ -175,6 +200,14 @@ async def solve_single_frequency_endpoint(
 
         solve_time = time.time() - start_time
 
+        _ensure_finite(
+            input_impedance=result.input_impedance,
+            reflection_coefficient=result.reflection_coefficient,
+            return_loss=result.return_loss,
+            input_power=result.input_power,
+            branch_currents=result.branch_currents,
+        )
+
         # Build response
         return FrequencyPointResponse(
             frequency=result.frequency,
@@ -213,35 +246,8 @@ async def solve_frequency_sweep_endpoint(
 ):
     """Solve PEEC system across multiple frequencies."""
     # Sweep cost scales with number of frequencies (capped at 250)
-    cost = calculate_sweep_cost(len(request.frequencies))
-    from backend.common.auth.token_dependency import InsufficientTokensError, _check_token_balance
-
-    try:
-        result_check = _check_token_balance(user, cost)
-    except InsufficientTokensError as exc:
-        raise HTTPException(
-            status_code=402,
-            detail={
-                "message": "Insufficient simulation tokens",
-                "required": exc.required,
-                "balance": exc.balance,
-            },
-        )
-    if result_check.should_deduct:
-        from backend.common.repositories.user_repository import UserRepository
-
-        repo = UserRepository()
-        try:
-            repo.deduct_user_tokens(user.id, cost)
-        except ValueError:
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "message": "Insufficient simulation tokens",
-                    "required": cost,
-                    "balance": user.simulation_tokens,
-                },
-            )
+    # Checked now, charged only after the sweep succeeded (B43).
+    token_check = check_simulation_tokens(user, calculate_sweep_cost(len(request.frequencies)))
     try:
         # Validate inputs
         if len(request.nodes) < 2:
@@ -318,8 +324,16 @@ async def solve_frequency_sweep_endpoint(
                 )
             )
 
+        _ensure_finite(
+            impedance=result.impedance_magnitude,
+            impedance_phase=result.impedance_phase,
+            return_loss=result.return_loss,
+            vswr=result.vswr,
+            mismatch_loss=result.mismatch_loss,
+        )
+
         # Build response
-        return SweepResultResponse(
+        response = SweepResultResponse(
             frequencies=request.frequencies,
             reference_impedance=request.reference_impedance,
             frequency_solutions=freq_solutions,
@@ -333,6 +347,8 @@ async def solve_frequency_sweep_endpoint(
             n_branches=result.n_branches,
             total_solve_time=total_time,
         )
+        charge_simulation_tokens(user, token_check, endpoint="solve/sweep")
+        return response
 
     except HTTPException:
         raise
@@ -403,6 +419,19 @@ async def solve_multi_antenna_endpoint(
         # Update solve time
         result["solve_time"] = solve_time
 
+        # Optional impedance: undefined (zero feed current) -> null, not a JSON 500 (B29)
+        for sol in result.get("antenna_solutions", []):
+            z = sol.get("input_impedance") if isinstance(sol, dict) else None
+            if z is not None and not np.isfinite(z):
+                sol["input_impedance"] = None
+        _ensure_finite(
+            branch_currents=[
+                c
+                for sol in result.get("antenna_solutions", [])
+                for c in sol.get("branch_currents", [])
+            ]
+        )
+
         # Return response matching schema
         return MultiAntennaSolutionResponse(**result)
 
@@ -453,7 +482,10 @@ async def get_materials():
     tags=["Solver"],
     summary="Estimate solve time",
 )
-async def estimate_complexity(request: dict):
+async def estimate_complexity(
+    request: dict,
+    user: UserIdentity = Depends(get_current_user),
+):
     """Estimate solve time based on problem complexity."""
     try:
         # Check if this is a full mesh structure or simple parameters
@@ -483,7 +515,7 @@ async def estimate_complexity(request: dict):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Estimation error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Estimation error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Estimation failed")
 
 
 if __name__ == "__main__":

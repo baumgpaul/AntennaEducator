@@ -90,10 +90,19 @@ export class LocalAuthService implements IAuthService {
   }
 
   /**
-   * Refresh access token (not supported in local JWT auth)
+   * Validate the stored session (called on page reload).
+   * Local JWTs have no refresh token, so the existing access token is kept as
+   * long as the backend still accepts it; an expired token makes /me return
+   * 401 and the caller logs the user out.
    */
   async refreshToken(): Promise<AuthTokens> {
-    throw new Error('Token refresh not supported. Please login again.')
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      throw new Error('No stored session. Please login again.')
+    }
+    const user = await this.getCurrentUser()
+    localStorage.setItem('user', JSON.stringify(user))
+    return { accessToken: token }
   }
 
   /**

@@ -229,4 +229,58 @@ describe('CircuitEditor', () => {
       expect(dialogContent).toBeInTheDocument();
     });
   });
+
+  describe('Parent re-renders (B8)', () => {
+    const withLoad: AntennaElement = {
+      ...testElement,
+      lumped_elements: [{ type: 'resistor', node_start: 4, node_end: 0, R: 50, L: 0, C_inv: 0 }],
+    };
+
+    it('keeps editor state when the parent passes new element/terminal references', async () => {
+      const user = userEvent.setup();
+      const store = createTestStore();
+      const { rerender } = render(
+        <Provider store={store}>
+          <CircuitEditor {...defaultProps} element={withLoad} terminalNodeIndices={[4, 5]} />
+        </Provider>
+      );
+
+      // Same element id, new object (e.g. after an autosave) and new array.
+      rerender(
+        <Provider store={store}>
+          <CircuitEditor
+            {...defaultProps}
+            element={{ ...withLoad, lumped_elements: [] }}
+            terminalNodeIndices={[4, 5]}
+          />
+        </Provider>
+      );
+
+      await user.click(screen.getByRole('button', { name: /Apply/i }));
+      expect(mockOnApply.mock.calls[0][0].lumped_elements).toHaveLength(1);
+    });
+
+    it('re-initializes from element data after close and reopen', async () => {
+      const user = userEvent.setup();
+      const store = createTestStore();
+      const { rerender } = render(
+        <Provider store={store}>
+          <CircuitEditor {...defaultProps} element={withLoad} />
+        </Provider>
+      );
+      rerender(
+        <Provider store={store}>
+          <CircuitEditor {...defaultProps} open={false} element={withLoad} />
+        </Provider>
+      );
+      rerender(
+        <Provider store={store}>
+          <CircuitEditor {...defaultProps} element={{ ...withLoad, lumped_elements: [] }} />
+        </Provider>
+      );
+
+      await user.click(screen.getByRole('button', { name: /Apply/i }));
+      expect(mockOnApply.mock.calls[0][0].lumped_elements).toHaveLength(0);
+    });
+  });
 });

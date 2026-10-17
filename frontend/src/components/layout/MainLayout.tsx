@@ -6,7 +6,6 @@ import Footer from './Footer';
 
 /**
  * MainLayout component - combines Header, Sidebar, Footer with content outlet
- * Sidebar is a persistent drawer that overlays the content
  *
  * Footer is hidden on full-screen workspace pages (Designer) to prevent overlap
  * with the right properties panel.

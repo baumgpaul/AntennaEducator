@@ -32,12 +32,21 @@ def _role_from_db(user: dict) -> UserRole:
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-_DEFAULT_SECRET = "your-secret-key-change-in-production"
-JWT_SECRET = os.getenv("JWT_SECRET_KEY", _DEFAULT_SECRET)
-if JWT_SECRET == _DEFAULT_SECRET:
+# Publicly known values (old default, .env.example placeholder) — anyone could
+# forge tokens signed with them, so they are rejected like a missing secret.
+_INSECURE_SECRETS = frozenset(
+    {
+        "",
+        "your-secret-key-change-in-production",
+        "generate-a-secure-random-key-here",
+    }
+)
+_MIN_SECRET_LENGTH = 32
+JWT_SECRET = os.getenv("JWT_SECRET_KEY", "").strip()
+if JWT_SECRET and len(JWT_SECRET) < _MIN_SECRET_LENGTH:
     logger.warning(
-        "JWT_SECRET_KEY env var not set — using insecure default. "
-        "Set JWT_SECRET_KEY to a strong random value in production."
+        "JWT_SECRET_KEY is shorter than %d characters — use a longer random value.",
+        _MIN_SECRET_LENGTH,
     )
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
@@ -51,6 +60,11 @@ class LocalAuthProvider(AuthProvider):
     """Standalone auth: bcrypt password hashing + locally-signed JWTs."""
 
     def __init__(self) -> None:
+        if JWT_SECRET in _INSECURE_SECRETS:
+            raise RuntimeError(
+                "JWT_SECRET_KEY is not set or is a known placeholder. Generate one with: "
+                'python -c "import secrets; print(secrets.token_urlsafe(32))"'
+            )
         self._user_repo = UserRepository()
         logger.info("LocalAuthProvider initialised")
 

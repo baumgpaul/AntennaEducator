@@ -355,3 +355,67 @@ describe('COMPONENT_TYPE_LABELS', () => {
     expect(COMPONENT_TYPE_LABELS.port).toBe('Port');
   });
 });
+
+describe('round-trip backend → circuit → backend', () => {
+  it('keeps source series impedance and position (B9)', () => {
+    const sources = [
+      {
+        type: 'voltage' as const,
+        amplitude: { real: 1, imag: 0 },
+        node_start: 1,
+        node_end: 0,
+        position: 'center',
+        series_R: 50,
+        series_L: 1e-9,
+        series_C_inv: 1e12,
+        tag: 'Feed',
+      },
+    ];
+    const circuit = backendToCircuit(sources, [], [1]);
+    const { sources: out } = circuitToBackend(circuit);
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      position: 'center',
+      series_R: 50,
+      series_L: 1e-9,
+      series_C_inv: 1e12,
+      node_start: 1,
+      node_end: 0,
+      tag: 'Feed',
+    });
+  });
+
+  it('does not invent source extras that were absent', () => {
+    const circuit = backendToCircuit(
+      [{ type: 'current', amplitude: { real: 1, imag: 0 }, node_start: 1, node_end: 0 }],
+      [],
+      [1],
+    );
+    const { sources: out } = circuitToBackend(circuit);
+    expect(out[0]).not.toHaveProperty('series_R');
+    expect(out[0]).not.toHaveProperty('position');
+  });
+
+  it('keeps L and C of a combined RLC element (B10)', () => {
+    const lumped = [
+      { type: 'rlc' as const, R: 10, L: 2e-9, C_inv: 5e11, node_start: 1, node_end: 0 },
+    ];
+    const circuit = backendToCircuit([], lumped, [1]);
+    expect(circuit.components[0].type).toBe('resistor');
+
+    const { lumped_elements: out } = circuitToBackend(circuit);
+    expect(out[0]).toMatchObject({ type: 'rlc', R: 10, L: 2e-9, C_inv: 5e11 });
+  });
+
+  it('applies an edited R to a combined RLC element without losing L and C', () => {
+    const circuit = backendToCircuit(
+      [],
+      [{ type: 'rlc', R: 10, L: 2e-9, C_inv: 5e11, node_start: 1, node_end: 0 }],
+      [1],
+    );
+    circuit.components[0] = { ...circuit.components[0], value: 75 };
+    const { lumped_elements: out } = circuitToBackend(circuit);
+    expect(out[0]).toMatchObject({ R: 75, L: 2e-9, C_inv: 5e11 });
+  });
+});

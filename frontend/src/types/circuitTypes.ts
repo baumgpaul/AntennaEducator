@@ -57,6 +57,16 @@ export interface CircuitComponent {
   valueExpression?: string;
   /** Raw expression string for phase */
   phaseExpression?: string;
+  /**
+   * Source-only fields the editor doesn't expose, carried through so a
+   * load → save round-trip doesn't drop them (B9).
+   */
+  sourceExtras?: Pick<Source, 'position' | 'series_R' | 'series_L' | 'series_C_inv'>;
+  /**
+   * Original values of a combined R+L+C lumped element. The editor shows it as
+   * a resistor (value = R); L and C are preserved on save (B10).
+   */
+  rlc?: { R: number; L: number; C_inv: number };
 }
 
 // ============================================================================
@@ -123,6 +133,7 @@ export function circuitToBackend(circuit: CircuitState): {
         node_start: comp.nodeA,
         node_end: comp.nodeB,
         tag: comp.label || undefined,
+        ...comp.sourceExtras,
       });
     } else if (comp.type === 'port') {
       ports.push({
@@ -131,6 +142,16 @@ export function circuitToBackend(circuit: CircuitState): {
         node_end: comp.nodeB,
         z0: comp.value,
         label: comp.label || undefined,
+      });
+    } else if (comp.rlc && comp.type === 'resistor') {
+      lumped_elements.push({
+        type: 'rlc',
+        R: comp.value,
+        L: comp.rlc.L,
+        C_inv: comp.rlc.C_inv,
+        node_start: comp.nodeA,
+        node_end: comp.nodeB,
+        tag: comp.label || undefined,
       });
     } else {
       const R = comp.type === 'resistor' ? comp.value : 0;
@@ -201,6 +222,12 @@ export function backendToCircuit(
     const magnitude = Math.sqrt(amp.real * amp.real + amp.imag * amp.imag);
     const phase = Math.atan2(amp.imag, amp.real) * (180 / Math.PI);
 
+    const sourceExtras: CircuitComponent['sourceExtras'] = {};
+    if (src.position !== undefined) sourceExtras.position = src.position;
+    if (src.series_R !== undefined) sourceExtras.series_R = src.series_R;
+    if (src.series_L !== undefined) sourceExtras.series_L = src.series_L;
+    if (src.series_C_inv !== undefined) sourceExtras.series_C_inv = src.series_C_inv;
+
     components.push({
       id: `comp-${compId++}`,
       type: src.type === 'voltage' ? 'voltage_source' : 'current_source',
@@ -209,6 +236,7 @@ export function backendToCircuit(
       value: magnitude,
       phase,
       label: src.tag || '',
+      ...(Object.keys(sourceExtras).length > 0 ? { sourceExtras } : {}),
     });
   }
 
@@ -219,6 +247,7 @@ export function backendToCircuit(
 
     let type: CircuitComponentType;
     let value: number;
+    let rlc: CircuitComponent['rlc'];
 
     if (le.R > 0 && le.L === 0 && le.C_inv === 0) {
       type = 'resistor';
@@ -230,10 +259,11 @@ export function backendToCircuit(
       type = 'capacitor';
       value = 1 / le.C_inv;
     } else {
-      // RLC combination — represent as resistor with the R value
-      // (individual R/L/C components should be separate in the circuit editor)
+      // RLC combination — shown as a resistor with the R value; the full
+      // R/L/C values are kept in `rlc` so saving doesn't lose L and C.
       type = 'resistor';
       value = le.R;
+      rlc = { R: le.R, L: le.L, C_inv: le.C_inv };
     }
 
     components.push({
@@ -244,6 +274,7 @@ export function backendToCircuit(
       value,
       phase: 0,
       label: le.tag || '',
+      ...(rlc ? { rlc } : {}),
     });
   }
 

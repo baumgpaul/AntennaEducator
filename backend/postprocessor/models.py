@@ -1,43 +1,73 @@
 """Pydantic models for Postprocessor service."""
 
+import math
 from typing import Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, model_validator
+
+
+def _validate_frequencies_and_currents(frequencies: List[float], branch_currents: list) -> None:
+    """Empty or inconsistent inputs used to surface as 500s (TEST_PLAN B34)."""
+    if any(not math.isfinite(f) or f <= 0 for f in frequencies):
+        raise ValueError("all frequencies must be positive and finite")
+    if len(branch_currents) != len(frequencies):
+        raise ValueError(
+            f"branch_currents has {len(branch_currents)} entries but there are "
+            f"{len(frequencies)} frequencies (one current vector per frequency)"
+        )
 
 
 class FieldRequest(BaseModel):
     """Request for field computation."""
 
-    frequencies: List[float] = Field(..., max_length=1000, description="Frequencies [Hz]")
+    frequencies: List[float] = Field(
+        ..., min_length=1, max_length=1000, description="Frequencies [Hz]"
+    )
     branch_currents: List[List[Union[complex, str, Dict[str, float]]]] = Field(
         ..., description="Branch currents [A] per frequency"
     )
     nodes: List[List[float]] = Field(
-        ..., max_length=5000, description="Node coordinates [[x,y,z], ...]"
+        ..., min_length=1, max_length=5000, description="Node coordinates [[x,y,z], ...]"
     )
     edges: List[List[int]] = Field(
-        ..., max_length=10000, description="Edge connectivity [[n1,n2], ...]"
+        ..., min_length=1, max_length=10000, description="Edge connectivity [[n1,n2], ...]"
     )
     radii: List[float] = Field(..., description="Wire radii [m]")
     observation_points: List[List[float]] = Field(
-        ..., max_length=40000, description="Points to evaluate field [[x,y,z], ...]"
+        ..., min_length=1, max_length=40000, description="Points to evaluate field [[x,y,z], ...]"
     )
+
+    @model_validator(mode="after")
+    def validate_consistency(self):
+        _validate_frequencies_and_currents(self.frequencies, self.branch_currents)
+        return self
 
 
 class FarFieldRequest(BaseModel):
     """Request for far-field radiation pattern."""
 
-    frequencies: List[float] = Field(..., max_length=1000, description="Frequencies [Hz]")
+    frequencies: List[float] = Field(
+        ..., min_length=1, max_length=1000, description="Frequencies [Hz]"
+    )
     branch_currents: List[List[Union[complex, str, Dict[str, float]]]] = Field(
         ..., description="Branch currents [A] per frequency"
     )
-    nodes: List[List[float]] = Field(..., max_length=5000, description="Node coordinates")
-    edges: List[List[int]] = Field(..., max_length=10000, description="Edge connectivity")
+    nodes: List[List[float]] = Field(
+        ..., min_length=1, max_length=5000, description="Node coordinates"
+    )
+    edges: List[List[int]] = Field(
+        ..., min_length=1, max_length=10000, description="Edge connectivity"
+    )
     radii: List[float] = Field(..., description="Wire radii [m]")
     theta_points: int = Field(
         181, ge=2, le=721, description="Number of theta samples (0 to 180 deg)"
     )
     phi_points: int = Field(360, ge=2, le=721, description="Number of phi samples (0 to 360 deg)")
+
+    @model_validator(mode="after")
+    def validate_consistency(self):
+        _validate_frequencies_and_currents(self.frequencies, self.branch_currents)
+        return self
 
 
 class RadiationPatternResponse(BaseModel):

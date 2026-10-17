@@ -34,7 +34,7 @@ locals {
 
 # A record for subdomain pointing to CloudFront
 resource "aws_route53_record" "root" {
-  count = var.cloudfront_domain_name != "" ? 1 : 0
+  count = var.create_cloudfront_records ? 1 : 0
 
   zone_id = local.zone_id
   name    = var.domain_name
@@ -49,7 +49,7 @@ resource "aws_route53_record" "root" {
 
 # AAAA record (IPv6) for subdomain
 resource "aws_route53_record" "root_ipv6" {
-  count = var.cloudfront_domain_name != "" ? 1 : 0
+  count = var.create_cloudfront_records ? 1 : 0
 
   zone_id = local.zone_id
   name    = var.domain_name
@@ -64,7 +64,7 @@ resource "aws_route53_record" "root_ipv6" {
 
 # Optional: www subdomain
 resource "aws_route53_record" "www" {
-  count = var.create_www_subdomain && var.cloudfront_domain_name != "" ? 1 : 0
+  count = var.create_www_subdomain && var.create_cloudfront_records ? 1 : 0
 
   zone_id = local.zone_id
   name    = "www.${var.domain_name}"
@@ -78,7 +78,7 @@ resource "aws_route53_record" "www" {
 }
 
 resource "aws_route53_record" "www_ipv6" {
-  count = var.create_www_subdomain && var.cloudfront_domain_name != "" ? 1 : 0
+  count = var.create_www_subdomain && var.create_cloudfront_records ? 1 : 0
 
   zone_id = local.zone_id
   name    = "www.${var.domain_name}"

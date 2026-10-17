@@ -3,7 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import MainLayout from './components/layout/MainLayout';
 import HomePage from './features/home/HomePage';
-import { LoginPage, RegisterPage, ProtectedRoute } from './features/auth';
+import { LoginPage, RegisterPage, ProtectedRoute, RequireRole } from './features/auth';
 import NotFoundPage from './features/common/NotFoundPage';
 import { NotificationManager, SessionManager } from './components/common';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -50,7 +50,7 @@ function App() {
           <Route path="/courses/:courseId/submissions" element={<ErrorBoundary><Suspense fallback={<Fallback />}><SubmissionsDashboard /></Suspense></ErrorBoundary>} />
           <Route path="/my-submissions" element={<ErrorBoundary><Suspense fallback={<Fallback />}><MySubmissionsPage /></Suspense></ErrorBoundary>} />
           <Route path="/submission/:courseId/:submissionId" element={<ErrorBoundary><Suspense fallback={<Fallback />}><SubmissionViewer /></Suspense></ErrorBoundary>} />
-          <Route path="/admin" element={<ErrorBoundary><Suspense fallback={<Fallback />}><AdminPage /></Suspense></ErrorBoundary>} />
+          <Route path="/admin" element={<RequireRole role="admin"><ErrorBoundary><Suspense fallback={<Fallback />}><AdminPage /></Suspense></ErrorBoundary></RequireRole>} />
           <Route path="/design" element={<ErrorBoundary><Suspense fallback={<Fallback />}><DesignPage /></Suspense></ErrorBoundary>} />
           <Route path="/project/:projectId/design" element={<ErrorBoundary><Suspense fallback={<Fallback />}><DesignPage /></Suspense></ErrorBoundary>} />
           <Route path="/project/:projectId/results" element={<ErrorBoundary><Suspense fallback={<Fallback />}><ResultsPage /></Suspense></ErrorBoundary>} />

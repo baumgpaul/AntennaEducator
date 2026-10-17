@@ -2,6 +2,7 @@
 
 # noqa: trigger CI build
 import base64
+import os
 import time
 from datetime import datetime, timezone
 
@@ -42,13 +43,14 @@ app = FastAPI(
 )
 
 # Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=settings.cors_credentials,
-    allow_methods=settings.cors_methods,
-    allow_headers=settings.cors_headers,
-)
+if os.getenv("USE_FUNCTION_URL_CORS", "").lower() != "true":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=settings.cors_credentials,
+        allow_methods=settings.cors_methods,
+        allow_headers=settings.cors_headers,
+    )
 
 # Compress responses to stay within Lambda 6 MB payload limit.
 # GZip middleware is added after CORS so it wraps outermost —
@@ -449,7 +451,7 @@ def _generate_vtu_xml(
 
 
 @app.get(f"{settings.api_prefix}/debug/config")
-async def debug_config():
+async def debug_config(user: UserIdentity = Depends(get_current_user)):
     """Return current configuration for debugging (no secrets)."""
     import sys
 
@@ -468,7 +470,10 @@ async def debug_config():
 
 
 @app.post(f"{settings.api_prefix}/debug/estimate")
-async def estimate_computation(request: FieldRequest):
+async def estimate_computation(
+    request: FieldRequest,
+    user: UserIdentity = Depends(get_current_user),
+):
     """Estimate computation time without actually computing.
 
     Useful for pre-flight checks before committing to a long computation.

@@ -13,7 +13,8 @@ variable "aws_profile" {
 variable "state_bucket_name" {
   description = "Name of S3 bucket for Terraform state (must be globally unique)"
   type        = string
-  default     = "antenna-simulator-terraform-state-<AWS_ACCOUNT_ID>"
+  # No default: set in terraform.tfvars (gitignored), e.g.
+  #   state_bucket_name = "antenna-simulator-terraform-state-<AWS_ACCOUNT_ID>"
 }
 
 variable "lock_table_name" {

@@ -1,0 +1,2 @@
+# Copy to backend.hcl (gitignored) and run: terraform init -backend-config=backend.hcl
+bucket = "antenna-simulator-terraform-state-<AWS_ACCOUNT_ID>"

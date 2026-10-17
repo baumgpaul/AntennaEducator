@@ -8,7 +8,7 @@ The actual physics lives in the preprocessor / solver / postprocessor services.
 
 import os
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -83,6 +83,33 @@ def _get_doc_service() -> DocumentationService:
     return get_documentation_service()
 
 
+async def _authorize_target_folder(folder_id: Optional[str], user: UserIdentity) -> Optional[dict]:
+    """Check that ``user`` may place a project into ``folder_id``.
+
+    - personal folder: only its owner (others get 404, like a missing folder)
+    - course folder: only maintainers/admins — otherwise any student could put
+      content into a course that every enrolled user sees, and the project was
+      stored under the course owner's partition so its creator got 404 (B6)
+
+    Returns the folder, or None when no folder is given.
+    """
+    if not folder_id:
+        return None
+    folder = await FolderRepository().get_folder(folder_id)
+    if not folder:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Folder not found")
+    if folder.get("is_course"):
+        if user.role.value not in ("maintainer", "admin"):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail="Only maintainers can add projects to a course. "
+                "Copy the course to your workspace instead.",
+            )
+    elif folder.get("owner_id") != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Folder not found")
+    return folder
+
+
 async def _can_access_project(project: dict, user: UserIdentity) -> bool:
     """Check if user owns the project or is a maintainer for its course folder."""
     if project["user_id"] == user.id:
@@ -149,14 +176,9 @@ async def create_project(
     # so list_course_projects (which queries by folder owner_id) can find it.
     owner_id = user.id
     folder_id = getattr(data, "folder_id", None)
-    if folder_id:
-        try:
-            folder_repo = FolderRepository()
-            folder = await folder_repo.get_folder(folder_id)
-            if folder and folder.get("is_course"):
-                owner_id = folder["owner_id"]
-        except Exception:
-            logger.warning("Could not resolve folder %s for owner lookup", folder_id)
+    folder = await _authorize_target_folder(folder_id, user)
+    if folder and folder.get("is_course"):
+        owner_id = folder["owner_id"]
 
     project = await repo.create_project(
         user_id=owner_id,
@@ -262,6 +284,10 @@ async def update_project(
     project = await repo.get_project(project_id=project_id)
     if not project or not await _can_access_project(project, user):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    # Moving into another folder: same rules as creating there
+    if data.folder_id and data.folder_id != project.get("folder_id"):
+        await _authorize_target_folder(data.folder_id, user)
 
     # Store large results in S3, keep only keys in DynamoDB
     slim_results = data.simulation_results

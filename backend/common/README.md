@@ -56,7 +56,7 @@ Profile data is cached in-memory for 60s to reduce DynamoDB reads.
 | Variable | Default | Required | Description |
 |----------|---------|----------|-------------|
 | `USE_COGNITO` | `false` | No | Enable Cognito auth |
-| `JWT_SECRET_KEY` | *(insecure default)* | **Yes (production)** | JWT signing secret (local mode) |
+| `JWT_SECRET_KEY` | *(none)* | **Yes (local mode)** | JWT signing secret; the service refuses to start without it (≥ 32 chars recommended) |
 | `COGNITO_USER_POOL_ID` | `""` | Yes (Cognito mode) | Cognito pool ID |
 | `COGNITO_CLIENT_ID` | `""` | Yes (Cognito mode) | Cognito app client ID |
 | `COGNITO_REGION` | `eu-west-1` | No | AWS region |

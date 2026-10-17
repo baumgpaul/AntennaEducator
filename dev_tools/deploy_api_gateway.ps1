@@ -9,7 +9,7 @@ Push-Location "$PSScriptRoot\..\terraform\environments\staging"
 try {
     # Initialize Terraform (if needed)
     Write-Host "`n1. Initializing Terraform..." -ForegroundColor Yellow
-    terraform init
+    terraform init "-backend-config=backend.hcl"
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Terraform init failed!" -ForegroundColor Red

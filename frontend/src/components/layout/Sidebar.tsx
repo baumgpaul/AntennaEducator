@@ -6,24 +6,19 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
-  Typography,
   IconButton,
-  Collapse,
 } from '@mui/material';
 import {
   Home,
   Folder,
-  AddCircle,
-  ExpandLess,
-  ExpandMore,
   ChevronLeft,
   School,
   AdminPanelSettings,
 } from '@mui/icons-material';
-import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar } from '@/store/uiSlice';
+import { hasRole } from '@/features/auth/RequireRole';
 
 /**
  * Sidebar component with navigation menu and project list
@@ -33,12 +28,9 @@ function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarOpen = useAppSelector((state) => state.ui.layout.sidebarOpen);
-  const projects = useAppSelector((state) => state.projects.items);
   const user = useAppSelector((state) => state.auth.user);
 
-  const [projectsExpanded, setProjectsExpanded] = useState(true);
-
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = hasRole(user, 'admin');
 
   const handleSidebarClose = () => {
     dispatch(toggleSidebar());
@@ -46,10 +38,6 @@ function Sidebar() {
 
   const handleNavigation = (path: string) => {
     navigate(path);
-  };
-
-  const toggleProjectsExpanded = () => {
-    setProjectsExpanded(!projectsExpanded);
   };
 
   const drawerWidth = 280;
@@ -133,56 +121,6 @@ function Sidebar() {
           )}
         </List>
 
-        <Divider />
-
-        {/* Projects list section */}
-        <List>
-          <ListItemButton onClick={toggleProjectsExpanded}>
-            <ListItemIcon>
-              <Folder />
-            </ListItemIcon>
-            <ListItemText primary="My Projects" />
-            {projectsExpanded ? <ExpandLess /> : <ExpandMore />}
-          </ListItemButton>
-
-          <Collapse in={projectsExpanded} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding>
-              {projects.length === 0 ? (
-                <ListItem sx={{ pl: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    No projects yet
-                  </Typography>
-                </ListItem>
-              ) : (
-                projects.map((project) => (
-                  <ListItemButton
-                    key={project.id}
-                    sx={{ pl: 4 }}
-                    onClick={() => handleNavigation(`/design/${project.id}`)}
-                  >
-                    <ListItemText
-                      primary={project.name}
-                      secondary={!project.description?.startsWith('[') ? project.description : undefined}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                      secondaryTypographyProps={{ variant: 'caption' }}
-                    />
-                  </ListItemButton>
-                ))
-              )}
-
-              {/* New project button */}
-              <ListItemButton sx={{ pl: 4 }} onClick={() => handleNavigation('/projects')}>
-                <ListItemIcon>
-                  <AddCircle fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="New Project"
-                  primaryTypographyProps={{ variant: 'body2', color: 'primary' }}
-                />
-              </ListItemButton>
-            </List>
-          </Collapse>
-        </List>
       </div>
     </Drawer>
   );

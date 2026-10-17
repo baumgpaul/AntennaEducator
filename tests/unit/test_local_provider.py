@@ -48,12 +48,20 @@ class TestRoleFromDb:
 
 
 class TestJwtSecretConfig:
-    def test_default_secret_logs_warning(self):
-        """When JWT_SECRET_KEY is the default, a warning is logged at import time."""
-        # The warning was already emitted at module import.
-        # We verify the module-level JWT_SECRET is set (possibly the default).
-        assert JWT_SECRET is not None
-        assert len(JWT_SECRET) > 0
+    @pytest.mark.parametrize(
+        "secret",
+        ["", "your-secret-key-change-in-production", "generate-a-secure-random-key-here"],
+    )
+    @patch("backend.common.auth.local_provider.UserRepository")
+    def test_missing_or_placeholder_secret_refuses_to_start(self, mock_repo_cls, secret):
+        """A missing or publicly known secret would let anyone forge tokens."""
+        with patch("backend.common.auth.local_provider.JWT_SECRET", secret):
+            with pytest.raises(RuntimeError, match="JWT_SECRET_KEY"):
+                LocalAuthProvider()
+
+    def test_test_suite_secret_is_configured(self):
+        """conftest.py provides a non-placeholder secret for the test run."""
+        assert len(JWT_SECRET) >= 32
 
     @patch.dict(os.environ, {"JWT_SECRET_KEY": "my-super-secret-production-key"})
     def test_custom_secret_overrides_default(self):

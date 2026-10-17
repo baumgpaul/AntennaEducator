@@ -135,6 +135,16 @@ resource "aws_codebuild_project" "deploy" {
       name  = "CLOUDFRONT_DISTRIBUTION_ID"
       value = var.cloudfront_distribution_id
     }
+
+    # VITE_* build-time config for the frontend (Vite reads them from the
+    # process env), so no environment file with live endpoints is committed.
+    dynamic "environment_variable" {
+      for_each = var.frontend_build_env
+      content {
+        name  = environment_variable.key
+        value = environment_variable.value
+      }
+    }
   }
 
   cache {

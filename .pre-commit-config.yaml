@@ -19,6 +19,13 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=500]
       - id: check-merge-conflict
+      - id: detect-private-key
+
+  # ── Secrets — block credentials before they are committed ────────────
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
 
   # ── Python — Black formatter ─────────────────────────────────────────
   - repo: https://github.com/psf/black
@@ -43,12 +50,14 @@ repos:
   # ── Local hooks — tests (enforced locally before every commit) ───────
   - repo: local
     hooks:
-      # Python unit tests (~1.5 s — fast enough for every commit)
-      # Uses .venv python explicitly (system python may lack pytest).
+      # Python unit tests (~5 s — fast enough for every commit).
+      # Runs the active interpreter: commit with the project venv activated.
+      # (A relative .venv/Scripts/python.exe path is not resolvable by
+      # pre-commit on Windows, so the hook never actually ran.)
       - id: pytest-unit
         name: pytest unit tests
         language: system
-        entry: .venv/Scripts/python.exe -m pytest tests/unit/ -x -q --tb=line --no-header
+        entry: python -m pytest tests/unit/ -x -q --tb=line --no-header
         types: [python]
         pass_filenames: false
 
@@ -61,17 +70,20 @@ repos:
         pass_filenames: false
 
       # Frontend — TypeScript type-check
+      # npm --prefix runs the script inside frontend/ so tsconfig is found
+      # (npx --prefix ran from the repo root and checked nothing).
       - id: frontend-typecheck
         name: frontend typecheck
         language: system
-        entry: npx --prefix frontend tsc --noEmit
+        entry: npm --prefix frontend run typecheck
         files: ^frontend/src/
         pass_filenames: false
 
-      # Frontend — Vitest unit tests
+      # Frontend — Vitest unit tests (inside frontend/ so vitest.config.ts and
+      # its jsdom environment are used — from the root every DOM test failed)
       - id: frontend-test
         name: frontend tests
         language: system
-        entry: npx --prefix frontend vitest run --reporter=dot
+        entry: npm --prefix frontend run test:run -- --reporter=dot
         files: ^frontend/
         pass_filenames: false

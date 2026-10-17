@@ -1,5 +1,6 @@
 """Unit tests for the shared S3 client factory."""
 
+import os
 from unittest.mock import patch
 
 from backend.common.storage.s3_client import create_s3_client, default_bucket_name
@@ -38,8 +39,10 @@ class TestCreateS3Client:
 
     @patch("backend.common.storage.s3_client.boto3")
     def test_local_minio_client(self, mock_boto3):
-        """localhost endpoint adds MinIO credentials."""
-        create_s3_client(endpoint_url="http://localhost:9000", region_name="eu-west-1")
+        """localhost endpoint adds MinIO credentials (minioadmin fallback when unset)."""
+        env = {k: v for k, v in os.environ.items() if not k.startswith("AWS_")}
+        with patch.dict(os.environ, env, clear=True):
+            create_s3_client(endpoint_url="http://localhost:9000", region_name="eu-west-1")
 
         call_kwargs = mock_boto3.client.call_args
         assert call_kwargs[1]["endpoint_url"] == "http://localhost:9000"

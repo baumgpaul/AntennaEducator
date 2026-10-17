@@ -35,9 +35,13 @@ function ResultsPage() {
   const dispatch = useAppDispatch();
 
   // Redux state
-  const project = useAppSelector((state) =>
-    state.projects.items.find(p => p.id === Number(projectId))
-  );
+  // Project IDs are UUID strings (legacy: numbers) — compare as strings.
+  // fetchProject stores into currentProject, not items, so check both.
+  const project = useAppSelector((state) => {
+    const fromList = state.projects.items.find(p => String(p.id) === projectId);
+    const current = state.projects.currentProject;
+    return fromList ?? (current && String(current.id) === projectId ? current : undefined);
+  });
   const { mesh } = useAppSelector((state) => state.design);
   const { results, currentDistribution, radiationPattern } = useAppSelector((state) => state.solver);
   const loading = useAppSelector((state) => state.projects.loading);

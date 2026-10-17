@@ -1,0 +1,21 @@
+{
+  "_comment": "Template for seed_cefc_users.py. Copy to cefc_users.json (gitignored) and fill in real accounts. Never commit real e-mail addresses.",
+  "users": [
+    {
+      "email": "instructor@example.com",
+      "username": "instructor",
+      "role": "admin",
+      "simulation_tokens": 99999,
+      "flatrate_years": 1
+    }
+  ],
+  "groups": [
+    {
+      "prefix": "event2026gr",
+      "count": 20,
+      "email_domain": "event.local",
+      "role": "user",
+      "simulation_tokens": 2000
+    }
+  ]
+}

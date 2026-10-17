@@ -5,7 +5,7 @@ Tests that:
 - Token balance is checked before computation
 - 402 returned when insufficient tokens
 - Sweep cost scales with number of frequencies
-- Free endpoints (health, info, estimate) remain accessible
+- Free endpoints (health, info, materials) remain accessible
 
 Uses TestClient with mocked auth dependency.
 """
@@ -101,7 +101,7 @@ class TestSolverAuth:
         resp = client.post("/api/solve/sweep", json={})
         assert resp.status_code == 401
 
-    def test_estimate_is_public(self):
+    def test_estimate_without_auth_returns_401(self):
         from backend.solver.main import app
 
         client = TestClient(app)
@@ -109,7 +109,22 @@ class TestSolverAuth:
             "/api/estimate",
             json={"n_edges": 10, "n_frequencies": 1},
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 401
+
+    def test_estimate_with_auth_returns_200(self):
+        from backend.common.auth.dependencies import get_current_user
+        from backend.solver.main import app
+
+        app.dependency_overrides[get_current_user] = lambda: _make_user()
+        try:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/estimate",
+                json={"n_edges": 10, "n_frequencies": 1},
+            )
+            assert resp.status_code == 200
+        finally:
+            app.dependency_overrides.clear()
 
 
 # ─── Postprocessor ────────────────────────────────────────────────────────────
@@ -137,4 +152,18 @@ class TestPostprocessorAuth:
 
         client = TestClient(app)
         resp = client.post("/api/fields/far", json={})
+        assert resp.status_code == 401
+
+    def test_debug_config_without_auth_returns_401(self):
+        from backend.postprocessor.main import app
+
+        client = TestClient(app)
+        resp = client.get("/api/debug/config")
+        assert resp.status_code == 401
+
+    def test_debug_estimate_without_auth_returns_401(self):
+        from backend.postprocessor.main import app
+
+        client = TestClient(app)
+        resp = client.post("/api/debug/estimate", json={})
         assert resp.status_code == 401

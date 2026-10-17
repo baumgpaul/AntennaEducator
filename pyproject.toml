@@ -30,7 +30,7 @@ dependencies = [
     "uvicorn[standard]>=0.24.0",
     "python-multipart>=0.0.6",
     "httpx>=0.25.0",
-    "python-jose[cryptography]>=3.3.0",
+    "python-jose[cryptography]>=3.4.0",
     "passlib[bcrypt]>=1.7.4",
     "mangum>=0.17.0",
     "requests>=2.30.0",
@@ -123,6 +123,7 @@ markers = [
     "integration: Integration tests combining multiple components",
     "e2e: End-to-end tests",
     "slow: Tests that take significant time to execute",
+    "real_usage_log: Opt out of the autouse stub for token usage logging (tests of the logger itself)",
 ]
 
 [tool.coverage.run]

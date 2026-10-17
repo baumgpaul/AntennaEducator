@@ -1,0 +1,13 @@
+# gitleaks configuration — used by the pre-commit hook and the CI secret scan.
+# Extends the built-in ruleset; only add allowlist entries for verified
+# false positives, never for real credentials.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Verified false positives"
+regexes = [
+  # Documentation image keys in test fixtures (image_key: 'img_abc123')
+  '''img_(abc|def)[0-9a-z]*''',
+]
