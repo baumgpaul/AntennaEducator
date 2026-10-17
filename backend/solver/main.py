@@ -455,7 +455,10 @@ async def get_materials():
     tags=["Solver"],
     summary="Estimate solve time",
 )
-async def estimate_complexity(request: dict):
+async def estimate_complexity(
+    request: dict,
+    user: UserIdentity = Depends(get_current_user),
+):
     """Estimate solve time based on problem complexity."""
     try:
         # Check if this is a full mesh structure or simple parameters
@@ -485,7 +488,7 @@ async def estimate_complexity(request: dict):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Estimation error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Estimation error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Estimation failed")
 
 
 if __name__ == "__main__":

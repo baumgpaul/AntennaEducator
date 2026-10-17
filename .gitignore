@@ -58,6 +58,20 @@ dmypy.json
 .env.local
 .env.*.local
 
+# Real frontend env files (live endpoint/Cognito IDs) — only templates are committed
+frontend/.env.production
+frontend/.env.production.*
+frontend/.env.*.generated
+frontend/.env.*.bak
+!frontend/.env.*.example
+
+# Terraform partial backend config (account-specific state bucket)
+**/backend.hcl
+
+# Local user seed lists & generated credentials (personal data / passwords)
+dev_tools/*_users.json
+dev_tools/*credentials*.csv
+
 # Database
 *.db
 *.sqlite

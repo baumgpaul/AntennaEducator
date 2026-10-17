@@ -19,6 +19,13 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=500]
       - id: check-merge-conflict
+      - id: detect-private-key
+
+  # ── Secrets — block credentials before they are committed ────────────
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
 
   # ── Python — Black formatter ─────────────────────────────────────────
   - repo: https://github.com/psf/black

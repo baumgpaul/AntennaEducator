@@ -451,7 +451,7 @@ def _generate_vtu_xml(
 
 
 @app.get(f"{settings.api_prefix}/debug/config")
-async def debug_config():
+async def debug_config(user: UserIdentity = Depends(get_current_user)):
     """Return current configuration for debugging (no secrets)."""
     import sys
 
@@ -470,7 +470,10 @@ async def debug_config():
 
 
 @app.post(f"{settings.api_prefix}/debug/estimate")
-async def estimate_computation(request: FieldRequest):
+async def estimate_computation(
+    request: FieldRequest,
+    user: UserIdentity = Depends(get_current_user),
+):
     """Estimate computation time without actually computing.
 
     Useful for pre-flight checks before committing to a long computation.
