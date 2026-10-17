@@ -78,6 +78,24 @@ async def health_check():
     )
 
 
+def _ensure_finite(**values) -> None:
+    """Reject results that cannot be represented in JSON (NaN/inf).
+
+    Typically the source current is zero (open feed), which makes the input
+    impedance infinite. Used to surface as an opaque 500 (B29).
+    """
+    bad = [name for name, v in values.items() if not np.all(np.isfinite(np.asarray(v)))]
+    if bad:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Solution is undefined ({', '.join(bad)} not finite). This usually "
+                "means the source current is zero — check the source amplitude and "
+                "that the feed is connected."
+            ),
+        )
+
+
 def _convert_sources(request):
     """Convert API source models to internal models."""
     voltage_sources = [
@@ -181,6 +199,14 @@ async def solve_single_frequency_endpoint(
         )
 
         solve_time = time.time() - start_time
+
+        _ensure_finite(
+            input_impedance=result.input_impedance,
+            reflection_coefficient=result.reflection_coefficient,
+            return_loss=result.return_loss,
+            input_power=result.input_power,
+            branch_currents=result.branch_currents,
+        )
 
         # Build response
         return FrequencyPointResponse(
@@ -298,6 +324,14 @@ async def solve_frequency_sweep_endpoint(
                 )
             )
 
+        _ensure_finite(
+            impedance=result.impedance_magnitude,
+            impedance_phase=result.impedance_phase,
+            return_loss=result.return_loss,
+            vswr=result.vswr,
+            mismatch_loss=result.mismatch_loss,
+        )
+
         # Build response
         response = SweepResultResponse(
             frequencies=request.frequencies,
@@ -384,6 +418,19 @@ async def solve_multi_antenna_endpoint(
 
         # Update solve time
         result["solve_time"] = solve_time
+
+        # Optional impedance: undefined (zero feed current) -> null, not a JSON 500 (B29)
+        for sol in result.get("antenna_solutions", []):
+            z = sol.get("input_impedance") if isinstance(sol, dict) else None
+            if z is not None and not np.isfinite(z):
+                sol["input_impedance"] = None
+        _ensure_finite(
+            branch_currents=[
+                c
+                for sol in result.get("antenna_solutions", [])
+                for c in sol.get("branch_currents", [])
+            ]
+        )
 
         # Return response matching schema
         return MultiAntennaSolutionResponse(**result)

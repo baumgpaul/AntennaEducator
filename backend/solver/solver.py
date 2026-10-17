@@ -484,7 +484,8 @@ def solve_peec_frequency_sweep(
     vswr = np.clip(vswr, 1.0, 100.0)  # Clip extreme values
 
     # Compute mismatch loss: ML = -10*log10(1 - |Γ|²) [dB]
-    mismatch_loss = -10.0 * np.log10(1.0 - gamma_mag**2 + 1e-12)
+    # |Γ| can exceed 1 numerically (or for active loads): clamp before log10
+    mismatch_loss = -10.0 * np.log10(np.clip(1.0 - gamma_mag**2, 1e-12, None))
     mismatch_loss = np.clip(mismatch_loss, 0.0, 50.0)  # Clip to reasonable range
 
     total_time = time.time() - start_time

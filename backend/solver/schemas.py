@@ -3,7 +3,31 @@
 import math
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+def _coerce_complex(v):
+    """Accept the project-wide ``{"real": .., "imag": ..}`` form (B45)."""
+    if isinstance(v, dict) and "real" in v:
+        return complex(float(v["real"]), float(v.get("imag", 0.0)))
+    return v
+
+
+def _validate_edges(edges: List[List[int]], n_nodes: int) -> None:
+    """Edges are [start, end]: 1-based node indices, 0 = ground, negative =
+    appended nodes. Out-of-range node indices used to crash the solver (B26)."""
+    for i, edge in enumerate(edges):
+        if len(edge) != 2:
+            raise ValueError(f"edge {i} must have exactly 2 node indices, got {len(edge)}")
+        a, b = edge
+        for idx in (a, b):
+            if idx > n_nodes:
+                raise ValueError(
+                    f"edge {i} references node {idx}, but there are only {n_nodes} nodes "
+                    "(indices are 1-based)"
+                )
+        if a == b:
+            raise ValueError(f"edge {i} connects node {a} to itself")
 
 
 class SolverConfiguration(BaseModel):
@@ -39,6 +63,8 @@ class VoltageSourceInput(BaseModel):
     L: float = Field(0.0, description="Inductance [H]")
     C_inv: float = Field(0.0, description="Inverse capacitance [1/F]")
 
+    _coerce_value = field_validator("value", mode="before")(_coerce_complex)
+
 
 class CurrentSourceInput(BaseModel):
     """Current source specification."""
@@ -48,6 +74,8 @@ class CurrentSourceInput(BaseModel):
     node_end: Optional[int] = Field(
         None, description="Return node for two-terminal current source (closed loop feed)"
     )
+
+    _coerce_value = field_validator("value", mode="before")(_coerce_complex)
 
 
 class LoadInput(BaseModel):
@@ -76,6 +104,11 @@ class SingleFrequencyRequest(BaseModel):
     loads: List[LoadInput] = Field(default_factory=list)
     config: Optional[SolverConfiguration] = None
 
+    @model_validator(mode="after")
+    def validate_edges(self):
+        _validate_edges(self.edges, len(self.nodes))
+        return self
+
     @field_validator("frequency")
     @classmethod
     def validate_frequency(cls, v):
@@ -101,7 +134,19 @@ class FrequencySweepRequest(BaseModel):
     current_sources: List[CurrentSourceInput] = Field(default_factory=list)
     loads: List[LoadInput] = Field(default_factory=list)
     config: Optional[SolverConfiguration] = None
-    reference_impedance: float = Field(50.0, description="Reference Z0 for VSWR [Ω]")
+    reference_impedance: float = Field(50.0, gt=0, description="Reference Z0 for VSWR [Ω]")
+
+    @model_validator(mode="after")
+    def validate_edges(self):
+        _validate_edges(self.edges, len(self.nodes))
+        return self
+
+    @field_validator("reference_impedance")
+    @classmethod
+    def validate_reference_impedance(cls, v):
+        if not math.isfinite(v):
+            raise ValueError("reference_impedance must be finite (B27)")
+        return v
 
     @field_validator("frequencies")
     @classmethod
@@ -194,6 +239,11 @@ class AntennaInput(BaseModel):
     voltage_sources: List[VoltageSourceInput] = Field(default_factory=list)
     current_sources: List[CurrentSourceInput] = Field(default_factory=list)
     loads: List[LoadInput] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_edges(self):
+        _validate_edges(self.edges, len(self.nodes))
+        return self
 
 
 class MultiAntennaRequest(BaseModel):
