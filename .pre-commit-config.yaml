@@ -43,12 +43,14 @@ repos:
   # ── Local hooks — tests (enforced locally before every commit) ───────
   - repo: local
     hooks:
-      # Python unit tests (~1.5 s — fast enough for every commit)
-      # Uses .venv python explicitly (system python may lack pytest).
+      # Python unit tests (~5 s — fast enough for every commit).
+      # Runs the active interpreter: commit with the project venv activated.
+      # (A relative .venv/Scripts/python.exe path is not resolvable by
+      # pre-commit on Windows, so the hook never actually ran.)
       - id: pytest-unit
         name: pytest unit tests
         language: system
-        entry: .venv/Scripts/python.exe -m pytest tests/unit/ -x -q --tb=line --no-header
+        entry: python -m pytest tests/unit/ -x -q --tb=line --no-header
         types: [python]
         pass_filenames: false
 

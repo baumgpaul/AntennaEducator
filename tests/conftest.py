@@ -2,6 +2,19 @@
 Shared test fixtures and configuration.
 """
 
+import os
+
+# LocalAuthProvider refuses to start without a real secret; set one before any
+# backend module is imported. Test-only value — never used outside pytest.
+os.environ.setdefault("JWT_SECRET_KEY", "pytest-only-jwt-secret-0123456789abcdef")
+
+# Never let unit tests reach real AWS through the developer's default profile.
+# Set before backend imports; load_dotenv() in some services does not override.
+os.environ.pop("AWS_PROFILE", None)
+os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+os.environ.setdefault("AWS_DEFAULT_REGION", "eu-west-1")
+
 import numpy as np
 import pytest
 
@@ -108,3 +121,16 @@ def assert_vectors_close(v1, v2, rtol=1e-9, atol=1e-12):
 def assert_complex_close(z1, z2, rtol=1e-9, atol=1e-12):
     """Assert that two complex numbers are close."""
     assert abs(z1 - z2) < atol + rtol * abs(z2)
+
+
+@pytest.fixture(autouse=True)
+def _stub_token_usage_log(request, monkeypatch):
+    """Compute endpoints write a usage-log row to DynamoDB on every request.
+
+    Unit tests must not depend on a reachable DynamoDB — without one every call
+    waits on connection retries, which made the suite take 13+ minutes. Tests of
+    the logger itself opt out with ``@pytest.mark.real_usage_log``.
+    """
+    if request.node.get_closest_marker("real_usage_log"):
+        return
+    monkeypatch.setattr("backend.common.auth.token_dependency._log_usage", lambda **kwargs: None)

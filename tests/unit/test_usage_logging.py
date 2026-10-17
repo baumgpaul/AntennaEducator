@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.real_usage_log
+
 # ── UsageLogEntry model ──────────────────────────────────────────────────────
 
 
