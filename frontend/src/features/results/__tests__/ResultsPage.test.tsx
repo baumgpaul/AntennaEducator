@@ -9,12 +9,14 @@ import designReducer from '@/store/designSlice';
 import solverReducer from '@/store/solverSlice';
 import uiReducer from '@/store/uiSlice';
 
+const routeParams = vi.hoisted(() => ({ projectId: '1' }));
+
 // Mock react-router-dom
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
-    useParams: () => ({ projectId: '1' }),
+    useParams: () => routeParams,
     useNavigate: () => vi.fn(),
   };
 });
@@ -268,6 +270,34 @@ describe('ResultsPage', () => {
       );
 
       expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    });
+  });
+
+  describe('UUID project IDs (B4)', () => {
+    it('finds the project by its UUID string id', () => {
+      routeParams.projectId = '3f2a9c1e-8b7d-4e2f-9a6b-1c2d3e4f5a6b';
+      try {
+        const store = createTestStore({
+          projects: {
+            items: [{ id: '3f2a9c1e-8b7d-4e2f-9a6b-1c2d3e4f5a6b', name: 'UUID Project', description: '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }],
+            currentProject: null,
+            loading: false,
+            error: null,
+          },
+        });
+
+        render(
+          <Provider store={store}>
+            <BrowserRouter>
+              <ResultsPage />
+            </BrowserRouter>
+          </Provider>
+        );
+
+        expect(screen.getByText(/Results: UUID Project/)).toBeInTheDocument();
+      } finally {
+        routeParams.projectId = '1';
+      }
     });
   });
 });
