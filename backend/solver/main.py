@@ -1,5 +1,6 @@
 """FastAPI application for the Solver service."""
 
+import os
 import time
 from datetime import datetime, timezone
 
@@ -46,13 +47,14 @@ app = FastAPI(
 )
 
 # Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=settings.cors_credentials,
-    allow_methods=settings.cors_methods,
-    allow_headers=settings.cors_headers,
-)
+if os.getenv("USE_FUNCTION_URL_CORS", "").lower() != "true":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=settings.cors_credentials,
+        allow_methods=settings.cors_methods,
+        allow_headers=settings.cors_headers,
+    )
 
 install_error_handlers(app)
 

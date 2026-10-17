@@ -1,5 +1,6 @@
 """FastAPI application for the Preprocessor service."""
 
+import os
 from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -45,13 +46,14 @@ app = FastAPI(
     openapi_url=f"{settings.api_prefix}/openapi.json",
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=settings.cors_credentials,
-    allow_methods=settings.cors_methods,
-    allow_headers=settings.cors_headers,
-)
+if os.getenv("USE_FUNCTION_URL_CORS", "").lower() != "true":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=settings.cors_credentials,
+        allow_methods=settings.cors_methods,
+        allow_headers=settings.cors_headers,
+    )
 
 install_error_handlers(app)
 

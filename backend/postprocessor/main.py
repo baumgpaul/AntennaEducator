@@ -2,6 +2,7 @@
 
 # noqa: trigger CI build
 import base64
+import os
 import time
 from datetime import datetime, timezone
 
@@ -42,13 +43,14 @@ app = FastAPI(
 )
 
 # Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=settings.cors_credentials,
-    allow_methods=settings.cors_methods,
-    allow_headers=settings.cors_headers,
-)
+if os.getenv("USE_FUNCTION_URL_CORS", "").lower() != "true":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=settings.cors_credentials,
+        allow_methods=settings.cors_methods,
+        allow_headers=settings.cors_headers,
+    )
 
 # Compress responses to stay within Lambda 6 MB payload limit.
 # GZip middleware is added after CORS so it wraps outermost —

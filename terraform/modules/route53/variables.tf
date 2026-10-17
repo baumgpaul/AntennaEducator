@@ -40,6 +40,12 @@ variable "cloudfront_hosted_zone_id" {
   default     = ""
 }
 
+variable "create_cloudfront_records" {
+  description = "Whether to create A/AAAA alias records pointing to CloudFront (set false only if no CloudFront distribution is provided)"
+  type        = bool
+  default     = true
+}
+
 variable "create_www_subdomain" {
   description = "Whether to create www subdomain"
   type        = bool
