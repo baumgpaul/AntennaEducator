@@ -8,6 +8,11 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     ignore:
+      # MUI majors must move together (material, icons-material,
+      # mui-color-input) and need a planned migration (5 -> 7+ changes Grid,
+      # removes system props, ...). Minor/patch updates still come through.
+      - dependency-name: "@mui/*"
+        update-types: ["version-update:semver-major"]
       - dependency-name: mui-color-input
         versions: [">=5"]
       # 0.5 requires ESLint 9 (flat config migration not done yet)
