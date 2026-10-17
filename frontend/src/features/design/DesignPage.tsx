@@ -32,9 +32,8 @@ import {
 } from '@/store/designSlice';
 import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification, showSuccess } from '@/store/uiSlice';
-import { runMultiAntennaSimulation, computeRadiationPattern, runFrequencySweep, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
+import { runMultiAntennaSimulation, computeRadiationPattern, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
 import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';
-import type { FrequencySweepParams, MultiAntennaRequest } from '@/types/api';
 import type { Source } from '@/types/models';
 import {
   buildMultiAntennaRequest,
@@ -54,7 +53,6 @@ import { RodDialog } from './RodDialog';
 import { CustomAntennaDialog } from './CustomAntennaDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
-import { FrequencySweepDialog } from './FrequencySweepDialog';
 import { CircuitEditor } from './circuit';
 import ResultsPanel from './ResultsPanel';
 import { SolverTab } from './SolverTab';
@@ -166,7 +164,6 @@ function DesignPage() {
   const [lumpedDialogOpen, setLumpedDialogOpen] = useState(false);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [circuitEditorOpen, setCircuitEditorOpen] = useState(false);
-  const [frequencySweepDialogOpen, setFrequencySweepDialogOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -395,10 +392,12 @@ function DesignPage() {
     };
   }, [elements?.length]); // Only depend on length, not full array
 
-  // Auto-save when requested fields change
+  // Auto-save when requested fields (or elements) change.
+  // Also when both are empty: deleting the last element must be persisted,
+  // otherwise it reappears after a reload (TEST_PLAN B7).
   useEffect(() => {
     if (projectLoadingRef.current) return; // Skip during project load
-    if (projectId && (elements.length > 0 || requestedFields.length > 0)) {
+    if (projectId) {
       console.log('Requested fields changed, saving...');
       saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
     }
@@ -998,9 +997,6 @@ function DesignPage() {
           duration: 4000,
         }));
       }
-    } else if (action === 'frequency-sweep') {
-      // Open frequency sweep dialog
-      setFrequencySweepDialogOpen(true);
     } else if (action === 'generate-mesh') {
       dispatch(addNotification({
         id: Date.now(),
@@ -1016,85 +1012,6 @@ function DesignPage() {
     // TODO: Implement view changes (camera presets, visualization modes)
     if (option === 'toggle-grid') {
       setGridVisible(!gridVisible);
-    }
-  };
-
-  const handleFrequencySweep = async (params: FrequencySweepParams) => {
-    console.log('Starting frequency sweep:', params);
-
-    // Check if we have elements
-    if (!elements || elements.length === 0) {
-      dispatch(addNotification({
-        id: Date.now(),
-        message: 'No antenna elements. Please create an antenna first.',
-        severity: 'warning',
-        duration: 5000,
-      }));
-      return;
-    }
-
-    // Count simulation-ready elements
-    const readyCount = countSimulationReadyElements(elements);
-    if (readyCount === 0) {
-      dispatch(addNotification({
-        id: Date.now(),
-        message: 'No valid elements for simulation. Ensure elements are visible, unlocked, and have meshes.',
-        severity: 'warning',
-        duration: 5000,
-      }));
-      return;
-    }
-
-    // Validate at least one element has a source
-    if (!validateHasSources(elements)) {
-      dispatch(addNotification({
-        id: Date.now(),
-        message: 'No voltage source defined. At least one element must have a source to run simulation.',
-        severity: 'warning',
-        duration: 5000,
-      }));
-      return;
-    }
-
-    try {
-      // Build base multi-antenna request (without frequency)
-      const baseRequest = buildMultiAntennaRequest(elements, params.startFrequency) as MultiAntennaRequest;
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { frequency: _, ...requestWithoutFreq } = baseRequest;
-
-      dispatch(addNotification({
-        id: Date.now(),
-        message: `Starting frequency sweep: ${params.numPoints} points from ${(params.startFrequency / 1e6).toFixed(1)} to ${(params.stopFrequency / 1e6).toFixed(1)} MHz...`,
-        severity: 'info',
-        duration: 3000,
-      }));
-
-      // Close dialog
-      setFrequencySweepDialogOpen(false);
-
-      // Run frequency sweep
-      await dispatch(runFrequencySweep({
-        params,
-        request: requestWithoutFreq as MultiAntennaRequest,
-      })).unwrap();
-
-      dispatch(addNotification({
-        id: Date.now(),
-        message: `Frequency sweep completed successfully! ${params.numPoints} frequencies solved.`,
-        severity: 'success',
-        duration: 5000,
-      }));
-
-      // Auto-open results panel
-      setShowResultsPanel(true);
-    } catch (error: any) {
-      dispatch(addNotification({
-        id: Date.now(),
-        message: `Frequency sweep failed: ${error}`,
-        severity: 'error',
-        duration: 7000,
-      }));
     }
   };
 
@@ -1415,12 +1332,6 @@ function DesignPage() {
             ? getTerminalNodeIndices(elements.find(el => el.id === selectedElementId)!)
             : []
         }
-      />
-      <FrequencySweepDialog
-        open={frequencySweepDialogOpen}
-        onClose={() => setFrequencySweepDialogOpen(false)}
-        onSubmit={handleFrequencySweep}
-        isLoading={solverStatus === 'running' || solverStatus === 'preparing'}
       />
 
       {/* Postprocessing Dialogs */}

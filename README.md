@@ -110,6 +110,12 @@ python dev_tools/test_aws_pipeline.py
 
 Infrastructure is managed with Terraform in `terraform/`.
 
+New accounts must be approved by an admin. On a fresh deployment, sign up once and make that account the first admin:
+
+```bash
+python dev_tools/make_admin.py you@example.com --table antenna-simulator-staging --profile antenna-staging
+```
+
 ## Project Structure
 
 ```

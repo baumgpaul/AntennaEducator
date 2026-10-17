@@ -12,6 +12,25 @@ from backend.common.utils import validate_lumped_element_nodes
 logger = logging.getLogger(__name__)
 
 
+def _segment_position(pos, default_names: tuple, antenna: str):
+    """Validate a source ``position``: an int segment index, or a named default.
+
+    Returns the int index, or None for the default feed ("center" is the request
+    schema's default for every antenna type, so it means "default feed" here).
+    Unknown names used to be silently ignored (the source stayed at the default
+    feed, TEST_PLAN B20).
+    """
+    if pos is None or (isinstance(pos, str) and pos in default_names):
+        return None
+    if isinstance(pos, int) and not isinstance(pos, bool):
+        return pos
+    allowed = ", ".join(repr(n) for n in default_names)
+    raise ValueError(
+        f"Unsupported source position {pos!r} for a {antenna}: use {allowed} "
+        "or an integer segment index"
+    )
+
+
 def create_dipole(
     length: float,
     center_position: Tuple[float, float, float] = (0.0, 0.0, 0.0),
@@ -358,12 +377,11 @@ def create_loop(
                 node_end = 1  # First node (1-based)
 
             # Allow custom positioning if specified
-            if "position" in source:
-                pos = source["position"]
-                if isinstance(pos, int):
-                    # Custom position: between node pos and pos+1
-                    node_start = pos + 1  # Convert to 1-based
-                    node_end = pos + 2
+            pos = _segment_position(source.get("position"), ("gap", "center"), "loop")
+            if pos is not None:
+                # Custom position: between node pos and pos+1
+                node_start = pos + 1  # Convert to 1-based
+                node_end = pos + 2
 
             source_objs.append(
                 Source(
@@ -391,12 +409,11 @@ def create_loop(
                 node_end = segments  # Current extracted here (return terminal)
 
             # Allow custom positioning if specified
-            if "position" in source:
-                pos = source["position"]
-                if isinstance(pos, int):
-                    node_start = pos + 1  # Convert to 1-based
-                    if gap == 0:
-                        node_end = pos + 2  # Two-terminal for closed loops
+            pos = _segment_position(source.get("position"), ("gap", "center"), "loop")
+            if pos is not None:
+                node_start = pos + 1  # Convert to 1-based
+                if gap == 0:
+                    node_end = pos + 2  # Two-terminal for closed loops
 
             source_objs.append(
                 Source(
@@ -616,12 +633,11 @@ def create_rod(
         node_start = 0  # Ground node
         node_end = 1  # First mesh node (1-based)
 
-        if "position" in source:
-            pos = source["position"]
-            if isinstance(pos, int):
-                # Custom position: between node pos and pos+1
-                node_start = pos + 1  # Convert to 1-based
-                node_end = pos + 2
+        pos = _segment_position(source.get("position"), ("base", "center"), "rod")
+        if pos is not None:
+            # Custom position: between node pos and pos+1
+            node_start = pos + 1  # Convert to 1-based
+            node_end = pos + 2
 
         # Convert amplitude dict to complex number
         amp = source["amplitude"]

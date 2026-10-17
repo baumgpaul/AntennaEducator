@@ -19,10 +19,9 @@ import type {
   ParameterStudyConfig,
   ParameterStudyResult,
   ParameterPointResult,
-  GridPoint,
   MeshSnapshot,
 } from '@/types/parameterStudy';
-import { buildSweepGrid, needsRemesh } from '@/types/parameterStudy';
+import { buildSweepGrid, geometryChanged } from '@/types/parameterStudy';
 import type { MultiAntennaRequest } from '@/types/api';
 import { solveMultiAntenna } from '@/api/solver';
 import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
@@ -107,6 +106,26 @@ export const runParameterStudy = createAsyncThunk<
   async (config, { getState, dispatch, rejectWithValue }) => {
     const startTime = performance.now();
 
+    // Bring expression-linked elements back to the user's own variable values.
+    // Runs after a successful sweep and (best effort) after a failed one, which
+    // used to leave the 3D view at the last swept geometry (B31).
+    const restoreNominalGeometry = async () => {
+      const postSweepState = getState();
+      const nominalCtx = buildOverriddenContext(postSweepState.variables.variables, {});
+      for (const element of postSweepState.design.elements) {
+        if (!element.visible || element.locked) continue;
+        if (element.expressions && Object.keys(element.expressions).length > 0) {
+          const resolved = resolveElementExpressions(element.expressions, nominalCtx);
+          if (Object.keys(resolved).length > 0) {
+            await dispatch(
+              remeshElementExpressions({ elementId: element.id, resolvedValues: resolved }),
+            ).unwrap();
+          }
+        }
+      }
+      return nominalCtx;
+    };
+
     try {
       // 1. Build the grid
       const gridPoints = buildSweepGrid(config);
@@ -115,7 +134,8 @@ export const runParameterStudy = createAsyncThunk<
       }
 
       const results: ParameterPointResult[] = [];
-      let prevPoint: GridPoint | null = null;
+      // Resolved geometry per element at the previous point (B30)
+      const lastResolved = new Map<string, Record<string, number>>();
 
       for (let i = 0; i < gridPoints.length; i++) {
         const point = gridPoints[i];
@@ -129,23 +149,21 @@ export const runParameterStudy = createAsyncThunk<
         const variables = state.variables.variables;
         const ctx = buildOverriddenContext(variables, point.values);
 
-        // 4. Remesh if geometry changed
-        if (needsRemesh(prevPoint, point)) {
-          const elements = state.design.elements;
-          for (const element of elements) {
-            if (!element.visible || element.locked) continue;
-            if (element.expressions && Object.keys(element.expressions).length > 0) {
-              const resolved = resolveElementExpressions(element.expressions, ctx);
-              if (Object.keys(resolved).length > 0) {
-                await dispatch(
-                  remeshElementExpressions({
-                    elementId: element.id,
-                    resolvedValues: resolved,
-                  }),
-                ).unwrap();
-              }
-            }
-          }
+        // 4. Remesh elements whose resolved geometry changed at this point
+        let remeshed = false;
+        for (const element of state.design.elements) {
+          if (!element.visible || element.locked) continue;
+          if (!element.expressions || Object.keys(element.expressions).length === 0) continue;
+          const resolved = resolveElementExpressions(element.expressions, ctx);
+          if (Object.keys(resolved).length === 0) continue;
+          if (!geometryChanged(lastResolved.get(element.id), resolved)) continue;
+          await dispatch(
+            remeshElementExpressions({ elementId: element.id, resolvedValues: resolved }),
+          ).unwrap();
+          lastResolved.set(element.id, resolved);
+          remeshed = true;
+        }
+        if (remeshed) {
           // Yield to the event loop so React can repaint the updated geometry
           await new Promise((r) => setTimeout(r, 0));
         }
@@ -205,25 +223,10 @@ export const runParameterStudy = createAsyncThunk<
           meshSnapshots,
         });
 
-        prevPoint = point;
       }
 
       // Restore all expression-linked elements to the nominal variable context.
-      // After the sweep the mesh may reflect the last swept geometry; bring it
-      // back to the current user-set variable values so the 3D view is correct.
-      const postSweepState = getState();
-      const nominalCtx = buildOverriddenContext(postSweepState.variables.variables, {});
-      for (const element of postSweepState.design.elements) {
-        if (!element.visible || element.locked) continue;
-        if (element.expressions && Object.keys(element.expressions).length > 0) {
-          const resolved = resolveElementExpressions(element.expressions, nominalCtx);
-          if (Object.keys(resolved).length > 0) {
-            await dispatch(
-              remeshElementExpressions({ elementId: element.id, resolvedValues: resolved }),
-            ).unwrap();
-          }
-        }
-      }
+      const nominalCtx = await restoreNominalGeometry();
 
       // 7. Final nominal solve — populate state.results / state.multiAntennaResults
       //    so that postprocessing (field computation, directivity) can work after a sweep.
@@ -258,6 +261,11 @@ export const runParameterStudy = createAsyncThunk<
         totalTimeMs: performance.now() - startTime,
       };
     } catch (error: any) {
+      try {
+        await restoreNominalGeometry();
+      } catch {
+        // Best effort: keep reporting the original failure
+      }
       return rejectWithValue(
         error?.message || 'Parameter study failed',
       );

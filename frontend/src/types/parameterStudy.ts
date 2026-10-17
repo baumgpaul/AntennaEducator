@@ -166,8 +166,31 @@ export function needsRemesh(
 ): boolean {
   if (!prev) return true; // first point always meshes
   for (const [name, value] of Object.entries(next.values)) {
-    if (name === 'freq') continue; // freq is solver-only
+    if (name === 'freq' || name === 'frequency') continue; // solver-only by convention
     if (prev.values[name] !== value) return true;
+  }
+  return false;
+}
+
+/**
+ * Did an element's resolved geometry values change between two sweep points?
+ *
+ * The parameter study decides per element with this instead of guessing from
+ * variable names: sweeping `frequency` used to remesh at every point (B30), and
+ * geometry that depends on `freq` (e.g. length = c / freq / 2) was never
+ * remeshed at all.
+ */
+export function geometryChanged(
+  prev: Record<string, number> | undefined,
+  next: Record<string, number>,
+): boolean {
+  if (!prev) return true;
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+  for (const key of keys) {
+    const a = prev[key];
+    const b = next[key];
+    if (a === undefined || b === undefined) return true;
+    if (Math.abs(a - b) > 1e-12 * Math.max(1, Math.abs(a), Math.abs(b))) return true;
   }
   return false;
 }
