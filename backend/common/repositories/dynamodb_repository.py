@@ -183,12 +183,13 @@ class DynamoDBProjectRepository(ProjectRepository):
         ui_state: Optional[Dict] = None,
         documentation: Optional[Dict] = None,
         folder_id: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        project = await self.get_project(project_id)
-        if not project:
-            raise ValueError(f"Project {project_id} not found")
-
-        user_id = project["user_id"]
+        if user_id is None:
+            project = await self.get_project(project_id)
+            if not project:
+                raise ValueError(f"Project {project_id} not found")
+            user_id = project["user_id"]
         now = datetime.now(timezone.utc).isoformat()
 
         parts = ["SET UpdatedAt = :updated"]

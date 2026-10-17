@@ -77,4 +77,6 @@ phases:
     commands:
       - echo "=== Running smoke tests ==="
       - cd $CODEBUILD_SRC_DIR && python dev_tools/test_aws_pipeline.py
+      # Course content is seeded manually (dev_tools/seed_courses.py) — it needs
+      # admin credentials, which CI does not hold.
       - echo "Deployment complete!"

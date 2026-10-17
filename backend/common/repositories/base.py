@@ -66,6 +66,7 @@ class ProjectRepository(ABC):
         ui_state: Optional[Dict] = None,
         documentation: Optional[Dict] = None,
         folder_id: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]: ...
 
     @abstractmethod

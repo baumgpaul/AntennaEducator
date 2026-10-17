@@ -1,0 +1,14 @@
+{
+  "name": "Antenna Theory with 1D PEEC",
+  "description": "A hands-on introduction to antenna theory using the 1D Partial Element Equivalent Circuit (PEEC) method. Covers fundamental parameters, current distributions, field theory, polarization, radiation patterns, loop antennas, and linear arrays — all illustrated with interactive simulations.",
+  "version": "1.0.0",
+  "modules": [
+    "01_fundamental_parameters",
+    "02_current_distribution",
+    "03_hertz_dipole_field_theory",
+    "04_wave_polarization",
+    "05_radiation_pattern",
+    "06_loop_antenna",
+    "07_linear_arrays"
+  ]
+}
