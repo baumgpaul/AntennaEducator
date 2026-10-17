@@ -16,9 +16,9 @@ hitting DynamoDB on every single request.
 
 import logging
 import time
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from backend.common.auth.factory import create_auth_provider
@@ -27,7 +27,26 @@ from backend.common.auth.identity import UserIdentity
 logger = logging.getLogger(__name__)
 
 # FastAPI extracts the token from the ``Authorization: Bearer <token>`` header
-_bearer_scheme = HTTPBearer()
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+# Behind CloudFront with Origin Access Control, CloudFront signs the request to
+# the Lambda Function URL by *overwriting* the Authorization header, so the
+# frontend sends the access token in this header as well (it wins when set).
+ACCESS_TOKEN_HEADER = "x-access-token"
+
+
+def _extract_token(request: Request, credentials: Optional[HTTPAuthorizationCredentials]) -> str:
+    token = request.headers.get(ACCESS_TOKEN_HEADER)
+    if token:
+        return token.removeprefix("Bearer ").strip()
+    if credentials is not None and credentials.scheme.lower() == "bearer":
+        return credentials.credentials
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
 
 # ── In-memory profile cache ─────────────────────────────────────────
 # Avoids a DynamoDB GetItem on every authenticated request.
@@ -44,7 +63,7 @@ def invalidate_profile_cache(user_id: str) -> None:
 _PENDING_DETAIL = "Account is pending approval by an administrator."
 
 
-async def _resolve_user(credentials: HTTPAuthorizationCredentials) -> UserIdentity:
+async def _resolve_user(token: str) -> UserIdentity:
     """Validate the bearer token and return the (cached) profile.
 
     Raises:
@@ -52,7 +71,6 @@ async def _resolve_user(credentials: HTTPAuthorizationCredentials) -> UserIdenti
         HTTPException 403: user account is locked.
     """
     provider = create_auth_provider()
-    token = credentials.credentials
 
     # 1. Validate token (signature + expiry)
     try:
@@ -92,7 +110,8 @@ async def _resolve_user(credentials: HTTPAuthorizationCredentials) -> UserIdenti
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
 ) -> UserIdentity:
     """FastAPI dependency — returns the authenticated, **approved** ``UserIdentity``.
 
@@ -100,18 +119,19 @@ async def get_current_user(
         HTTPException 401: invalid / expired token, unknown user.
         HTTPException 403: account locked or still pending admin approval.
     """
-    user = await _resolve_user(credentials)
+    user = await _resolve_user(_extract_token(request, credentials))
     if not user.is_approved:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_PENDING_DETAIL)
     return user
 
 
 async def get_current_user_allow_pending(
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
 ) -> UserIdentity:
     """Like ``get_current_user`` but also admits accounts awaiting approval.
 
     Only for endpoints a pending user needs (``/api/auth/me``), so the
     frontend can show "waiting for approval" instead of a generic error.
     """
-    return await _resolve_user(credentials)
+    return await _resolve_user(_extract_token(request, credentials))

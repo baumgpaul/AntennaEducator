@@ -26,6 +26,26 @@ const getAuthURL = () => {
   return (import.meta.env.VITE_AUTH_URL as string) || getProjectsURL()
 }
 
+// Behind CloudFront with Origin Access Control, CloudFront signs requests to
+// the Lambda Function URLs by overwriting the Authorization header. The token
+// therefore also travels in X-Access-Token (the backend prefers it), and
+// request bodies carry their SHA-256 in x-amz-content-sha256, which the
+// Lambda URL signature requires for POST/PUT/PATCH.
+const API_BEHIND_CLOUDFRONT = import.meta.env.VITE_API_BEHIND_CLOUDFRONT === 'true'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const setAuthHeaders = (headers: any, token: string) => {
+  headers.Authorization = `Bearer ${token}`
+  headers['X-Access-Token'] = token
+}
+
+export async function sha256Hex(body: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body))
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
 // Token refresh state management
 let isRefreshing = false
 let failedQueue: Array<{
@@ -102,7 +122,7 @@ const createApiClient = (baseURL: string): AxiosInstance => {
 
   // Request interceptor - add auth token if available
   instance.interceptors.request.use(
-    (config) => {
+    async (config) => {
       // Development mode: use stub token if auth is disabled
       const authEnabled = import.meta.env.VITE_ENABLE_AUTH === 'true'
 
@@ -115,7 +135,14 @@ const createApiClient = (baseURL: string): AxiosInstance => {
       }
 
       if (token) {
-        config.headers.Authorization = `Bearer ${token}`
+        setAuthHeaders(config.headers, token)
+      }
+
+      if (API_BEHIND_CLOUDFRONT && config.data !== undefined && config.data !== null) {
+        // Serialize here so the hash covers exactly the bytes that are sent
+        const body = typeof config.data === 'string' ? config.data : JSON.stringify(config.data)
+        config.data = body
+        config.headers['x-amz-content-sha256'] = await sha256Hex(body)
       }
       return config
     },
@@ -188,7 +215,7 @@ const createApiClient = (baseURL: string): AxiosInstance => {
           })
             .then((token) => {
               if (originalRequest.headers) {
-                originalRequest.headers.Authorization = `Bearer ${token}`
+                setAuthHeaders(originalRequest.headers, String(token))
               }
               return instance(originalRequest)
             })
@@ -205,7 +232,7 @@ const createApiClient = (baseURL: string): AxiosInstance => {
           processQueue(null, newToken)
 
           if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`
+            setAuthHeaders(originalRequest.headers, newToken)
           }
 
           return instance(originalRequest)
@@ -266,5 +293,3 @@ export const handleApiError = (error: unknown): ApiError => {
     message: error instanceof Error ? error.message : 'Unknown error',
   }
 }
-
-

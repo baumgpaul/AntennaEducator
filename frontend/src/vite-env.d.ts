@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_PREPROCESSOR_URL: string
   readonly VITE_SOLVER_URL: string
   readonly VITE_POSTPROCESSOR_URL: string
+  readonly VITE_API_BEHIND_CLOUDFRONT?: string
 }
 
 interface ImportMeta {
