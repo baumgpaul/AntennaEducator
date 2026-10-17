@@ -26,10 +26,13 @@ References:
 Author: PEEC Solver Development
 """
 
+import logging
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -492,6 +495,13 @@ def solve_peec_system(
         eps = 1e-8 * max_diag if max_diag > 0 else 1e-8
         system_matrix = system_matrix + eps * np.eye(len(system_matrix))
         X = np.linalg.solve(system_matrix, source_vector)
+
+    # Direct solve: flag ill-conditioned systems (large relative residual)
+    b_norm = np.linalg.norm(source_vector)
+    if b_norm > 0:
+        rel_residual = np.linalg.norm(system_matrix @ X - source_vector) / b_norm
+        if not np.isfinite(rel_residual) or rel_residual > 1e-6:
+            logger.warning("PEEC system ill-conditioned: relative residual %.2e", rel_residual)
 
     # Extract currents and voltages
     # System matrix structure: [Z A_app'; -A_app 0]

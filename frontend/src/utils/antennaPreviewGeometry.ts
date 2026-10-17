@@ -36,7 +36,8 @@ export function computeDipolePreview(
   const halfLen = length / 2;
   const halfGap = gap / 2;
   const segCount = Math.max(Math.round(segments), 2);
-  const armSegments = Math.max(Math.floor(segCount / 2), 1);
+  // Total segments split over two equal arms; odd totals round up (matches backend)
+  const armSegments = Math.max(Math.ceil(segCount / 2), 1);
 
   const nodes: PreviewNode[] = [];
   const edges: PreviewEdge[] = [];

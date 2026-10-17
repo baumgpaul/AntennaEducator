@@ -65,7 +65,7 @@ docker compose up -d --build
 python scripts/init_local_db.py   # creates DynamoDB table + admin user + S3 bucket
 ```
 
-Open [http://localhost:5173](http://localhost:5173) and log in with your admin credentials.
+Open [http://localhost:5173](http://localhost:5173) and log in with your admin credentials. Accounts registered afterwards wait until an admin approves them on the Admin page.
 
 ### Local development
 
@@ -109,6 +109,12 @@ python dev_tools/test_aws_pipeline.py
 ```
 
 Infrastructure is managed with Terraform in `terraform/`.
+
+New accounts must be approved by an admin. On a fresh deployment, sign up once and make that account the first admin:
+
+```bash
+python dev_tools/make_admin.py you@example.com --table antenna-simulator-staging --profile antenna-staging
+```
 
 ## Project Structure
 

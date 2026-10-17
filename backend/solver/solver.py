@@ -1112,7 +1112,9 @@ def solve_multi_antenna(
 
     return {
         "frequency": frequency,
-        "converged": True,  # solve_single_frequency doesn't return convergence status
+        # Direct (non-iterative) solve: "converged" = solved with a finite result
+        # (B28: was hardcoded True even for NaN/inf solutions)
+        "converged": bool(np.all(np.isfinite(solution.branch_currents))),
         "antenna_solutions": antenna_solutions,
         "n_total_nodes": merged.n_total_points,
         "n_total_edges": merged.n_total_sticks,

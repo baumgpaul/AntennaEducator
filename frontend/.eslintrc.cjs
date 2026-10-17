@@ -16,9 +16,9 @@ module.exports = {
     ],
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-    // TODO: Fix hooks violations in renderer components (hooks called after early returns)
-    // Downgraded to warn temporarily — tracked as tech debt
-    'react-hooks/rules-of-hooks': 'warn',
+    // Conditional hooks crash at runtime ("Rendered more hooks than during the
+    // previous render") — always an error.
+    'react-hooks/rules-of-hooks': 'error',
     'no-empty': 'warn',
     '@typescript-eslint/no-var-requires': 'warn',
   },

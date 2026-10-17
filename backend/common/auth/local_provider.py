@@ -102,15 +102,17 @@ class LocalAuthProvider(AuthProvider):
         is_first = self._user_repo.get_user_count() == 0
 
         hashed = _pwd_ctx.hash(password[:72])
+        # Everyone except the bootstrap admin waits for an admin's approval
         db_user = self._user_repo.create_user(
             email=email,
             username=username,
             password_hash=hashed,
             is_admin=is_first,
             is_locked=False,
+            is_approved=is_first,
         )
 
-        logger.info("User registered: %s (admin=%s)", email, is_first)
+        logger.info("User registered: %s (admin=%s, approved=%s)", email, is_first, is_first)
 
         return UserIdentity(
             id=db_user["user_id"],
@@ -118,6 +120,7 @@ class LocalAuthProvider(AuthProvider):
             username=db_user["username"],
             role=_role_from_db(db_user),
             is_locked=False,
+            is_approved=db_user.get("is_approved", True),
             created_at=db_user.get("created_at"),
         )
 
@@ -133,6 +136,8 @@ class LocalAuthProvider(AuthProvider):
 
         if db_user.get("is_locked", False):
             raise ValueError("Account is locked. Please contact an administrator.")
+        if not db_user.get("is_approved", True):
+            raise ValueError("Account is pending approval by an administrator.")
 
         token = self._create_jwt(
             user_id=db_user["user_id"],
@@ -160,6 +165,7 @@ class LocalAuthProvider(AuthProvider):
             username=db_user["username"],
             role=_role_from_db(db_user),
             is_locked=db_user.get("is_locked", False),
+            is_approved=db_user.get("is_approved", True),
             created_at=db_user.get("created_at"),
             simulation_tokens=db_user.get("simulation_tokens", 0),
             flatrate_until=db_user.get("flatrate_until"),

@@ -90,7 +90,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
       length: 'wavelength / 2',
       radius: '0.001',
       gap: '0.001',
-      segments: '21',
+      segments: '20',
       feedType: 'gap',
       sourceType: 'voltage' as const,
       sourceAmplitude: '1',
@@ -222,8 +222,8 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
   const sourceNodeIds = useMemo(() => {
     if (previewGeometry.nodes.length < 2) return new Set<number>();
     // For a dipole, the source is at the gap: last node of lower arm and first node of upper arm
-    const segCount = Math.max(Math.round(parseFloat(watch('segments')) || 21), 2);
-    const armSegments = Math.max(Math.floor(segCount / 2), 1);
+    const segCount = Math.max(Math.round(parseFloat(watch('segments')) || 20), 2);
+    const armSegments = Math.max(Math.ceil(segCount / 2), 1);
     const lowerEnd = armSegments + 1;    // last node of lower arm
     const upperStart = armSegments + 2;   // first node of upper arm
     return new Set<number>([lowerEnd, upperStart]);
@@ -336,13 +336,18 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
                   <ExpressionField
                     value={field.value}
                     onChange={field.onChange}
-                    label="Segments"
+                    label="Segments (total, both arms)"
                     fullWidth
-                    validate={(v) =>
-                      Number.isInteger(v) && v >= 5 && v <= 1000
-                        ? null
-                        : 'Must be integer 5-1000'
-                    }
+                    validate={(v) => {
+                      if (!(Number.isInteger(v) && v >= 5 && v <= 1000)) {
+                        return 'Must be integer 5-1000';
+                      }
+                      // With a feed gap each arm gets half the segments
+                      if (Number(watch('gap')) > 0 && v % 2 !== 0) {
+                        return 'Use an even number: the two arms get half each';
+                      }
+                      return null;
+                    }}
                     disabled={isGenerating}
                   />
                 )}

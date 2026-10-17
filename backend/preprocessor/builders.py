@@ -12,13 +12,32 @@ from backend.common.utils import validate_lumped_element_nodes
 logger = logging.getLogger(__name__)
 
 
+def _segment_position(pos, default_names: tuple, antenna: str):
+    """Validate a source ``position``: an int segment index, or a named default.
+
+    Returns the int index, or None for the default feed ("center" is the request
+    schema's default for every antenna type, so it means "default feed" here).
+    Unknown names used to be silently ignored (the source stayed at the default
+    feed, TEST_PLAN B20).
+    """
+    if pos is None or (isinstance(pos, str) and pos in default_names):
+        return None
+    if isinstance(pos, int) and not isinstance(pos, bool):
+        return pos
+    allowed = ", ".join(repr(n) for n in default_names)
+    raise ValueError(
+        f"Unsupported source position {pos!r} for a {antenna}: use {allowed} "
+        "or an integer segment index"
+    )
+
+
 def create_dipole(
     length: float,
     center_position: Tuple[float, float, float] = (0.0, 0.0, 0.0),
     orientation: Tuple[float, float, float] = (0.0, 0.0, 1.0),
     wire_radius: float = 0.001,
     gap: float = 0.01,
-    segments: int = 21,
+    segments: int = 20,
     source: Optional[dict] = None,
     lumped_elements: Optional[List[dict]] = None,
     name: Optional[str] = None,
@@ -32,7 +51,9 @@ def create_dipole(
         orientation: Direction vector [dx, dy, dz] (will be normalized)
         wire_radius: Wire radius in meters
         gap: Gap between dipole halves in meters (creates two separate poles)
-        segments: Total number of segments (split equally between halves if gap > 0)
+        segments: Total number of segments for the whole dipole. With a gap the two
+                  arms get half each, so an odd total is rounded up to the next even
+                  number (the stored parameters show the count actually used).
         source: Optional source configuration dict with keys:
                 - type: "voltage" or "current"
                 - amplitude: complex number (real or dict with real/imag)
@@ -57,6 +78,12 @@ def create_dipole(
         raise ValueError("Gap must be less than total length")
     if segments < 1:
         raise ValueError("Number of segments must be at least 1")
+
+    # Gap-fed dipoles need two equal arms. An odd total used to silently lose a
+    # segment (21 -> 20, TEST_PLAN B19); round up so the mesh is never coarser
+    # than requested.
+    if gap > 0 and segments % 2:
+        segments += 1
 
     # Normalize orientation vector
     orientation_array = np.array(orientation)
@@ -157,7 +184,8 @@ def dipole_to_mesh(element: AntennaElement) -> Mesh:
         # Create two separate poles with gap in between (symmetric about center).
         # Node ordering matches the frontend preview: lower arm first
         # (tip → gap), then upper arm (gap → tip).
-        n_seg = max(total_segments_param // 2, 1)
+        # Round up: elements stored before the B19 fix may hold an odd total
+        n_seg = max(-(-total_segments_param // 2), 1)
 
         # Lower arm: from -(length-gap)/2 (tip) to -gap/2 (gap edge)
         z_start_lower = -(length - gap) / 2.0
@@ -349,12 +377,11 @@ def create_loop(
                 node_end = 1  # First node (1-based)
 
             # Allow custom positioning if specified
-            if "position" in source:
-                pos = source["position"]
-                if isinstance(pos, int):
-                    # Custom position: between node pos and pos+1
-                    node_start = pos + 1  # Convert to 1-based
-                    node_end = pos + 2
+            pos = _segment_position(source.get("position"), ("gap", "center"), "loop")
+            if pos is not None:
+                # Custom position: between node pos and pos+1
+                node_start = pos + 1  # Convert to 1-based
+                node_end = pos + 2
 
             source_objs.append(
                 Source(
@@ -382,12 +409,11 @@ def create_loop(
                 node_end = segments  # Current extracted here (return terminal)
 
             # Allow custom positioning if specified
-            if "position" in source:
-                pos = source["position"]
-                if isinstance(pos, int):
-                    node_start = pos + 1  # Convert to 1-based
-                    if gap == 0:
-                        node_end = pos + 2  # Two-terminal for closed loops
+            pos = _segment_position(source.get("position"), ("gap", "center"), "loop")
+            if pos is not None:
+                node_start = pos + 1  # Convert to 1-based
+                if gap == 0:
+                    node_end = pos + 2  # Two-terminal for closed loops
 
             source_objs.append(
                 Source(
@@ -607,12 +633,11 @@ def create_rod(
         node_start = 0  # Ground node
         node_end = 1  # First mesh node (1-based)
 
-        if "position" in source:
-            pos = source["position"]
-            if isinstance(pos, int):
-                # Custom position: between node pos and pos+1
-                node_start = pos + 1  # Convert to 1-based
-                node_end = pos + 2
+        pos = _segment_position(source.get("position"), ("base", "center"), "rod")
+        if pos is not None:
+            # Custom position: between node pos and pos+1
+            node_start = pos + 1  # Convert to 1-based
+            node_end = pos + 2
 
         # Convert amplitude dict to complex number
         amp = source["amplitude"]

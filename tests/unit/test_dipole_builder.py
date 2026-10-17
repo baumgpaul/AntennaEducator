@@ -19,7 +19,7 @@ class TestDipoleBuilder:
         assert element.parameters["center_position"] == [0.0, 0.0, 0.0]
         assert element.parameters["wire_radius"] == 0.001
         assert element.parameters["gap"] == 0.01
-        assert element.parameters["segments"] == 21
+        assert element.parameters["segments"] == 20
         assert len(element.sources) == 0
 
     def test_create_dipole_with_custom_parameters(self):
@@ -37,7 +37,8 @@ class TestDipoleBuilder:
         assert element.parameters["length"] == 0.5
         assert element.parameters["center_position"] == [1.0, 2.0, 3.0]
         assert element.parameters["wire_radius"] == 0.002
-        assert element.parameters["segments"] == 11
+        # Gap-fed: odd total rounded up to two equal arms (B19)
+        assert element.parameters["segments"] == 12
 
         # Orientation should be normalized
         orientation = element.parameters["orientation"]
@@ -275,3 +276,32 @@ class TestDipoleToMesh:
         assert np.allclose(mesh.nodes[6], [0.05, 0.0, 0.0])
         # Last node (upper tip): center + (length-gap)/2 * orientation = [0.45,0,0]
         assert np.allclose(mesh.nodes[11], [0.45, 0.0, 0.0])
+
+
+class TestDipoleSegmentsConvention:
+    """`segments` is the TOTAL for the whole dipole (TEST_PLAN B19 / §8.3)."""
+
+    def _mesh(self, segments, gap):
+        element = create_dipole(length=1.0, gap=gap, segments=segments)
+        return element, dipole_to_mesh(element)
+
+    @pytest.mark.parametrize("segments", [10, 20, 22])
+    def test_even_total_with_gap_is_kept(self, segments):
+        element, mesh = self._mesh(segments, gap=0.01)
+        assert element.parameters["segments"] == segments
+        assert len(mesh.edges) == segments
+
+    @pytest.mark.parametrize("segments,expected", [(11, 12), (21, 22)])
+    def test_odd_total_with_gap_rounds_up_never_down(self, segments, expected):
+        element, mesh = self._mesh(segments, gap=0.01)
+        assert element.parameters["segments"] == expected
+        assert len(mesh.edges) == expected
+
+    def test_odd_total_without_gap_is_kept(self):
+        element, mesh = self._mesh(21, gap=0.0)
+        assert len(mesh.edges) == 21
+
+    def test_stored_odd_element_from_before_the_fix_rounds_up(self):
+        element = create_dipole(length=1.0, gap=0.01, segments=20)
+        element.parameters["segments"] = 21  # as stored by older versions
+        assert len(dipole_to_mesh(element).edges) == 22

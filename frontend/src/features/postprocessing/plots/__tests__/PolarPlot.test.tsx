@@ -83,4 +83,12 @@ describe('PolarPlot', () => {
     const path = container.querySelector('path.polar-data-path');
     expect(path).toBeInTheDocument();
   });
+
+  it('switches from empty state to a plot when data arrives (hook order)', () => {
+    const { container, rerender } = render(<PolarPlot data={[]} scale="dB" />);
+    expect(container.querySelector('path')).toBeNull();
+    // Used to throw "Rendered more hooks than during the previous render"
+    rerender(<PolarPlot data={sampleData} scale="dB" />);
+    expect(container.querySelector('svg')).toBeInTheDocument();
+  });
 });

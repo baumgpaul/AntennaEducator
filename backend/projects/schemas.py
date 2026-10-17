@@ -155,9 +155,16 @@ class UserListResponse(BaseModel):
     username: str
     role: str = "user"
     is_locked: bool = False
+    is_approved: bool = True
     created_at: Optional[str] = None
     simulation_tokens: int = 0
     flatrate_until: Optional[str] = None
+
+
+class UserApprovalUpdate(BaseModel):
+    """Schema for approving / revoking a user account (admin only)."""
+
+    is_approved: bool
 
 
 class UserTokenUpdate(BaseModel):

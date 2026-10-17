@@ -33,9 +33,9 @@ variable "kms_key_arn" {
 }
 
 variable "keep_image_count" {
-  description = "Number of images to keep in repository"
+  description = "Number of images to keep in repository (the running one plus a couple for rollback)"
   type        = number
-  default     = 10
+  default     = 3
 }
 
 variable "tags" {

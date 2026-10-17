@@ -41,10 +41,11 @@ def invalidate_profile_cache(user_id: str) -> None:
     _profile_cache.pop(user_id, None)
 
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
-) -> UserIdentity:
-    """FastAPI dependency — returns the authenticated ``UserIdentity``.
+_PENDING_DETAIL = "Account is pending approval by an administrator."
+
+
+async def _resolve_user(credentials: HTTPAuthorizationCredentials) -> UserIdentity:
+    """Validate the bearer token and return the (cached) profile.
 
     Raises:
         HTTPException 401: invalid / expired token, unknown user.
@@ -64,31 +65,21 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 2. Check profile cache
+    # 2. Check profile cache, else 3. enrich with profile data (role, lock, approval …)
     now = time.monotonic()
     cached = _profile_cache.get(token_data.user_id)
-    if cached is not None:
-        user, cached_at = cached
-        if (now - cached_at) < _PROFILE_CACHE_TTL:
-            if user.is_locked:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Account is locked. Please contact an administrator.",
-                )
-            return user
+    if cached is not None and (now - cached[1]) < _PROFILE_CACHE_TTL:
+        user = cached[0]
+    else:
+        user = await provider.get_user_profile(token_data.user_id, email_hint=token_data.email)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+            )
+        _profile_cache[token_data.user_id] = (user, now)
 
-    # 3. Enrich with profile data (admin flag, lock status …)
-    user = await provider.get_user_profile(token_data.user_id, email_hint=token_data.email)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
-
-    # 4. Store in cache
-    _profile_cache[token_data.user_id] = (user, now)
-
-    # 5. Check lock status
+    # 4. Check lock status
     if user.is_locked:
         logger.warning("Locked user attempted access: %s", user.email)
         raise HTTPException(
@@ -98,3 +89,29 @@ async def get_current_user(
 
     logger.debug("Authenticated: %s (%s)", user.id, user.email)
     return user
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+) -> UserIdentity:
+    """FastAPI dependency — returns the authenticated, **approved** ``UserIdentity``.
+
+    Raises:
+        HTTPException 401: invalid / expired token, unknown user.
+        HTTPException 403: account locked or still pending admin approval.
+    """
+    user = await _resolve_user(credentials)
+    if not user.is_approved:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_PENDING_DETAIL)
+    return user
+
+
+async def get_current_user_allow_pending(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+) -> UserIdentity:
+    """Like ``get_current_user`` but also admits accounts awaiting approval.
+
+    Only for endpoints a pending user needs (``/api/auth/me``), so the
+    frontend can show "waiting for approval" instead of a generic error.
+    """
+    return await _resolve_user(credentials)

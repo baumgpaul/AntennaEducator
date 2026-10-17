@@ -126,6 +126,8 @@ module "s3_results" {
   enable_lifecycle           = true
   data_retention_days        = 365  # Auto-delete old simulation results after 1 year
   enable_intelligent_tiering = false  # Disable for staging (low volume)
+  # Results are read back by the app (project + submission hydration): no Glacier
+  enable_glacier_transition  = false
 
   tags = {
     Component = "storage"

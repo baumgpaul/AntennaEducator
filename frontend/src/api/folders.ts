@@ -48,6 +48,8 @@ export interface UserListItem {
   username: string;
   role: string;
   is_locked: boolean;
+  /** false = waiting for an admin to approve the account */
+  is_approved: boolean;
   created_at: string | null;
   simulation_tokens: number;
   flatrate_until: string | null;
@@ -283,6 +285,17 @@ export async function listCourseEnrollments(
 
 export async function getMyCourses(): Promise<EnrollmentItem[]> {
   const response = await projectsClient.get<EnrollmentItem[]>('/api/my-courses');
+  return response.data;
+}
+
+export async function updateUserApproval(
+  userId: string,
+  isApproved: boolean,
+): Promise<UserListItem> {
+  const response = await projectsClient.put<UserListItem>(
+    `/api/admin/users/${userId}/approval`,
+    { is_approved: isApproved },
+  );
   return response.data;
 }
 

@@ -1,0 +1,14 @@
+# Runtime dependencies of the Lambda images only (backend/*/Dockerfile.lambda).
+# No dev/test tools and no uvicorn (Mangum serves the app); boto3 is provided
+# by the Lambda base image. Keep in sync with [project.dependencies].
+numpy==1.26.4
+scipy==1.11.4
+fastapi>=0.104.0
+pydantic[email]>=2.0.0
+pydantic-settings>=2.0.0
+python-jose[cryptography]>=3.4.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.0,<5  # bcrypt 5 breaks passlib's backend self-test
+mangum>=0.17.0
+requests>=2.30.0
+python-dotenv>=1.0.0

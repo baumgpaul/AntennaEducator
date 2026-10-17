@@ -38,6 +38,9 @@ class UserIdentity(BaseModel):
     username: str
     role: UserRole = UserRole.USER
     is_locked: bool = False
+    # New accounts wait for an admin; profiles created before approval existed
+    # have no flag and count as approved.
+    is_approved: bool = True
     created_at: Optional[datetime] = None
     simulation_tokens: int = 0
     flatrate_until: Optional[datetime] = None

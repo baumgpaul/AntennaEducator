@@ -387,6 +387,25 @@ export const WirePreview3D: React.FC<WirePreview3DProps> = ({
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const bgColor = isDark ? '#1a1a2e' : '#f5f5f5';
+
+  // Compute geometry size for grid/axes scaling
+  const geoSize = useMemo(() => {
+    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+    for (const n of nodes) {
+      min.x = Math.min(min.x, n.x);
+      min.y = Math.min(min.y, n.y);
+      min.z = Math.min(min.z, n.z);
+      max.x = Math.max(max.x, n.x);
+      max.y = Math.max(max.y, n.y);
+      max.z = Math.max(max.z, n.z);
+    }
+    return Math.max(max.x - min.x, max.y - min.y, max.z - min.z, 0.1);
+  }, [nodes]);
+
+  const gridSize = geoSize * 2;
+  // Empty state after all hooks: an early return above them changed the
+  // hook count between renders (crash when data arrives).
   if (nodes.length === 0) {
     return (
       <Box
@@ -406,22 +425,6 @@ export const WirePreview3D: React.FC<WirePreview3DProps> = ({
     );
   }
 
-  // Compute geometry size for grid/axes scaling
-  const geoSize = useMemo(() => {
-    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
-    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
-    for (const n of nodes) {
-      min.x = Math.min(min.x, n.x);
-      min.y = Math.min(min.y, n.y);
-      min.z = Math.min(min.z, n.z);
-      max.x = Math.max(max.x, n.x);
-      max.y = Math.max(max.y, n.y);
-      max.z = Math.max(max.z, n.z);
-    }
-    return Math.max(max.x - min.x, max.y - min.y, max.z - min.z, 0.1);
-  }, [nodes]);
-
-  const gridSize = geoSize * 2;
 
   return (
     <Box

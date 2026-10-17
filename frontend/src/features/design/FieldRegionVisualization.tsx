@@ -162,12 +162,13 @@ function EllipseRegion({
   opacity,
   isSelected,
 }: {
-  field: FieldDefinition;
+  field: Extract<FieldDefinition, { type: '2D' }>;
   color: string;
   opacity: number;
   isSelected: boolean;
 }) {
-  if (field.type !== '2D' || field.shape !== 'ellipse') return null;
+  // Only rendered for its own shape (FieldRegionVisualization dispatches by
+  // type/shape) — no early return here, hooks must run unconditionally.
 
   // Convert radii from mm to meters
   const radiusA = (field.radiusA ?? 50) / 1000;
@@ -280,12 +281,13 @@ function LineRegion({
   opacity,
   isSelected,
 }: {
-  field: FieldDefinition;
+  field: Extract<FieldDefinition, { type: '1D' }>;
   color: string;
   opacity: number;
   isSelected: boolean;
 }) {
-  if (field.type !== '1D' || field.shape !== 'line') return null;
+  // Only rendered for its own shape (FieldRegionVisualization dispatches by
+  // type/shape) — no early return here, hooks must run unconditionally.
 
   // Convert start/end points from mm to meters
   const startPt = field.startPoint ?? [0, 0, 0];
@@ -355,12 +357,13 @@ function ArcRegion({
   opacity,
   isSelected,
 }: {
-  field: FieldDefinition;
+  field: Extract<FieldDefinition, { type: '1D' }>;
   color: string;
   opacity: number;
   isSelected: boolean;
 }) {
-  if (field.type !== '1D' || field.shape !== 'arc') return null;
+  // Only rendered for its own shape (FieldRegionVisualization dispatches by
+  // type/shape) — no early return here, hooks must run unconditionally.
 
   // Convert center point from mm to meters
   const centerPt = field.centerPoint ?? [0, 0, 0];

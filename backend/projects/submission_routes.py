@@ -5,6 +5,7 @@ Instructors view submissions and add text feedback.
 """
 
 import logging
+import uuid
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -30,6 +31,58 @@ router = APIRouter(prefix="/api", tags=["submissions"])
 
 _submission_repo: Optional[SubmissionRepository] = None
 _enrollment_repo: Optional[EnrollmentRepository] = None
+
+
+def _snapshot_owner_id(submission_id: str) -> str:
+    """Storage namespace of a submission's frozen data (results + snapshot)."""
+    return f"submission-{submission_id}"
+
+
+async def _store_snapshot(submission_id: str, project_id: str, frozen: dict) -> Optional[str]:
+    """Freeze a project into S3; returns the snapshot key (None -> inline fallback).
+
+    The project's S3 results are copied into the submission's own namespace,
+    so later re-solves of the project cannot change what was submitted.
+    """
+    from backend.common.storage.provider import ResultType
+    from backend.projects.results_service import get_results_service
+
+    try:
+        results_svc = get_results_service()
+        owner = _snapshot_owner_id(submission_id)
+        results = dict(frozen.get("simulation_results") or {})
+        if results.get("result_keys"):
+            results["result_keys"] = await results_svc.duplicate_results(
+                project_id, owner, results["result_keys"]
+            )
+        snapshot = {**frozen, "simulation_results": results}
+        return await results_svc.storage.store_result(
+            owner, ResultType.SUBMISSION_SNAPSHOT, snapshot
+        )
+    except Exception:
+        logger.warning(
+            "Could not store snapshot for submission %s in S3; storing inline",
+            submission_id,
+            exc_info=True,
+        )
+        return None
+
+
+async def _load_snapshot(submission_id: str) -> dict:
+    """Frozen fields of an S3-backed submission, with results hydrated."""
+    from backend.common.storage.provider import ResultType
+    from backend.projects.results_service import get_results_service
+
+    results_svc = get_results_service()
+    owner = _snapshot_owner_id(submission_id)
+    snapshot = await results_svc.storage.get_result(owner, ResultType.SUBMISSION_SNAPSHOT) or {}
+    results = await results_svc.hydrate_results(owner, snapshot.get("simulation_results"))
+    return {
+        "frozen_design_state": snapshot.get("design_state") or {},
+        "frozen_simulation_config": snapshot.get("simulation_config") or {},
+        "frozen_simulation_results": results or {},
+        "frozen_ui_state": snapshot.get("ui_state") or {},
+    }
 
 
 def _get_submission_repo() -> SubmissionRepository:
@@ -94,6 +147,15 @@ async def submit_project(
             detail="You can only submit your own projects.",
         )
 
+    submission_id = str(uuid.uuid4())
+    frozen = {
+        "design_state": project.get("design_state"),
+        "simulation_config": project.get("simulation_config"),
+        "simulation_results": project.get("simulation_results"),
+        "ui_state": project.get("ui_state"),
+    }
+    snapshot_key = await _store_snapshot(submission_id, body.project_id, frozen)
+
     submission_repo = _get_submission_repo()
     result = submission_repo.create_submission(
         course_id=course_id,
@@ -101,10 +163,13 @@ async def submit_project(
         user_id=user.id,
         username=user.username,
         project_name=project.get("name", "Untitled"),
-        frozen_design_state=project.get("design_state"),
-        frozen_simulation_config=project.get("simulation_config"),
-        frozen_simulation_results=project.get("simulation_results"),
-        frozen_ui_state=project.get("ui_state"),
+        submission_id=submission_id,
+        snapshot_key=snapshot_key,
+        # Inline fallback only when S3 storage failed
+        frozen_design_state=None if snapshot_key else frozen["design_state"],
+        frozen_simulation_config=None if snapshot_key else frozen["simulation_config"],
+        frozen_simulation_results=None if snapshot_key else frozen["simulation_results"],
+        frozen_ui_state=None if snapshot_key else frozen["ui_state"],
     )
     return SubmissionResponse(**result)
 
@@ -178,6 +243,9 @@ async def get_submission_detail(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only view your own submissions.",
         )
+
+    if submission.get("snapshot_key"):
+        submission.update(await _load_snapshot(submission_id))
 
     return SubmissionDetailResponse(**submission)
 

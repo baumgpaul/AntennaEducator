@@ -1442,6 +1442,38 @@ export const requestPortQuantities = createAsyncThunk<
 // Slice
 // ============================================================================
 
+/**
+ * Design actions that invalidate solver results (TEST_PLAN B32: the old list
+ * named actions that do not exist — deleteSource, updateLumpedElement,
+ * deleteLumpedElement — and missed moves, rotations, duplicates, remeshes).
+ * Strings instead of action creators avoid a designSlice <-> solverSlice
+ * import cycle; a unit test checks every entry is a real designSlice action.
+ * Deliberately excluded: color, selection, view mode, sweep mesh snapshots.
+ */
+export const RESULTS_STALE_ACTIONS: ReadonlySet<string> = new Set([
+  'design/addElement',
+  'design/updateElement',
+  'design/removeElement',
+  'design/duplicateElement',
+  'design/clearElements',
+  // Only visible, unlocked elements are solved
+  'design/setElementVisibility',
+  'design/setElementLocked',
+  'design/setElementPosition',
+  'design/setElementRotation',
+  'design/setElementOrientation',
+  'design/addSource',
+  'design/updateSource',
+  'design/removeSource',
+  'design/addSourceToElement',
+  'design/updateElementSource',
+  'design/addLumpedElement',
+  'design/addLumpedElementToElement',
+  'design/removeLumpedElement',
+  'design/remeshElementOrientation/fulfilled',
+  'design/remeshElementExpressions/fulfilled',
+]);
+
 const solverSlice = createSlice({
   name: 'solver',
   initialState,
@@ -2004,20 +2036,8 @@ const solverSlice = createSlice({
     // Listen to design changes to mark results as stale
     // ========================================================================
     builder.addMatcher(
-      (action) => {
-        // Mark results stale when geometry or sources change
-        return action.type.startsWith('design/') && (
-          action.type === 'design/addElement' ||
-          action.type === 'design/updateElement' ||
-          action.type === 'design/removeElement' ||
-          action.type === 'design/addSource' ||
-          action.type === 'design/updateSource' ||
-          action.type === 'design/deleteSource' ||
-          action.type === 'design/addLumpedElement' ||
-          action.type === 'design/updateLumpedElement' ||
-          action.type === 'design/deleteLumpedElement'
-        );
-      },
+      // Mark results stale when geometry, sources or the solved set change
+      (action) => RESULTS_STALE_ACTIONS.has(action.type),
       (state, _action) => {
         // Only mark stale if we have results
         if (state.results || state.multiAntennaResults || state.frequencySweep) {

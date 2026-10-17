@@ -75,14 +75,15 @@ function RegisterPage() {
         <Container maxWidth="sm">
           <Paper elevation={3} sx={{ p: 4 }}>
             <Typography variant="h4" align="center" gutterBottom color="success.main">
-              Registration Successful!
+              Request Submitted
             </Typography>
-            <Alert severity="success" sx={{ mt: 2, mb: 3 }}>
+            <Alert severity="info" sx={{ mt: 2, mb: 3 }}>
               <Typography variant="body1" paragraph>
-                Your account has been created successfully.
+                Your account has been created and is waiting for approval.
               </Typography>
               <Typography variant="body2">
-                You can now log in with your credentials.
+                An administrator (usually your course instructor) has to approve it before you
+                can use Antenna Educator. You can log in once it has been approved.
               </Typography>
             </Alert>
             <Button

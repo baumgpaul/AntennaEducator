@@ -34,6 +34,7 @@ from backend.projects.schemas import (
     ProjectListResponse,
     ProjectResponse,
     UsageLogResponse,
+    UserApprovalUpdate,
     UserFlatrateUpdate,
     UserListResponse,
     UserRoleUpdate,
@@ -856,6 +857,37 @@ async def update_user_lock_status(
 
     updated = user_repo.get_user_by_id(user_id)
     return updated
+
+
+@router.put(
+    "/admin/users/{user_id}/approval",
+    response_model=UserListResponse,
+)
+async def update_user_approval(
+    user_id: str,
+    data: UserApprovalUpdate,
+    user: UserIdentity = Depends(get_current_user),
+):
+    """Admin-only: approve a pending account (grants starter tokens) or revoke it."""
+    _require_admin(user)
+
+    if user_id == user.id:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Cannot change your own approval.",
+        )
+
+    user_repo = _get_user_repo()
+    if not user_repo.get_user_by_id(user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    user_repo.set_user_approval(user_id, data.is_approved)
+
+    from backend.common.auth import invalidate_profile_cache
+
+    invalidate_profile_cache(user_id)
+
+    return user_repo.get_user_by_id(user_id)
 
 
 # ── USAGE HISTORY ─────────────────────────────────────────────────────────────
