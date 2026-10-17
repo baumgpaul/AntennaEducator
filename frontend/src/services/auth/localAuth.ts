@@ -42,7 +42,8 @@ export class LocalAuthService implements IAuthService {
     } catch (error: any) {
       // Handle specific error cases
       if (error.response?.status === 403) {
-        throw new Error('Account pending admin approval. Please wait for approval.')
+        // Backend distinguishes "pending approval" from "locked"
+        throw new Error(error.response?.data?.detail || 'Access denied.')
       }
       if (error.response?.status === 401) {
         throw new Error('Incorrect email or password')

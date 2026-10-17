@@ -55,6 +55,7 @@ import {
   updateUserTokens,
   updateUserFlatrate,
   updateUserLockStatus,
+  updateUserApproval,
   assignCourseOwner,
   selectUsers,
   selectCourses,
@@ -74,6 +75,11 @@ import type { UsageLogItem, EnrollmentItem } from '@/api/folders';
 function AdminPage() {
   const dispatch = useAppDispatch();
   const users = useAppSelector(selectUsers);
+  // Accounts waiting for approval first
+  const sortedUsers = [...users].sort(
+    (a, b) => Number(a.is_approved !== false) - Number(b.is_approved !== false),
+  );
+  const pendingCount = users.filter((u) => u.is_approved === false).length;
   const courses = useAppSelector(selectCourses);
   const loading = useAppSelector(selectAdminLoading);
   const error = useAppSelector(selectFoldersError);
@@ -199,6 +205,18 @@ function AdminPage() {
       dispatch(showSuccess(`Flatrate revoked for ${user.username}`));
     } catch (err) {
       dispatch(showError(`Failed to revoke flatrate: ${formatErrorMessage(err)}`));
+    } finally {
+      setChangingUserId(null);
+    }
+  };
+
+  const handleApprove = async (user: UserListItem) => {
+    setChangingUserId(user.user_id);
+    try {
+      await dispatch(updateUserApproval({ userId: user.user_id, isApproved: true })).unwrap();
+      dispatch(showSuccess(`${user.username} approved`));
+    } catch (err) {
+      dispatch(showError(`Failed to approve user: ${formatErrorMessage(err)}`));
     } finally {
       setChangingUserId(null);
     }
@@ -366,6 +384,15 @@ function AdminPage() {
         </Alert>
       )}
 
+      {pendingCount > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {pendingCount === 1
+            ? '1 account is waiting for approval.'
+            : `${pendingCount} accounts are waiting for approval.`}{' '}
+          New accounts cannot use the app until approved (they are listed first).
+        </Alert>
+      )}
+
       {/* Users Table */}
       <TableContainer component={Paper} variant="outlined">
         <Table size="small">
@@ -401,7 +428,7 @@ function AdminPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              users.map((user) => {
+              sortedUsers.map((user) => {
                 const isCurrentUser = user.user_id === currentUser?.id;
                 const isChanging = changingUserId === user.user_id;
 
@@ -501,7 +528,20 @@ function AdminPage() {
                           />
                         </span>
                       </Tooltip>
-                      {user.is_locked ? (
+                      {user.is_approved === false ? (
+                        <>
+                          <Chip label="Pending" color="warning" size="small" />
+                          <Button
+                            size="small"
+                            variant="contained"
+                            sx={{ ml: 1 }}
+                            disabled={isChanging}
+                            onClick={() => handleApprove(user)}
+                          >
+                            Approve
+                          </Button>
+                        </>
+                      ) : user.is_locked ? (
                         <Chip label="Locked" color="error" size="small" />
                       ) : (
                         <Chip label="Active" color="success" size="small" variant="outlined" />

@@ -206,6 +206,13 @@ export const updateUserFlatrate = createAsyncThunk(
   },
 );
 
+export const updateUserApproval = createAsyncThunk(
+  'folders/updateUserApproval',
+  async ({ userId, isApproved }: { userId: string; isApproved: boolean }) => {
+    return await foldersApi.updateUserApproval(userId, isApproved);
+  },
+);
+
 export const updateUserLockStatus = createAsyncThunk(
   'folders/updateUserLockStatus',
   async ({ userId, isLocked }: { userId: string; isLocked: boolean }) => {
@@ -398,6 +405,11 @@ const foldersSlice = createSlice({
     });
 
     builder.addCase(updateUserLockStatus.fulfilled, (state, action) => {
+      const idx = state.users.findIndex((u) => u.user_id === action.payload.user_id);
+      if (idx !== -1) state.users[idx] = action.payload;
+    });
+
+    builder.addCase(updateUserApproval.fulfilled, (state, action) => {
       const idx = state.users.findIndex((u) => u.user_id === action.payload.user_id);
       if (idx !== -1) state.users[idx] = action.payload;
     });

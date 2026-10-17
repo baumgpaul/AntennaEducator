@@ -20,7 +20,6 @@ from jose import JWTError, jwt
 
 from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity, UserRole
 from backend.common.auth.provider import AuthProvider
-from backend.common.auth.token_costs import DEFAULT_STARTER_TOKENS
 
 logger = logging.getLogger(__name__)
 
@@ -185,19 +184,22 @@ class CognitoAuthProvider(AuthProvider):
                 "Username": username,
                 "IsAdmin": False,
                 "IsLocked": False,
+                # Waits for an admin; starter tokens are granted on approval
+                "IsApproved": False,
                 "Role": UserRole.USER.value,
                 "CreatedAt": now,
-                "SimulationTokens": DEFAULT_STARTER_TOKENS,
+                "SimulationTokens": 0,
             }
         )
 
-        logger.info("Cognito user registered: %s (sub=%s)", email, user_sub)
+        logger.info("Cognito user registered (pending approval): %s (sub=%s)", email, user_sub)
 
         return UserIdentity(
             id=user_sub,
             email=email,
             username=username,
             role=UserRole.USER,
+            is_approved=False,
         )
 
     # ── Login ─────────────────────────────────────────────────────────────
@@ -230,6 +232,8 @@ class CognitoAuthProvider(AuthProvider):
             profile = await self.get_user_profile(user_sub, email_hint=email)
             if profile and profile.is_locked:
                 raise ValueError("Account is locked. Please contact an administrator.")
+            if profile and not profile.is_approved:
+                raise ValueError("Account is pending approval by an administrator.")
 
         return TokenResponse(
             access_token=auth["AccessToken"],
@@ -274,6 +278,7 @@ class CognitoAuthProvider(AuthProvider):
             username=item.get("Username", email.split("@")[0]),
             role=role,
             is_locked=item.get("IsLocked", False),
+            is_approved=item.get("IsApproved", True),
             created_at=item.get("CreatedAt"),
             simulation_tokens=int(item.get("SimulationTokens", 0)),
             flatrate_until=item.get("FlatrateUntil"),
@@ -284,7 +289,11 @@ class CognitoAuthProvider(AuthProvider):
     async def _lazy_init_profile(
         self, user_id: str, *, email_hint: Optional[str] = None
     ) -> UserIdentity:
-        """Create a DynamoDB record for a Cognito user on first API call."""
+        """Create a DynamoDB record for a Cognito user on first API call.
+
+        Also reached by accounts created directly through Cognito (bypassing
+        our register endpoint), so the profile starts pending with 0 tokens.
+        """
         logger.info("Lazy-init: creating DynamoDB profile for %s", user_id)
         now = datetime.now(timezone.utc).isoformat()
         email = email_hint or "unknown"
@@ -299,9 +308,10 @@ class CognitoAuthProvider(AuthProvider):
             "Username": username,
             "IsAdmin": False,
             "IsLocked": False,
+            "IsApproved": False,
             "Role": UserRole.USER.value,
             "CreatedAt": now,
-            "SimulationTokens": DEFAULT_STARTER_TOKENS,
+            "SimulationTokens": 0,
         }
         self._table.put_item(Item=item)
 
@@ -311,6 +321,7 @@ class CognitoAuthProvider(AuthProvider):
             username=username,
             role=UserRole.USER,
             is_locked=False,
+            is_approved=False,
             created_at=now,
-            simulation_tokens=DEFAULT_STARTER_TOKENS,
+            simulation_tokens=0,
         )

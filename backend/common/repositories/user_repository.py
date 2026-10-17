@@ -99,6 +99,7 @@ class UserRepository:
         is_locked: bool = False,
         cognito_sub: Optional[str] = None,
         role: Optional[str] = None,
+        is_approved: bool = False,
     ) -> Dict:
         """
         Create a new user in DynamoDB.
@@ -110,6 +111,7 @@ class UserRepository:
             is_admin: Admin status (default: False)
             is_locked: Locked status (default: False, users unlocked by default)
             cognito_sub: Cognito sub (optional, for AWS mode)
+            is_approved: False (default) = waits for an admin; no tokens until then
 
         Returns:
             User data dictionary (snake_case keys)
@@ -138,9 +140,10 @@ class UserRepository:
             "PasswordHash": password_hash,
             "IsAdmin": is_admin,
             "IsLocked": is_locked,
+            "IsApproved": is_approved,
             "Role": role or ("admin" if is_admin else "user"),
             "CreatedAt": now,
-            "SimulationTokens": DEFAULT_STARTER_TOKENS,
+            "SimulationTokens": DEFAULT_STARTER_TOKENS if is_approved else 0,
         }
 
         if cognito_sub:
@@ -214,28 +217,29 @@ class UserRepository:
             logger.error(f"Error counting users: {e}")
             return 0
 
-    def update_user_approval(self, user_id: str, is_approved: bool, is_admin: bool = False):
-        """
-        Update user approval and admin status (deprecated — prefer update_user_role).
+    def set_user_approval(self, user_id: str, is_approved: bool) -> None:
+        """Approve or revoke a user account.
 
-        Args:
-            user_id: User ID
-            is_approved: Approval status (no longer stored, kept for API compat)
-            is_admin: Admin status
+        The first approval of a pending account grants the starter tokens
+        (pending accounts are created with 0 tokens).
         """
+        user = self.get_user_by_id(user_id)
+        if user is None:
+            raise ValueError(f"User {user_id} not found")
+        expression = "SET IsApproved = :approved"
+        values: Dict = {":approved": is_approved}
+        if is_approved and not user["is_approved"]:
+            expression += ", SimulationTokens = :tokens"
+            values[":tokens"] = max(user["simulation_tokens"], DEFAULT_STARTER_TOKENS)
         try:
             self.table.update_item(
                 Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
-                UpdateExpression="SET IsAdmin = :admin, #r = :role",
-                ExpressionAttributeValues={
-                    ":admin": is_admin,
-                    ":role": "admin" if is_admin else "user",
-                },
-                ExpressionAttributeNames={"#r": "Role"},
+                UpdateExpression=expression,
+                ExpressionAttributeValues=values,
             )
-            logger.info(f"Updated user {user_id}: admin={is_admin}")
+            logger.info("Set user %s approved=%s", user_id, is_approved)
         except ClientError as e:
-            logger.error(f"Error updating user approval: {e}")
+            logger.error("Error updating approval for user %s: %s", user_id, e)
             raise RuntimeError(f"Failed to update user: {e}")
 
     def update_user_role(self, user_id: str, role: str):
@@ -419,6 +423,8 @@ class UserRepository:
             "password_hash": item.get("PasswordHash", ""),
             "is_admin": item.get("IsAdmin", False),
             "is_locked": item.get("IsLocked", False),
+            # Missing flag = account predates admin approval -> approved
+            "is_approved": item.get("IsApproved", True),
             "role": item.get("Role", "admin" if item.get("IsAdmin", False) else "user"),
             "created_at": item.get("CreatedAt"),
             "simulation_tokens": int(item.get("SimulationTokens", 0)),

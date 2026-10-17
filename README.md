@@ -65,7 +65,7 @@ docker compose up -d --build
 python scripts/init_local_db.py   # creates DynamoDB table + admin user + S3 bucket
 ```
 
-Open [http://localhost:5173](http://localhost:5173) and log in with your admin credentials.
+Open [http://localhost:5173](http://localhost:5173) and log in with your admin credentials. Accounts registered afterwards wait until an admin approves them on the Admin page.
 
 ### Local development
 

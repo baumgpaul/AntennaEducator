@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 from backend.auth.schemas import Token, UserCreate, UserLogin, UserResponse
-from backend.common.auth import UserIdentity, create_auth_provider, get_current_user
+from backend.common.auth import UserIdentity, create_auth_provider, get_current_user_allow_pending
 from backend.common.utils.error_handler import install_error_handlers
 from backend.common.utils.logging_config import configure_logging
 
@@ -87,6 +87,7 @@ async def register(user_data: UserCreate):
         role=identity.role.value,
         is_admin=identity.is_admin,
         is_locked=identity.is_locked,
+        is_approved=identity.is_approved,
         created_at=str(identity.created_at) if identity.created_at else None,
     )
 
@@ -101,9 +102,15 @@ async def login(user_data: UserLogin):
             password=user_data.password,
         )
     except ValueError as exc:
-        detail = str(exc)
-        is_locked = "locked" in detail.lower()
-        logger.info("Login rejected (locked=%s)", is_locked)
+        detail = str(exc).lower()
+        is_locked = "locked" in detail
+        is_pending = "pending approval" in detail
+        logger.info("Login rejected (locked=%s, pending=%s)", is_locked, is_pending)
+        if is_pending:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail="Account is pending approval by an administrator.",
+            )
         raise HTTPException(
             status.HTTP_403_FORBIDDEN if is_locked else status.HTTP_401_UNAUTHORIZED,
             detail="Account is locked." if is_locked else "Invalid credentials.",
@@ -124,9 +131,9 @@ async def login(user_data: UserLogin):
 
 @app.get("/api/auth/me", response_model=UserResponse)
 async def get_current_user_info(
-    user: UserIdentity = Depends(get_current_user),
+    user: UserIdentity = Depends(get_current_user_allow_pending),
 ):
-    """Return the authenticated user's profile.
+    """Return the authenticated user's profile (also for accounts pending approval).
 
     Always reads simulation_tokens and flatrate_until fresh from DynamoDB so
     the token balance shown in the UI is never stale (the profile cache in
@@ -152,6 +159,7 @@ async def get_current_user_info(
         role=user.role.value,
         is_admin=user.is_admin,
         is_locked=user.is_locked,
+        is_approved=user.is_approved,
         created_at=str(user.created_at) if user.created_at else None,
         simulation_tokens=simulation_tokens,
         flatrate_until=str(flatrate_until) if flatrate_until else None,

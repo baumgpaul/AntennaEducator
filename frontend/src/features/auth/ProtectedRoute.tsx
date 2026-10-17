@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { validateSession } from '@/store/authSlice';
+import PendingApproval from './PendingApproval';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -15,7 +16,7 @@ interface ProtectedRouteProps {
  * user from briefly seeing the app and then being kicked to login.
  */
 function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, sessionValidated } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, sessionValidated, user } = useAppSelector((state) => state.auth);
   const location = useLocation();
   const dispatch = useAppDispatch();
 
@@ -53,6 +54,12 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
     // Redirect to login, but save the attempted location
     // User will be redirected back after successful login
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Signed in, but an admin has not approved the account yet. The backend
+  // rejects every API call except /api/auth/me for such accounts.
+  if (user?.is_approved === false) {
+    return <PendingApproval />;
   }
 
   return <>{children}</>;
