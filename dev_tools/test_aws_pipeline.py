@@ -80,6 +80,9 @@ def _service_url(name: str) -> str:
         or os.getenv(f"VITE_{name}_URL")
         or _env.get(f"VITE_{name}_URL", "")
     )
+    if url.startswith("/"):
+        # Same-origin path behind CloudFront (/svc/<service>)
+        url = os.getenv("SMOKE_BASE_URL", "").rstrip("/") + url
     return url.rstrip("/")
 
 
