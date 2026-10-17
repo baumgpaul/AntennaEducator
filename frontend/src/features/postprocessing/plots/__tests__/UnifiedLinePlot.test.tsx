@@ -192,4 +192,21 @@ describe('UnifiedLinePlot', () => {
     const ticks = JSON.parse(ticksStr!);
     expect(ticks.length).toBeGreaterThanOrEqual(5);
   });
+
+  it('switches from empty state to a chart when data arrives (hook order)', () => {
+    const traces = [makeTrace('t1', 'Re(Z)', '#1976d2')];
+    const { rerender } = render(
+      <UnifiedLinePlot traces={traces} traceData={{}} xAxisConfig={xAxis} yAxisLeftConfig={yAxisLeft} />,
+    );
+    // Used to throw "Rendered more hooks than during the previous render"
+    rerender(
+      <UnifiedLinePlot
+        traces={traces}
+        traceData={{ t1: [{ x: 1, y: 2 }, { x: 2, y: 3 }] }}
+        xAxisConfig={xAxis}
+        yAxisLeftConfig={yAxisLeft}
+      />,
+    );
+    expect(screen.getByTestId('line-chart')).toBeInTheDocument();
+  });
 });

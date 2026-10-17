@@ -79,24 +79,6 @@ function PolarPlot({
     return [];
   }, [data, datasets, color]);
 
-  if (allSeries.length === 0 || allSeries.every((s) => s.data.length === 0)) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          minHeight: 200,
-          p: 2,
-        }}
-      >
-        <Typography variant="body2" color="text.secondary">
-          No data available for this plot.
-        </Typography>
-      </Box>
-    );
-  }
 
   const margin = 40;
   const cx = size / 2;
@@ -159,6 +141,27 @@ function PolarPlot({
 
     return { gridCircles: circles, gridLabels: circles, seriesPaths: paths };
   }, [allSeries, scale, maxR, cx, cy]);
+  // Empty state after all hooks: an early return above them changed the
+  // hook count between renders (crash when data arrives).
+  if (allSeries.length === 0 || allSeries.every((s) => s.data.length === 0)) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          minHeight: 200,
+          p: 2,
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          No data available for this plot.
+        </Typography>
+      </Box>
+    );
+  }
+
 
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: 1 }}>

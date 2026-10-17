@@ -203,29 +203,6 @@ function UnifiedLinePlot({
     return () => el.removeEventListener('wheel', handleWheel);
   }, [handleWheel]);
 
-  if (!hasData) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          minHeight: 200,
-          p: 2,
-          gap: 1,
-        }}
-      >
-        <Typography variant="body2" color="text.secondary">
-          No data available for this plot.
-        </Typography>
-        <Typography variant="caption" color="text.disabled">
-          Run a simulation (Solve Single or Parameter Sweep) to populate this chart.
-        </Typography>
-      </Box>
-    );
-  }
 
   const hasRightAxis = yAxisRightConfig && traces.some((t) => t.yAxisId === 'right');
 
@@ -276,6 +253,32 @@ function UnifiedLinePlot({
       rightTicks: isFinite(rMin) && isFinite(rMax) ? computeNiceTicks(rMin, rMax, 10) : undefined,
     };
   }, [chartData, traces]);
+  // Empty state after all hooks: an early return above them changed the
+  // hook count between renders (crash when data arrives).
+  if (!hasData) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          minHeight: 200,
+          p: 2,
+          gap: 1,
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          No data available for this plot.
+        </Typography>
+        <Typography variant="caption" color="text.disabled">
+          Run a simulation (Solve Single or Parameter Sweep) to populate this chart.
+        </Typography>
+      </Box>
+    );
+  }
+
 
   return (
     <Box sx={{ width: '100%', height: '100%', minHeight: height, p: 1 }}>
