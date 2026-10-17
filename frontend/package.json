@@ -20,7 +20,7 @@
     "@floating-ui/dom": "^1.8.0",
     "@hookform/resolvers": "^5.9.1",
     "@mui/icons-material": "^5.15.3",
-    "@mui/material": "^5.15.3",
+    "@mui/material": "^9.5.0",
     "@react-three/drei": "^9.95.0",
     "@react-three/fiber": "^8.15.16",
     "@reduxjs/toolkit": "^2.13.0",
