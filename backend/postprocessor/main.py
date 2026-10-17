@@ -326,6 +326,9 @@ async def compute_far_field_endpoint(
             beamwidth_phi=None,
             max_direction=[float(max_theta_deg), float(max_phi_deg)],
         )
+    except ValueError as e:
+        # Physically undefined input (e.g. zero currents) -> client error, not a crash
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.exception("Far-field computation error")
         raise HTTPException(status_code=500, detail=f"Far-field computation failed: {str(e)}")

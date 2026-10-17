@@ -15,6 +15,12 @@ variable "enable_lifecycle" {
   default     = true
 }
 
+variable "enable_glacier_transition" {
+  description = "Move objects to Glacier after 90 days. Disable for buckets the app reads back (Glacier objects cannot be fetched)."
+  type        = bool
+  default     = true
+}
+
 variable "data_retention_days" {
   description = "Number of days to retain data before deletion (0 = never delete)"
   type        = number

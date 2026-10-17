@@ -23,9 +23,7 @@ class TestSubmissionRepository:
             "backend.common.repositories.submission_repository." "SubmissionRepository.__init__",
             lambda self: None,
         ):
-            from backend.common.repositories.submission_repository import (
-                SubmissionRepository,
-            )
+            from backend.common.repositories.submission_repository import SubmissionRepository
 
             repo = SubmissionRepository()
             repo.table = MagicMock()
@@ -88,12 +86,35 @@ class TestSubmissionRepository:
             frozen_ui_state=ui,
         )
         writer = repo.table.batch_writer.return_value.__enter__.return_value
-        items = [call[1]["Item"] for call in writer.put_item.call_args_list]
-        for item in items:
-            assert item["FrozenDesignState"] == design
-            assert item["FrozenSimulationConfig"] == config
-            assert item["FrozenSimulationResults"] == results
-            assert item["FrozenUiState"] == ui
+        items = {call[1]["Item"]["PK"]: call[1]["Item"] for call in writer.put_item.call_args_list}
+        forward = items["COURSE#c1"]
+        assert forward["FrozenDesignState"] == design
+        assert forward["FrozenSimulationConfig"] == config
+        assert forward["FrozenSimulationResults"] == results
+        assert forward["FrozenUiState"] == ui
+        # The reverse (user) item only serves lists — no duplicate snapshot (B41)
+        assert "FrozenDesignState" not in items["USER#u1"]
+
+    def test_create_submission_with_s3_snapshot_stores_only_key(self):
+        repo = self._make_repo()
+        repo.create_submission(
+            course_id="c1",
+            project_id="p1",
+            user_id="u1",
+            submission_id="s-1",
+            snapshot_key="submission-s-1/submission_snapshot.json",
+        )
+        writer = repo.table.batch_writer.return_value.__enter__.return_value
+        for call in writer.put_item.call_args_list:
+            item = call[1]["Item"]
+            assert item["SubmissionId"] == "s-1"
+            assert "FrozenDesignState" not in item
+        forward = next(
+            c[1]["Item"]
+            for c in writer.put_item.call_args_list
+            if c[1]["Item"]["PK"] == "COURSE#c1"
+        )
+        assert forward["SnapshotKey"] == "submission-s-1/submission_snapshot.json"
 
     def test_get_submission(self):
         repo = self._make_repo()
@@ -335,14 +356,37 @@ class TestSubmitProjectEndpoint:
 
     def test_submit_success(self):
         client, mock_sub_repo, _, _p = _get_test_client()
-        resp = client.post(
-            "/api/courses/course-1/submissions",
-            json={"project_id": "proj-1"},
-        )
+        with patch(
+            "backend.projects.submission_routes._store_snapshot",
+            AsyncMock(return_value="submission-x/submission_snapshot.json"),
+        ) as store:
+            resp = client.post(
+                "/api/courses/course-1/submissions",
+                json={"project_id": "proj-1"},
+            )
         assert resp.status_code == status.HTTP_201_CREATED
         data = resp.json()
         assert data["submission_id"] == "sub-1"
         assert data["status"] == "submitted"
+        # Snapshot goes to S3; DynamoDB gets only the key (B41)
+        store.assert_awaited_once()
+        kwargs = mock_sub_repo.create_submission.call_args.kwargs
+        assert kwargs["snapshot_key"] == "submission-x/submission_snapshot.json"
+        assert kwargs["frozen_design_state"] is None
+
+    def test_submit_falls_back_to_inline_snapshot_without_s3(self):
+        client, mock_sub_repo, _, _p = _get_test_client()
+        with patch(
+            "backend.projects.submission_routes._store_snapshot", AsyncMock(return_value=None)
+        ):
+            resp = client.post(
+                "/api/courses/course-1/submissions",
+                json={"project_id": "proj-1"},
+            )
+        assert resp.status_code == status.HTTP_201_CREATED
+        kwargs = mock_sub_repo.create_submission.call_args.kwargs
+        assert kwargs["snapshot_key"] is None
+        assert kwargs["frozen_design_state"] is not None
 
     def test_submit_not_enrolled(self):
         client, _, _, _p = _get_test_client(enrollment_enrolled=False)

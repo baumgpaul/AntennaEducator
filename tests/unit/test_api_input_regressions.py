@@ -133,3 +133,12 @@ class TestPostprocessorInputs:
     def test_currents_frequency_mismatch_is_422(self, postprocessor):  # B34
         resp = postprocessor.post("/api/fields/near", json={**self.BASE, "frequencies": [3e8, 4e8]})
         assert resp.status_code == 422
+
+    def test_zero_currents_far_field_is_422_not_minus_inf(self, postprocessor):  # B35
+        body = {k: v for k, v in self.BASE.items() if k != "observation_points"}
+        body["branch_currents"] = [[{"real": 0, "imag": 0}, {"real": 0, "imag": 0}]]
+        resp = postprocessor.post(
+            "/api/fields/far", json={**body, "theta_points": 19, "phi_points": 37}
+        )
+        assert resp.status_code == 422
+        assert "radiates no power" in resp.json()["detail"]

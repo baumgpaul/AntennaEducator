@@ -71,9 +71,17 @@ class SubmissionRepository:
         frozen_simulation_config: Optional[Dict[str, Any]] = None,
         frozen_simulation_results: Optional[Dict[str, Any]] = None,
         frozen_ui_state: Optional[Dict[str, Any]] = None,
+        submission_id: Optional[str] = None,
+        snapshot_key: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Create a new submission with frozen project snapshot."""
-        submission_id = str(uuid.uuid4())
+        """Create a new submission.
+
+        Preferred: the frozen snapshot lives in S3 (``snapshot_key``) and the
+        items only hold metadata — inline snapshots could exceed DynamoDB's
+        400 KB item limit (TEST_PLAN B41). Inline ``frozen_*`` arguments are
+        the fallback when S3 is unavailable.
+        """
+        submission_id = submission_id or str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
 
         base_attrs = {
@@ -86,17 +94,25 @@ class SubmissionRepository:
             "ProjectName": project_name,
             "Status": "submitted",
             "Feedback": "",
-            "FrozenDesignState": _to_dynamodb(frozen_design_state or {}),
-            "FrozenSimulationConfig": _to_dynamodb(frozen_simulation_config or {}),
-            "FrozenSimulationResults": _to_dynamodb(frozen_simulation_results or {}),
-            "FrozenUiState": _to_dynamodb(frozen_ui_state or {}),
             "SubmittedAt": now,
             "ReviewedAt": "",
             "ReviewedBy": "",
         }
+        if snapshot_key:
+            snapshot_attrs = {"SnapshotKey": snapshot_key}
+        else:
+            snapshot_attrs = {
+                "FrozenDesignState": _to_dynamodb(frozen_design_state or {}),
+                "FrozenSimulationConfig": _to_dynamodb(frozen_simulation_config or {}),
+                "FrozenSimulationResults": _to_dynamodb(frozen_simulation_results or {}),
+                "FrozenUiState": _to_dynamodb(frozen_ui_state or {}),
+            }
 
+        # Snapshot only on the forward (course) item; the reverse item serves
+        # "my submissions" lists, which never show the snapshot.
         forward = {
             **base_attrs,
+            **snapshot_attrs,
             "PK": f"COURSE#{course_id}",
             "SK": f"SUBMISSION#{submission_id}",
         }
@@ -239,6 +255,7 @@ class SubmissionRepository:
             "frozen_simulation_config": _from_dynamodb(item.get("FrozenSimulationConfig", {})),
             "frozen_simulation_results": _from_dynamodb(item.get("FrozenSimulationResults", {})),
             "frozen_ui_state": _from_dynamodb(item.get("FrozenUiState", {})),
+            "snapshot_key": item.get("SnapshotKey"),
             "submitted_at": item.get("SubmittedAt", ""),
             "reviewed_at": item.get("ReviewedAt", ""),
             "reviewed_by": item.get("ReviewedBy", ""),

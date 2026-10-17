@@ -61,15 +61,19 @@ resource "aws_s3_bucket_lifecycle_configuration" "data" {
       storage_class = "STANDARD_IA"
     }
 
-    # Move to Glacier after 90 days
-    transition {
-      days          = 90
-      storage_class = "GLACIER"
+    # Move to Glacier after 90 days — only for data the app never reads back:
+    # GetObject fails on GLACIER objects, so app-read buckets must disable this.
+    dynamic "transition" {
+      for_each = var.enable_glacier_transition ? [1] : []
+      content {
+        days          = 90
+        storage_class = "GLACIER"
+      }
     }
 
     # Delete files after retention period (only if > last transition)
     dynamic "expiration" {
-      for_each = var.data_retention_days > 90 ? [var.data_retention_days] : []
+      for_each = var.data_retention_days > (var.enable_glacier_transition ? 90 : 30) ? [var.data_retention_days] : []
       content {
         days = expiration.value
       }

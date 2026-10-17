@@ -130,6 +130,8 @@ module "s3_results" {
   enable_lifecycle           = true
   data_retention_days        = 365
   enable_intelligent_tiering = false
+  # Results are read back by the app (project + submission hydration): no Glacier
+  enable_glacier_transition  = false
 
   tags = {
     Component = "storage"

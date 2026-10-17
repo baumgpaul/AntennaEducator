@@ -9,8 +9,20 @@ from botocore.exceptions import ClientError
 
 from backend.common.storage.provider import ResultsStorageProvider, ResultType
 from backend.common.storage.s3_client import create_s3_client, default_bucket_name
+from backend.common.utils.serialization import NumpyEncoder
 
 logger = logging.getLogger(__name__)
+
+
+class _ResultsEncoder(NumpyEncoder):
+    """Complex -> {"real", "imag"} (the project-wide form) instead of the lossy
+    str() fallback that produced "(1+2j)" strings (TEST_PLAN B48)."""
+
+    def default(self, obj):
+        try:
+            return super().default(obj)
+        except TypeError:
+            return str(obj)
 
 
 class S3ResultsProvider(ResultsStorageProvider):
@@ -88,7 +100,7 @@ class S3ResultsProvider(ResultsStorageProvider):
         await self._ensure_bucket()
 
         key = self.get_key(project_id, result_type)
-        body = json.dumps(data, default=str)
+        body = json.dumps(data, cls=_ResultsEncoder)
 
         try:
             self.client.put_object(

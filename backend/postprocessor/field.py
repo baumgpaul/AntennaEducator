@@ -792,6 +792,12 @@ def compute_directivity_from_pattern(
 
     # Compute total radiated power
     P_rad = compute_total_radiated_power(U, theta_angles, phi_angles)
+    if not (P_rad > 0 and directivity_max > 0):
+        # All currents zero -> D = 0 -> -inf dBi and NaN pattern (TEST_PLAN B35)
+        raise ValueError(
+            "The antenna radiates no power (all currents are zero), so directivity is "
+            "undefined. Check the source amplitude and that the solve succeeded."
+        )
 
     # Directivity pattern: D(θ,φ) = 4π * U(θ,φ) / P_rad
     directivity_pattern = 4 * np.pi * U / P_rad
