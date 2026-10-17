@@ -242,9 +242,17 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     [],
   );
 
-  // Initialize circuit from element data
+  // Initialize circuit from element data — once per opened dialog/element.
+  // Parent re-renders pass new `element`/`terminalNodeIndices` references;
+  // re-initializing on those would wipe the user's unsaved edits (B8).
+  const initializedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!open || !element) return;
+    if (!open) {
+      initializedForRef.current = null;
+      return;
+    }
+    if (!element || initializedForRef.current === element.id) return;
+    initializedForRef.current = element.id;
 
     const sources = element.sources ?? [];
     const lumpedElements = element.lumped_elements ?? [];
