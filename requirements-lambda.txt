@@ -2,7 +2,7 @@
 # No dev/test tools and no uvicorn (Mangum serves the app); boto3 is provided
 # by the Lambda base image. Keep in sync with [project.dependencies].
 numpy==1.26.4
-scipy==1.11.4
+scipy==1.17.1
 fastapi>=0.104.0
 pydantic[email]>=2.0.0
 pydantic-settings>=2.0.0
