@@ -50,3 +50,15 @@ variable "content_security_policy" {
   type        = string
   default     = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.amazonaws.com; font-src 'self' data:; connect-src 'self' https://*.on.aws https://*.amazonaws.com https://*.amazoncognito.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 }
+
+variable "api_origins" {
+  description = "Backend services routed under /svc/<name>/*: map of service name -> Lambda Function URL"
+  type        = map(string)
+  default     = {}
+}
+
+variable "api_origin_signing" {
+  description = "Sign API origin requests with OAC (Function URLs must use AWS_IAM auth and allow this distribution)"
+  type        = bool
+  default     = false
+}

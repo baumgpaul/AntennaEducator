@@ -212,11 +212,49 @@ module "cloudfront" {
 
   price_class = "PriceClass_100"  # North America + Europe (cheapest)
 
+  # API behind CloudFront: same-origin /svc/<service>/* for the SPA
+  api_origins = {
+    projects      = module.lambda_projects.function_url
+    preprocessor  = module.lambda_preprocessor.function_url
+    solver        = module.lambda_solver.function_url
+    postprocessor = module.lambda_postprocessor.function_url
+  }
+  api_origin_signing = var.api_origin_signing
+
   tags = {
     Component = "cdn"
   }
 
   depends_on = [module.acm_certificate]
+}
+
+# Stage B: only this distribution may invoke the Function URLs
+locals {
+  api_lambda_names = var.api_origin_signing ? {
+    projects      = module.lambda_projects.function_name
+    preprocessor  = module.lambda_preprocessor.function_name
+    solver        = module.lambda_solver.function_name
+    postprocessor = module.lambda_postprocessor.function_name
+  } : {}
+}
+
+resource "aws_lambda_permission" "cloudfront_invoke_url" {
+  for_each               = local.api_lambda_names
+  statement_id           = "AllowCloudFrontInvokeFunctionUrl"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = each.value
+  principal              = "cloudfront.amazonaws.com"
+  source_arn             = module.cloudfront.distribution_arn
+  function_url_auth_type = "AWS_IAM"
+}
+
+resource "aws_lambda_permission" "cloudfront_invoke_function" {
+  for_each      = local.api_lambda_names
+  statement_id  = "AllowCloudFrontInvokeFunction"
+  action        = "lambda:InvokeFunction"
+  function_name = each.value
+  principal     = "cloudfront.amazonaws.com"
+  source_arn    = module.cloudfront.distribution_arn
 }
 
 # ============================================================================
@@ -304,7 +342,7 @@ module "lambda_projects" {
   s3_bucket_arns      = [module.s3_results.bucket_arn]
 
   create_function_url    = true
-  function_url_auth_type = "NONE"
+  function_url_auth_type = var.api_origin_signing ? "AWS_IAM" : "NONE"
   cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
@@ -338,7 +376,7 @@ module "lambda_preprocessor" {
   dynamodb_table_arns = [module.dynamodb.table_arn]
 
   create_function_url    = true
-  function_url_auth_type = "NONE"
+  function_url_auth_type = var.api_origin_signing ? "AWS_IAM" : "NONE"
   cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
@@ -372,7 +410,7 @@ module "lambda_solver" {
   dynamodb_table_arns = [module.dynamodb.table_arn]
 
   create_function_url    = true
-  function_url_auth_type = "NONE"
+  function_url_auth_type = var.api_origin_signing ? "AWS_IAM" : "NONE"
   cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
@@ -407,7 +445,7 @@ module "lambda_postprocessor" {
   dynamodb_table_arns = [module.dynamodb.table_arn]
 
   create_function_url    = true
-  function_url_auth_type = "NONE"
+  function_url_auth_type = var.api_origin_signing ? "AWS_IAM" : "NONE"
   cors_allowed_origins   = []  # FastAPI CORSMiddleware handles CORS
 
   tags = {
@@ -488,12 +526,16 @@ module "cicd" {
 
   # Frontend build config (public client-side identifiers, kept out of git)
   frontend_build_env = {
-    VITE_API_BASE_URL         = trimsuffix(module.lambda_projects.function_url, "/")
-    VITE_PROJECTS_URL         = trimsuffix(module.lambda_projects.function_url, "/")
-    VITE_AUTH_URL             = trimsuffix(module.lambda_projects.function_url, "/")
-    VITE_PREPROCESSOR_URL     = trimsuffix(module.lambda_preprocessor.function_url, "/")
-    VITE_SOLVER_URL           = trimsuffix(module.lambda_solver.function_url, "/")
-    VITE_POSTPROCESSOR_URL    = trimsuffix(module.lambda_postprocessor.function_url, "/")
+    # Same-origin API paths through CloudFront (see module "cloudfront")
+    VITE_API_BASE_URL          = "/svc/projects"
+    VITE_PROJECTS_URL          = "/svc/projects"
+    VITE_AUTH_URL              = "/svc/projects"
+    VITE_PREPROCESSOR_URL      = "/svc/preprocessor"
+    VITE_SOLVER_URL            = "/svc/solver"
+    VITE_POSTPROCESSOR_URL     = "/svc/postprocessor"
+    VITE_API_BEHIND_CLOUDFRONT = "true"
+    # For the post-deploy smoke test (relative URLs are resolved against it)
+    SMOKE_BASE_URL = "https://${var.domain_name}"
     VITE_AUTH_PROVIDER        = "cognito"
     VITE_ENABLE_AUTH          = "true"
     VITE_ENABLE_3D_DEBUG      = "false"
