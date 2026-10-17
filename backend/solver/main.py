@@ -12,7 +12,12 @@ from fastapi.responses import JSONResponse
 from backend.common.auth.dependencies import get_current_user
 from backend.common.auth.identity import UserIdentity
 from backend.common.auth.token_costs import calculate_sweep_cost
-from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
+from backend.common.auth.token_dependency import (
+    TokenCheckResult,
+    charge_simulation_tokens,
+    check_simulation_tokens,
+    require_simulation_tokens,
+)
 from backend.common.utils.error_handler import install_error_handlers
 from backend.common.utils.logging_config import configure_logging
 
@@ -215,35 +220,8 @@ async def solve_frequency_sweep_endpoint(
 ):
     """Solve PEEC system across multiple frequencies."""
     # Sweep cost scales with number of frequencies (capped at 250)
-    cost = calculate_sweep_cost(len(request.frequencies))
-    from backend.common.auth.token_dependency import InsufficientTokensError, _check_token_balance
-
-    try:
-        result_check = _check_token_balance(user, cost)
-    except InsufficientTokensError as exc:
-        raise HTTPException(
-            status_code=402,
-            detail={
-                "message": "Insufficient simulation tokens",
-                "required": exc.required,
-                "balance": exc.balance,
-            },
-        )
-    if result_check.should_deduct:
-        from backend.common.repositories.user_repository import UserRepository
-
-        repo = UserRepository()
-        try:
-            repo.deduct_user_tokens(user.id, cost)
-        except ValueError:
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "message": "Insufficient simulation tokens",
-                    "required": cost,
-                    "balance": user.simulation_tokens,
-                },
-            )
+    # Checked now, charged only after the sweep succeeded (B43).
+    token_check = check_simulation_tokens(user, calculate_sweep_cost(len(request.frequencies)))
     try:
         # Validate inputs
         if len(request.nodes) < 2:
@@ -321,7 +299,7 @@ async def solve_frequency_sweep_endpoint(
             )
 
         # Build response
-        return SweepResultResponse(
+        response = SweepResultResponse(
             frequencies=request.frequencies,
             reference_impedance=request.reference_impedance,
             frequency_solutions=freq_solutions,
@@ -335,6 +313,8 @@ async def solve_frequency_sweep_endpoint(
             n_branches=result.n_branches,
             total_solve_time=total_time,
         )
+        charge_simulation_tokens(user, token_check, endpoint="solve/sweep")
+        return response
 
     except HTTPException:
         raise

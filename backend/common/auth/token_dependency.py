@@ -18,9 +18,10 @@ The dependency:
 3. Otherwise verifies ``user.simulation_tokens >= cost``.
 4. Raises HTTP 402 if insufficient.
 
-Actual DynamoDB deduction is handled by ``deduct_user_tokens()`` (called
-after the balance check passes). This is wired in Phase 4 when compute
-services get auth.
+Tokens are only **charged after the endpoint succeeds** (it is a ``yield``
+dependency): requests that fail validation (422), are rejected (4xx) or
+crash (5xx) cost nothing. Endpoints whose cost depends on the request body
+call ``charge_simulation_tokens()`` themselves after computing.
 """
 
 from dataclasses import dataclass
@@ -101,68 +102,84 @@ def _log_usage(
         )
 
 
+def _insufficient(required: int, balance: int):
+    from fastapi import HTTPException
+
+    return HTTPException(
+        status_code=402,
+        detail={
+            "message": "Insufficient simulation tokens",
+            "required": required,
+            "balance": balance,
+        },
+    )
+
+
+def check_simulation_tokens(user: UserIdentity, cost: int) -> TokenCheckResult:
+    """Balance check without charging. Raises HTTP 402 if insufficient."""
+    try:
+        return _check_token_balance(user, cost)
+    except InsufficientTokensError as exc:
+        raise _insufficient(exc.required, exc.balance)
+
+
+def charge_simulation_tokens(
+    user: UserIdentity, check: TokenCheckResult, endpoint: str = ""
+) -> None:
+    """Deduct (or, for flatrate users, just log) tokens for a completed request.
+
+    Call only after the computation succeeded.
+    """
+    if check.should_deduct:
+        from backend.common.repositories.user_repository import UserRepository
+
+        try:
+            remaining = UserRepository().deduct_user_tokens(user.id, check.cost)
+        except ValueError:
+            # Balance changed concurrently between check and charge.
+            raise _insufficient(check.cost, user.simulation_tokens)
+        _log_usage(
+            user_id=user.id,
+            service="compute",
+            endpoint=endpoint,
+            cost=check.cost,
+            balance_after=remaining,
+            was_flatrate=False,
+        )
+    elif check.cost > 0:
+        # Flatrate user — log but no deduction
+        _log_usage(
+            user_id=user.id,
+            service="compute",
+            endpoint=endpoint,
+            cost=check.cost,
+            balance_after=user.simulation_tokens,
+            was_flatrate=True,
+        )
+
+
 def require_simulation_tokens(cost: int):
     """FastAPI dependency factory: enforce token balance for an endpoint.
+
+    The balance is checked before the endpoint runs; tokens are charged only
+    if the endpoint returns successfully.
 
     Args:
         cost: Number of tokens this endpoint consumes.
 
     Returns:
-        A FastAPI-compatible async dependency function.
+        A FastAPI-compatible async (yield) dependency.
     """
-    from fastapi import Depends, HTTPException
+    from fastapi import Depends
 
     from backend.common.auth.dependencies import get_current_user
 
     async def _dependency(
         user: UserIdentity = Depends(get_current_user),
-    ) -> TokenCheckResult:
-        try:
-            result = _check_token_balance(user, cost)
-        except InsufficientTokensError as exc:
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "message": "Insufficient simulation tokens",
-                    "required": exc.required,
-                    "balance": exc.balance,
-                },
-            )
-
-        if result.should_deduct:
-            from backend.common.repositories.user_repository import UserRepository
-
-            repo = UserRepository()
-            try:
-                remaining = repo.deduct_user_tokens(user.id, cost)
-            except ValueError:
-                raise HTTPException(
-                    status_code=402,
-                    detail={
-                        "message": "Insufficient simulation tokens",
-                        "required": cost,
-                        "balance": user.simulation_tokens,
-                    },
-                )
-            _log_usage(
-                user_id=user.id,
-                service="compute",
-                endpoint="",
-                cost=cost,
-                balance_after=remaining,
-                was_flatrate=False,
-            )
-        elif cost > 0:
-            # Flatrate user — log but no deduction
-            _log_usage(
-                user_id=user.id,
-                service="compute",
-                endpoint="",
-                cost=cost,
-                balance_after=user.simulation_tokens,
-                was_flatrate=True,
-            )
-
-        return result
+    ):
+        result = check_simulation_tokens(user, cost)
+        yield result
+        # Only reached when the endpoint returned without raising.
+        charge_simulation_tokens(user, result)
 
     return _dependency
