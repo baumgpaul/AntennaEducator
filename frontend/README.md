@@ -21,7 +21,7 @@ npm test             # Vitest with jsdom
 npx tsc --noEmit     # Type checking
 ```
 
-Environment config: `.env.development` (local), `.env.production` (AWS Lambda Function URLs).
+Environment config: `.env.development` (local, committed; put real Cognito IDs in `.env.development.local`) and `.env.production` (gitignored; copy from `.env.production.example`). CI injects the production `VITE_*` values from Terraform.
 
 ## Structure
 

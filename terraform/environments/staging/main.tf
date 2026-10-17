@@ -12,8 +12,9 @@ terraform {
   }
 
   # Remote state in S3 (created by bootstrap)
+  # The bucket name is account-specific and kept out of git (partial config):
+  #   terraform init -backend-config=backend.hcl   (see backend.hcl.example)
   backend "s3" {
-    bucket         = "antenna-simulator-terraform-state-<AWS_ACCOUNT_ID>"
     key            = "staging/terraform.tfstate"
     region         = "eu-west-1"
     dynamodb_table = "antenna-terraform-locks"
@@ -160,7 +161,6 @@ module "route53" {
 
   # Use existing parent zone (nyakyagyawa.com)
   use_existing_zone          = true
-  existing_zone_id           = "<HOSTED_ZONE_ID>"  # Your existing nyakyagyawa.com zone
   parent_domain_name         = "nyakyagyawa.com"
 
   cloudfront_domain_name      = module.cloudfront.distribution_domain_name
@@ -483,6 +483,23 @@ module "cicd" {
   # Deployment targets
   s3_frontend_bucket         = module.s3_frontend.bucket_name
   cloudfront_distribution_id = module.cloudfront.distribution_id
+
+  # Frontend build config (public client-side identifiers, kept out of git)
+  frontend_build_env = {
+    VITE_API_BASE_URL         = trimsuffix(module.lambda_projects.function_url, "/")
+    VITE_PROJECTS_URL         = trimsuffix(module.lambda_projects.function_url, "/")
+    VITE_AUTH_URL             = trimsuffix(module.lambda_projects.function_url, "/")
+    VITE_PREPROCESSOR_URL     = trimsuffix(module.lambda_preprocessor.function_url, "/")
+    VITE_SOLVER_URL           = trimsuffix(module.lambda_solver.function_url, "/")
+    VITE_POSTPROCESSOR_URL    = trimsuffix(module.lambda_postprocessor.function_url, "/")
+    VITE_AUTH_PROVIDER        = "cognito"
+    VITE_ENABLE_AUTH          = "true"
+    VITE_ENABLE_3D_DEBUG      = "false"
+    VITE_COGNITO_USER_POOL_ID = module.cognito.user_pool_id
+    VITE_COGNITO_CLIENT_ID    = module.cognito.client_id
+    VITE_COGNITO_DOMAIN       = "${module.cognito.domain}.auth.${var.aws_region}.amazoncognito.com"
+    VITE_COGNITO_REGION       = var.aws_region
+  }
 
   tags = { Component = "cicd" }
 }
