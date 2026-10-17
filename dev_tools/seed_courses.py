@@ -15,9 +15,9 @@ sub-folder course.
 Usage (local Docker Compose):
     python dev_tools/seed_courses.py
 
-Usage (AWS / staging):
-    SEED_BASE_URL=https://<lambda-fn-url>.lambda-url.eu-west-1.on.aws \\
-    SEED_ADMIN_TOKEN=<cognito-id-token> \\
+Usage (AWS / staging) — run manually after deploying changed course content:
+    SEED_BASE_URL=https://<projects-function-url> \\
+    SEED_USERNAME=<admin e-mail> SEED_PASSWORD=<admin password> \\
     python dev_tools/seed_courses.py
 
 Environment variables:
@@ -241,7 +241,9 @@ class Seeder:
         if not sub_courses:
             return
 
-        log.info("  Found %d sub-folder(s) — checking for old structure to migrate...", len(sub_courses))
+        log.info(
+            "  Found %d sub-folder(s) — checking for old structure to migrate...", len(sub_courses)
+        )
         for sub in sub_courses:
             sub_id = sub["id"]
             sub_name = sub["name"]
@@ -250,7 +252,9 @@ class Seeder:
             # Only migrate sub-folders that contain exactly one known module project
             module_projects = [p for p in projects if p["name"] in known_project_names]
             if not module_projects:
-                log.info("  Sub-folder '%s' has no recognised module projects — skipping.", sub_name)
+                log.info(
+                    "  Sub-folder '%s' has no recognised module projects — skipping.", sub_name
+                )
                 continue
 
             for proj in module_projects:
@@ -388,7 +392,8 @@ def _get_token(base_url: str) -> str:
     log.info("Logging in as '%s' ...", username)
     resp = requests.post(
         f"{base_url.rstrip('/')}/api/auth/login",
-        json={"username": username, "password": password},
+        # The login schema takes "email"; sending "username" always got a 422
+        json={"email": username, "password": password},
         timeout=30,
     )
     if not resp.ok:
