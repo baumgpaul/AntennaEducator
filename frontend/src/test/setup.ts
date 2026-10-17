@@ -1,6 +1,13 @@
 import '@testing-library/jest-dom';
 import { beforeAll, afterEach, afterAll, vi } from 'vitest';
 import { server } from './mocks/server';
+import { webcrypto } from 'node:crypto';
+
+// jsdom on older Node versions lacks Web Crypto (crypto.subtle), which the API
+// client uses to hash request bodies. Browsers always provide it.
+if (!globalThis.crypto?.subtle) {
+  Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
+}
 
 // Start MSW server before all tests
 beforeAll(() => {

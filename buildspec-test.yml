@@ -8,7 +8,7 @@ phases:
   install:
     runtime-versions:
       python: 3.11
-      nodejs: 18
+      nodejs: 20  # 18 is end-of-life
     commands:
       - echo "Installing Python dependencies..."
       - pip install -e ".[dev,aws]"
