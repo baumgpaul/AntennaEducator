@@ -2,7 +2,10 @@
  * Safe expression evaluator for client-side variable resolution.
  *
  * Mirrors the backend expression engine (backend/common/utils/expressions.py)
- * to provide live preview of evaluated values in the UI.
+ * to provide live preview of evaluated values in the UI. Python semantics
+ * throughout (precedence of ** over unary minus, % with the sign of the
+ * divisor, round half to even); tests/fixtures/expression_parity.json is
+ * checked by both test suites (B22).
  *
  * Uses a simple recursive-descent parser — no eval().
  */
@@ -18,6 +21,19 @@ export const BUILTIN_CONSTANTS: Record<string, number> = {
   inf: Infinity,
 }
 
+/** Python's round(): half to even, optional (negative) digit count. */
+function pyRound(x: number, ndigits = 0): number {
+  const scale = 10 ** ndigits
+  const y = x * scale
+  const floor = Math.floor(y)
+  const diff = y - floor
+  let rounded: number
+  if (diff > 0.5) rounded = floor + 1
+  else if (diff < 0.5) rounded = floor
+  else rounded = floor % 2 === 0 ? floor : floor + 1
+  return rounded / scale
+}
+
 // Allowed math functions
 const ALLOWED_FUNCTIONS: Record<string, (...args: number[]) => number> = {
   sin: Math.sin,
@@ -28,7 +44,7 @@ const ALLOWED_FUNCTIONS: Record<string, (...args: number[]) => number> = {
   atan: Math.atan,
   atan2: Math.atan2,
   sqrt: Math.sqrt,
-  log: Math.log,
+  log: (x: number, base?: number) => (base === undefined ? Math.log(x) : Math.log(x) / Math.log(base)),
   log10: Math.log10,
   log2: Math.log2,
   exp: Math.exp,
@@ -36,7 +52,7 @@ const ALLOWED_FUNCTIONS: Record<string, (...args: number[]) => number> = {
   min: Math.min,
   max: Math.max,
   pow: Math.pow,
-  round: Math.round,
+  round: pyRound,
   ceil: Math.ceil,
   floor: Math.floor,
   degrees: (rad: number) => (rad * 180) / Math.PI,
@@ -163,9 +179,9 @@ function tokenize(expression: string): Token[] {
  *
  * Grammar:
  *   expr       = term (('+' | '-') term)*
- *   term       = power (('*' | '/' | '//' | '%') power)*
- *   power      = unary ('**' power)?       (right-associative)
- *   unary      = ('+' | '-') unary | call
+ *   term       = unary (('*' | '/' | '//' | '%') unary)*
+ *   unary      = ('+' | '-') unary | power
+ *   power      = call ('**' unary)?        (right-associative; -2**2 = -4 as in Python)
  *   call       = IDENTIFIER '(' args ')'  | atom
  *   atom       = NUMBER | IDENTIFIER | '(' expr ')'
  */
@@ -228,13 +244,13 @@ class Parser {
   }
 
   private parseTerm(): number {
-    let left = this.parsePower()
+    let left = this.parseUnary()
     while (
       this.peek().type === 'OPERATOR' &&
       ['*', '/', '//', '%'].includes(this.peek().value)
     ) {
       const op = this.advance().value
-      const right = this.parsePower()
+      const right = this.parseUnary()
       if (op === '*') left = left * right
       else if (op === '/') {
         if (right === 0)
@@ -245,20 +261,22 @@ class Parser {
           throw new ExpressionError(this.expression, 'Division by zero')
         left = Math.floor(left / right)
       } else if (op === '%') {
-        left = left % right
+        if (right === 0)
+          throw new ExpressionError(this.expression, 'Division by zero')
+        left = left - right * Math.floor(left / right) // Python: sign of the divisor
       }
     }
     return left
   }
 
   private parsePower(): number {
-    const base = this.parseUnary()
+    const base = this.parseCall()
     if (
       this.peek().type === 'OPERATOR' &&
       this.peek().value === '**'
     ) {
       this.advance()
-      const exp = this.parsePower() // right-associative
+      const exp = this.parseUnary() // right-associative, allows 2 ** -1
       return Math.pow(base, exp)
     }
     return base
@@ -273,7 +291,7 @@ class Parser {
       const operand = this.parseUnary()
       return op === '-' ? -operand : operand
     }
-    return this.parseCall()
+    return this.parsePower()
   }
 
   private parseCall(): number {
@@ -300,14 +318,18 @@ class Parser {
         }
       }
       this.expect('RPAREN')
+      let result: number
       try {
-        return fn(...args)
+        result = fn(...args)
       } catch {
-        throw new ExpressionError(
-          this.expression,
-          `Error calling ${name}`
-        )
+        throw new ExpressionError(this.expression, `Error calling ${name}`)
       }
+      // Python raises for domain errors and overflow (sqrt(-1), log(0),
+      // exp(1000), min()) where JavaScript returns NaN or ±Infinity
+      if (Number.isNaN(result) || (!Number.isFinite(result) && args.every(Number.isFinite))) {
+        throw new ExpressionError(this.expression, `Error calling ${name}`)
+      }
+      return result
     }
     return this.parseAtom()
   }

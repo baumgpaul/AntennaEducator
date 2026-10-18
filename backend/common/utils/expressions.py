@@ -29,7 +29,9 @@ _UNARY_OPS: dict[type, Any] = {
     ast.USub: operator.neg,
 }
 
-# Allowed math functions (safe subset)
+# Allowed math functions (safe subset). Keep in sync with
+# frontend/src/utils/expressionEvaluator.ts; tests/fixtures/expression_parity.json
+# is checked by both test suites (B22).
 ALLOWED_FUNCTIONS: dict[str, Any] = {
     "sin": math.sin,
     "cos": math.cos,
@@ -47,7 +49,10 @@ ALLOWED_FUNCTIONS: dict[str, Any] = {
     "min": min,
     "max": max,
     "pow": pow,
-    "round": round,
+    # Literals are floats; round() needs an int digit count (round(x, 2) used to fail)
+    "round": lambda x, ndigits=0: round(x, int(ndigits)),
+    "ceil": math.ceil,
+    "floor": math.floor,
     "degrees": math.degrees,
     "radians": math.radians,
 }
@@ -146,7 +151,7 @@ def _safe_eval_node(node: ast.AST, variables: dict[str, float], expression: str)
             raise ExpressionError(expression, "Keyword arguments are not allowed")
         try:
             return float(ALLOWED_FUNCTIONS[func_name](*args))
-        except (ValueError, TypeError) as exc:
+        except (ValueError, TypeError, OverflowError) as exc:
             raise ExpressionError(
                 expression,
                 f"Error calling {func_name}: {exc}",
