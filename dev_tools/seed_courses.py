@@ -56,7 +56,8 @@ COURSE_DESCRIPTION = (
     "A self-contained introduction to antenna theory using the 1D PEEC "
     "(Partial Element Equivalent Circuit) method. Covers terminal impedance, "
     "current distribution, far-field radiation, polarization, radiation patterns, "
-    "loop antennas, and linear arrays — each module with pre-run simulation results."
+    "loop antennas, linear arrays, monopoles over a ground plane, and Yagi-Uda antennas — "
+    "each module with pre-run simulation results."
 )
 
 MODULES = [
@@ -101,6 +102,18 @@ MODULES = [
         "name": "Module 7: Linear Arrays",
         "description": "Array factor, broadside and end-fire arrays, HPBW, and grating lobes.",
         "project_name": "M7 — Two-Element Dipole Array",
+    },
+    {
+        "dir": "08_monopole_ground_plane",
+        "name": "Module 8: Monopole over a Ground Plane",
+        "description": "Image theory, half the dipole's impedance, +3 dB directivity of a quarter-wave monopole.",
+        "project_name": "M8 — Quarter-Wave Monopole on a Ground Plane",
+    },
+    {
+        "dir": "09_yagi_uda",
+        "name": "Module 9: Yagi-Uda Antenna",
+        "description": "Parasitic reflector and director, mutual coupling, directivity and front-to-back ratio.",
+        "project_name": "M9 — Three-Element Yagi-Uda",
     },
 ]
 
