@@ -67,7 +67,9 @@ def _solve_kind() -> JobKind:
 
     def estimate(r: MultiAntennaRequest) -> float:
         n_edges = sum(len(a.edges) for a in r.antennas)
-        return LAMBDA_SLOWDOWN * estimate_solve_time(n_edges)["estimated_seconds"]
+        # A ground plane adds the coupling to every image: twice the matrix fill
+        images = 2.0 if r.config.ground_plane else 1.0
+        return images * LAMBDA_SLOWDOWN * estimate_solve_time(n_edges)["estimated_seconds"]
 
     return JobKind(
         parse=lambda payload: MultiAntennaRequest(**payload),
@@ -77,13 +79,13 @@ def _solve_kind() -> JobKind:
 
 
 def _near_field_kind() -> JobKind:
-    from backend.postprocessor.compute import estimate_near_field, near_field_result
+    from backend.postprocessor.compute import estimate_near_field, field_edges, near_field_result
     from backend.postprocessor.models import FieldRequest
 
     return JobKind(
         parse=lambda payload: FieldRequest(**payload),
         estimate_seconds=lambda r: estimate_near_field(
-            len(r.observation_points), len(r.edges), len(r.frequencies)
+            len(r.observation_points), field_edges(r), len(r.frequencies)
         )["estimated_seconds"],
         run=near_field_result,
     )

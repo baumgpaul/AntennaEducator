@@ -46,6 +46,7 @@ export interface SolverConfiguration {
   include_skin_effect?: boolean
   resistivity?: number         // [Ω·m]
   permeability?: number        // Relative μ_r
+  ground_plane?: boolean       // PEC plane at z = 0 (node 0 is the plane)
 }
 
 export interface MultiAntennaRequest {

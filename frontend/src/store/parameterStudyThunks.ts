@@ -29,7 +29,7 @@ import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
 import { remeshElementExpressions } from '@/store/designSlice';
 import { evaluateExpression } from '@/utils/expressionEvaluator';
 import type { VariableDefinition } from '@/utils/expressionEvaluator';
-import { setProgress, setSweepProgress, runMultiAntennaSimulation } from '@/store/solverSlice';
+import { setProgress, setSweepProgress, runMultiAntennaSimulation, withGroundPlane } from '@/store/solverSlice';
 
 // ============================================================================
 // Helpers
@@ -216,7 +216,7 @@ export const runParameterStudy = createAsyncThunk<
         };
 
         // 6. Solve
-        const solverResponse = await solveMultiAntenna(request);
+        const solverResponse = await solveMultiAntenna(withGroundPlane(request, getState() as RootState));
         notifySolverWarnings(dispatch, solverResponse, shownWarnings);
 
         results.push({

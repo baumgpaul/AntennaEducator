@@ -94,6 +94,14 @@ function calculateFieldDataSize(fieldData: SolverState['fieldData']): number {
   return totalBytes / (1024 * 1024); // Convert to MB
 }
 
+/** Ground plane flag of the design (sent with every solve and field request). */
+export const groundPlaneOf = (state: RootState): boolean => state.design?.groundPlane ?? false;
+
+export const withGroundPlane = (request: MultiAntennaRequest, state: RootState): MultiAntennaRequest => ({
+  ...request,
+  config: { ...request.config, ground_plane: groundPlaneOf(state) },
+});
+
 /**
  * Build a combined mesh from MeshSnapshot[] (for sweep-mode postprocessing).
  * Handles VS/CS edge insertion identical to the element-loop logic.
@@ -314,9 +322,9 @@ export const runMultiAntennaSimulation = createAsyncThunk<
   MultiAntennaSolutionResponse,
   MultiAntennaRequest,
   { state: RootState }
->('solver/runMultiAntennaSimulation', async (request, { dispatch, rejectWithValue }) => {
+>('solver/runMultiAntennaSimulation', async (request, { dispatch, getState, rejectWithValue }) => {
   try {
-    const result = await solveMultiAntenna(request);
+    const result = await solveMultiAntenna(withGroundPlane(request, getState()));
     notifySolverWarnings(dispatch, result);
     return result;
   } catch (error: any) {
@@ -336,7 +344,7 @@ export const runFrequencySweep = createAsyncThunk<
     request: MultiAntennaRequest; // Base request with mesh, sources, etc.
   },
   { state: RootState }
->('solver/runFrequencySweep', async ({ params, request }, { dispatch, rejectWithValue }) => {
+>('solver/runFrequencySweep', async ({ params, request }, { dispatch, getState, rejectWithValue }) => {
   try {
     const { startFrequency, stopFrequency, numPoints, spacing } = params;
 
@@ -379,7 +387,7 @@ export const runFrequencySweep = createAsyncThunk<
       };
 
       // Call solver
-      const result = await solveMultiAntenna(freqRequest);
+      const result = await solveMultiAntenna(withGroundPlane(freqRequest, getState()));
       notifySolverWarnings(dispatch, result, shownWarnings);
       results.push(result);
 
@@ -627,6 +635,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           }
 
           const pattern = await computeFarField({
+            ground_plane: groundPlaneOf(getState()),
             frequencies: [freqHz],
             branch_currents: [branchCurrents],
             nodes: ffMesh.nodes,
@@ -693,6 +702,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
             }
 
             const fieldRequest = {
+              ground_plane: groundPlaneOf(getState()),
               frequencies: [freqHz],
               branch_currents: [branchCurrents],
               nodes: nfMesh.nodes,
@@ -953,6 +963,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           }
 
           const fieldRequest = {
+            ground_plane: groundPlaneOf(getState()),
             frequencies: [freqHz],
             branch_currents: [branch_currents_for_freq],
             nodes: mesh.nodes,
@@ -1206,6 +1217,7 @@ export const computeRadiationPattern = createAsyncThunk<
       : [combinedBranchCurrents];
 
     const request = {
+      ground_plane: groundPlaneOf(getState()),
       frequencies: frequencies,
       branch_currents: branch_currents_array,
       nodes: combinedNodes,
@@ -1353,6 +1365,7 @@ export const computeRadiationPatternForFrequency = createAsyncThunk<
     }
 
     const request = {
+      ground_plane: groundPlaneOf(getState()),
       frequencies: [freqHz],
       branch_currents: [branchCurrentsForFreq],
       nodes: combinedNodes,

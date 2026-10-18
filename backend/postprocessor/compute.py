@@ -14,6 +14,7 @@ import numpy as np
 from .config import settings
 from .field import compute_directivity_from_pattern, compute_far_field
 from .field import compute_near_field as compute_near_field_impl
+from .ground_plane import add_images, lower_hemisphere
 from .models import FarFieldRequest, FieldRequest, RadiationPatternResponse
 
 logger = logging.getLogger(__name__)
@@ -77,8 +78,13 @@ def estimate_near_field(n_points: int, n_edges: int, n_freq: int) -> dict:
     }
 
 
+def field_edges(request: FieldRequest | FarFieldRequest) -> int:
+    """Edges the field sums over: a ground plane adds one image per edge."""
+    return len(request.edges) * (2 if request.ground_plane else 1)
+
+
 def estimate_far_field_seconds(request: FarFieldRequest) -> float:
-    n = request.theta_points * request.phi_points * len(request.edges) * len(request.frequencies)
+    n = request.theta_points * request.phi_points * field_edges(request) * len(request.frequencies)
     return n * FAR_FIELD_SECONDS_PER_EVAL
 
 
@@ -103,7 +109,7 @@ def near_field_result(request: FieldRequest) -> dict:
         n_branches,
     )
 
-    estimate = estimate_near_field(n_points, n_edges, n_freq)
+    estimate = estimate_near_field(n_points, field_edges(request), n_freq)
     logger.info(
         "Computation estimate: %d total evals, ~%.1f s",
         estimate["total_evaluations"],
@@ -123,6 +129,8 @@ def near_field_result(request: FieldRequest) -> dict:
     edges = np.array(request.edges)
     observation_points = np.array(request.observation_points)
     branch_currents = parse_branch_currents(request.branch_currents)
+    if request.ground_plane:
+        nodes, edges, branch_currents = add_images(nodes, edges, branch_currents)
     logger.info("Request parsed in %.3f s", time.perf_counter() - t_parse)
 
     logger.debug(
@@ -148,6 +156,10 @@ def near_field_result(request: FieldRequest) -> dict:
     # Extract first frequency results (n_points x 3, complex)
     E_vectors = E_field[0]
     H_vectors = H_field[0]
+    if request.ground_plane:  # no field inside the conductor
+        below = observation_points[:, 2] < 0
+        E_vectors[below] = 0
+        H_vectors[below] = 0
 
     E_magnitudes = np.linalg.norm(E_vectors, axis=1).tolist()
     H_magnitudes = np.linalg.norm(H_vectors, axis=1).tolist()
@@ -200,6 +212,8 @@ def far_field_result(request: FarFieldRequest) -> RadiationPatternResponse:
     nodes = np.array(request.nodes)
     edges = np.array(request.edges)
     branch_currents = parse_branch_currents(request.branch_currents)
+    if request.ground_plane:
+        nodes, edges, branch_currents = add_images(nodes, edges, branch_currents)
 
     theta_angles = np.linspace(0, np.pi, request.theta_points)
     phi_angles = np.linspace(0, 2 * np.pi, request.phi_points)
@@ -212,6 +226,9 @@ def far_field_result(request: FarFieldRequest) -> RadiationPatternResponse:
         theta_angles=theta_angles,
         phi_angles=phi_angles,
     )
+
+    if request.ground_plane:  # nothing radiates below the plane
+        E_field[:, lower_hemisphere(theta_angles)] = 0
 
     # Extract first frequency results
     E_theta = E_field[0, :, :, 0]
@@ -226,7 +243,8 @@ def far_field_result(request: FarFieldRequest) -> RadiationPatternResponse:
     E_total_mag = np.sqrt(np.abs(E_theta) ** 2 + np.abs(E_phi) ** 2).flatten().tolist()
 
     U_max = np.max(U_pattern)
-    pattern_db_array = 10 * np.log10(U_pattern / U_max)
+    with np.errstate(divide="ignore"):  # zero below a ground plane -> -100 dB below
+        pattern_db_array = 10 * np.log10(U_pattern / U_max)
     pattern_db_array = np.nan_to_num(pattern_db_array, nan=-100.0, posinf=0.0, neginf=-100.0)
     pattern_db = pattern_db_array.flatten().tolist()
 

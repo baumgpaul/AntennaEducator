@@ -36,6 +36,7 @@ class FieldRequest(BaseModel):
     observation_points: List[List[float]] = Field(
         ..., min_length=1, max_length=40000, description="Points to evaluate field [[x,y,z], ...]"
     )
+    ground_plane: bool = Field(False, description="PEC ground plane at z = 0 (image theory)")
 
     @model_validator(mode="after")
     def validate_consistency(self):
@@ -63,6 +64,7 @@ class FarFieldRequest(BaseModel):
         181, ge=2, le=721, description="Number of theta samples (0 to 180 deg)"
     )
     phi_points: int = Field(360, ge=2, le=721, description="Number of phi samples (0 to 360 deg)")
+    ground_plane: bool = Field(False, description="PEC ground plane at z = 0 (image theory)")
 
     @model_validator(mode="after")
     def validate_consistency(self):

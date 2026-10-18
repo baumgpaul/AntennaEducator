@@ -148,6 +148,7 @@ def _get_solver_config(request_config):
         include_skin_effect=request_config.include_skin_effect,
         resistivity=request_config.resistivity,
         permeability=request_config.permeability,
+        ground_plane=request_config.ground_plane,
     )
 
 

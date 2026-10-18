@@ -141,6 +141,22 @@ async def test_worker_runs_far_field_jobs(store):
     assert result["directivity"] > 1.5  # a short dipole: ~1.76 dBi
 
 
+@pytest.mark.asyncio
+async def test_field_jobs_keep_the_ground_plane_images(store):
+    nodes = [[0, 0, 0.002], [0, 0, 0.1], [0, 0, 0.25]]
+    monopole = {**FIELD, "nodes": nodes, "edges": [[1, 2], [2, 3]], "ground_plane": True}
+    job_id = await store.submit(
+        "u1", {**monopole, "theta_points": 19, "phi_points": 37}, tokens_charged=0, kind="far_field"
+    )
+    await run_job(job_id, "u1", store=store)
+
+    result = await store.result(job_id)
+    below = [
+        db for i, db in enumerate(result["pattern_db"]) if result["theta_angles"][i // 37] > 1.6
+    ]
+    assert below and all(db == -100.0 for db in below)  # nothing radiates below the plane
+
+
 def test_estimates_queue_only_big_requests():
     from backend.solver.jobs import INLINE_MAX_SECONDS, job_kind
     from backend.solver.schemas import MultiAntennaRequest

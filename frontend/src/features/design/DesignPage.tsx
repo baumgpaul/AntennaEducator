@@ -29,6 +29,7 @@ import {
   setElementLocked,
   loadDesign,
   markAsSolved,
+  selectGroundPlane,
 } from '@/store/designSlice';
 import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification, showSuccess } from '@/store/uiSlice';
@@ -114,6 +115,10 @@ function DesignPage() {
   const solverState = useAppSelector((state) => state.solver); // Full solver state for persistence
   const docPanelOpen = useAppSelector((state) => state.documentation.panelOpen);
   const variables = useAppSelector(selectVariables);
+  const groundPlane = useAppSelector(selectGroundPlane);
+  // Read by the (once-created) debounced auto-save
+  const groundPlaneRef = useRef(groundPlane);
+  groundPlaneRef.current = groundPlane;
 
   // Helper: extract persistable solver state for auto-save
   // fieldData is included — the backend stores it in S3 (not DynamoDB)
@@ -248,7 +253,11 @@ function DesignPage() {
     const designState = currentProject.design_state;
     if (designState?.elements && Array.isArray(designState.elements) && designState.elements.length > 0) {
       console.log('Restored design elements from design_state:', designState.elements);
-      dispatch(loadDesign({ elements: designState.elements, isSolved: solverWasReady }));
+      dispatch(loadDesign({
+        elements: designState.elements,
+        isSolved: solverWasReady,
+        groundPlane: designState.ground_plane === true,
+      }));
     } else {
       console.log('Empty project loaded, clearing design state');
       dispatch(loadDesign({ elements: [] }));
@@ -302,6 +311,7 @@ function DesignPage() {
             design_state: {
               elements: projectElements,
               variables: projectVariables,
+              ground_plane: groundPlaneRef.current,
               version: 3,
             },
             // Solver / postprocessor settings
@@ -395,6 +405,15 @@ function DesignPage() {
       saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
     }
   }, [requestedFields, projectId, elements, viewConfigurations, saveProjectDebounced, solverState]);
+
+  // Auto-save when the ground plane is switched
+  useEffect(() => {
+    if (projectLoadingRef.current) return;
+    if (projectId) {
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groundPlane]);
 
   // Auto-save when view configurations change
   useEffect(() => {

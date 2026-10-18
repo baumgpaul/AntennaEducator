@@ -40,7 +40,9 @@ import {
   TableChart,
   Layers,
   Send,
+  Landscape,
 } from '@mui/icons-material';
+import { selectGroundPlane, setGroundPlane } from '@/store/designSlice';
 import { useAppDispatch, useAppSelector, useAppStore } from '@/store/hooks';
 import {
   setAddViewDialogOpen,
@@ -82,6 +84,7 @@ function RibbonMenu({
   onSubmit,
 }: RibbonMenuProps) {
   const dispatch = useAppDispatch();
+  const groundPlane = useAppSelector(selectGroundPlane);
   const store = useAppStore();
   const selectedViewId = useAppSelector((state) => state.postprocessing.selectedViewId);
   const selectedElementId = useAppSelector((state) => state.design.selectedElementId);
@@ -442,6 +445,22 @@ function RibbonMenu({
                       onClick={() => onAnalysisAction?.('validate-geometry')}
                     >
                       Validate
+                    </Button>
+                  </Tooltip>
+                  <Tooltip
+                    title={
+                      groundPlane
+                        ? 'Ground plane on: perfectly conducting plane at z = 0 (node 0 is the plane). Click to remove.'
+                        : 'Add a perfectly conducting ground plane at z = 0, e.g. for monopoles (rods)'
+                    }
+                  >
+                    <Button
+                      startIcon={<Landscape />}
+                      variant={groundPlane ? 'contained' : 'outlined'}
+                      aria-pressed={groundPlane}
+                      onClick={() => dispatch(setGroundPlane(!groundPlane))}
+                    >
+                      Ground plane
                     </Button>
                   </Tooltip>
                 </ButtonGroup>

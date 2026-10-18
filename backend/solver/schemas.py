@@ -37,6 +37,9 @@ class SolverConfiguration(BaseModel):
     include_skin_effect: bool = Field(True, description="Include frequency-dependent skin effect")
     resistivity: float = Field(1.68e-8, description="Material resistivity [Ω·m] (copper default)")
     permeability: float = Field(1.0, description="Relative permeability μ_r")
+    ground_plane: bool = Field(
+        False, description="Perfectly conducting ground plane at z = 0 (node 0 is the plane)"
+    )
 
     @field_validator("gauss_order")
     @classmethod
