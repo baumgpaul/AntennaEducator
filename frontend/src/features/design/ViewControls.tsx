@@ -7,7 +7,16 @@ import {
   FullscreenExit,
   GridOn,
   GridOff,
+  ThreeDRotation,
+  ViewInAr,
 } from '@mui/icons-material';
+import type { ViewPreset } from './Scene3D';
+
+const PRESETS: ReadonlyArray<[ViewPreset, string, string]> = [
+  ['front', 'F', 'Front view (XZ plane)'],
+  ['side', 'S', 'Side view (YZ plane)'],
+  ['top', 'T', 'Top view (XY plane)'],
+];
 
 interface ViewControlsProps {
   onZoomIn?: () => void;
@@ -15,7 +24,9 @@ interface ViewControlsProps {
   onResetView?: () => void;
   onToggleGrid?: () => void;
   onToggleFullscreen?: () => void;
-  onToggleCameraMode?: (mode: 'perspective' | 'orthographic') => void;
+  onToggleCameraMode?: () => void;
+  onViewPreset?: (preset: ViewPreset) => void;
+  cameraMode?: 'perspective' | 'orthographic';
   gridVisible?: boolean;
   isFullscreen?: boolean;
 }
@@ -30,8 +41,9 @@ function ViewControls({
   onResetView,
   onToggleGrid,
   onToggleFullscreen,
-  // onToggleCameraMode reserved for future perspective/orthographic toggle
-  onToggleCameraMode: _onToggleCameraMode,
+  onToggleCameraMode,
+  onViewPreset,
+  cameraMode = 'perspective',
   gridVisible = true,
   isFullscreen = false,
 }: ViewControlsProps) {
@@ -66,6 +78,24 @@ function ViewControls({
         </Tooltip>
       </Box>
 
+      {onViewPreset && (
+        <>
+          <Divider />
+          {/* Axis views (Z up) */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {PRESETS.map(([preset, letter, title]) => (
+              <Tooltip key={preset} title={title} placement="left">
+                <IconButton size="small" onClick={() => onViewPreset(preset)} aria-label={title}>
+                  <Box component="span" sx={{ fontSize: '0.8rem', fontWeight: 700, width: 20 }}>
+                    {letter}
+                  </Box>
+                </IconButton>
+              </Tooltip>
+            ))}
+          </Box>
+        </>
+      )}
+
       <Divider />
 
       {/* Display Controls */}
@@ -75,6 +105,16 @@ function ViewControls({
             {gridVisible ? <GridOn fontSize="small" /> : <GridOff fontSize="small" />}
           </IconButton>
         </Tooltip>
+        {onToggleCameraMode && (
+          <Tooltip
+            title={cameraMode === 'perspective' ? 'Orthographic camera (no perspective)' : 'Perspective camera'}
+            placement="left"
+          >
+            <IconButton size="small" onClick={onToggleCameraMode} aria-label="Toggle camera projection">
+              {cameraMode === 'perspective' ? <ViewInAr fontSize="small" /> : <ThreeDRotation fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+        )}
         <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'} placement="left">
           <IconButton size="small" onClick={onToggleFullscreen}>
             {isFullscreen ? <FullscreenExit fontSize="small" /> : <Fullscreen fontSize="small" />}

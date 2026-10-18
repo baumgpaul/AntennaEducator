@@ -821,7 +821,12 @@ def _validate_custom_edges(edges: List[Dict[str, Any]], valid_ids: set[int]) -> 
 
 
 def _check_connectivity(node_ids: List[int], edges: List[Dict[str, Any]]) -> None:
-    """Warn if the graph is disconnected (does not raise)."""
+    """Reject nodes without any edge; allow several separate wire structures.
+
+    Separate structures are normal (parasitic elements such as Yagi directors
+    couple through L and P). A node without an edge is not: it carries no wire,
+    and the solver would give it a dummy charge cell at the origin (B21).
+    """
     if len(node_ids) <= 1:
         return
     adj: dict[int, set[int]] = {nid: set() for nid in node_ids}
@@ -829,6 +834,13 @@ def _check_connectivity(node_ids: List[int], edges: List[Dict[str, Any]]) -> Non
         ns, ne = edge["node_start"], edge["node_end"]
         adj[ns].add(ne)
         adj[ne].add(ns)
+
+    isolated = sorted(nid for nid, neighbours in adj.items() if not neighbours)
+    if isolated:
+        listed = ", ".join(str(n) for n in isolated[:10]) + (" …" if len(isolated) > 10 else "")
+        raise ValueError(
+            f"Node(s) {listed} are not connected to any edge; remove them or add edges"
+        )
 
     visited: set[int] = set()
     stack = [node_ids[0]]
@@ -854,8 +866,8 @@ def _check_connectivity(node_ids: List[int], edges: List[Dict[str, Any]]) -> Non
                 stack2.extend(adj[cur] - comp)
             remaining -= comp
             n_components += 1
-        logger.warning(
-            "Custom geometry has %d disconnected components " "(expected 1 connected graph)",
+        logger.info(
+            "Custom geometry has %d separate wire structures (e.g. parasitic elements)",
             n_components,
         )
 

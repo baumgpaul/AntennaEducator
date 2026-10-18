@@ -205,14 +205,14 @@ describe('LumpedElementDialog', () => {
     expect(mockOnAdd).not.toHaveBeenCalled();
   });
 
-  it('should disable add button when maxNodeIndex is 0', () => {
+  it('should disable add button when the antenna has no mesh', () => {
     render(
       <LumpedElementDialog
         open={true}
         onClose={mockOnClose}
         onAdd={mockOnAdd}
         maxNodeIndex={0}
-        elements={mockElements}
+        elements={[{ ...mockElements[0], mesh: undefined }]}
       />
     );
 
@@ -237,5 +237,27 @@ describe('LumpedElementDialog', () => {
     await user.click(cancelButton);
 
     expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  it("validates nodes against the selected antenna's own mesh (B23)", async () => {
+    const user = userEvent.setup();
+    render(
+      <LumpedElementDialog
+        open={true}
+        onClose={mockOnClose}
+        onAdd={mockOnAdd}
+        maxNodeIndex={99}
+        elements={mockElements}
+      />
+    );
+    // 4-node mesh: node 4 (the last one) is valid, node 5 is not — whatever the global prop says
+    await user.clear(screen.getByLabelText('Node 1'));
+    await user.type(screen.getByLabelText('Node 1'), '4');
+    await user.clear(screen.getByLabelText('Node 2'));
+    await user.type(screen.getByLabelText('Node 2'), '5');
+    await user.click(screen.getByRole('button', { name: /Add Element/i }));
+
+    expect(await screen.findByText('Mesh node index must be ≤ 4')).toBeInTheDocument();
+    expect(mockOnAdd).not.toHaveBeenCalled();
   });
 });

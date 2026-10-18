@@ -20,20 +20,30 @@ import {
   Paper,
 } from '@mui/material';
 import { AntennaElement } from '@/types/models';
+import { meshNodeLimit } from '@/utils/meshNodeLimit';
 
-// Factory: creates Zod schema with dynamic node range validation
-const createSourceSchema = (maxNodeIndex: number) =>
+
+/** Per-antenna node range check (the limit depends on the selected antenna). */
+const checkNodeRange = (
+  limitFor: (antennaId: string) => number,
+  data: { antennaId: string; node1: number; node2: number },
+  ctx: z.RefinementCtx,
+) => {
+  const limit = limitFor(data.antennaId);
+  for (const field of ['node1', 'node2'] as const) {
+    if (data[field] > limit) {
+      ctx.addIssue({ code: 'custom', path: [field], message: `Mesh node index must be ≤ ${limit}` });
+    }
+  }
+};
+
+// Factory: creates Zod schema with node range validation per selected antenna
+const createSourceSchema = (limitFor: (antennaId: string) => number) =>
   z.object({
     antennaId: z.string().min(1, 'Must select an antenna'),
     type: z.enum(['voltage', 'current']),
-    node1: z.number().int('Must be integer').refine(
-      (v) => v <= 0 || v <= maxNodeIndex,
-      { message: `Mesh node index must be ≤ ${maxNodeIndex}` },
-    ),
-    node2: z.number().int('Must be integer').refine(
-      (v) => v <= 0 || v <= maxNodeIndex,
-      { message: `Mesh node index must be ≤ ${maxNodeIndex}` },
-    ),
+    node1: z.number().int('Must be integer'),
+    node2: z.number().int('Must be integer'),
     value: z.number().positive('Value must be positive'),
     seriesR: z.number().nonnegative('Series resistance must be non-negative'),
     seriesL: z.number().nonnegative('Series inductance must be non-negative'),
@@ -44,7 +54,7 @@ const createSourceSchema = (maxNodeIndex: number) =>
       message: 'Node 1 and Node 2 must be different',
       path: ['node2'],
     }
-  );
+  ).superRefine((data, ctx) => checkNodeRange(limitFor, data, ctx));
 
 type SourceFormData = z.infer<ReturnType<typeof createSourceSchema>>;
 
@@ -67,7 +77,10 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
 }) => {
   const [adding, setAdding] = useState(false);
 
-  const sourceSchema = useMemo(() => createSourceSchema(maxNodeIndex), [maxNodeIndex]);
+  const sourceSchema = useMemo(
+    () => createSourceSchema((id) => meshNodeLimit(elements, id, maxNodeIndex)),
+    [elements, maxNodeIndex],
+  );
 
   const {
     control,
@@ -334,7 +347,7 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
               </Alert>
             </Grid>
 
-            {maxNodeIndex === 0 && (
+            {meshNodeLimit(elements, selectedAntennaId, maxNodeIndex) === 0 && (
               <Grid item xs={12}>
                 <Alert severity="warning">
                   <strong>Warning:</strong> No antenna mesh loaded. Generate an antenna first to see available nodes.
@@ -351,7 +364,7 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
             type="submit"
             form="source-form"
             variant="contained"
-            disabled={adding || loading || maxNodeIndex === 0}
+            disabled={adding || loading || meshNodeLimit(elements, selectedAntennaId, maxNodeIndex) === 0}
             startIcon={adding || loading ? <CircularProgress size={20} /> : null}
           >
             {adding || loading ? 'Adding...' : 'Add Source'}

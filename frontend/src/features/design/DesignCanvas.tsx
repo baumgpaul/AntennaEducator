@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { useAppSelector } from '@/store/hooks';
-import Scene3D, { type Scene3DHandle } from './Scene3D';
+import Scene3D, { type Scene3DHandle, type ViewPreset } from './Scene3D';
 import WireGeometry from './WireGeometry';
 import ColorLegend from './ColorLegend';
 import ColorScaleLegend from './ColorScaleLegend';
@@ -40,6 +40,8 @@ interface DesignCanvasProps {
   onResetView?: () => void;
   onToggleGrid?: () => void;
   onToggleFullscreen?: () => void;
+  onViewPreset?: (preset: ViewPreset) => void;
+  onToggleCameraMode?: () => void;
   isFullscreen?: boolean;
 }
 
@@ -67,6 +69,8 @@ function DesignCanvas({
   onZoomOut,
   onResetView,
   onToggleGrid,
+  onViewPreset,
+  onToggleCameraMode,
   onToggleFullscreen,
   isFullscreen = false,
 }: DesignCanvasProps) {
@@ -294,6 +298,9 @@ function DesignCanvas({
             onResetView={onResetView}
             onToggleGrid={onToggleGrid}
             onToggleFullscreen={onToggleFullscreen}
+            onViewPreset={onViewPreset}
+            onToggleCameraMode={onToggleCameraMode}
+            cameraMode={cameraMode}
             gridVisible={gridVisible}
             isFullscreen={isFullscreen}
           />

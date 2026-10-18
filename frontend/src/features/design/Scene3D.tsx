@@ -7,12 +7,21 @@ import { ScaleIndicator, AxisLabels } from '@/components/visualization';
 import type { AntennaElement, Mesh } from '@/types/models';
 import * as THREE from 'three';
 
+/** Axis views (Z is up): front looks along +Y, side along -X, top down -Z. */
+export type ViewPreset = 'front' | 'side' | 'top';
+
+const PRESET_DIRECTIONS: Record<ViewPreset, [number, number, number]> = {
+  front: [0, -1, 0],
+  side: [1, 0, 0],
+  // A hair off vertical: looking exactly along the up axis makes lookAt degenerate
+  top: [0, -1e-3, 1],
+};
+
 export interface Scene3DHandle {
   zoomIn: () => void;
   zoomOut: () => void;
   resetView: () => void;
-  setCameraProjection: (mode: 'perspective' | 'orthographic') => void;
-  toggleGrid: () => void;
+  setView: (preset: ViewPreset) => void;
 }
 
 interface Scene3DProps {
@@ -159,14 +168,15 @@ const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeo
           (controls as any).update();
         }
       },
-      setCameraProjection: (mode: 'perspective' | 'orthographic') => {
-        console.log('Set camera projection:', mode);
-        // TODO: Switch between perspective/orthographic camera
-        // This requires swapping the camera instance, which is complex in R3F
-      },
-      toggleGrid: () => {
-        console.log('Toggle grid');
-        // Grid visibility is controlled by parent component props
+      setView: (preset: ViewPreset) => {
+        if (!controls || !('target' in controls)) return;
+        const target = bounds.center;
+        const distance = bounds.size * 2.5;
+        const [dx, dy, dz] = PRESET_DIRECTIONS[preset];
+        (controls as any).target.copy(target);
+        camera.position.set(target.x + dx * distance, target.y + dy * distance, target.z + dz * distance);
+        camera.lookAt(target);
+        (controls as any).update();
       },
     }));
 
