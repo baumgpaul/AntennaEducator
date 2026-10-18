@@ -1,4 +1,5 @@
 import { Text } from '@react-three/drei';
+import { TEXT_FONT_URL } from '@/threeTextConfig';
 
 interface AxisLabelsProps {
   size?: number;
@@ -73,6 +74,7 @@ function AxisLabels({
       {/* X-axis labels at calculated positions */}
       {positions.map((item, i) => (
         <Text
+          font={TEXT_FONT_URL}
           key={`x-${i}`}
           position={[item.position, -0.15 * size, 0]}
           fontSize={fontSize * 0.5}
@@ -87,6 +89,7 @@ function AxisLabels({
       {/* Y-axis labels at calculated positions */}
       {positions.map((item, i) => (
         <Text
+          font={TEXT_FONT_URL}
           key={`y-${i}`}
           position={[-0.15 * size, item.position, 0]}
           fontSize={fontSize * 0.5}
@@ -101,6 +104,7 @@ function AxisLabels({
       {/* Z-axis labels at calculated positions - vertical */}
       {positions.map((item, i) => (
         <Text
+          font={TEXT_FONT_URL}
           key={`z-${i}`}
           position={[-0.15 * size, 0, item.position]}
           fontSize={fontSize * 0.5}
@@ -115,6 +119,7 @@ function AxisLabels({
 
       {/* Axis name labels with units */}
       <Text
+        font={TEXT_FONT_URL}
         position={[size * 1.15, -0.15 * size, 0]}
         fontSize={fontSize * 0.7}
         color="#ff6666"
@@ -125,6 +130,7 @@ function AxisLabels({
       </Text>
 
       <Text
+        font={TEXT_FONT_URL}
         position={[-0.15 * size, size * 1.15, 0]}
         fontSize={fontSize * 0.7}
         color="#66ff66"
@@ -135,6 +141,7 @@ function AxisLabels({
       </Text>
 
       <Text
+        font={TEXT_FONT_URL}
         position={[-0.15 * size, 0, size * 1.15]}
         fontSize={fontSize * 0.7}
         color="#6666ff"

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Text } from '@react-three/drei';
+import { TEXT_FONT_URL } from '@/threeTextConfig';
 import * as THREE from 'three';
 
 interface ScaleIndicatorProps {
@@ -85,6 +86,7 @@ function ScaleIndicator({
           {/* Label text */}
           {mark.label && (
             <Text
+              font={TEXT_FONT_URL}
               position={[mark.position[0], mark.position[1] - 0.3, mark.position[2] + 0.1]}
               fontSize={0.3}
               color={color}
@@ -99,6 +101,7 @@ function ScaleIndicator({
 
       {/* Scale label */}
       <Text
+        font={TEXT_FONT_URL}
         position={[position[0] + size / 2, position[1] - 0.6, position[2]]}
         fontSize={0.25}
         color={color}

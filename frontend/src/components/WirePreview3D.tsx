@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
+import { TEXT_FONT_URL } from '@/threeTextConfig';
 import { Box } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import * as THREE from 'three';
@@ -186,6 +187,7 @@ function NodeSpheres({
 
             {showLabels && (
               <Text
+                font={TEXT_FONT_URL}
                 position={[node.x, node.y, node.z + nodeSize * 2.5]}
                 fontSize={labelSize}
                 color={LABEL_COLOR}
@@ -277,6 +279,7 @@ function EdgeCylinders({ nodes, edges, showEdgeLabels }: EdgeCylindersProps) {
 
           {showEdgeLabels && (
             <Text
+              font={TEXT_FONT_URL}
               position={[seg.mid.x, seg.mid.y + labelSize * 1.5, seg.mid.z]}
               fontSize={labelSize}
               color="#aaaaaa"
@@ -304,13 +307,13 @@ function AxesWithLabels({ size }: { size: number }) {
   return (
     <group>
       <primitive object={new THREE.AxesHelper(axisLen)} />
-      <Text position={[tipOffset, 0, 0]} fontSize={fontSize} color="#ff4444" anchorX="center">
+      <Text font={TEXT_FONT_URL} position={[tipOffset, 0, 0]} fontSize={fontSize} color="#ff4444" anchorX="center">
         X
       </Text>
-      <Text position={[0, tipOffset, 0]} fontSize={fontSize} color="#44ff44" anchorX="center">
+      <Text font={TEXT_FONT_URL} position={[0, tipOffset, 0]} fontSize={fontSize} color="#44ff44" anchorX="center">
         Y
       </Text>
-      <Text position={[0, 0, tipOffset]} fontSize={fontSize} color="#4488ff" anchorX="center">
+      <Text font={TEXT_FONT_URL} position={[0, 0, tipOffset]} fontSize={fontSize} color="#4488ff" anchorX="center">
         Z
       </Text>
     </group>
@@ -337,6 +340,7 @@ function GridLabels({ gridSize }: { gridSize: number }) {
     <group>
       {/* X-axis label */}
       <Text
+        font={TEXT_FONT_URL}
         position={[step, offset, offset]}
         fontSize={fontSize}
         color="#999999"
@@ -347,6 +351,7 @@ function GridLabels({ gridSize }: { gridSize: number }) {
       </Text>
       {/* Y-axis label */}
       <Text
+        font={TEXT_FONT_URL}
         position={[offset, step, offset]}
         fontSize={fontSize}
         color="#999999"
@@ -357,6 +362,7 @@ function GridLabels({ gridSize }: { gridSize: number }) {
       </Text>
       {/* Z-axis label */}
       <Text
+        font={TEXT_FONT_URL}
         position={[offset, offset, step]}
         fontSize={fontSize}
         color="#999999"
