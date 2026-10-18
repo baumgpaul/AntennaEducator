@@ -1,75 +1,57 @@
-# Weekly dependency update PRs. Grouped per ecosystem to keep the PR count
-# low; majors come as separate PRs so breaking upgrades stay reviewable.
+# Dependabot: keep the noise low.
+#
+# - Monthly, one grouped PR per ecosystem (minor + patch only).
+# - Major versions are NOT proposed automatically. Do them deliberately,
+#   e.g. once or twice a year (see TODO.md: React 19, MUI, ESLint 9,
+#   TypeScript 7, msw 3, ...): `npm outdated` in frontend/ lists them.
+# - Security alerts still show up under the repo's Security tab.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /frontend
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 2
     ignore:
-      # MUI majors must move together (material, icons-material,
-      # mui-color-input) and need a planned migration (5 -> 7+ changes Grid,
-      # removes system props, ...). Minor/patch updates still come through.
-      - dependency-name: "@mui/*"
+      - dependency-name: "*"
         update-types: ["version-update:semver-major"]
-      - dependency-name: mui-color-input
-        versions: [">=5"]
-      # 0.5 requires ESLint 9 (flat config migration not done yet)
+      # 0.x "minor" that is really breaking: 0.5 requires ESLint 9
       - dependency-name: eslint-plugin-react-refresh
         versions: [">=0.5"]
-      - dependency-name: eslint
-        versions: [">=9"]
-      # msw 3 no longer intercepts jsdom's XHR in our Vitest setup (requests
-      # go out to the network); needs a test-setup migration first
-      - dependency-name: msw
-        versions: [">=3"]
-      # React 19 migration (drei 10 needs fiber 9, which needs React 19);
-      # these must move together in one planned upgrade.
-      - dependency-name: react
-        versions: [">=19"]
-      - dependency-name: react-dom
-        versions: [">=19"]
-      - dependency-name: "@types/react"
-        versions: [">=19"]
-      - dependency-name: "@types/react-dom"
-        versions: [">=19"]
-      - dependency-name: "@react-three/fiber"
-        versions: [">=9"]
-      - dependency-name: "@react-three/drei"
-        versions: [">=10"]
-      # Keep Node typings on the CI/Docker runtime major (Node 22)
-      - dependency-name: "@types/node"
-        update-types: ["version-update:semver-major"]
     groups:
-      frontend-minor-patch:
+      frontend:
         update-types: [minor, patch]
 
   - package-ecosystem: pip
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    groups:
-      python-minor-patch:
-        update-types: [minor, patch]
+      interval: monthly
+    open-pull-requests-limit: 2
     ignore:
-      # bcrypt 5 breaks passlib (local-mode login) — see requirements.txt
-      - dependency-name: bcrypt
-        versions: [">=5"]
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
       # The Lambda base image (Amazon Linux 2, glibc 2.26) only installs
       # manylinux2014 wheels; newer numpy/scipy releases need glibc 2.28.
       - dependency-name: numpy
         versions: [">=2.3"]
       - dependency-name: scipy
         versions: [">=1.16"]
+    groups:
+      python:
+        update-types: [minor, patch]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
 
   - package-ecosystem: terraform
     directory: /terraform/environments/staging
     schedule:
       interval: monthly
+    groups:
+      terraform:
+        patterns: ["*"]
