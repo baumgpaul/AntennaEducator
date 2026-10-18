@@ -134,13 +134,13 @@ class TestLocalProvider:
 
     @pytest.mark.asyncio
     async def test_pending_user_cannot_log_in(self):
-        from backend.common.auth.local_provider import LocalAuthProvider, _pwd_ctx
+        from backend.common.auth.local_provider import LocalAuthProvider, hash_password
 
         with patch("backend.common.auth.local_provider.UserRepository") as repo_cls:
             repo_cls.return_value.get_user_by_email.return_value = {
                 "user_id": "x",
                 "email": "b@example.com",
-                "password_hash": _pwd_ctx.hash("password123"),
+                "password_hash": hash_password("password123"),
                 "is_locked": False,
                 "is_approved": False,
             }

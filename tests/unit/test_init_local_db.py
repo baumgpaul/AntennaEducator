@@ -1,6 +1,6 @@
 """Tests for scripts/init_local_db.py — idempotent local DB bootstrap.
 
-Uses unittest.mock to replace boto3 and passlib so no real DynamoDB
+Uses unittest.mock to replace boto3 and password hashing so no real DynamoDB
 connection is needed.  All tests verify behaviour, not implementation
 detail (the public API of ``init_local_db``).
 """

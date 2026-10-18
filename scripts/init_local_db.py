@@ -75,10 +75,10 @@ def _get_dynamodb_client():
 
 def _hash_password(password: str) -> str:
     """Hash a plaintext password with bcrypt (72-byte input cap)."""
-    from passlib.context import CryptContext
+    import bcrypt
 
-    ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    return ctx.hash(password[:72])
+    # Same scheme as backend/common/auth/local_provider.hash_password
+    return bcrypt.hashpw(password.encode("utf-8")[:72], bcrypt.gensalt()).decode("ascii")
 
 
 # ---------------------------------------------------------------------------
