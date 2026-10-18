@@ -168,3 +168,28 @@ def test_lambda_handler_routes_sqs_records():
         assert lambda_handler.handler(event, None) == {"batchItemFailures": []}
     run.assert_called_once_with("j", "u")
     http.assert_not_called()
+
+
+def test_queued_job_leaves_the_current_event_loop_alone():
+    """Mangum < 0.20 (as in the Lambda image) calls asyncio.get_event_loop() per
+    HTTP request; asyncio.run() unset it, so the poll right after a job in the
+    same warm instance failed with a 502 ("no current event loop")."""
+    import asyncio
+
+    from backend.solver import lambda_handler
+
+    async def fake(*args, **kwargs):
+        return None
+
+    sqs = {
+        "Records": [{"eventSource": "aws:sqs", "body": json.dumps({"job_id": "j", "user_id": "u"})}]
+    }
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        with patch("backend.solver.jobs.run_job", side_effect=fake):
+            lambda_handler.handler(sqs, None)
+        assert asyncio.get_event_loop() is loop
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()

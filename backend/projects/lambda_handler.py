@@ -5,10 +5,9 @@ Mangum translates API Gateway/ALB events into ASGI-compatible requests.
 Scheduled EventBridge events (``source: aws.events``) run the data-retention job.
 """
 
-import asyncio
-
 from mangum import Mangum
 
+from backend.common.utils.lambda_loop import run_coroutine
 from backend.projects.main import app
 
 # Create Lambda handler
@@ -22,7 +21,7 @@ _http_handler = Mangum(app, lifespan="off")
 
 def handler(event, context):
     if isinstance(event, dict) and event.get("source") == "aws.events":
-        return asyncio.run(_run_retention())
+        return run_coroutine(_run_retention())
     return _http_handler(event, context)
 
 
