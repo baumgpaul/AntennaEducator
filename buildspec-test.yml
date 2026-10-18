@@ -8,7 +8,7 @@ phases:
   install:
     runtime-versions:
       python: 3.11
-      nodejs: 20  # 18 is end-of-life
+      nodejs: 22  # jsdom 30 / Vitest 5 need Node >= 22
     commands:
       - echo "Installing Python dependencies..."
       - pip install -e ".[dev,aws]"
