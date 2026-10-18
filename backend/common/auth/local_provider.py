@@ -8,8 +8,8 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity, UserRole
 from backend.common.auth.provider import AuthProvider
@@ -52,8 +52,25 @@ JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 MIN_PASSWORD_LENGTH = 8
 
-# bcrypt context (truncates input at 72 bytes — that's a bcrypt limitation)
-_pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _pw_bytes(password: str) -> bytes:
+    # bcrypt only uses the first 72 bytes; bcrypt>=5 raises instead of
+    # truncating. Truncating the UTF-8 bytes matches hashes made earlier
+    # with passlib + bcrypt 4, so existing passwords keep working.
+    return password.encode("utf-8")[:72]
+
+
+def hash_password(password: str) -> str:
+    """Hash a plaintext password with bcrypt."""
+    return bcrypt.hashpw(_pw_bytes(password), bcrypt.gensalt()).decode("ascii")
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Check a plaintext password against a bcrypt hash (False if malformed)."""
+    try:
+        return bcrypt.checkpw(_pw_bytes(password), password_hash.encode("ascii"))
+    except (ValueError, UnicodeEncodeError):
+        return False
 
 
 class LocalAuthProvider(AuthProvider):
@@ -101,7 +118,7 @@ class LocalAuthProvider(AuthProvider):
         # First user becomes admin
         is_first = self._user_repo.get_user_count() == 0
 
-        hashed = _pwd_ctx.hash(password[:72])
+        hashed = hash_password(password)
         # Everyone except the bootstrap admin waits for an admin's approval
         db_user = self._user_repo.create_user(
             email=email,
@@ -131,7 +148,7 @@ class LocalAuthProvider(AuthProvider):
         if not db_user:
             raise ValueError("Invalid email or password")
 
-        if not _pwd_ctx.verify(password[:72], db_user.get("password_hash", "")):
+        if not verify_password(password, db_user.get("password_hash", "")):
             raise ValueError("Invalid email or password")
 
         if db_user.get("is_locked", False):
