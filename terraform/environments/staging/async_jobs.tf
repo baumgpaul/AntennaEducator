@@ -2,8 +2,9 @@
 # Asynchronous solve jobs (var.async_jobs = "lambda"; default "off" = nothing)
 # ============================================================================
 # CloudFront waits at most 60 s for the API; with jobs the browser submits a
-# solve and polls (backend/solver/jobs.py). The solver Lambda itself is the
-# worker, so there is no extra function, image or always-on compute.
+# solve or near/far-field computation and polls (backend/solver/jobs.py); small
+# requests are answered inline. The solver Lambda itself is the worker, so
+# there is no extra function, image or always-on compute.
 #
 # Cost at classroom scale (30 students x 50 solves / month):
 #   SQS        ~6k job requests + ~650k idle long polls  -> within the 1 M free tier

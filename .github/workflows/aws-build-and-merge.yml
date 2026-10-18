@@ -8,6 +8,9 @@
 #   4. Success → PR comment confirming staging deploy
 #   5. Manual approval via GitHub "staging" environment gate
 #   6. Approved → auto-merge (squash)
+#   A new push (or closing the PR) force-cancels this PR's older runs that wait
+#   at the approval gate: GitHub's concurrency cancel skips waiting runs, and a
+#   waiting run holding a workflow-level group blocked the next deploy forever.
 #
 # Where the build runs (repository variable DEPLOY_RUNNER):
 #   github    (default) standard GitHub-hosted runner — free and unmetered for
@@ -32,7 +35,7 @@ name: AWS Build & Deploy
 
 on:
   pull_request:
-    types: [labeled, synchronize]
+    types: [labeled, synchronize, closed]
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -41,18 +44,37 @@ on:
         type: boolean
         default: true
 
-concurrency:
-  group: aws-deploy-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: true
-
 env:
   AWS_REGION: eu-west-1
   ENVIRONMENT: staging
 
 jobs:
+  # ── Drop superseded runs waiting at the approval gate ──────────────
+  cancel-stale:
+    name: Cancel superseded approvals
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Force-cancel this PR's older waiting runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          for id in $(gh run list --repo "$GITHUB_REPOSITORY" --workflow aws-build-and-merge.yml \
+                        --branch "$BRANCH" --status waiting --json databaseId --jq '.[].databaseId'); do
+            [ "$id" = "$GITHUB_RUN_ID" ] && continue
+            echo "Cancelling run $id"
+            gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/force-cancel" || true
+          done
+
   # ── GitHub-hosted build (default, $0) ──────────────────────────────
   aws-build-deploy:
     name: AWS Build & Deploy to Staging
+    concurrency:   # job-level: the approval job must not hold the group
+      group: aws-deploy-${{ github.event.pull_request.number || github.sha }}
+      cancel-in-progress: true
     if: >-
       vars.DEPLOY_RUNNER != 'codebuild' && (
       github.event_name == 'workflow_dispatch' ||
@@ -195,6 +217,9 @@ jobs:
   # ── CodeBuild fallback (DEPLOY_RUNNER=codebuild, paid) ─────────────
   codebuild-deploy:
     name: AWS Build & Deploy to Staging (CodeBuild)
+    concurrency:   # job-level: the approval job must not hold the group
+      group: aws-deploy-${{ github.event.pull_request.number || github.sha }}
+      cancel-in-progress: true
     if: >-
       vars.DEPLOY_RUNNER == 'codebuild' && (
       github.event_name == 'workflow_dispatch' ||

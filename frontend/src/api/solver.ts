@@ -42,36 +42,46 @@ export const solveSingle = async (request: SolverRequest): Promise<SolverResult>
   return handleApiResponse(response)
 }
 
-const ASYNC_JOBS = import.meta.env.VITE_ASYNC_JOBS === 'true'
+/** Solves and field computations go through the solver's job endpoints (#77) */
+export const ASYNC_JOBS = import.meta.env.VITE_ASYNC_JOBS === 'true'
 /** A bit longer than the worker's 15 min Lambda limit */
 export const JOB_TIMEOUT_MS = 16 * 60 * 1000
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+type JobStatus<T> = {
+  job_id?: string
+  status: 'queued' | 'running' | 'done' | 'failed'
+  result?: T
+  error?: string
+}
+
 /**
- * Queue a solve and poll until it is done (#77). Used when the backend runs
- * solves as jobs: CloudFront waits at most 60 s for a single request.
+ * Run a request through a job endpoint (#77): CloudFront waits at most 60 s for
+ * a single request. The backend answers small requests at once (status done)
+ * and queues big ones, which are polled until they finish.
  */
-export const solveAsJob = async (
-  request: MultiAntennaRequest,
+export const runJob = async <T>(
+  path: '/api/jobs/solve' | '/api/jobs/near-field' | '/api/jobs/far-field',
+  request: unknown,
   { pollMs = [1000, 2000, 3000, 5000], timeoutMs = JOB_TIMEOUT_MS } = {},
-): Promise<MultiAntennaSolutionResponse> => {
-  const submitted = handleApiResponse<{ job_id: string }>(
-    await solverClient.post('/api/jobs/solve', request),
-  )
+): Promise<T> => {
+  const submitted = handleApiResponse<JobStatus<T>>(await solverClient.post(path, request))
+  if (submitted.status === 'done' && submitted.result) return submitted.result
   const started = Date.now()
   for (let attempt = 0; Date.now() - started < timeoutMs; attempt++) {
     await sleep(pollMs[Math.min(attempt, pollMs.length - 1)])
-    const job = handleApiResponse<{
-      status: 'queued' | 'running' | 'done' | 'failed'
-      result?: MultiAntennaSolutionResponse
-      error?: string
-    }>(await solverClient.get(`/api/jobs/${submitted.job_id}`))
+    const job = handleApiResponse<JobStatus<T>>(
+      await solverClient.get(`/api/jobs/${submitted.job_id}`),
+    )
     if (job.status === 'done' && job.result) return job.result
-    if (job.status === 'failed') throw new Error(job.error || 'Solve failed')
+    if (job.status === 'failed') throw new Error(job.error || 'Job failed')
   }
-  throw new Error('Solve did not finish within 16 minutes')
+  throw new Error('Job did not finish within 16 minutes')
 }
+
+export const solveAsJob = (request: MultiAntennaRequest, options?: Parameters<typeof runJob>[2]) =>
+  runJob<MultiAntennaSolutionResponse>('/api/jobs/solve', request, options)
 
 /**
  * Solve multiple antennas at a single frequency.
