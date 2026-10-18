@@ -284,6 +284,8 @@ export interface PostprocessingState {
   exportPDFDialogOpen: boolean;
   /** Current export operation type */
   exportType: 'pdf' | 'paraview' | null;
+  /** Incremented to request a PNG of the selected view (optional: older saved states) */
+  pngExportRequest?: number;
 }
 
 /**

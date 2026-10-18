@@ -31,6 +31,8 @@ import {
   Sensors,
   PictureAsPdf,
   SaveAlt,
+  Image as ImageIcon,
+  DataObject,
   AccountTree,
   ElectricalServices,
   BoltOutlined,
@@ -48,7 +50,9 @@ import {
   setExportType,
   addItemToView,
   updateItemProperty,
+  requestPngExport,
 } from '@/store/postprocessingSlice';
+import { buildResultsJSON, downloadFile, safeFilename } from '@/utils/exportData';
 import { exportToVTU, canExportToVTU } from '@/utils/ParaViewExporter';
 import type { RootState } from '@/store';
 
@@ -270,6 +274,16 @@ function RibbonMenu({
         label: 'Port Quantities',
       },
     }));
+  };
+
+  const handleExportJSON = () => {
+    const state = store.getState() as unknown as RootState;
+    const project = state.projects.currentProject;
+    downloadFile(
+      buildResultsJSON(state, project),
+      `${safeFilename(project?.name ?? 'project')}_results.json`,
+      'application/json',
+    );
   };
 
   const handleExportPDF = () => {
@@ -701,6 +715,20 @@ function RibbonMenu({
                       disabled={!selectedViewId}
                     >
                       PDF
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Save the current view as PNG image">
+                    <Button
+                      startIcon={<ImageIcon />}
+                      onClick={() => dispatch(requestPngExport())}
+                      disabled={!selectedViewId}
+                    >
+                      PNG
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Download all solver results (impedances, currents, sweeps, patterns) as JSON">
+                    <Button startIcon={<DataObject />} onClick={handleExportJSON}>
+                      JSON
                     </Button>
                   </Tooltip>
                   <Tooltip title="Export field data to ParaView (VTU format)">
