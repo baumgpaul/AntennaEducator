@@ -132,6 +132,24 @@ resource "aws_iam_role_policy" "s3" {
   })
 }
 
+# Cognito: delete the caller's login on self-service account deletion
+resource "aws_iam_role_policy" "cognito_delete_user" {
+  count = var.cognito_user_pool_arn != "" ? 1 : 0
+  name  = "${var.function_name}-cognito-delete-user"
+  role  = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["cognito-idp:AdminDeleteUser"]
+        Resource = var.cognito_user_pool_arn
+      }
+    ]
+  })
+}
+
 # CloudWatch Logs
 resource "aws_cloudwatch_log_group" "lambda" {
   name              = "/aws/lambda/${var.function_name}"

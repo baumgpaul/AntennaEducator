@@ -284,6 +284,17 @@ class CognitoAuthProvider(AuthProvider):
             flatrate_until=item.get("FlatrateUntil"),
         )
 
+    # ── Account deletion ──────────────────────────────────────────────────
+
+    async def delete_identity(self, user: UserIdentity) -> None:
+        # Accounts are signed up with the e-mail as username (see register)
+        try:
+            self._cognito.admin_delete_user(UserPoolId=COGNITO_USER_POOL_ID, Username=user.email)
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] != "UserNotFoundException":
+                raise
+        logger.info("Cognito user deleted: %s", user.id)
+
     # ── Helpers ───────────────────────────────────────────────────────────
 
     async def _lazy_init_profile(

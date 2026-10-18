@@ -78,3 +78,12 @@ class AuthProvider(ABC):
         Returns:
             ``UserIdentity`` or ``None`` if the user record does not exist.
         """
+
+    # -- Account deletion ---------------------------------------------------
+
+    async def delete_identity(self, user: UserIdentity) -> None:
+        """Remove the login identity of a user whose data was deleted.
+
+        Default: nothing to do (the local identity is the profile record,
+        which the account deletion already removed).
+        """

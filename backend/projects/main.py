@@ -20,12 +20,20 @@ import backend.auth.schemas
 
 # Auth service endpoint handlers (re-mounted for combined Lambda deployment)
 from backend.auth.main import get_current_user_info, login, register
-from backend.common.auth import UserIdentity, get_current_user
+from backend.common.auth import (
+    UserIdentity,
+    UserRole,
+    create_auth_provider,
+    get_current_user,
+    get_current_user_allow_pending,
+    invalidate_profile_cache,
+)
 from backend.common.repositories.base import ProjectRepository
 from backend.common.repositories.factory import get_project_repository
 from backend.common.repositories.folder_repository import FolderRepository
 from backend.common.utils.error_handler import install_error_handlers
 from backend.common.utils.logging_config import configure_logging
+from backend.projects.account_service import delete_user_data
 from backend.projects.documentation_service import DocumentationService, get_documentation_service
 
 # Folder & course management routes
@@ -159,6 +167,30 @@ app.post(
 )(register)
 app.post("/api/auth/login", response_model=backend.auth.schemas.Token)(login)
 app.get("/api/auth/me", response_model=backend.auth.schemas.UserResponse)(get_current_user_info)
+
+
+@app.delete("/api/auth/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_my_account(
+    user: UserIdentity = Depends(get_current_user_allow_pending),
+    repo: ProjectRepository = Depends(get_repository),
+    results_svc: ResultsService = Depends(get_results_service),
+    doc_svc: DocumentationService = Depends(_get_doc_service),
+):
+    """Delete the caller's account and all their data (GDPR right to erasure).
+
+    Admins and maintainers must hand over their role first: their accounts
+    own public courses, and the last admin would lock everyone out.
+    """
+    if user.role in (UserRole.ADMIN, UserRole.MAINTAINER):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="Admins and maintainers cannot delete their own account. "
+            "Ask another admin to change your role first.",
+        )
+    await delete_user_data(repo.table, user.id, results_svc, doc_svc)
+    await create_auth_provider().delete_identity(user)
+    invalidate_profile_cache(user.id)
+    return None
 
 
 # ── Project CRUD ──────────────────────────────────────────────────────────────
