@@ -29,7 +29,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from backend.common.constants import C_0, MU_0
+from backend.common.constants import C_0, EPSILON_0, MU_0
 from backend.solver.geometry import build_edge_geometries
 from backend.solver.inductance import assemble_inductance_matrix
 from backend.solver.potential_nodal import assemble_nodal_potential_matrix_with_cap_elem
@@ -48,6 +48,12 @@ from backend.solver.system import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _retard(static: np.ndarray, dist: np.ndarray, first_order, beta: float) -> np.ndarray:
+    """static·exp(-jkR) with the first-order term replaced by its exact value."""
+    bD = beta * dist
+    return static * (np.exp(-1j * bD) + 1j * bD) - 1j * beta * first_order
 
 
 def _balanced_voltage_partner(voltage_sources) -> Optional[int]:
@@ -312,6 +318,19 @@ def solve_peec_frequency_sweep(
         if isrc.node_end is not None and 0 < isrc.node_end <= max_node:
             I_source[isrc.node_end - 1] -= isrc.value
 
+    # Retardation exp(-jkR)/R = 1/R - jk - ... The first-order term carries the
+    # radiation resistance and is exact for every pair of elements (incl. self),
+    # with weights normalised to 1:
+    #   L: -jk μ0/4π (l_i t_i · l_j t_j)      P: -jk / (4π ε0)
+    # The centre-distance phase only approximates it off the diagonal and drops
+    # it on the diagonal; for a charge-neutral antenna the missing P part left a
+    # spurious resistance (η/4π)·Σq_i², ~10x the true value for electrically
+    # short antennas (issue #71).
+    if n_physical_edges > 0:
+        moments = np.array([e.length * e.direction for e in edge_geom_list])
+        L_first_order = (MU_0 / (4 * np.pi)) * (moments @ moments.T)
+    P_first_order = 1.0 / (4 * np.pi * EPSILON_0)
+
     # Step 4: Solve at each frequency
     frequency_solutions = []
 
@@ -322,39 +341,14 @@ def solve_peec_frequency_sweep(
         freq_start = time.time()
         omega = 2 * np.pi * freq
 
-        # Apply retarded potential phase correction to inductance
-        # Following the reference implementation: retardation applied only to off-diagonal terms
-        # Ret_L =  exp(-1i*beta*dist_L);
-        # L = diag(diag(L))+triu(L,1)+triu(L,1).';
-        # Ret_L = triu(Ret_L,1)+triu(Ret_L,1).';
-        # Matrix_L = diag(diag(L)) + L.*Ret_L;
+        # Retardation: static + exact first-order term (see above) + the higher
+        # orders from the centre-distance phase.
         if n_physical_edges > 0:
             beta = omega / c0
-            Ret_L = np.exp(-1j * beta * dist_L_physical)
-            L_diag = np.diag(np.diag(L_physical))
-            L_off_upper = np.triu(L_physical, 1)
-            Ret_L_off_upper = np.triu(Ret_L, 1)
-            L_physical_retarded = (
-                L_diag + L_off_upper * Ret_L_off_upper + (L_off_upper * Ret_L_off_upper).T
-            )
+            L_physical_retarded = _retard(L_physical, dist_L_physical, L_first_order, beta)
+            P_nodal_retarded = _retard(P_nodal, dist_P_nodal, P_first_order, beta)
         else:
             L_physical_retarded = L_physical
-
-        # Apply retarded potential phase correction to nodal potential matrix
-        # Following the reference implementation: retardation applied only to off-diagonal terms
-        # Ret_P = exp(-1i*beta*dist_P);
-        # P = diag(diag(P))+triu(P,1)+triu(P,1).';
-        # Ret_P = triu(Ret_P,1)+triu(Ret_P,1).';
-        # Matrix_P = diag(diag(P)) + P.*Ret_P;
-        if n_physical_edges > 0:
-            Ret_P = np.exp(-1j * beta * dist_P_nodal)
-            P_diag = np.diag(np.diag(P_nodal))
-            P_off_upper = np.triu(P_nodal, 1)
-            Ret_P_off_upper = np.triu(Ret_P, 1)
-            P_nodal_retarded = (
-                P_diag + P_off_upper * Ret_P_off_upper + (P_off_upper * Ret_P_off_upper).T
-            )
-        else:
             P_nodal_retarded = P_nodal
 
         # Assemble frequency-dependent inductance matrix with retardation
@@ -463,10 +457,10 @@ def solve_peec_frequency_sweep(
             input_impedance = np.nan + 0j
 
         # Compute power dissipated in resistances
-        # P = I^H * R * I (real part)
+        # Peak phasors, like input_power below: P = 1/2 Re(I^H R I) (issue #72)
         R_full = np.zeros_like(Z)
         R_full[:n_edges, :n_edges] = R
-        power_dissipated = np.real(np.conj(I) @ R_full @ I)
+        power_dissipated = 0.5 * np.real(np.conj(I) @ R_full @ I)
 
         # Compute port parameters relative to reference impedance
         Z0 = reference_impedance
@@ -1056,16 +1050,13 @@ def distribute_solution(solution: FrequencyPoint, merged_system: MergedAntennaSy
         # or from first current source (differential port voltage) otherwise.
         input_impedance = None
         if offset["n_voltage"] > 0 and len(voltage_source_currents) > 0:
-            # Z = V_source / I_source (use actual source voltage, not hardcoded 1.0)
-            vs_global_idx = start_voltage_0  # 0-based index into merged voltage sources list
-            vs_value = (
-                merged_system.voltage_sources[vs_global_idx].value
-                if vs_global_idx < len(merged_system.voltage_sources)
-                else complex(1.0)
-            )
-            antenna_vs = merged_system.voltage_sources[
-                start_voltage_0 : start_voltage_0 + offset["n_voltage"]
-            ]
+            # Z = V_source / I_source. start_voltage_0 indexes the branch-current
+            # vector (offset by the edges), not the source list: using it here
+            # found no sources, fell back to 1 V and halved balanced-feed
+            # impedances (issue #71 follow-up).
+            vs_idx_0 = offset["start_voltage"] - 1  # 0-based into merged voltage sources
+            antenna_vs = merged_system.voltage_sources[vs_idx_0 : vs_idx_0 + offset["n_voltage"]]
+            vs_value = antenna_vs[0].value
             partner = _balanced_voltage_partner(antenna_vs)
             if partner is not None:
                 # Balanced feed: port voltage across the gap = V(+) - V(-)

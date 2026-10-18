@@ -61,13 +61,14 @@ Any finite wire antenna is a superposition of Hertz dipoles. The PEEC solver com
 **Setup**: A short dipole with $L = 0.05\ \mathrm{m}$ (i.e., $L/\lambda = 0.05$ at $300\ \mathrm{MHz}$, $\lambda = 1\ \mathrm{m}$), wire radius $r = 0.5\ \mathrm{mm}$, 11 segments, solved at $300\ \mathrm{MHz}$.
 
 **Analytical reference**:
-- $R_{rad} \approx 789 \times (0.05)^2 \approx 2.0\ \Omega$
+- Hertz dipole (uniform current): $R_{rad} \approx 789 \times (0.05)^2 \approx 2.0\ \Omega$
+- A real centre-fed short dipole has a **triangular** current (zero at the tips), so its current moment is half as large and $R_{rad} \approx 197 \times (0.05)^2 \approx 0.49\ \Omega$
 - The near-field is strongly reactive at $r \sim \lambda/(2\pi) \approx 0.16\ \mathrm{m}$
 
 **Observe in the pre-loaded results:**
 
 1. In the *Near Field* visualization, the field magnitude in the xz-plane shows a **strong reactive region** close to the dipole (within ~$0.1\ \mathrm{m}$) and a smoother, $1/r$-decaying pattern farther out.
-2. The input impedance should show $R_{in} \approx 2\ \Omega$ and a large negative reactance (capacitive, consistent with a short dipole below resonance).
+2. The input impedance shows $R_{in}$ of a few tenths of an ohm — below the $0.49\ \Omega$ estimate, because the $5\ \mathrm{mm}$ feed gap is 10 % of the length and its capacitance shunts the port — and a large negative reactance (capacitive, consistent with a short dipole below resonance).
 3. The **far-field pattern** (3D radiation pattern) has the characteristic doughnut shape of $\sin^2\theta$.
 
 ---
@@ -75,7 +76,7 @@ Any finite wire antenna is a superposition of Hertz dipoles. The PEEC solver com
 ## Your Task
 
 1. Using this short-dipole project as a starting point, **increase the length** step by step: $L = 0.1,\ 0.2,\ 0.3,\ 0.5\ \mathrm{m}$ (keep frequency at $300\ \mathrm{MHz}$). Re-mesh and solve each time.
-2. For each length, record $R_{rad}$ (from the port quantities) and compare with the Hertz dipole formula $R_{rad} = 789(L/\lambda)^2\ \Omega$. At what length does the formula start to overestimate significantly?
+2. For each length, record $R_{rad}$ (from the port quantities) and compare with the short-dipole formula $R_{rad} = 197(L/\lambda)^2\ \Omega$ (triangular current) and the Hertz dipole formula $789(L/\lambda)^2\ \Omega$ (uniform current). Which one fits short wires? At what length does the short-dipole formula stop being accurate?
 3. Run a **near-field computation** for the half-wave case ($L = 0.5\ \mathrm{m}$). In the near-field plot, estimate the distance from the dipole at which the field transitions from reactive (near-field zone) to radiating far-field behavior. Compare with the theoretical criterion $r > \lambda/(2\pi) = 0.16\ \mathrm{m}$.
 
 > **Hint**: The Hertz dipole formula is only accurate for $L/\lambda \ll 1$. The PEEC solver does not make this approximation — it captures the full current distribution.

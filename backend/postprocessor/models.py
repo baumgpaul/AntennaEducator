@@ -129,7 +129,9 @@ class PortResult(BaseModel):
     port_id: str = Field(..., description="Port identifier")
     z_in: complex = Field(..., description="Input impedance [Ω]")
     gamma: complex = Field(..., description="Reflection coefficient Γ")
-    s11_db: float = Field(..., description="Return loss |S11| [dB]")
+    s11_db: float = Field(
+        ..., description="S11 = 20·log10|Γ| [dB], <= 0 for passive ports (return loss = -s11_db)"
+    )
     vswr: float = Field(..., description="VSWR")
     voltage: complex = Field(..., description="Port voltage [V]")
     current: complex = Field(..., description="Port current [A]")

@@ -14,7 +14,7 @@ where
 
 ### Resonance
 
-At resonance $X_{in} = 0$, so $Z_{in}$ is purely real. For a half-wave dipole ($L = \lambda/2$) this occurs close to $Z_{in} \approx 73 + j42.5\ \Omega$ (slightly above $\lambda/2$ due to the finite gap; exact value depends on wire radius and gap size).
+At resonance $X_{in} = 0$, so $Z_{in}$ is purely real. A thin half-wave dipole ($L = \lambda/2$) has $Z_{in} \approx 73 + j42.5\ \Omega$ — still inductive — so resonance occurs slightly **below** $\lambda/2$ (about $0.47$–$0.48\,\lambda$), where $R_{in} \approx 65$–$73\ \Omega$. The exact values depend on wire radius and gap size.
 
 ### Power Matching and Reflection
 
@@ -54,7 +54,7 @@ Antenna bandwidth is often defined as the frequency range over which $\mathrm{VS
 **Expected observations from the pre-loaded simulation results:**
 
 1. The **impedance curve** shows $R_{in}$ rising from low values toward ~73 Ω as frequency increases toward the resonance near 300 MHz.
-2. The **reactance** $X_{in}$ crosses zero near $f \approx 305\ \mathrm{MHz}$, marking the resonant frequency.
+2. The **reactance** $X_{in}$ crosses zero near $f \approx 320\ \mathrm{MHz}$, marking the resonant frequency (the 1 cm feed gap shortens the conductor to $0.46\ \mathrm{m}$).
 3. The **VSWR** curve dips to a minimum near the resonant frequency. Because $Z_{in}(\mathrm{resonance}) \approx 73\ \Omega \neq 50\ \Omega$, the VSWR minimum is approximately $73/50 \approx 1.46$, not 1.0.
 4. The **return loss** curve shows a peak (best match) aligned with the VSWR minimum.
 
