@@ -3,7 +3,7 @@
 
 resource "aws_dynamodb_table" "main" {
   name         = var.table_name
-  billing_mode = "PAY_PER_REQUEST"  # Serverless, scales automatically
+  billing_mode = "PAY_PER_REQUEST" # Serverless, scales automatically
   hash_key     = "PK"
   range_key    = "SK"
 
@@ -40,6 +40,9 @@ resource "aws_dynamodb_table" "main" {
     attribute_name = "TTL"
     enabled        = true
   }
+
+  # A `terraform destroy` or console click must not take the data with it
+  deletion_protection_enabled = var.enable_deletion_protection
 
   # Point-in-time recovery for backups
   point_in_time_recovery {

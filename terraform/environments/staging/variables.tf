@@ -22,6 +22,12 @@ variable "domain_name" {
   default     = "antennaeducator.nyakyagyawa.com"
 }
 
+variable "enable_ops_alarms" {
+  description = "5xx / throttle / duration alarms (~$1/month beyond the CloudWatch free tier)"
+  type        = bool
+  default     = true
+}
+
 variable "alert_email" {
   description = "Email address for billing and operational alerts"
   type        = string
