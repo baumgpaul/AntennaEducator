@@ -13,6 +13,7 @@ class ResultType(str, Enum):
     FIELD_DATA = "field_data"  # near/far-field vectors (largest)
     PARAMETER_STUDY = "parameter_study"  # parameter sweep results (can be very large)
     SUBMISSION_SNAPSHOT = "submission_snapshot"  # frozen project state of a submission
+    JOB_REQUEST = "job_request"  # queued async solve request (backend/solver/jobs.py)
 
 
 class ResultsStorageProvider(ABC):

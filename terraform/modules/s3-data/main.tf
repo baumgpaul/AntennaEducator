@@ -96,6 +96,20 @@ resource "aws_s3_bucket_lifecycle_configuration" "data" {
     }
   }
 
+  dynamic "rule" {
+    for_each = var.short_lived_prefixes
+    content {
+      id     = "expire-${replace(rule.key, "/", "-")}"
+      status = "Enabled"
+      filter {
+        prefix = rule.key
+      }
+      expiration {
+        days = rule.value
+      }
+    }
+  }
+
   # Clean up incomplete multipart uploads (saves money)
   rule {
     id     = "cleanup-incomplete-uploads"
