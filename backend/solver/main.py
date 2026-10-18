@@ -1,5 +1,6 @@
 """FastAPI application for the Solver service."""
 
+import json
 import os
 import time
 from datetime import datetime, timezone
@@ -24,6 +25,7 @@ from backend.common.utils.logging_config import configure_logging
 logger = configure_logging("solver")
 
 from .config import settings
+from .jobs import JobStore, jobs_enabled
 from .schemas import (
     FrequencyPointResponse,
     FrequencySweepRequest,
@@ -370,6 +372,11 @@ async def solve_multi_antenna_endpoint(
     _tokens: TokenCheckResult = Depends(require_simulation_tokens(5)),
 ):
     """Solve multiple antennas at a single frequency."""
+    return solve_multi_request(request)
+
+
+def solve_multi_request(request: MultiAntennaRequest) -> MultiAntennaSolutionResponse:
+    """Validate and solve a multi-antenna request (sync endpoint and async jobs)."""
     try:
         # Validate inputs
         if len(request.antennas) < 1:
@@ -441,6 +448,46 @@ async def solve_multi_antenna_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Multi-antenna solver error: {str(e)}")
+
+
+# ── Asynchronous jobs (ASYNC_JOBS=lambda, see backend/solver/jobs.py) ─────────
+
+
+@app.post(
+    f"{settings.api_prefix}/jobs/solve",
+    status_code=202,
+    tags=["Jobs"],
+    summary="Queue a multi-antenna solve (for solves longer than the 60 s API limit)",
+)
+async def submit_solve_job(
+    request: MultiAntennaRequest,
+    user: UserIdentity = Depends(get_current_user),
+    tokens: TokenCheckResult = Depends(require_simulation_tokens(5)),
+):
+    if not jobs_enabled():
+        raise HTTPException(status_code=404, detail="Asynchronous jobs are not enabled")
+    job_id = await JobStore().submit(
+        user.id,
+        json.loads(request.model_dump_json()),
+        tokens_charged=tokens.cost if tokens.should_deduct else 0,
+    )
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get(f"{settings.api_prefix}/jobs/{{job_id}}", tags=["Jobs"], summary="Job status and result")
+async def get_solve_job(job_id: str, user: UserIdentity = Depends(get_current_user)):
+    if not jobs_enabled():
+        raise HTTPException(status_code=404, detail="Asynchronous jobs are not enabled")
+    store = JobStore()
+    job = store.get(user.id, job_id)  # keyed by the caller: other users' jobs are 404
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    response = {"job_id": job_id, "status": job["Status"]}
+    if job["Status"] == "done":
+        response["result"] = await store.result(job_id)
+    elif job["Status"] == "failed":
+        response["error"] = job.get("Error", "Solve failed")
+    return response
 
 
 @app.get(

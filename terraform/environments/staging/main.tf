@@ -128,6 +128,8 @@ module "s3_results" {
   enable_intelligent_tiering = false  # Disable for staging (low volume)
   # Results are read back by the app (project + submission hydration): no Glacier
   enable_glacier_transition  = false
+  # Async job requests/results (backend/solver/jobs.py) are only needed briefly
+  short_lived_prefixes = { "results/job-" = 7 }
 
   tags = {
     Component = "storage"
@@ -395,7 +397,7 @@ module "lambda_solver" {
   region        = var.aws_region
 
   memory_size                    = 2048
-  timeout                        = 900
+  timeout                        = local.solver_timeout
   reserved_concurrent_executions = 10  # Most expensive — hard cap concurrent solves
 
   environment_variables = {
@@ -406,9 +408,14 @@ module "lambda_solver" {
     USE_DYNAMODB         = "true"
     DYNAMODB_TABLE_NAME  = module.dynamodb.table_name
     SOLVER_CORS_ORIGINS  = jsonencode(["*"])
+    # Async jobs (async_jobs.tf): the solver also stores job requests/results
+    ASYNC_JOBS          = var.async_jobs
+    JOBS_QUEUE_URL      = var.async_jobs == "lambda" ? aws_sqs_queue.jobs[0].url : ""
+    RESULTS_BUCKET_NAME = module.s3_results.bucket_name
   }
 
   dynamodb_table_arns = [module.dynamodb.table_arn]
+  s3_bucket_arns      = var.async_jobs == "lambda" ? [module.s3_results.bucket_arn] : []
 
   create_function_url    = true
   function_url_auth_type = var.api_origin_signing ? "AWS_IAM" : "NONE"
@@ -535,6 +542,7 @@ module "cicd" {
     VITE_SOLVER_URL            = "/svc/solver"
     VITE_POSTPROCESSOR_URL     = "/svc/postprocessor"
     VITE_API_BEHIND_CLOUDFRONT = "true"
+    VITE_ASYNC_JOBS            = var.async_jobs == "lambda" ? "true" : "false"
     # For the post-deploy smoke test (relative URLs are resolved against it)
     SMOKE_BASE_URL = "https://${var.domain_name}"
     VITE_AUTH_PROVIDER        = "cognito"

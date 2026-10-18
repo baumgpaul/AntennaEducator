@@ -39,3 +39,20 @@ variable "api_origin_signing" {
   type        = bool
   default     = true
 }
+
+variable "async_jobs" {
+  description = <<-EOT
+    Asynchronous solve jobs (solves longer than CloudFront's 60 s API limit):
+      "off"    — default, nothing deployed, $0. Solves must finish within 60 s.
+      "lambda" — SQS queue + the solver Lambda as worker (up to 15 min per solve).
+                 Free tiers cover classroom use; extra cost ≈ $0.10–1 / month.
+    A Fargate worker for FEM (longer / bigger than Lambda) is a future option (TODO.md).
+  EOT
+  type        = string
+  default     = "off"
+
+  validation {
+    condition     = contains(["off", "lambda"], var.async_jobs)
+    error_message = "async_jobs must be \"off\" or \"lambda\"."
+  }
+}

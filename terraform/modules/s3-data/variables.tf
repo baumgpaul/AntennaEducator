@@ -39,6 +39,12 @@ variable "noncurrent_version_retention_days" {
   default     = 30
 }
 
+variable "short_lived_prefixes" {
+  description = "Key prefix -> days after which objects under it are deleted (temporary data)"
+  type        = map(number)
+  default     = {}
+}
+
 variable "tags" {
   description = "Additional tags to apply to resources"
   type        = map(string)

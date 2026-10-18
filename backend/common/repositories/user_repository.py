@@ -354,6 +354,16 @@ class UserRepository:
             logger.error("Error deducting tokens for user %s: %s", user_id, e)
             raise RuntimeError(f"Failed to deduct tokens: {e}")
 
+    def refund_user_tokens(self, user_id: str, amount: int) -> None:
+        """Give tokens back (e.g. an async solve job that failed)."""
+        self.table.update_item(
+            Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
+            UpdateExpression="SET SimulationTokens = SimulationTokens + :n",
+            ConditionExpression="attribute_exists(PK)",
+            ExpressionAttributeValues={":n": amount},
+        )
+        logger.info("Refunded %d tokens to user %s", amount, user_id)
+
     def set_user_flatrate(self, user_id: str, until: Optional[datetime]) -> None:
         """Grant or revoke a user's flatrate.
 
