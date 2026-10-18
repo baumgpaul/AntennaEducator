@@ -16,7 +16,7 @@ env:
 phases:
   install:
     runtime-versions:
-      nodejs: 20  # Vite 8 needs Node >= 20.19 (newest the CodeBuild image offers)
+      nodejs: 22  # matches CI and the frontend Dockerfile (Node 22)
   pre_build:
     commands:
       - echo "Logging in to Amazon ECR..."

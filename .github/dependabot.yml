@@ -24,6 +24,23 @@ updates:
       # go out to the network); needs a test-setup migration first
       - dependency-name: msw
         versions: [">=3"]
+      # React 19 migration (drei 10 needs fiber 9, which needs React 19);
+      # these must move together in one planned upgrade.
+      - dependency-name: react
+        versions: [">=19"]
+      - dependency-name: react-dom
+        versions: [">=19"]
+      - dependency-name: "@types/react"
+        versions: [">=19"]
+      - dependency-name: "@types/react-dom"
+        versions: [">=19"]
+      - dependency-name: "@react-three/fiber"
+        versions: [">=9"]
+      - dependency-name: "@react-three/drei"
+        versions: [">=10"]
+      # Keep Node typings on the CI/Docker runtime major (Node 22)
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       frontend-minor-patch:
         update-types: [minor, patch]

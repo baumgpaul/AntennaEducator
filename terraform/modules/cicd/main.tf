@@ -72,7 +72,7 @@ resource "aws_codebuild_project" "test" {
 
   environment {
     compute_type    = "BUILD_GENERAL1_SMALL" # 3 GB, 2 vCPU — $0.005/min
-    image           = "aws/codebuild/amazonlinux2-x86_64-standard:5.0"
+    image           = "aws/codebuild/amazonlinux-x86_64-standard:5.0" # AL2023: Node 22 (AL2 tops out at EOL Node 20)
     type            = "LINUX_CONTAINER"
     privileged_mode = false
   }
@@ -111,7 +111,7 @@ resource "aws_codebuild_project" "deploy" {
 
   environment {
     compute_type    = "BUILD_GENERAL1_MEDIUM" # 7 GB, 4 vCPU — $0.01/min
-    image           = "aws/codebuild/amazonlinux2-x86_64-standard:5.0"
+    image           = "aws/codebuild/amazonlinux-x86_64-standard:5.0" # AL2023: Node 22 (AL2 tops out at EOL Node 20)
     type            = "LINUX_CONTAINER"
     privileged_mode = true # Required for Docker builds
 

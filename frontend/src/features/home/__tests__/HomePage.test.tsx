@@ -24,6 +24,7 @@ describe('HomePage', () => {
     const mod = await import('../HomePage');
     expect(mod.default).toBeDefined();
     expect(typeof mod.default).toBe('function');
-    // Dynamic import transforms the whole page tree (~9-12 s on CI runners)
-  }, 30000);
+    // Dynamic import transforms the whole page tree (~9-12 s alone, 30 s+
+    // when the full suite runs in parallel)
+  }, 60000);
 });
