@@ -64,6 +64,37 @@ aws s3api copy-object --bucket $B --key <key> \
 3. Upload a test object to the results bucket, delete it, recover it as above, delete it again.
 4. Delete the restored table. Note the date and restore duration below.
 
+PowerShell (same steps; run the blocks in one window):
+
+```powershell
+$P   = @('--profile', 'antenna-staging', '--region', 'eu-west-1')
+$SRC = 'antenna-simulator-staging'
+$DST = "antenna-simulator-staging-restore-$(Get-Date -Format yyyyMMddHHmm)"
+$start = Get-Date
+aws dynamodb restore-table-to-point-in-time @P `
+  --source-table-name $SRC --target-table-name $DST --use-latest-restorable-time | Out-Null
+aws dynamodb wait table-exists --table-name $DST @P
+"Restore took $([int]((Get-Date) - $start).TotalMinutes) min"
+aws dynamodb scan --table-name $SRC --select COUNT @P --query Count
+aws dynamodb scan --table-name $DST --select COUNT @P --query Count
+
+$B = 'antenna-simulator-results-staging'; $K = 'restore-drill/test.txt'
+$f = Join-Path $env:TEMP 'drill.txt'; "drill $(Get-Date)" | Set-Content $f
+aws s3 cp $f "s3://$B/$K" @P
+aws s3 rm "s3://$B/$K" @P
+$M = aws s3api list-object-versions --bucket $B --prefix $K @P `
+       --query 'DeleteMarkers[0].VersionId' --output text
+aws s3api delete-object --bucket $B --key $K --version-id $M @P | Out-Null
+aws s3 cp "s3://$B/$K" - @P                     # prints the text: recovered
+
+# Clean up (the restored table holds real user data)
+aws dynamodb delete-table --table-name $DST @P | Out-Null
+$v = aws s3api list-object-versions --bucket $B --prefix $K @P --output json | ConvertFrom-Json
+@($v.Versions) + @($v.DeleteMarkers) | Where-Object { $_ } | ForEach-Object {
+  aws s3api delete-object --bucket $B --key $K --version-id $_.VersionId @P | Out-Null }
+Remove-Item $f
+```
+
 | Date | DynamoDB restore time | Items src / restored | S3 recovery | By |
 |---|---|---|---|---|
-| | | | | |
+| 2026-10-19 | 3 min (latest restorable time; PITR window 35 days) | 10346 / 10346 | delete marker removed, object readable | Paul |
