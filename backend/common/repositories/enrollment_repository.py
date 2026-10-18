@@ -18,6 +18,8 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
+from backend.common.repositories.transactions import transact_delete, transact_put
+
 logger = logging.getLogger(__name__)
 
 
@@ -83,20 +85,16 @@ class EnrollmentRepository:
             "EnrolledAt": now,
             "EnrolledBy": enrolled_by,
         }
-        with self.table.batch_writer() as batch:
-            batch.put_item(Item=forward)
-            batch.put_item(Item=reverse)
+        transact_put(self.table, forward, reverse)
         logger.info("Enrolled user %s in course %s", user_id, course_id)
 
     def unenroll_user(self, course_id: str, user_id: str) -> None:
         """Remove a user's enrollment (deletes two items)."""
-        with self.table.batch_writer() as batch:
-            batch.delete_item(
-                Key={"PK": f"COURSE#{course_id}", "SK": f"ENROLLMENT#{user_id}"},
-            )
-            batch.delete_item(
-                Key={"PK": f"USER#{user_id}", "SK": f"ENROLLMENT#{course_id}"},
-            )
+        transact_delete(
+            self.table,
+            {"PK": f"COURSE#{course_id}", "SK": f"ENROLLMENT#{user_id}"},
+            {"PK": f"USER#{user_id}", "SK": f"ENROLLMENT#{course_id}"},
+        )
         logger.info("Unenrolled user %s from course %s", user_id, course_id)
 
     # ── query operations ──────────────────────────────────────────────────

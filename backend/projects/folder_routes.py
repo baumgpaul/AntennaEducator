@@ -20,6 +20,7 @@ from backend.common.repositories.enrollment_repository import EnrollmentReposito
 from backend.common.repositories.factory import get_project_repository
 from backend.common.repositories.folder_repository import FolderRepository
 from backend.common.repositories.user_repository import UserRepository
+from backend.projects.account_service import delete_course_records
 from backend.projects.documentation_service import DocumentationService, get_documentation_service
 from backend.projects.results_service import ResultsService, get_results_service
 from backend.projects.schemas import (
@@ -351,21 +352,36 @@ async def delete_course(
     folder_id: str,
     user: UserIdentity = Depends(get_current_user),
     folder_repo: FolderRepository = Depends(get_folder_repository),
+    repo: ProjectRepository = Depends(get_repo),
+    results_svc: ResultsService = Depends(get_results_service),
+    doc_svc: DocumentationService = Depends(get_documentation_service),
 ):
-    """Delete a public course folder (maintainer/admin only)."""
+    """Delete a public course with everything in it (maintainer/admin only).
+
+    Removes all nested subfolders, the course projects with their S3 results and
+    documentation, and the enrollments and submissions. It used to delete only
+    the folder items (one level deep), leaving orphaned projects behind (B16).
+    Students' own copies of course projects are theirs and stay.
+    """
     _require_maintainer(user)
 
     folder = await folder_repo.get_folder(folder_id)
     if not folder or not folder["is_course"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
-    # Recursively delete subfolders
-    subfolders = await folder_repo.list_subfolders(folder_id)
-    for sf in subfolders:
-        await folder_repo.delete_folder(sf["id"])
-
-    await folder_repo.delete_folder(folder_id)
+    await _delete_course_tree(folder_id, folder_repo, repo, results_svc, doc_svc)
     return None
+
+
+async def _delete_course_tree(folder_id, folder_repo, repo, results_svc, doc_svc) -> None:
+    for sub in await folder_repo.list_subfolders(folder_id):
+        await _delete_course_tree(sub["id"], folder_repo, repo, results_svc, doc_svc)
+    for project in await repo.list_all_projects_in_folder(folder_id):
+        await results_svc.delete_results(project["id"])
+        await doc_svc.delete_all(project["id"])
+        await repo.delete_project(project["id"])
+    await delete_course_records(repo.table, folder_id, results_svc)
+    await folder_repo.delete_folder(folder_id)
 
 
 @router.get(

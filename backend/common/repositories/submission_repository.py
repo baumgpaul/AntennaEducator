@@ -20,6 +20,7 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from backend.common.repositories.dynamodb_repository import _from_dynamodb, _to_dynamodb
+from backend.common.repositories.transactions import transact_put, transact_update
 
 logger = logging.getLogger(__name__)
 
@@ -122,9 +123,7 @@ class SubmissionRepository:
             "SK": f"SUBMISSION#{submission_id}",
         }
 
-        with self.table.batch_writer() as batch:
-            batch.put_item(Item=forward)
-            batch.put_item(Item=reverse)
+        transact_put(self.table, forward, reverse)
 
         logger.info(
             "Created submission %s for course %s by user %s",
@@ -158,29 +157,18 @@ class SubmissionRepository:
             ":rb": reviewed_by,
         }
 
+        reverse_key = {"PK": f"USER#{user_id}", "SK": f"SUBMISSION#{submission_id}"}
         try:
-            # Update forward item
-            self.table.update_item(
-                Key={
-                    "PK": f"COURSE#{course_id}",
-                    "SK": f"SUBMISSION#{submission_id}",
-                },
-                UpdateExpression=update_expr,
-                ExpressionAttributeNames=expr_names,
-                ExpressionAttributeValues=expr_values,
+            # Both copies or neither (a transaction cannot return the new item)
+            transact_update(
+                self.table,
+                [{"PK": f"COURSE#{course_id}", "SK": f"SUBMISSION#{submission_id}"}, reverse_key],
+                update_expr,
+                expr_names,
+                expr_values,
             )
-            # Update reverse item
-            resp = self.table.update_item(
-                Key={
-                    "PK": f"USER#{user_id}",
-                    "SK": f"SUBMISSION#{submission_id}",
-                },
-                UpdateExpression=update_expr,
-                ExpressionAttributeNames=expr_names,
-                ExpressionAttributeValues=expr_values,
-                ReturnValues="ALL_NEW",
-            )
-            return self._to_dict(resp.get("Attributes", {}))
+            resp = self.table.get_item(Key=reverse_key)
+            return self._to_dict(resp.get("Item", {}))
         except ClientError as e:
             logger.error("Error updating review for submission %s: %s", submission_id, e)
             return None

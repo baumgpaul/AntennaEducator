@@ -13,6 +13,7 @@ import {
 import type { IAuthService, LoginCredentials, RegisterData, AuthResponse, AuthTokens } from './types'
 import type { User } from '@/types/models'
 import { getCurrentUser as fetchProfile } from '@/api/auth'
+import { clearStoredSession } from './session'
 
 export class CognitoAuthService implements IAuthService {
   private userPool: CognitoUserPool
@@ -170,10 +171,7 @@ export class CognitoAuthService implements IAuthService {
       }
     }
 
-    // Clear tokens from localStorage
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('id_token')
-    localStorage.removeItem('refresh_token')
+    clearStoredSession()
   }
 
   /**

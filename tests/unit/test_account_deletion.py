@@ -34,15 +34,16 @@ class FakeTable:
 
 def _items():
     return [
-        {"PK": "USER#u1", "SK": "METADATA", "Email": "s@uni.example"},
+        {"PK": "USER#u1", "SK": "METADATA", "Email": "S@Uni.example"},
+        {"PK": "EMAIL#s@uni.example", "SK": "CLAIM", "UserId": "u1"},
         {"PK": "USER#u1", "SK": "PROJECT#p1"},
         {"PK": "USER#u1", "SK": "PROJECT#p2"},
         {"PK": "USER#u1", "SK": "FOLDER#f1"},
         {"PK": "USER#u1", "SK": "USAGE#2026-10-18#ab"},
         {"PK": "USER#u1", "SK": "ENROLLMENT#c1"},
         {"PK": "COURSE#c1", "SK": "ENROLLMENT#u1"},
-        {"PK": "USER#u1", "SK": "SUBMISSION#s1", "CourseId": "c1"},
-        {"PK": "COURSE#c1", "SK": "SUBMISSION#s1", "CourseId": "c1"},
+        {"PK": "USER#u1", "SK": "SUBMISSION#s1", "CourseId": "c1", "UserId": "u1"},
+        {"PK": "COURSE#c1", "SK": "SUBMISSION#s1", "CourseId": "c1", "UserId": "u1"},
         # other people's data must survive
         {"PK": "USER#u2", "SK": "METADATA"},
         {"PK": "USER#u2", "SK": "PROJECT#p9"},
@@ -73,7 +74,7 @@ async def test_deletes_all_user_items_and_forward_copies():
         ("USER#u2", "PROJECT#p9"),
     ]
     assert counts["projects"] == 2
-    assert counts["items"] == 9
+    assert counts["items"] == 10  # incl. the e-mail claim, so it can register again
 
 
 @pytest.mark.asyncio
@@ -141,3 +142,20 @@ def test_admins_and_maintainers_cannot_self_delete(client, role):
 
     assert resp.status_code == 409
     delete_data.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_course_records_removed_on_both_sides():
+    from backend.projects.account_service import delete_course_records
+
+    table = FakeTable(_items())
+    results, _ = _services()
+    removed = await delete_course_records(table, "c1", results)
+
+    assert removed == 6  # u1 + u2 enrollments and the submission, forward + reverse each
+    assert ("COURSE#c1", "ENROLLMENT#u1") not in table.items
+    assert ("COURSE#c1", "ENROLLMENT#u2") not in table.items
+    assert ("USER#u1", "ENROLLMENT#c1") not in table.items
+    assert ("USER#u1", "SUBMISSION#s1") not in table.items
+    assert ("COURSE#c1", "METADATA") in table.items  # not an enrollment/submission
+    results.delete_results.assert_awaited_once_with("submission-s1")

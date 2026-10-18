@@ -4,6 +4,7 @@
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios'
 import type { ApiError } from '@/types/api'
+import { clearStoredSession } from '@/services/auth/session'
 
 // Environment configuration
 const getPreprocessorURL = () => {
@@ -101,10 +102,7 @@ const refreshAccessToken = async (): Promise<string> => {
   } catch (error) {
     // Refresh failed - clear tokens and redirect to login
     console.error('[Auth] Token refresh failed:', error)
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('refresh_token')
-    localStorage.removeItem('id_token')
-    localStorage.removeItem('user')
+    clearStoredSession()
     window.location.href = '/login'
     throw error
   }
@@ -198,10 +196,7 @@ const createApiClient = (baseURL: string): AxiosInstance => {
           localStorage.setItem('logout_reason', 'auth_endpoint_401')
 
           // Clear tokens and redirect to login
-          localStorage.removeItem('auth_token')
-          localStorage.removeItem('refresh_token')
-          localStorage.removeItem('id_token')
-          localStorage.removeItem('user')
+          clearStoredSession()
           window.location.href = '/login'
 
           // Page is navigating away — suppress error propagation

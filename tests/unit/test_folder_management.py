@@ -386,8 +386,14 @@ def _setup_mocks(
     app.dependency_overrides[get_repository] = lambda: project_repo
     app.dependency_overrides[_get_doc_service] = lambda: doc_svc
     app.dependency_overrides[get_documentation_service] = lambda: doc_svc
+    results_svc = AsyncMock()
+    results_svc.delete_results.return_value = 0
+    from backend.projects.results_service import get_results_service
+
+    app.dependency_overrides[get_results_service] = lambda: results_svc
 
     return {
+        "results_svc": results_svc,
         "folder_repo": folder_repo,
         "repo": project_repo,
         "doc_svc": doc_svc,
@@ -621,14 +627,33 @@ class TestCourseEndpoints:
         assert resp.status_code == 403
 
     def test_delete_course_as_maintainer(self):
-        mocks = _setup_mocks(MAINTAINER_USER)
+        """B16: nested subfolders, projects (+ S3) and course records all go."""
+        mocks = _setup_mocks(MAINTAINER_USER, doc_svc=AsyncMock())
+        tree = {"course-xyz": [{"id": "sub-1"}], "sub-1": [{"id": "sub-2"}], "sub-2": []}
+        projects = {"course-xyz": [{"id": "p-root"}], "sub-2": [{"id": "p-deep"}]}
         mocks["folder_repo"].get_folder = AsyncMock(return_value=MOCK_COURSE_FOLDER)
         mocks["folder_repo"].delete_folder = AsyncMock(return_value=True)
-        mocks["folder_repo"].list_subfolders = AsyncMock(return_value=[])
+        mocks["folder_repo"].list_subfolders = AsyncMock(side_effect=lambda fid: tree[fid])
+        mocks["repo"].list_all_projects_in_folder = AsyncMock(
+            side_effect=lambda fid: projects.get(fid, [])
+        )
+        mocks["repo"].delete_project = AsyncMock(return_value=True)
 
-        client = TestClient(app)
-        resp = client.delete(f"/api/courses/{MOCK_COURSE_FOLDER['id']}")
+        with patch(
+            "backend.projects.folder_routes.delete_course_records", AsyncMock(return_value=0)
+        ) as records:
+            resp = TestClient(app).delete(f"/api/courses/{MOCK_COURSE_FOLDER['id']}")
+
         assert resp.status_code == 204
+        deleted_folders = [c.args[0] for c in mocks["folder_repo"].delete_folder.await_args_list]
+        assert deleted_folders == ["sub-2", "sub-1", "course-xyz"]  # children first
+        deleted_projects = {c.args[0] for c in mocks["repo"].delete_project.await_args_list}
+        assert deleted_projects == {"p-root", "p-deep"}
+        assert {c.args[0] for c in mocks["results_svc"].delete_results.await_args_list} == {
+            "p-root",
+            "p-deep",
+        }
+        assert {c.args[1] for c in records.await_args_list} == {"course-xyz", "sub-1", "sub-2"}
 
     def test_delete_course_as_normal_user_forbidden(self):
         mocks = _setup_mocks(NORMAL_USER)
