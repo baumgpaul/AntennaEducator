@@ -80,6 +80,22 @@ resource "aws_s3_bucket_lifecycle_configuration" "data" {
     }
   }
 
+  # Versioning keeps overwritten/deleted objects; recoverable for this long
+  rule {
+    id     = "expire-old-versions"
+    status = "Enabled"
+
+    filter {}
+
+    noncurrent_version_expiration {
+      noncurrent_days = var.noncurrent_version_retention_days
+    }
+
+    expiration {
+      expired_object_delete_marker = true
+    }
+  }
+
   # Clean up incomplete multipart uploads (saves money)
   rule {
     id     = "cleanup-incomplete-uploads"

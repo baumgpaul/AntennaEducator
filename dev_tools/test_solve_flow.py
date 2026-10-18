@@ -1,14 +1,20 @@
 """Quick test script to verify the preprocessor → solver pipeline locally."""
-import requests
+
 import json
+from datetime import datetime, timedelta, timezone
 
 # Auth header (local JWT with default secret)
-from jose import jwt
-from datetime import datetime, timedelta, timezone
+import jwt
+import requests
+
 TOKEN = jwt.encode(
-    {'sub': 'test-user-123', 'email': 'test@test.com', 'exp': datetime.now(timezone.utc) + timedelta(hours=1)},
-    'your-secret-key-change-in-production',
-    algorithm='HS256'
+    {
+        "sub": "test-user-123",
+        "email": "test@test.com",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+    },
+    "your-secret-key-change-in-production",
+    algorithm="HS256",
 )
 HEADERS = {"Authorization": f"Bearer {TOKEN}"}
 
@@ -29,7 +35,9 @@ data = resp.json()
 mesh = data["mesh"]
 element = data.get("element", {})
 sources = element.get("sources", [])
-print(f"Nodes: {len(mesh['nodes'])}, Edges: {len(mesh['edges'])}, Sources: {json.dumps(sources, indent=2)}")
+print(
+    f"Nodes: {len(mesh['nodes'])}, Edges: {len(mesh['edges'])}, Sources: {json.dumps(sources, indent=2)}"
+)
 
 # Step 2: Build solver request using the same logic as frontend multiAntennaBuilder
 voltage_sources = []
@@ -74,7 +82,9 @@ solve_req = {
         }
     ],
 }
-print(f"VS count: {len(voltage_sources)}, first VS: {voltage_sources[0] if voltage_sources else 'NONE'}")
+print(
+    f"VS count: {len(voltage_sources)}, first VS: {voltage_sources[0] if voltage_sources else 'NONE'}"
+)
 
 resp2 = requests.post("http://localhost:8002/api/solve/multi", json=solve_req, headers=HEADERS)
 print(f"Solver: {resp2.status_code}")

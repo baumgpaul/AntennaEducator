@@ -67,7 +67,7 @@ def rsa_keys():
     """An RSA key pair standing in for Cognito's JWKS signing key."""
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
-    from jose import jwk
+    from jwt.algorithms import RSAAlgorithm
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     private_pem = key.private_bytes(
@@ -75,11 +75,7 @@ def rsa_keys():
         serialization.PrivateFormat.PKCS8,
         serialization.NoEncryption(),
     )
-    public_pem = key.public_key().public_bytes(
-        serialization.Encoding.PEM,
-        serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-    public_jwk = jwk.construct(public_pem, "RS256").to_dict()
+    public_jwk = RSAAlgorithm.to_jwk(key.public_key(), as_dict=True)
     public_jwk["kid"] = "test-kid"
     return private_pem, public_jwk
 
@@ -103,7 +99,7 @@ def provider(rsa_keys):
 def _sign(rsa_keys, **claims) -> str:
     from datetime import datetime, timedelta, timezone
 
-    from jose import jwt
+    import jwt
 
     private_pem, _ = rsa_keys
     payload = {
@@ -133,7 +129,7 @@ class TestCognitoValidateToken:
 
     def test_id_token_for_other_client_rejected(self, provider, rsa_keys):
         token = _sign(rsa_keys, token_use="id", aud="some-other-client")
-        with pytest.raises(ValueError, match="Invalid Cognito token"):
+        with pytest.raises(ValueError, match="app client"):
             provider.validate_token(token)
 
     def test_missing_token_use_rejected(self, provider, rsa_keys):
@@ -150,3 +146,46 @@ class TestCognitoValidateToken:
         )
         with pytest.raises(ValueError, match="Invalid Cognito token"):
             provider.validate_token(token)
+
+    def test_expired_token_rejected(self, provider, rsa_keys):
+        from datetime import datetime, timedelta, timezone
+
+        token = _sign(
+            rsa_keys,
+            token_use="access",
+            client_id=_CLIENT_ID,
+            exp=datetime.now(timezone.utc) - timedelta(minutes=5),
+        )
+        with pytest.raises(ValueError, match="Invalid Cognito token"):
+            provider.validate_token(token)
+
+    def test_wrong_signing_key_rejected(self, provider):
+        other = _sign(_other_keys(), token_use="access", client_id=_CLIENT_ID)
+        with pytest.raises(ValueError, match="Invalid Cognito token"):
+            provider.validate_token(other)
+
+    def test_hs256_token_rejected(self, provider):
+        """Algorithm confusion: an HMAC token must not pass RS256 verification."""
+        import jwt
+
+        token = jwt.encode(
+            {"sub": "x", "iss": _ISSUER, "token_use": "access", "client_id": _CLIENT_ID},
+            "a-shared-secret-that-is-long-enough-for-hs256",
+            algorithm="HS256",
+            headers={"kid": "test-kid"},
+        )
+        with pytest.raises(ValueError, match="Invalid Cognito token"):
+            provider.validate_token(token)
+
+
+def _other_keys():
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    )
+    return pem, None

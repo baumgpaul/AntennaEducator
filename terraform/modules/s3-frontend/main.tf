@@ -23,7 +23,7 @@ resource "aws_s3_bucket_website_configuration" "frontend" {
   }
 
   error_document {
-    key = "index.html"  # SPA routing - all 404s go to index.html
+    key = "index.html" # SPA routing - all 404s go to index.html
   }
 }
 
@@ -36,15 +36,37 @@ resource "aws_s3_bucket_versioning" "frontend" {
   }
 }
 
+# Every deploy overwrites the assets; keep old versions 30 days for rollback
+resource "aws_s3_bucket_lifecycle_configuration" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  rule {
+    id     = "expire-old-versions"
+    status = "Enabled"
+
+    filter {}
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+
+    expiration {
+      expired_object_delete_marker = true
+    }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.frontend]
+}
+
 # Block public access (CloudFront will access it)
 # Users access via CloudFront, not directly
 resource "aws_s3_bucket_public_access_block" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
   block_public_acls       = true
-  block_public_policy     = false  # Allow bucket policy for CloudFront
+  block_public_policy     = false # Allow bucket policy for CloudFront
   ignore_public_acls      = true
-  restrict_public_buckets = false  # Allow bucket policy
+  restrict_public_buckets = false # Allow bucket policy
 }
 
 # Bucket policy - allows CloudFront to read objects

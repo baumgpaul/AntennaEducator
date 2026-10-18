@@ -9,6 +9,12 @@ variable "enable_point_in_time_recovery" {
   default     = true
 }
 
+variable "enable_deletion_protection" {
+  description = "Block table deletion until protection is turned off"
+  type        = bool
+  default     = true
+}
+
 variable "enable_streams" {
   description = "Enable DynamoDB streams for change data capture"
   type        = bool

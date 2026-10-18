@@ -24,13 +24,19 @@ variable "enable_glacier_transition" {
 variable "data_retention_days" {
   description = "Number of days to retain data before deletion (0 = never delete)"
   type        = number
-  default     = 0  # Keep forever by default
+  default     = 0 # Keep forever by default
 }
 
 variable "enable_intelligent_tiering" {
   description = "Enable S3 Intelligent-Tiering for automatic cost optimization"
   type        = bool
-  default     = false  # Disable for staging (adds small cost)
+  default     = false # Disable for staging (adds small cost)
+}
+
+variable "noncurrent_version_retention_days" {
+  description = "Days an overwritten or deleted object version stays recoverable"
+  type        = number
+  default     = 30
 }
 
 variable "tags" {
