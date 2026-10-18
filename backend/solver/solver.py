@@ -31,6 +31,12 @@ import numpy as np
 
 from backend.common.constants import C_0, EPSILON_0, MU_0
 from backend.solver.geometry import build_edge_geometries
+from backend.solver.ground_plane import (
+    check_above_plane,
+    image_inductance,
+    image_potential,
+    lift_feed_nodes,
+)
 from backend.solver.inductance import assemble_inductance_matrix
 from backend.solver.potential_nodal import assemble_nodal_potential_matrix_with_cap_elem
 from backend.solver.resistance import assemble_resistance_matrix
@@ -140,6 +146,7 @@ class SolverConfiguration:
     include_skin_effect: bool = True
     resistivity: float = 1.68e-8  # Copper
     permeability: float = 1.0
+    ground_plane: bool = False  # PEC plane at z = 0 (image theory, ground_plane.py)
 
 
 @dataclass
@@ -282,6 +289,11 @@ def solve_peec_frequency_sweep(
     if len(voltage_sources) == 0 and len(current_sources) == 0:
         raise ValueError("At least one voltage source or current source is required")
 
+    # Ground plane: wires below it are invalid; wires touching it get a feed gap
+    if config.ground_plane:
+        check_above_plane(np.asarray(nodes))
+        nodes = lift_feed_nodes(nodes, edges, radii)
+
     # Step 1: Build edge geometries and handle edges to/from ground
     # Ground is node 0. For edges to/from ground, we can't build full EdgeGeometry
     # but we can estimate their length and use simplified formulas.
@@ -362,6 +374,12 @@ def solve_peec_frequency_sweep(
         L_first_order = (MU_0 / (4 * np.pi)) * (moments @ moments.T)
     P_first_order = 1.0 / (4 * np.pi * EPSILON_0)
 
+    # Ground plane: coupling to the mirrored wires, subtracted below
+    use_images = config.ground_plane and n_physical_edges > 0
+    if use_images:
+        L_img, dist_L_img, L_first_order_img = image_inductance(edge_geom_list, physical_radii)
+        P_img, dist_P_img = image_potential(cap_elem, radii_cap)
+
     # Step 4: Solve at each frequency
     frequency_solutions = []
 
@@ -378,6 +396,13 @@ def solve_peec_frequency_sweep(
             beta = omega / c0
             L_physical_retarded = _retard(L_physical, dist_L_physical, L_first_order, beta)
             P_nodal_retarded = _retard(P_nodal, dist_P_nodal, P_first_order, beta)
+            if use_images:
+                L_physical_retarded = L_physical_retarded - _retard(
+                    L_img, dist_L_img, L_first_order_img, beta
+                )
+                P_nodal_retarded = P_nodal_retarded - _retard(
+                    P_img, dist_P_img, P_first_order, beta
+                )
         else:
             L_physical_retarded = L_physical
             P_nodal_retarded = P_nodal
@@ -1206,5 +1231,6 @@ def solve_multi_antenna(
         "n_total_nodes": merged.n_total_points,
         "n_total_edges": merged.n_total_sticks,
         "solve_time": solve_time,
-        "warnings": ground_feed_warnings(antennas),
+        # With a ground plane, feeding against node 0 is the normal monopole feed
+        "warnings": [] if config.ground_plane else ground_feed_warnings(antennas),
     }

@@ -21,6 +21,7 @@ from backend.common.utils.logging_config import configure_logging
 from .config import settings
 from .field import compute_directivity_from_pattern, compute_far_field
 from .field import compute_near_field as compute_near_field_impl
+from .ground_plane import add_images, lower_hemisphere
 from .models import (
     FarFieldRequest,
     FieldRequest,
@@ -187,6 +188,8 @@ async def compute_near_field(
         edges = np.array(request.edges)
         observation_points = np.array(request.observation_points)
         branch_currents = _parse_branch_currents(request.branch_currents)
+        if request.ground_plane:
+            nodes, edges, branch_currents = add_images(nodes, edges, branch_currents)
         logger.info("Request parsed in %.3f s", time.perf_counter() - t_parse)
 
         logger.debug(
@@ -212,6 +215,10 @@ async def compute_near_field(
         # Extract first frequency results (n_points x 3, complex)
         E_vectors = E_field[0]
         H_vectors = H_field[0]
+        if request.ground_plane:  # no field inside the conductor
+            below = observation_points[:, 2] < 0
+            E_vectors[below] = 0
+            H_vectors[below] = 0
 
         E_magnitudes = np.linalg.norm(E_vectors, axis=1).tolist()
         H_magnitudes = np.linalg.norm(H_vectors, axis=1).tolist()
@@ -277,6 +284,8 @@ async def compute_far_field_endpoint(
         nodes = np.array(request.nodes)
         edges = np.array(request.edges)
         branch_currents = _parse_branch_currents(request.branch_currents)
+        if request.ground_plane:
+            nodes, edges, branch_currents = add_images(nodes, edges, branch_currents)
 
         theta_angles = np.linspace(0, np.pi, request.theta_points)
         phi_angles = np.linspace(0, 2 * np.pi, request.phi_points)
@@ -289,6 +298,9 @@ async def compute_far_field_endpoint(
             theta_angles=theta_angles,
             phi_angles=phi_angles,
         )
+
+        if request.ground_plane:  # nothing radiates below the plane
+            E_field[:, lower_hemisphere(theta_angles)] = 0
 
         # Extract first frequency results
         E_theta = E_field[0, :, :, 0]
@@ -303,7 +315,8 @@ async def compute_far_field_endpoint(
         E_total_mag = np.sqrt(np.abs(E_theta) ** 2 + np.abs(E_phi) ** 2).flatten().tolist()
 
         U_max = np.max(U_pattern)
-        pattern_db_array = 10 * np.log10(U_pattern / U_max)
+        with np.errstate(divide="ignore"):  # zero below a ground plane -> -100 dB below
+            pattern_db_array = 10 * np.log10(U_pattern / U_max)
         pattern_db_array = np.nan_to_num(pattern_db_array, nan=-100.0, posinf=0.0, neginf=-100.0)
         pattern_db = pattern_db_array.flatten().tolist()
 
@@ -348,14 +361,21 @@ async def export_to_vtu(
         frequency_hz = request.frequencies[0] if request.frequencies else 0
         observation_points = np.array(request.observation_points)
         branch_currents = _parse_branch_currents(request.branch_currents)
+        nodes, edges = np.array(request.nodes), np.array(request.edges)
+        if request.ground_plane:
+            nodes, edges, branch_currents = add_images(nodes, edges, branch_currents)
 
         E_vectors, H_vectors = compute_near_field_impl(
             frequencies=np.array(request.frequencies),
             branch_currents=branch_currents,
-            nodes=np.array(request.nodes),
-            edges=np.array(request.edges),
+            nodes=nodes,
+            edges=edges,
             observation_points=observation_points,
         )
+        if request.ground_plane:  # no field inside the conductor
+            below = observation_points[:, 2] < 0
+            E_vectors[:, below] = 0
+            H_vectors[:, below] = 0
 
         E_field = E_vectors[0, :, :]
         H_field = H_vectors[0, :, :]
