@@ -4,6 +4,7 @@
  */
 
 import { postprocessorClient, handleApiResponse } from './client'
+import { ASYNC_JOBS, runJob } from './solver'
 
 // ============================================================================
 // Health Check
@@ -96,11 +97,14 @@ export const computeNearField = async (request: {
 
   const t0 = performance.now()
   try {
-    const response = await postprocessorClient.post('/api/fields/near', request)
+    // With async jobs, big grids run as a job beyond the 60 s API limit
+    const data = ASYNC_JOBS
+      ? await runJob('/api/jobs/near-field', request)
+      : handleApiResponse(await postprocessorClient.post('/api/fields/near', request))
     const elapsed = ((performance.now() - t0) / 1000).toFixed(2)
-    console.log(`[Postprocessor] Near-field response received in ${elapsed}s, status=${response.status}`)
+    console.log(`[Postprocessor] Near-field response received in ${elapsed}s`)
 
-    const raw = handleApiResponse(response) as {
+    const raw = data as {
       status: string
       format?: string
       frequency: number
@@ -210,12 +214,14 @@ export const computeFarField = async (request: {
   max_direction: [number, number]
 }> => {
   try {
-    const response = await postprocessorClient.post('/api/fields/far', {
+    const body = {
       ...request,
       theta_points: request.theta_points || 19,
       phi_points: request.phi_points || 37,
-    })
-    return handleApiResponse(response)
+    }
+    return ASYNC_JOBS
+      ? await runJob('/api/jobs/far-field', body)
+      : handleApiResponse(await postprocessorClient.post('/api/fields/far', body))
   } catch (error: unknown) {
     const axiosErr = error as { response?: { status?: number; data?: unknown }; message?: string }
     console.error(

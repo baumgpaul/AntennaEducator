@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import numpy as np
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.common.auth.dependencies import get_current_user
@@ -24,8 +25,10 @@ from backend.common.utils.logging_config import configure_logging
 
 logger = configure_logging("solver")
 
+from backend.postprocessor.models import FarFieldRequest, FieldRequest
+
 from .config import settings
-from .jobs import JobStore, jobs_enabled
+from .jobs import INLINE_MAX_SECONDS, JobStore, job_kind, jobs_enabled
 from .schemas import (
     FrequencyPointResponse,
     FrequencySweepRequest,
@@ -62,6 +65,10 @@ if os.getenv("USE_FUNCTION_URL_CORS", "").lower() != "true":
         allow_methods=settings.cors_methods,
         allow_headers=settings.cors_headers,
     )
+
+# Field results (job results and inline field jobs) can exceed Lambda's 6 MB
+# response limit uncompressed; added after CORS so it wraps outermost.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 install_error_handlers(app)
 
@@ -453,25 +460,68 @@ def solve_multi_request(request: MultiAntennaRequest) -> MultiAntennaSolutionRes
 # ── Asynchronous jobs (ASYNC_JOBS=lambda, see backend/solver/jobs.py) ─────────
 
 
+async def _run_inline_or_queue(kind_name: str, request, user: UserIdentity, tokens):
+    """Small requests run now (no polling delay); big ones are queued."""
+    if not jobs_enabled():
+        raise HTTPException(status_code=404, detail="Asynchronous jobs are not enabled")
+    kind = job_kind(kind_name)
+    if kind.estimate_seconds(request) <= INLINE_MAX_SECONDS:
+        try:
+            result = kind.run(request)
+        except HTTPException:
+            raise
+        except ValueError as e:  # undefined input (e.g. zero currents, too many points)
+            raise HTTPException(status_code=422, detail=str(e))
+        return JSONResponse(status_code=200, content={"status": "done", "result": result})
+    job_id = await JobStore().submit(
+        user.id,
+        json.loads(request.model_dump_json()),
+        tokens_charged=tokens.cost if tokens.should_deduct else 0,
+        kind=kind_name,
+    )
+    return {"job_id": job_id, "status": "queued"}
+
+
 @app.post(
     f"{settings.api_prefix}/jobs/solve",
     status_code=202,
     tags=["Jobs"],
-    summary="Queue a multi-antenna solve (for solves longer than the 60 s API limit)",
+    summary="Multi-antenna solve: inline if small, else queued (beyond the 60 s API limit)",
 )
 async def submit_solve_job(
     request: MultiAntennaRequest,
     user: UserIdentity = Depends(get_current_user),
     tokens: TokenCheckResult = Depends(require_simulation_tokens(5)),
 ):
-    if not jobs_enabled():
-        raise HTTPException(status_code=404, detail="Asynchronous jobs are not enabled")
-    job_id = await JobStore().submit(
-        user.id,
-        json.loads(request.model_dump_json()),
-        tokens_charged=tokens.cost if tokens.should_deduct else 0,
-    )
-    return {"job_id": job_id, "status": "queued"}
+    return await _run_inline_or_queue("solve", request, user, tokens)
+
+
+@app.post(
+    f"{settings.api_prefix}/jobs/near-field",
+    status_code=202,
+    tags=["Jobs"],
+    summary="Near field: inline if small, else queued",
+)
+async def submit_near_field_job(
+    request: FieldRequest,
+    user: UserIdentity = Depends(get_current_user),
+    tokens: TokenCheckResult = Depends(require_simulation_tokens(3)),
+):
+    return await _run_inline_or_queue("near_field", request, user, tokens)
+
+
+@app.post(
+    f"{settings.api_prefix}/jobs/far-field",
+    status_code=202,
+    tags=["Jobs"],
+    summary="Far-field pattern: inline if small, else queued",
+)
+async def submit_far_field_job(
+    request: FarFieldRequest,
+    user: UserIdentity = Depends(get_current_user),
+    tokens: TokenCheckResult = Depends(require_simulation_tokens(3)),
+):
+    return await _run_inline_or_queue("far_field", request, user, tokens)
 
 
 @app.get(f"{settings.api_prefix}/jobs/{{job_id}}", tags=["Jobs"], summary="Job status and result")
@@ -486,7 +536,7 @@ async def get_solve_job(job_id: str, user: UserIdentity = Depends(get_current_us
     if job["Status"] == "done":
         response["result"] = await store.result(job_id)
     elif job["Status"] == "failed":
-        response["error"] = job.get("Error", "Solve failed")
+        response["error"] = job.get("Error", "Job failed")
     return response
 
 

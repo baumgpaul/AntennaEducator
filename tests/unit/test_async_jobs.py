@@ -109,6 +109,50 @@ async def test_duplicate_delivery_does_not_rerun(store):
     solve.assert_not_called()
 
 
+FIELD = {
+    "frequencies": [3e8],
+    "branch_currents": [[{"real": 1.0, "imag": 0.0}, {"real": 1.0, "imag": 0.0}]],
+    "nodes": DIPOLE["antennas"][0]["nodes"],
+    "edges": DIPOLE["antennas"][0]["edges"],
+    "radii": [0.001, 0.001],
+}
+
+
+@pytest.mark.asyncio
+async def test_worker_runs_near_field_jobs(store):
+    request = {**FIELD, "observation_points": [[0.1, 0, 0], [0, 0.1, 0.1]]}
+    job_id = await store.submit("u1", request, tokens_charged=3, kind="near_field")
+    await run_job(job_id, "u1", store=store)
+
+    result = await store.result(job_id)
+    assert store.get("u1", job_id)["Status"] == DONE
+    assert result["format"] == "flat" and result["num_points"] == 2
+    assert len(result["E_real"]) == 6 and result["E_magnitudes"][0] > 0
+
+
+@pytest.mark.asyncio
+async def test_worker_runs_far_field_jobs(store):
+    request = {**FIELD, "theta_points": 19, "phi_points": 37}
+    job_id = await store.submit("u1", request, tokens_charged=3, kind="far_field")
+    await run_job(job_id, "u1", store=store)
+
+    result = await store.result(job_id)
+    assert len(result["pattern_db"]) == 19 * 37
+    assert result["directivity"] > 1.5  # a short dipole: ~1.76 dBi
+
+
+def test_estimates_queue_only_big_requests():
+    from backend.solver.jobs import INLINE_MAX_SECONDS, job_kind
+    from backend.solver.schemas import MultiAntennaRequest
+
+    def solve(n_edges):
+        antenna = {**DIPOLE["antennas"][0], "edges": [[1, 2]] * n_edges, "radii": [0.001] * n_edges}
+        return MultiAntennaRequest(frequency=3e8, antennas=[antenna])
+
+    estimate = job_kind("solve").estimate_seconds
+    assert estimate(solve(100)) < INLINE_MAX_SECONDS < estimate(solve(400))
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 
@@ -193,3 +237,50 @@ def test_queued_job_leaves_the_current_event_loop_alone():
     finally:
         asyncio.set_event_loop(None)
         loop.close()
+
+
+def _post(store, path, body, charged=None):
+    client, app = _client()
+    try:
+        with (
+            patch("backend.solver.main.JobStore", return_value=store),
+            patch("backend.common.auth.token_dependency.charge_simulation_tokens") as charge,
+        ):
+            resp = client.post(path, json=body)
+    finally:
+        app.dependency_overrides.clear()
+    if charged is not None:
+        assert charge.call_count == charged
+    return resp
+
+
+def test_small_solve_runs_inline_without_queueing(store):
+    resp = _post(store, "/api/jobs/solve", DIPOLE, charged=1)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "done"
+    assert resp.json()["result"]["antenna_solutions"][0]["antenna_id"] == "d"
+    store.sqs.send_message.assert_not_called()
+
+
+def test_big_solve_is_queued(store):
+    with patch("backend.solver.main.INLINE_MAX_SECONDS", -1):
+        resp = _post(store, "/api/jobs/solve", DIPOLE)
+    assert resp.status_code == 202
+    item = store.get("u1", resp.json()["job_id"])
+    assert item["Kind"] == "solve" and item["TokensCharged"] == 5
+
+
+def test_field_jobs_inline_and_queued(store):
+    near = {**FIELD, "observation_points": [[0.1, 0, 0]]}
+    resp = _post(store, "/api/jobs/near-field", near)
+    assert resp.status_code == 200 and resp.json()["result"]["num_points"] == 1
+
+    with patch("backend.solver.main.INLINE_MAX_SECONDS", -1):
+        resp = _post(store, "/api/jobs/far-field", {**FIELD, "theta_points": 19, "phi_points": 37})
+    assert resp.status_code == 202
+    assert store.get("u1", resp.json()["job_id"])["Kind"] == "far_field"
+
+
+def test_inline_field_input_errors_are_422(store):
+    zero = {**FIELD, "branch_currents": [[0, 0]], "theta_points": 19, "phi_points": 37}
+    assert _post(store, "/api/jobs/far-field", zero, charged=0).status_code == 422
