@@ -29,7 +29,14 @@ import numpy as np
 REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from backend.preprocessor.builders import create_dipole, create_loop, dipole_to_mesh, loop_to_mesh
+from backend.preprocessor.builders import (
+    create_dipole,
+    create_loop,
+    create_rod,
+    dipole_to_mesh,
+    loop_to_mesh,
+    rod_to_mesh,
+)
 from backend.solver.schemas import AntennaInput, SolverConfiguration, VoltageSourceInput
 from backend.solver.solver import solve_multi_antenna
 
@@ -236,6 +243,84 @@ def make_loop_element(
     return frontend_element, backend_el, backend_mesh
 
 
+def make_rod_element(
+    *,
+    element_id: str,
+    name: str,
+    start: list,
+    end: list,
+    wire_radius: float = 0.001,
+    segments: int = 10,
+    fed: bool = True,
+    color: str = "#7CB342",
+) -> tuple[dict, Any, Any]:
+    """Build a straight-wire (rod) AntennaElement dict, as the Rod dialog does.
+
+    ``fed``: a voltage source between ground (node 0) and the base node, i.e. a
+    monopole over the ground plane; otherwise a parasitic wire without source
+    (Yagi reflector/director).
+    """
+    start_v, end_v = np.array(start, dtype=float), np.array(end, dtype=float)
+    length = float(np.linalg.norm(end_v - start_v))
+    direction = ((end_v - start_v) / length).tolist()
+    backend_el = create_rod(
+        length=length,
+        base_position=tuple(start),
+        orientation=tuple(direction),
+        wire_radius=wire_radius,
+        segments=segments,
+        source={"type": "voltage", "amplitude": {"real": 1.0, "imag": 0.0}} if fed else None,
+        name=name,
+    )
+    backend_mesh = rod_to_mesh(backend_el)
+
+    frontend_sources = [
+        {
+            "type": s.type,
+            "amplitude": c2d(s.amplitude),
+            "node_start": s.node_start,
+            "node_end": s.node_end,
+            "series_R": s.series_R,
+            "series_L": s.series_L,
+            "series_C_inv": s.series_C_inv,
+            "tag": s.tag,
+        }
+        for s in backend_el.sources
+    ]
+    ports = (
+        [{"id": str(uuid.uuid4()), "node_start": 1, "node_end": 0, "z0": 50.0, "label": "Port 1"}]
+        if fed
+        else []
+    )
+
+    frontend_element = {
+        "id": element_id,
+        "type": "rod",
+        "name": name,
+        "config": {
+            **backend_el.parameters,
+            "start_point": list(start),
+            "end_point": list(end),
+        },
+        "position": [0.0, 0.0, 0.0],  # a rod's geometry is absolute
+        "rotation": [0.0, 0.0, 0.0],
+        "mesh": {
+            "nodes": backend_mesh.nodes,
+            "edges": backend_mesh.edges,
+            "radii": backend_mesh.radii,
+        },
+        "sources": frontend_sources,
+        "lumped_elements": [],
+        "ports": ports,
+        "appended_nodes": [],
+        "visible": True,
+        "locked": False,
+        "color": color,
+    }
+
+    return frontend_element, backend_el, backend_mesh
+
+
 # ── Solver helpers ─────────────────────────────────────────────────────────────
 
 
@@ -293,6 +378,25 @@ def run_sweep(
     antenna_input = make_antenna_input(element_id, backend_el, backend_mesh)
     antennas = [antenna_input]
 
+    return sweep_results(antennas, frequencies_hz, config)
+
+
+def _serialize_solution(sol: dict) -> dict:
+    return {
+        "antenna_id": sol["antenna_id"],
+        "branch_currents": arr_c2d(sol["branch_currents"]),
+        "voltage_source_currents": arr_c2d(sol.get("voltage_source_currents", [])),
+        "load_currents": arr_c2d(sol.get("load_currents", [])),
+        "node_voltages": arr_c2d(sol["node_voltages"]),
+        "appended_voltages": arr_c2d(sol.get("appended_voltages", [])),
+        "input_impedance": c2d(sol.get("input_impedance") or 0j),  # None: parasitic
+    }
+
+
+def sweep_results(
+    antennas: list[AntennaInput], frequencies_hz: list[float], config: SolverConfiguration
+) -> dict:
+    """Solve the coupled antennas at each frequency; frontend frequencySweep format."""
     results = []
     current_distributions = []
 
@@ -302,36 +406,25 @@ def run_sweep(
         result = solve_multi_antenna(antennas, freq_hz, config)
         dt = time.time() - t0
 
-        # Serialize complex arrays
-        sol = result["antenna_solutions"][0]
-        serialized_sol = {
-            "antenna_id": sol["antenna_id"],
-            "branch_currents": arr_c2d(sol["branch_currents"]),
-            "voltage_source_currents": arr_c2d(sol.get("voltage_source_currents", [])),
-            "load_currents": arr_c2d(sol.get("load_currents", [])),
-            "node_voltages": arr_c2d(sol["node_voltages"]),
-            "appended_voltages": arr_c2d(sol.get("appended_voltages", [])),
-            "input_impedance": c2d(sol.get("input_impedance", 0j)),
-        }
-
+        solutions = [_serialize_solution(sol) for sol in result["antenna_solutions"]]
         serialized_result = {
             "frequency": float(freq_hz),
             "converged": bool(result["converged"]),
-            "antenna_solutions": [serialized_sol],
+            "antenna_solutions": solutions,
             "n_total_nodes": int(result["n_total_nodes"]),
             "n_total_edges": int(result["n_total_edges"]),
             "solve_time": float(dt),
         }
         results.append(serialized_result)
 
-        # Current magnitudes for visualization
-        currents_mag = [
-            abs(complex(c["real"], c["imag"])) for c in serialized_sol["branch_currents"]
-        ]
+        # Current magnitudes for visualization, one list per antenna
         current_distributions.append(
             {
                 "frequency": float(freq_hz),
-                "currents": [currents_mag],
+                "currents": [
+                    [abs(complex(c["real"], c["imag"])) for c in sol["branch_currents"]]
+                    for sol in solutions
+                ],
             }
         )
 
@@ -704,6 +797,102 @@ def generate_module_07(force: bool) -> None:
     save_json(sc_path, sim_config)
 
 
+def generate_module_08(force: bool) -> None:
+    """Module 8: Monopole over a ground plane — lambda/4 rod, image theory."""
+    module_dir = COURSES_DIR / "08_monopole_ground_plane"
+    ds_path = module_dir / "design_state.json"
+    sr_path = module_dir / "simulation_results.json"
+    sc_path = module_dir / "simulation_config.json"
+
+    if ds_path.exists() and not force:
+        log.info("  Module 08: already exists, skipping")
+        return
+
+    log.info("  Module 08: Monopole (h=0.25m on a PEC ground plane, 200–400 MHz sweep)")
+
+    element_id = "monopole_module08"
+    fe, be, bm = make_rod_element(
+        element_id=element_id,
+        name="Quarter-Wave Monopole",
+        start=[0.0, 0.0, 0.0],
+        end=[0.0, 0.0, 0.25],
+        segments=10,  # base segment 25 mm > the 2 mm feed gap at the plane
+    )
+
+    design_state = {"elements": [fe], "variables": [], "version": 3, "ground_plane": True}
+
+    freqs = np.linspace(200e6, 400e6, 21).tolist()
+    sim_results = run_sweep(element_id, be, bm, freqs, SolverConfiguration(ground_plane=True))
+
+    save_json(ds_path, design_state)
+    save_json(sr_path, sim_results)
+    save_json(sc_path, {"requested_fields": []})
+
+
+def generate_module_09(force: bool) -> None:
+    """Module 9: Yagi-Uda — driven dipole, parasitic reflector and director."""
+    module_dir = COURSES_DIR / "09_yagi_uda"
+    ds_path = module_dir / "design_state.json"
+    sr_path = module_dir / "simulation_results.json"
+    sc_path = module_dir / "simulation_config.json"
+
+    if ds_path.exists() and not force:
+        log.info("  Module 09: already exists, skipping")
+        return
+
+    log.info("  Module 09: 3-element Yagi-Uda (spacing λ/4, 280–320 MHz sweep)")
+
+    # Boom along x, elements along z; the beam points to +x (the director)
+    fe_ref, be_ref, bm_ref = make_rod_element(
+        element_id="yagi_module09_reflector",
+        name="Reflector (0.50 m)",
+        start=[-0.25, 0.0, -0.25],
+        end=[-0.25, 0.0, 0.25],
+        segments=21,
+        fed=False,
+        color="#8E24AA",
+    )
+    fe_drv, be_drv, bm_drv = make_dipole_element(
+        element_id="yagi_module09_driven",
+        name="Driven Dipole (0.47 m)",
+        length=0.47,
+        segments=21,
+        color="#FF8C00",
+    )
+    fe_dir, be_dir, bm_dir = make_rod_element(
+        element_id="yagi_module09_director",
+        name="Director (0.44 m)",
+        start=[0.25, 0.0, -0.22],
+        end=[0.25, 0.0, 0.22],
+        segments=21,
+        fed=False,
+        color="#00897B",
+    )
+
+    design_state = {"elements": [fe_ref, fe_drv, fe_dir], "variables": [], "version": 3}
+
+    antennas = [
+        make_antenna_input(fe_ref["id"], be_ref, bm_ref),
+        make_antenna_input(fe_drv["id"], be_drv, bm_drv),
+        make_antenna_input(fe_dir["id"], be_dir, bm_dir),
+    ]
+    freqs = np.linspace(280e6, 320e6, 9).tolist()
+    sim_results = sweep_results(antennas, freqs, SolverConfiguration())
+    # Show the design frequency, not the last sweep point
+    i300 = freqs.index(300e6)
+    sweep = sim_results["frequencySweep"]
+    sim_results.update(
+        currentFrequency=300.0,
+        selectedFrequencyHz=300e6,
+        multiAntennaResults=sweep["results"][i300],
+        currentDistribution=sweep["currentDistributions"][i300]["currents"][1],
+    )
+
+    save_json(ds_path, design_state)
+    save_json(sr_path, sim_results)
+    save_json(sc_path, {"requested_fields": []})
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 MODULE_GENERATORS = {
@@ -714,6 +903,8 @@ MODULE_GENERATORS = {
     "05": generate_module_05,
     "06": generate_module_06,
     "07": generate_module_07,
+    "08": generate_module_08,
+    "09": generate_module_09,
 }
 
 
