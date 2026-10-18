@@ -197,7 +197,7 @@ export const runParameterStudy = createAsyncThunk<
             type: s.type as string | undefined,
             node_start: s.node_start,
             node_end: s.node_end,
-            amplitude: typeof s.amplitude === 'number' ? s.amplitude : undefined,
+            amplitude: s.amplitude,
           })),
           position: el.position ? [...el.position] as [number, number, number] : [0, 0, 0],
         }));

@@ -41,8 +41,9 @@ import {
   setCurrentFolderId,
   selectCurrentFolderId,
   resetProjectToSource,
+  findChildFolders,
+  type FolderTreeNode,
 } from '@/store/foldersSlice';
-import type { FolderTreeNode } from '@/store/foldersSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
 import ProjectCard from './ProjectCard';
 import ProjectTreeView from './ProjectTreeView';
@@ -136,20 +137,10 @@ function ProjectsPage() {
 
   // ── Child folders for current folder ─────────────────────────────────────
 
-  const childFolders = useMemo(() => {
-    if (currentFolderId === null) return folderTree;
-    const findNode = (nodes: FolderTreeNode[]): FolderTreeNode[] => {
-      for (const node of nodes) {
-        if (node.id === currentFolderId) return node.children;
-        const found = findNode(node.children);
-        if (found.length > 0 || node.children.some((c) => c.id === currentFolderId)) {
-          return node.id === currentFolderId ? node.children : findNode(node.children);
-        }
-      }
-      return [];
-    };
-    return findNode(folderTree);
-  }, [folderTree, currentFolderId]);
+  const childFolders = useMemo(
+    () => findChildFolders(folderTree, currentFolderId),
+    [folderTree, currentFolderId],
+  );
 
   // Count projects per folder
   const projectCountByFolder = useMemo(() => {

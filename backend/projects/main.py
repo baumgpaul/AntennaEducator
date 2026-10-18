@@ -37,6 +37,7 @@ from backend.projects.account_service import delete_user_data
 from backend.projects.documentation_service import DocumentationService, get_documentation_service
 
 # Folder & course management routes
+from backend.projects.folder_routes import _deep_copy_project
 from backend.projects.folder_routes import router as folder_router
 from backend.projects.results_service import ResultsService, get_results_service
 from backend.projects.schemas import (
@@ -446,42 +447,24 @@ async def duplicate_project(
     user: UserIdentity = Depends(get_current_user),
     repo: ProjectRepository = Depends(get_repository),
     results_svc: ResultsService = Depends(get_results_service),
+    doc_svc: DocumentationService = Depends(_get_doc_service),
 ):
+    """Full copy next to the original: design, results and documentation (B15)."""
     original = await repo.get_project(project_id=project_id)
     if not original or original["user_id"] != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
 
-    duplicate = await repo.create_project(
-        user_id=user.id,
+    copy = await _deep_copy_project(
+        original,
+        target_folder_id=original.get("folder_id"),
+        user=user,
+        repo=repo,
+        doc_svc=doc_svc,
+        results_svc=results_svc,
         name=f"{original['name']} (Copy)",
-        description=original.get("description", ""),
+        link_to_original=False,
     )
-
-    # Duplicate S3 results
-    original_results = original.get("simulation_results", {})
-    result_keys = original_results.get("result_keys", {})
-    new_result_keys = {}
-
-    if result_keys:
-        new_result_keys = await results_svc.duplicate_results(
-            project_id, duplicate["id"], result_keys
-        )
-
-    # Build new simulation_results with duplicated S3 keys
-    new_simulation_results = dict(original_results)
-    if new_result_keys:
-        new_simulation_results["result_keys"] = new_result_keys
-
-    # Copy all JSON blobs (documentation metadata only — S3 content/images
-    # are NOT duplicated; the copy starts with has_content=False)
-    duplicate = await repo.update_project(
-        project_id=duplicate["id"],
-        design_state=original.get("design_state"),
-        simulation_config=original.get("simulation_config"),
-        simulation_results=new_simulation_results if original_results else None,
-        ui_state=original.get("ui_state"),
-    )
-    return duplicate
+    return await repo.get_project(project_id=copy["id"]) or copy
 
 
 # ── Documentation Endpoints ───────────────────────────────────────────────────

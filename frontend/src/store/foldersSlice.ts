@@ -437,6 +437,24 @@ export interface FolderTreeNode extends Folder {
   children: FolderTreeNode[];
 }
 
+function findFolderNode(tree: FolderTreeNode[], folderId: string): FolderTreeNode | undefined {
+  for (const node of tree) {
+    if (node.id === folderId) return node;
+    const found = findFolderNode(node.children, folderId);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/** Children of folder ``folderId`` at any depth; the roots for ``null`` (B5). */
+export function findChildFolders(
+  tree: FolderTreeNode[],
+  folderId: string | null,
+): FolderTreeNode[] {
+  if (folderId === null) return tree;
+  return findFolderNode(tree, folderId)?.children ?? [];
+}
+
 export const selectFolderTree = (state: RootState): FolderTreeNode[] => {
   const flat = state.folders.folders;
   const map = new Map<string, FolderTreeNode>();
