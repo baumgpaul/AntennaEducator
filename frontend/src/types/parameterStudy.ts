@@ -8,6 +8,8 @@
  * Max 2 sweep variables → cartesian product grid.
  */
 
+import type { Source } from './models';
+
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -58,7 +60,8 @@ export interface MeshSnapshot {
     type?: string;
     node_start?: number | null;
     node_end?: number | null;
-    amplitude?: number;
+    /** As on the element: real or complex (B33: complex ones used to be dropped → 1 A). */
+    amplitude?: Source['amplitude'];
   }>;
   /** Element position snapshot — needed for far-field position offset. */
   position?: [number, number, number];

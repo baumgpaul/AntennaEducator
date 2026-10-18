@@ -135,3 +135,31 @@ describe('geometryChanged', () => {
     expect(geometryChanged({ length: 1 }, { length: 1, gap: 0.01 })).toBe(true);
   });
 });
+
+describe('mesh snapshots (B33)', () => {
+  beforeEach(() => {
+    solveMultiAntenna.mockReset().mockResolvedValue({
+      frequency: 3e8,
+      converged: true,
+      antenna_solutions: [],
+      n_total_nodes: 3,
+      n_total_edges: 2,
+      solve_time: 0,
+    });
+  });
+
+  it('keep complex source amplitudes (they used to be dropped, i.e. 1 A)', async () => {
+    const store = makeStore('0.5', [{ name: 'frequency', expression: '3e8' }]);
+    const result = await store.dispatch(
+      runParameterStudy({
+        sweepVariables: [
+          { variableName: 'frequency', min: 1e8, max: 3e8, numPoints: 2, spacing: 'linear' },
+        ],
+      }),
+    );
+    const payload = result.payload as { results: Array<{ meshSnapshots?: Array<{ sources?: unknown[] }> }> };
+    expect(payload.results[0].meshSnapshots?.[0].sources?.[0]).toMatchObject({
+      amplitude: { real: 1, imag: 0 },
+    });
+  });
+});

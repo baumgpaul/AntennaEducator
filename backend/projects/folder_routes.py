@@ -571,14 +571,20 @@ async def _deep_copy_project(
     repo: ProjectRepository,
     doc_svc: DocumentationService,
     results_svc: Optional[ResultsService] = None,
+    name: Optional[str] = None,
+    link_to_original: bool = True,
 ) -> dict:
-    """Deep-copy a single project including documentation and results from S3."""
+    """Deep-copy a single project including documentation and results from S3.
+
+    ``link_to_original`` records the original as source (course copies can be
+    reset to it); a plain duplicate keeps the original's own source instead.
+    """
     new_project = await repo.create_project(
         user_id=user.id,
-        name=original["name"],
+        name=name or original["name"],
         description=original.get("description", ""),
         folder_id=target_folder_id,
-        source_project_id=original["id"],
+        source_project_id=original["id"] if link_to_original else original.get("source_project_id"),
     )
 
     # Copy all JSON blobs (including simulation_results).
