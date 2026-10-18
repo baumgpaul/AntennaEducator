@@ -11,6 +11,7 @@ import type { ParameterStudyConfig, ParameterStudyResult, MeshSnapshot } from '@
 import { runParameterStudy } from '@/store/parameterStudyThunks';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { solveMultiAntenna } from '@/api/solver';
+import { notifySolverWarnings } from './solverWarnings';
 import { computeFarField, computeNearField } from '@/api/postprocessor';
 import { generateObservationPoints } from '@/utils/fieldGeneration';
 import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
@@ -313,9 +314,10 @@ export const runMultiAntennaSimulation = createAsyncThunk<
   MultiAntennaSolutionResponse,
   MultiAntennaRequest,
   { state: RootState }
->('solver/runMultiAntennaSimulation', async (request, { rejectWithValue }) => {
+>('solver/runMultiAntennaSimulation', async (request, { dispatch, rejectWithValue }) => {
   try {
     const result = await solveMultiAntenna(request);
+    notifySolverWarnings(dispatch, result);
     return result;
   } catch (error: any) {
     const errorMessage = extractErrorMessage(error, 'Multi-antenna simulation failed');
@@ -362,6 +364,7 @@ export const runFrequencySweep = createAsyncThunk<
       currents: number[][];
     }> = [];
 
+    const shownWarnings = new Set<string>();
     for (let i = 0; i < frequencies.length; i++) {
       const frequency = frequencies[i];
 
@@ -377,6 +380,7 @@ export const runFrequencySweep = createAsyncThunk<
 
       // Call solver
       const result = await solveMultiAntenna(freqRequest);
+      notifySolverWarnings(dispatch, result, shownWarnings);
       results.push(result);
 
       // Extract current magnitudes per antenna

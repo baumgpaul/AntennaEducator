@@ -367,8 +367,10 @@ def create_loop(
             # For loop, source placement depends on whether there's a gap
             # Use 1-based indexing (PEEC convention)
             if gap > 0:
-                # With gap: source across the gap (ground to first node)
-                node_start = 0
+                # With gap: source across the gap, last node -> first node.
+                # (Ground -> first node fed one side only: a net charge on
+                # the wire, whose resistance is unphysical without a ground plane.)
+                node_start = segments + 1
                 node_end = 1
             else:
                 # Closed loop: source across the wraparound edge (last→first)
@@ -399,9 +401,9 @@ def create_loop(
         elif source_type == "current":
             # Current source: two-terminal for closed loops, single-node for gapped
             if gap > 0:
-                # Gapped loop: inject at first node, return to ground (implicit)
+                # Gapped loop: across the gap, like the voltage source
                 node_start = 1
-                node_end = None
+                node_end = segments + 1
             else:
                 # Closed loop: must create a feed gap (like VS) so current
                 # flows around the loop instead of through local capacitive coupling.
@@ -412,8 +414,7 @@ def create_loop(
             pos = _segment_position(source.get("position"), ("gap", "center"), "loop")
             if pos is not None:
                 node_start = pos + 1  # Convert to 1-based
-                if gap == 0:
-                    node_end = pos + 2  # Two-terminal for closed loops
+                node_end = pos + 2
 
             source_objs.append(
                 Source(
@@ -465,6 +466,12 @@ def create_loop(
     )
 
     return element
+
+
+def _feeds_closing_edge(element: AntennaElement, segments: int) -> bool:
+    """True if a two-terminal source sits on a closed loop's node N -> 1 edge."""
+    closing = {(segments, 1), (1, segments)}
+    return any((s.node_start, s.node_end) in closing for s in element.sources or [])
 
 
 def loop_to_mesh(element: AntennaElement) -> Mesh:
@@ -523,11 +530,17 @@ def loop_to_mesh(element: AntennaElement) -> Mesh:
         start_angle = np.pi + gap_angle / 2
         end_angle = np.pi + 2 * np.pi - gap_angle / 2
         angles = np.linspace(start_angle, end_angle, segments + 1)
+    elif _feeds_closing_edge(element, segments):
+        # Closed loop fed across its closing edge (node N -> node 1): the source
+        # replaces that edge, so leave only a small feed gap there (about the
+        # wire diameter) instead of a whole missing segment, which radiated as
+        # an extra small dipole. Centred at the bottom of the loop (0, -r, 0).
+        feed_gap = min(2 * wire_radius, np.pi * radius / segments)
+        half_gap = feed_gap / (2 * radius)
+        angles = np.linspace(np.pi + half_gap, 3 * np.pi - half_gap, segments)
     else:
-        # Full circle — offset by half a segment so the feed gap (closing edge
-        # between node N and node 1) is centred at the bottom of the loop
-        # (0, -r, 0).  Without this offset node 1 sits exactly at π and
-        # node N is one step before, so the feed midpoint is off-centre.
+        # Full circle — offset by half a segment so the closing edge between
+        # node N and node 1 is centred at the bottom of the loop (0, -r, 0).
         half_step = np.pi / segments
         angles = np.linspace(np.pi + half_step, 3 * np.pi + half_step, segments + 1)[:-1]
 

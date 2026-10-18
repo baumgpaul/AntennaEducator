@@ -260,36 +260,9 @@ class TestLoopRadiationPattern:
         _assert_donut_pattern(D_avg, theta, "Loop+CS")
         assert 1.0 < D_dBi < 3.0, f"Loop+CS directivity {D_dBi:.2f} dBi out of range"
 
-    def test_loop_cs_without_gap_edge_is_wrong(self):
-        """Omitting the CS gap edge from far-field produces inverted pattern.
-
-        This is the regression guard — if the gap edge is missing, the open arc
-        radiates like a partial loop and the pattern flips (poles > equator).
-        """
-        segments = 32
-        el = create_loop(radius=0.05, segments=segments, gap=0.0, source=SOURCE_CS)
-        mesh = loop_to_mesh(el)
-
-        src = el.sources[0]
-        cs_list = [CurrentSource(node=src.node_start, value=src.amplitude, node_end=src.node_end)]
-
-        # Deliberately omit the CS gap edge
-        D_dBi, D_avg, theta = _far_field_pattern(
-            mesh.nodes,
-            mesh.edges,
-            mesh.radii,
-            FREQ,
-            current_sources=cs_list,
-        )
-
-        equator_idx = len(theta) // 2
-        pole_val = (D_avg[0] + D_avg[-1]) / 2
-        equator_val = D_avg[equator_idx]
-
-        assert pole_val > equator_val, (
-            "Without CS gap edge the loop pattern should be inverted "
-            f"(pole={pole_val:.4f} should be > equator={equator_val:.4f})"
-        )
+    # (A "gap edge omitted -> inverted pattern" guard used to live here. It only
+    # held while the closed-loop feed gap was a whole segment; the feed gap is
+    # now ~ the wire diameter, so omitting it barely changes the pattern.)
 
     def test_loop_cs_reversed_gap_edge_is_wrong(self):
         """CS gap edge in the wrong direction [node_start, node_end] breaks pattern.
