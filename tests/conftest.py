@@ -14,6 +14,8 @@ os.environ.pop("AWS_PROFILE", None)
 os.environ["AWS_ACCESS_KEY_ID"] = "testing"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
 os.environ.setdefault("AWS_DEFAULT_REGION", "eu-west-1")
+# No LastSeenAt writes on every resolved user (tests of it pass a table)
+os.environ["TRACK_USER_ACTIVITY"] = "false"
 
 import numpy as np
 import pytest

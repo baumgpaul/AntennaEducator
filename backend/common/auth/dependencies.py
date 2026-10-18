@@ -21,6 +21,7 @@ from typing import Dict, Optional, Tuple
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from backend.common.auth.activity import record_activity
 from backend.common.auth.factory import create_auth_provider
 from backend.common.auth.identity import UserIdentity
 
@@ -96,6 +97,7 @@ async def _resolve_user(token: str) -> UserIdentity:
                 detail="User not found",
             )
         _profile_cache[token_data.user_id] = (user, now)
+        record_activity(user.id)
 
     # 4. Check lock status
     if user.is_locked:

@@ -3,6 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import LegalLinks from '@/features/legal/LegalLinks';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginAsync, clearAuthError } from '@/store/authSlice';
 import { showSuccess } from '@/store/uiSlice';
@@ -176,6 +177,9 @@ function LoginPage() {
                   Sign up
                 </MuiLink>
               </Typography>
+            </Box>
+            <Box sx={{ mt: 3 }}>
+              <LegalLinks />
             </Box>
           </Box>
         </Paper>

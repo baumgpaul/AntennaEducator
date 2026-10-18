@@ -17,6 +17,7 @@ const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 const MySubmissionsPage = lazy(() => import('./features/courses/MySubmissionsPage'));
 const SubmissionsDashboard = lazy(() => import('./features/courses/SubmissionsDashboard'));
 const SubmissionViewer = lazy(() => import('./features/courses/SubmissionViewer'));
+const LegalPage = lazy(() => import('./features/legal/LegalPage'));
 
 const Fallback = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -41,6 +42,8 @@ function App() {
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/privacy" element={<Suspense fallback={<Fallback />}><LegalPage doc="privacy" /></Suspense>} />
+        <Route path="/imprint" element={<Suspense fallback={<Fallback />}><LegalPage doc="imprint" /></Suspense>} />
 
         {/* Protected routes with main layout */}
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
