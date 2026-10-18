@@ -9,6 +9,9 @@ import App from './App';
 import { store } from './store';
 import { lightTheme, darkTheme } from './theme';
 import { useAppSelector } from './store/hooks';
+import { installGlobalErrorReporting } from './utils/errorReporting';
+
+installGlobalErrorReporting();
 
 /**
  * ThemeWrapper component handles theme switching based on Redux state

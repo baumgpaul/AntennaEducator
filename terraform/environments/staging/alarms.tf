@@ -112,3 +112,36 @@ resource "aws_cloudwatch_metric_alarm" "duration_near_timeout" {
   alarm_actions = [aws_sns_topic.alerts[0].arn]
   ok_actions    = [aws_sns_topic.alerts[0].arn]
 }
+
+# Frontend errors reported by browsers (backend/projects/client_errors.py)
+resource "aws_cloudwatch_log_metric_filter" "client_errors" {
+  count = local.ops_alarms ? 1 : 0
+
+  name           = "antenna-simulator-${var.environment}-client-errors"
+  log_group_name = module.lambda_projects.log_group_name
+  pattern        = "\"CLIENT_ERROR\""
+
+  metric_transformation {
+    name      = "ClientErrors"
+    namespace = "AntennaEducator/${var.environment}"
+    value     = "1"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "client_errors" {
+  count = local.ops_alarms ? 1 : 0
+
+  alarm_name          = "antenna-simulator-${var.environment}-client-errors"
+  alarm_description   = "5 or more frontend error reports within an hour — search the projects Lambda log for CLIENT_ERROR"
+  namespace           = "AntennaEducator/${var.environment}"
+  metric_name         = "ClientErrors"
+  statistic           = "Sum"
+  period              = 3600
+  evaluation_periods  = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 5
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = [aws_sns_topic.alerts[0].arn]
+  ok_actions    = [aws_sns_topic.alerts[0].arn]
+}

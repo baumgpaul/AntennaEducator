@@ -4,6 +4,7 @@
  */
 
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { reportClientError } from '@/utils/errorReporting';
 import { Box, Button, Container, Paper, Typography } from '@mui/material';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 
@@ -35,7 +36,7 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    // TODO: Log to error tracking service (Sentry, LogRocket, etc.)
+    reportClientError(error, 'render', errorInfo.componentStack);
   }
 
   handleReset = (): void => {
