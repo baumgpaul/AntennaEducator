@@ -30,7 +30,7 @@ variable "domain_aliases" {
 variable "price_class" {
   description = "CloudFront price class (PriceClass_All, PriceClass_200, PriceClass_100)"
   type        = string
-  default     = "PriceClass_100"  # North America + Europe (cheapest)
+  default     = "PriceClass_100" # North America + Europe (cheapest)
 }
 
 variable "tags" {
@@ -42,7 +42,8 @@ variable "tags" {
 variable "csp_report_only" {
   description = "Send the CSP as Content-Security-Policy-Report-Only (log violations, block nothing)"
   type        = bool
-  default     = true
+  # Enforcing since 2026-10-18: staging console was clean apart from zod's eval probe (now jitless)
+  default = false
 }
 
 variable "content_security_policy" {

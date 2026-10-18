@@ -10,8 +10,8 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
 }
 
 # Security headers on every response (HSTS, nosniff, framing, referrer, CSP).
-# The CSP starts in report-only mode: violations show in the browser console
-# without blocking anything; switch csp_report_only = false once clean.
+# CSP is enforced; set csp_report_only = true to only log violations in the
+# browser console while trying out a policy change.
 resource "aws_cloudfront_response_headers_policy" "security" {
   name    = "antenna-simulator-security-${var.environment}"
   comment = "Security headers for the Antenna Educator SPA (${var.environment})"
