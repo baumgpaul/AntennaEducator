@@ -16,7 +16,7 @@ Usage (local Docker Compose):
     python dev_tools/seed_courses.py
 
 Usage (AWS / staging) — run manually after deploying changed course content:
-    SEED_BASE_URL=https://<projects-function-url> \\
+    SEED_BASE_URL=https://<site-domain>/svc/projects \\
     SEED_USERNAME=<admin e-mail> SEED_PASSWORD=<admin password> \\
     python dev_tools/seed_courses.py
 
@@ -35,6 +35,7 @@ Exit codes:
     1  — Partial failure (at least one module failed).
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -104,11 +105,29 @@ MODULES = [
 ]
 
 
+class _CloudFrontSession(requests.Session):
+    """Session that also works through CloudFront (same as frontend/src/api/client.ts).
+
+    CloudFront's Origin Access Control re-signs requests to the Lambda Function
+    URLs: it overwrites Authorization (so the token also goes in X-Access-Token)
+    and needs the body's SHA-256 in x-amz-content-sha256 for POST/PUT/PATCH.
+    Harmless when talking to a service directly.
+    """
+
+    def prepare_request(self, request):
+        prepared = super().prepare_request(request)
+        body = prepared.body
+        if body:
+            data = body.encode("utf-8") if isinstance(body, str) else body
+            prepared.headers["x-amz-content-sha256"] = hashlib.sha256(data).hexdigest()
+        return prepared
+
+
 class Seeder:
     def __init__(self, base_url: str, token: str, timeout: int = 60):
         self.base_url = base_url.rstrip("/")
-        self.session = requests.Session()
-        self.session.headers.update({"Authorization": f"Bearer {token}"})
+        self.session = _CloudFrontSession()
+        self.session.headers.update({"Authorization": f"Bearer {token}", "X-Access-Token": token})
         self.timeout = timeout
 
     def _url(self, path: str) -> str:
@@ -390,7 +409,7 @@ def _get_token(base_url: str) -> str:
         sys.exit(1)
 
     log.info("Logging in as '%s' ...", username)
-    resp = requests.post(
+    resp = _CloudFrontSession().post(
         f"{base_url.rstrip('/')}/api/auth/login",
         # The login schema takes "email"; sending "username" always got a 422
         json={"email": username, "password": password},

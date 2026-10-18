@@ -2,7 +2,11 @@
 
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+# bcrypt only uses the first 72 bytes; longer passwords would silently
+# share a hash with their 72-byte prefix (B12)
+MAX_PASSWORD_BYTES = 72
 
 
 class UserCreate(BaseModel):
@@ -11,6 +15,13 @@ class UserCreate(BaseModel):
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=8)
+
+    @field_validator("password")
+    @classmethod
+    def _password_fits_bcrypt(cls, v: str) -> str:
+        if len(v.encode("utf-8")) > MAX_PASSWORD_BYTES:
+            raise ValueError(f"Password must not exceed {MAX_PASSWORD_BYTES} bytes")
+        return v
 
 
 class UserLogin(BaseModel):

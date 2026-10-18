@@ -29,3 +29,29 @@ def test_hash_from_old_scheme_still_verifies():
 def test_malformed_hash_returns_false():
     assert not verify_password("password123", "")
     assert not verify_password("password123", "not-a-bcrypt-hash")
+
+
+class TestRegistrationPasswordLimit:
+    """B12: registration rejects passwords bcrypt would truncate."""
+
+    def _create(self, password: str):
+        from backend.auth.schemas import UserCreate
+
+        return UserCreate(email="a@example.com", username="abc", password=password)
+
+    def test_72_bytes_accepted(self):
+        assert self._create("A" * 72).password == "A" * 72
+
+    def test_73_bytes_rejected(self):
+        import pytest
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="72 bytes"):
+            self._create("A" * 73)
+
+    def test_limit_counts_utf8_bytes_not_characters(self):
+        import pytest
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="72 bytes"):
+            self._create("ä" * 37)  # 37 characters, 74 bytes

@@ -38,6 +38,8 @@ export const registerSchema = z.object({
     .string()
     .min(1, 'Password is required')
     .min(8, 'Password must be at least 8 characters')
+    // bcrypt uses only the first 72 bytes (backend rejects longer)
+    .refine((v) => new TextEncoder().encode(v).length <= 72, 'Password must not exceed 72 bytes')
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),
