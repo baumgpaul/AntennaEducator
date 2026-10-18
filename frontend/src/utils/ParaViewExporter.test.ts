@@ -1,133 +1,79 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { exportToVTU, canExportToVTU } from './ParaViewExporter';
-import { postprocessorClient } from '@/api/client';
+import { buildVtu, canExportToVTU, exportToVTU } from './ParaViewExporter';
 import type { RootState } from '@/store';
 
-// Mock API client
-vi.mock('@/api/client', () => ({
-  postprocessorClient: {
-    post: vi.fn(),
-  },
-}));
+const { downloadFile } = vi.hoisted(() => ({ downloadFile: vi.fn() }));
+vi.mock('./exportData', () => ({ downloadFile }));
 
-describe('ParaViewExporter', () => {
-  let mockState: RootState;
+const c = (real: number, imag = 0) => ({ real, imag });
+const FIELD = {
+  points: [
+    [0, 0, 0],
+    [1, 0, 0],
+  ] as Array<[number, number, number]>,
+  E_mag: [2, 0.5],
+  H_mag: [0.01, 0.002],
+  E_vectors: [
+    { x: c(0), y: c(0), z: c(2, 1) },
+    { x: c(0.5), y: c(0), z: c(0) },
+  ],
+  H_vectors: [
+    { x: c(0), y: c(0.01), z: c(0) },
+    { x: c(0), y: c(0), z: c(0.002) },
+  ],
+};
 
+const array = (vtu: string, name: string) =>
+  vtu.match(new RegExp(`Name="${name}"[^>]*>\\s*([^<]*)<`))?.[1].trim().split(/\s+/).map(Number);
+
+describe('buildVtu', () => {
+  it('writes the computed fields, not zeros', () => {
+    const vtu = buildVtu(FIELD, 3e8);
+    expect(array(vtu, 'E_Magnitude')).toEqual([2, 0.5]);
+    expect(array(vtu, 'E_Field_Real')).toEqual([0, 0, 2, 0.5, 0, 0]);
+    expect(array(vtu, 'E_Field_Imag')).toEqual([0, 0, 1, 0, 0, 0]);
+    expect(array(vtu, 'Points')).toEqual([0, 0, 0, 1, 0, 0]);
+    expect(array(vtu, 'Frequency_MHz')).toEqual([300]);
+  });
+
+  it('is a valid point cloud: one vertex cell per point', () => {
+    const vtu = buildVtu(FIELD, 3e8);
+    expect(vtu).toContain('NumberOfPoints="2" NumberOfCells="2"');
+    expect(array(vtu, 'connectivity')).toEqual([0, 1]);
+    expect(array(vtu, 'offsets')).toEqual([1, 2]);
+    expect(array(vtu, 'types')).toEqual([1, 1]); // VTK_VERTEX
+    expect(vtu).not.toContain('format="binary"');
+  });
+
+  it('leaves out arrays that do not match the points', () => {
+    const vtu = buildVtu({ points: FIELD.points, E_mag: [1] }, 3e8);
+    expect(vtu).not.toContain('E_Magnitude');
+  });
+});
+
+describe('exportToVTU', () => {
+  let state: RootState;
   beforeEach(() => {
-    vi.clearAllMocks();
-
-    mockState = {
-      solver: {
-        fieldData: {
-          'field1': {
-            300000000: {
-              points: [[0, 0, 0], [1, 0, 0]],
-              E_vectors: [[1, 0, 0], [0, 1, 0]],
-              H_vectors: [[0, 0, 1], [1, 0, 1]],
-            },
-          },
-        },
-      },
-      design: {
-        elements: [
-          {
-            id: 'elem-1',
-            name: 'Dipole 1',
-            type: 'dipole',
-            mesh: {
-              nodes: [[0, 0, -0.25], [0, 0, 0], [0, 0, 0.25]],
-              edges: [[0, 1], [1, 2]],
-              radii: [0.001, 0.001],
-            },
-          },
-        ],
-      },
-    } as any;
+    downloadFile.mockReset();
+    state = { solver: { fieldData: { field1: { 300000000: FIELD } } } } as unknown as RootState;
   });
 
-  describe('canExportToVTU', () => {
-    it('returns true when field data exists', () => {
-      const result = canExportToVTU('field1', 300000000, mockState);
-      expect(result).toBe(true);
-    });
-
-    it('returns false when field data does not exist', () => {
-      const result = canExportToVTU('field2', 300000000, mockState);
-      expect(result).toBe(false);
-    });
-
-    it('returns false when frequency data does not exist', () => {
-      const result = canExportToVTU('field1', 400000000, mockState);
-      expect(result).toBe(false);
-    });
+  it('downloads the VTU without calling the backend', async () => {
+    await exportToVTU({ fieldId: 'field1', frequencyHz: 300000000, filename: 'near' }, state);
+    const [content, name, mime] = downloadFile.mock.calls[0];
+    expect(name).toBe('near.vtu');
+    expect(mime).toBe('application/xml');
+    expect(content).toContain('<VTKFile type="UnstructuredGrid"');
   });
 
-  describe('exportToVTU', () => {
-    it('calls API with correct payload', async () => {
-      const mockBlob = new Blob(['mock vtu content'], { type: 'application/xml' });
-      const mockResponse = { data: mockBlob };
-      (postprocessorClient.post as any).mockResolvedValue(mockResponse);
+  it('explains missing data', async () => {
+    await expect(
+      exportToVTU({ fieldId: 'nope', frequencyHz: 300000000, filename: 'x' }, state),
+    ).rejects.toThrow(/No field data/);
+  });
 
-      // Mock URL methods
-      global.URL.createObjectURL = vi.fn(() => 'mock-url');
-      global.URL.revokeObjectURL = vi.fn();
-
-      // Use a real anchor element so appendChild works in jsdom
-      const mockLink = document.createElement('a');
-      mockLink.click = vi.fn();
-      vi.spyOn(document, 'createElement').mockReturnValue(mockLink);
-
-      await exportToVTU({
-        fieldId: 'field1',
-        frequencyHz: 300000000,
-        filename: 'test_export',
-      }, mockState);
-
-      expect(postprocessorClient.post).toHaveBeenCalledWith(
-        '/api/export/vtu',
-        expect.objectContaining({
-          observation_points: [[0, 0, 0], [1, 0, 0]],
-          nodes: [[0, 0, -0.25], [0, 0, 0], [0, 0, 0.25]],
-          edges: [[0, 1], [1, 2]],
-          frequencies: [300000000],
-        }),
-        expect.objectContaining({
-          responseType: 'blob',
-        })
-      );
-    });
-
-    it('triggers download with correct filename', async () => {
-      const mockBlob = new Blob(['mock vtu content'], { type: 'application/xml' });
-      const mockResponse = { data: mockBlob };
-      (postprocessorClient.post as any).mockResolvedValue(mockResponse);
-
-      global.URL.createObjectURL = vi.fn(() => 'mock-url');
-      global.URL.revokeObjectURL = vi.fn();
-
-      // Use a real anchor element so appendChild works in jsdom
-      const mockLink = document.createElement('a');
-      mockLink.click = vi.fn();
-      vi.spyOn(document, 'createElement').mockReturnValue(mockLink);
-
-      await exportToVTU({
-        fieldId: 'field1',
-        frequencyHz: 300000000,
-        filename: 'test_export',
-      }, mockState);
-
-      expect(mockLink.download).toBe('test_export.vtu');
-      expect(mockLink.click).toHaveBeenCalled();
-    });
-
-    it('throws error when field data is missing', async () => {
-      await expect(
-        exportToVTU({
-          fieldId: 'field2',
-          frequencyHz: 300000000,
-          filename: 'test',
-        }, mockState)
-      ).rejects.toThrow('No field data available for export');
-    });
+  it('canExportToVTU reflects available data', () => {
+    expect(canExportToVTU('field1', 300000000, state)).toBe(true);
+    expect(canExportToVTU('field1', 400000000, state)).toBe(false);
   });
 });

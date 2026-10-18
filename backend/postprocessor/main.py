@@ -1,7 +1,6 @@
 """FastAPI application for the Postprocessor service."""
 
 # noqa: trigger CI build
-import base64
 import os
 import time
 from datetime import datetime, timezone
@@ -10,7 +9,6 @@ import numpy as np
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import Response
 
 from backend.common.auth.dependencies import get_current_user
 from backend.common.auth.identity import UserIdentity
@@ -332,125 +330,6 @@ async def compute_far_field_endpoint(
     except Exception as e:
         logger.exception("Far-field computation error")
         raise HTTPException(status_code=500, detail=f"Far-field computation failed: {str(e)}")
-
-
-@app.post(
-    f"{settings.api_prefix}/export/vtu",
-    response_class=Response,
-    summary="Export field data to VTU format for ParaView",
-)
-async def export_to_vtu(
-    request: FieldRequest,
-    user: UserIdentity = Depends(get_current_user),
-):
-    """Export electromagnetic field data to VTU (VTK Unstructured Grid) format."""
-    try:
-        frequency_hz = request.frequencies[0] if request.frequencies else 0
-        observation_points = np.array(request.observation_points)
-        branch_currents = _parse_branch_currents(request.branch_currents)
-
-        E_vectors, H_vectors = compute_near_field_impl(
-            frequencies=np.array(request.frequencies),
-            branch_currents=branch_currents,
-            nodes=np.array(request.nodes),
-            edges=np.array(request.edges),
-            observation_points=observation_points,
-        )
-
-        E_field = E_vectors[0, :, :]
-        H_field = H_vectors[0, :, :]
-        E_magnitude = np.linalg.norm(E_field, axis=1)
-        H_magnitude = np.linalg.norm(H_field, axis=1)
-
-        vtu_xml = _generate_vtu_xml(
-            points=observation_points,
-            E_field=E_field,
-            H_field=H_field,
-            E_magnitude=E_magnitude,
-            H_magnitude=H_magnitude,
-            frequency=frequency_hz,
-        )
-
-        return Response(
-            content=vtu_xml,
-            media_type="application/xml",
-            headers={
-                "Content-Disposition": f"attachment; filename=field_data_{frequency_hz / 1e6:.2f}MHz.vtu"
-            },
-        )
-    except Exception as e:
-        logger.exception("VTU export error")
-        raise HTTPException(status_code=500, detail=f"VTU export failed: {str(e)}")
-
-
-def _generate_vtu_xml(
-    points: np.ndarray,
-    E_field: np.ndarray,
-    H_field: np.ndarray,
-    E_magnitude: np.ndarray,
-    H_magnitude: np.ndarray,
-    frequency: float,
-) -> str:
-    """Generate VTU XML string for ParaView visualisation."""
-    num_points = len(points)
-
-    def to_base64_float32(arr):
-        return base64.b64encode(arr.astype(np.float32).tobytes()).decode("ascii")
-
-    points_b64 = to_base64_float32(points.flatten())
-    E_mag_b64 = to_base64_float32(E_magnitude)
-    H_mag_b64 = to_base64_float32(H_magnitude)
-    E_real_b64 = to_base64_float32(E_field.real.flatten())
-    E_imag_b64 = to_base64_float32(E_field.imag.flatten())
-    H_real_b64 = to_base64_float32(H_field.real.flatten())
-    H_imag_b64 = to_base64_float32(H_field.imag.flatten())
-
-    freq_str = " ".join([f"{frequency / 1e6:.6f}"] * num_points)
-
-    return f"""<?xml version="1.0"?>
-<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian" header_type="UInt64">
-  <UnstructuredGrid>
-    <Piece NumberOfPoints="{num_points}" NumberOfCells="0">
-      <PointData>
-        <DataArray type="Float32" Name="E_Magnitude" format="binary">
-          {E_mag_b64}
-        </DataArray>
-        <DataArray type="Float32" Name="H_Magnitude" format="binary">
-          {H_mag_b64}
-        </DataArray>
-        <DataArray type="Float32" Name="E_Field_Real" NumberOfComponents="3" format="binary">
-          {E_real_b64}
-        </DataArray>
-        <DataArray type="Float32" Name="E_Field_Imag" NumberOfComponents="3" format="binary">
-          {E_imag_b64}
-        </DataArray>
-        <DataArray type="Float32" Name="H_Field_Real" NumberOfComponents="3" format="binary">
-          {H_real_b64}
-        </DataArray>
-        <DataArray type="Float32" Name="H_Field_Imag" NumberOfComponents="3" format="binary">
-          {H_imag_b64}
-        </DataArray>
-        <DataArray type="Float32" Name="Frequency_MHz" format="ascii">
-          {freq_str}
-        </DataArray>
-      </PointData>
-      <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="binary">
-          {points_b64}
-        </DataArray>
-      </Points>
-      <Cells>
-        <DataArray type="Int64" Name="connectivity" format="ascii">
-        </DataArray>
-        <DataArray type="Int64" Name="offsets" format="ascii">
-        </DataArray>
-        <DataArray type="UInt8" Name="types" format="ascii">
-        </DataArray>
-      </Cells>
-    </Piece>
-  </UnstructuredGrid>
-</VTKFile>
-"""
 
 
 @app.get(f"{settings.api_prefix}/debug/config")
