@@ -34,6 +34,7 @@ from backend.common.repositories.folder_repository import FolderRepository
 from backend.common.utils.error_handler import install_error_handlers
 from backend.common.utils.logging_config import configure_logging
 from backend.projects.account_service import delete_user_data
+from backend.projects.client_errors import router as client_errors_router
 from backend.projects.documentation_service import DocumentationService, get_documentation_service
 
 # Folder & course management routes
@@ -85,6 +86,7 @@ app.include_router(folder_router)
 
 # Include submission routes
 app.include_router(submission_router)
+app.include_router(client_errors_router)
 
 
 def get_repository() -> ProjectRepository:
