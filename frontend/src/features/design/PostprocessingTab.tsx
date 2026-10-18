@@ -8,8 +8,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import ChevronLeft from '@mui/icons-material/ChevronLeft';
-import ChevronRight from '@mui/icons-material/ChevronRight';
+import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import type { SolverWorkflowState } from '@/store/solverSlice';
 import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields, selectParameterStudy } from '@/store/solverSlice';
 import { selectIsSolved } from '@/store/designSlice';

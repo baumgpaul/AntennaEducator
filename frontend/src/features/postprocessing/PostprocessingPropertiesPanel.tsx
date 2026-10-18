@@ -22,7 +22,7 @@ import {
   ToggleButtonGroup,
   ToggleButton,
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Delete as DeleteIcon } from '@mui/icons-material';
 import ValueRangeInput from '../../components/common/ValueRangeInput';
 import SliderWithInput from '../../components/common/SliderWithInput';
 import { computeAutoRange } from '../design/PostprocessingTab';

@@ -9,7 +9,7 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import { Add as AddIcon } from '@mui/icons-material';
 import AddCurveDialog from '../postprocessing/AddCurveDialog';
 import type { AddCurveResult } from '../postprocessing/AddCurveDialog';
 import {

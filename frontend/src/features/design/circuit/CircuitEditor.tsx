@@ -41,9 +41,7 @@ import {
   ToggleButtonGroup,
   TextField,
 } from '@mui/material';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import SaveIcon from '@mui/icons-material/Save';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import { AddCircleOutline as AddCircleOutlineIcon, Save as SaveIcon, AccountTree as AccountTreeIcon } from '@mui/icons-material';
 
 import { circuitNodeTypes, type CircuitNodeData } from './CircuitNodeTypes';
 import { circuitEdgeTypes, type CircuitEdgeData } from './CircuitEdgeTypes';

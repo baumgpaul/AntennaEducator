@@ -19,6 +19,20 @@ module.exports = {
     // Conditional hooks crash at runtime ("Rendered more hooks than during the
     // previous render") — always an error.
     'react-hooks/rules-of-hooks': 'error',
+    // Deep icon imports resolve to MUI's CommonJS files under Vite 8 (Rolldown):
+    // the default import is then { default: Icon } and rendering it crashes
+    // (React error #130). Import icons by name from the package root instead.
+    'no-restricted-imports': [
+      'error',
+      {
+        patterns: [
+          {
+            group: ['@mui/icons-material/*'],
+            message: "Use `import { Name } from '@mui/icons-material'` (deep imports crash under Vite 8).",
+          },
+        ],
+      },
+    ],
     'no-empty': 'warn',
     '@typescript-eslint/no-require-imports': 'warn',
     // eslint-plugin-react-hooks 7 added React Compiler readiness rules to its

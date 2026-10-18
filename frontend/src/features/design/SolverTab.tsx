@@ -1,15 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, LinearProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import TuneIcon from '@mui/icons-material/Tune';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import GridOnIcon from '@mui/icons-material/GridOn';
-import CalculateIcon from '@mui/icons-material/Calculate';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import StopIcon from '@mui/icons-material/Stop';
-import ChevronLeft from '@mui/icons-material/ChevronLeft';
-import ChevronRight from '@mui/icons-material/ChevronRight';
+import { PlayArrow as PlayArrowIcon, Tune as TuneIcon, AddCircleOutline as AddCircleOutlineIcon, GridOn as GridOnIcon, Calculate as CalculateIcon, CheckCircle as CheckCircleIcon, Stop as StopIcon, ChevronLeft, ChevronRight } from '@mui/icons-material';
 import TreeViewPanel from './TreeViewPanel';
 import Scene3D from './Scene3D';
 import WireGeometry from './WireGeometry';

@@ -29,10 +29,7 @@ import {
   Switch,
   Divider,
 } from '@mui/material';
-import ElectricalServicesIcon from '@mui/icons-material/ElectricalServices';
-import SensorsIcon from '@mui/icons-material/Sensors';
-import RadarIcon from '@mui/icons-material/Radar';
-import TimelineIcon from '@mui/icons-material/Timeline';
+import { ElectricalServices as ElectricalServicesIcon, Sensors as SensorsIcon, Radar as RadarIcon, Timeline as TimelineIcon } from '@mui/icons-material';
 import type { PlotTrace, PlotQuantity, LineStyle, FieldPlotQuantity } from '@/types/plotDefinitions';
 import { TRACE_COLORS } from '@/types/plotDefinitions';
 import type { ParameterStudyResult } from '@/types/parameterStudy';

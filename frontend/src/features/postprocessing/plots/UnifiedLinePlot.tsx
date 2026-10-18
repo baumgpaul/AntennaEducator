@@ -8,9 +8,7 @@
 
 import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { Box, Typography, IconButton, Tooltip } from '@mui/material';
-import GridOnIcon from '@mui/icons-material/GridOn';
-import GridOffIcon from '@mui/icons-material/GridOff';
-import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
+import { GridOn as GridOnIcon, GridOff as GridOffIcon, ZoomOutMap as ZoomOutMapIcon } from '@mui/icons-material';
 import {
   LineChart,
   Line,

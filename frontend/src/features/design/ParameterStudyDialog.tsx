@@ -28,8 +28,7 @@ import {
   Divider,
   Alert,
 } from '@mui/material';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { AddCircleOutline as AddCircleOutlineIcon, DeleteOutline as DeleteOutlineIcon } from '@mui/icons-material';
 import { useAppSelector } from '@/store/hooks';
 import { selectVariables, selectVariableContextNumeric } from '@/store/variablesSlice';
 import type {
