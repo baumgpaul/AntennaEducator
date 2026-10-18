@@ -104,9 +104,9 @@ def test_current_source_dipole_golden_standard():
     assert element.sources[0].type == "current", "Source 1 should be current type"
     assert element.sources[1].type == "current", "Source 2 should be current type"
     # Source nodes should be at the feed gap (the last/first node of each arm).
-    # The exact node numbers depend on n_seg = max(total_segments // 2, 1), so we
-    # check them dynamically rather than with hardcoded constants.
-    n_seg = max(segments // 2, 1)
+    # The builder splits the total over both arms and rounds odd totals up
+    # (B19), so n_seg = ceil(total / 2); check node numbers dynamically.
+    n_seg = max(-(-segments // 2), 1)
     expected_feed_lower = n_seg + 1  # last node of lower arm (at gap)
     expected_feed_upper = n_seg + 2  # first node of upper arm (at gap)
     assert element.sources[0].node_start == expected_feed_lower, (
