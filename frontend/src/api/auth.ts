@@ -96,6 +96,14 @@ export const logout = async (): Promise<void> => {
 }
 
 /**
+ * Permanently delete the current user's account and all their data.
+ * Admins and maintainers get a 409 (they must hand over their role first).
+ */
+export const deleteAccount = async (): Promise<void> => {
+  await authClient.delete('/api/auth/me')
+}
+
+/**
  * Get current user profile
  */
 export const getCurrentUser = async (): Promise<User> => {

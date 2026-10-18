@@ -17,12 +17,14 @@ import {
   Logout,
   Token as TokenIcon,
   AllInclusive,
+  DeleteForever,
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar, toggleTheme } from '@/store/uiSlice';
 import { logoutAsync, getCurrentUserAsync } from '@/store/authSlice';
+import DeleteAccountDialog from '@/features/auth/DeleteAccountDialog';
 
 /**
  * Header component with navigation, theme toggle, and user menu
@@ -35,6 +37,7 @@ function Header() {
   const projectName = useAppSelector((state) => state.projects.currentProject?.name);
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const isMenuOpen = Boolean(anchorEl);
 
   // Refresh token balance whenever the user returns to this tab
@@ -170,7 +173,20 @@ function Header() {
             <Logout fontSize="small" sx={{ mr: 1 }} />
             Logout
           </MenuItem>
+          {user && (
+            <MenuItem onClick={() => setDeleteOpen(true)} sx={{ color: 'error.main' }}>
+              <DeleteForever fontSize="small" sx={{ mr: 1 }} />
+              Delete account…
+            </MenuItem>
+          )}
         </Menu>
+        {user && (
+          <DeleteAccountDialog
+            open={deleteOpen}
+            email={user.email}
+            onClose={() => setDeleteOpen(false)}
+          />
+        )}
       </Toolbar>
     </AppBar>
   );

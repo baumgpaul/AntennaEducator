@@ -43,6 +43,12 @@ variable "dynamodb_table_arns" {
   default     = []
 }
 
+variable "cognito_user_pool_arn" {
+  description = "Cognito user pool the function may delete users from (empty = no access)"
+  type        = string
+  default     = ""
+}
+
 variable "s3_bucket_arns" {
   description = "List of S3 bucket ARNs the function needs access to"
   type        = list(string)

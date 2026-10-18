@@ -338,8 +338,9 @@ module "lambda_projects" {
     RESULTS_BUCKET_NAME    = module.s3_results.bucket_name
   }
 
-  dynamodb_table_arns = [module.dynamodb.table_arn]
-  s3_bucket_arns      = [module.s3_results.bucket_arn]
+  dynamodb_table_arns   = [module.dynamodb.table_arn]
+  s3_bucket_arns        = [module.s3_results.bucket_arn]
+  cognito_user_pool_arn = module.cognito.user_pool_arn # account deletion (/api/auth/me)
 
   create_function_url    = true
   function_url_auth_type = var.api_origin_signing ? "AWS_IAM" : "NONE"
