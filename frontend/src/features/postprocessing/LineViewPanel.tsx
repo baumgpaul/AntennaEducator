@@ -5,8 +5,10 @@
  */
 
 import { useState } from 'react';
-import { Box, Typography, Divider, Button } from '@mui/material';
+import { Box, Typography, Divider, Button, IconButton, Tooltip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import { axisHeader, downloadFile, safeFilename, tracesToCSV } from '@/utils/exportData';
 import type { ViewConfiguration, ViewItem } from '@/types/postprocessing';
 import UnifiedLinePlot from './plots/UnifiedLinePlot';
 import AddCurveDialog from './AddCurveDialog';
@@ -310,8 +312,23 @@ function LineViewPanel({ view }: LineViewPanelProps) {
         }
       }
 
+      const handleExportCSV = () => {
+        const csv = tracesToCSV(expandedTraces, traceData, axisHeader(item.xAxisConfig, 'x'));
+        downloadFile(csv, `${safeFilename(item.label || view.name, 'plot')}.csv`, 'text/csv;charset=utf-8');
+      };
+
       return (
-        <Box key={item.id} sx={{ p: 2, height: 350 }}>
+        <Box key={item.id} sx={{ p: 2, height: 350, position: 'relative' }}>
+          <Tooltip title="Export curves as CSV">
+            <IconButton
+              size="small"
+              onClick={handleExportCSV}
+              aria-label="Export curves as CSV"
+              sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}
+            >
+              <FileDownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <UnifiedLinePlot
             traces={expandedTraces}
             traceData={traceData}

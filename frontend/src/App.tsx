@@ -11,7 +11,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 // Route-level code splitting — heavy pages loaded on demand
 const ProjectsPage = lazy(() => import('./features/projects/ProjectsPage'));
 const DesignPage = lazy(() => import('./features/design/DesignPage'));
-const ResultsPage = lazy(() => import('./features/results/ResultsPage'));
 const CoursesPage = lazy(() => import('./features/courses/CoursesPage'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 const MySubmissionsPage = lazy(() => import('./features/courses/MySubmissionsPage'));
@@ -56,7 +55,6 @@ function App() {
           <Route path="/admin" element={<RequireRole role="admin"><ErrorBoundary><Suspense fallback={<Fallback />}><AdminPage /></Suspense></ErrorBoundary></RequireRole>} />
           <Route path="/design" element={<ErrorBoundary><Suspense fallback={<Fallback />}><DesignPage /></Suspense></ErrorBoundary>} />
           <Route path="/project/:projectId/design" element={<ErrorBoundary><Suspense fallback={<Fallback />}><DesignPage /></Suspense></ErrorBoundary>} />
-          <Route path="/project/:projectId/results" element={<ErrorBoundary><Suspense fallback={<Fallback />}><ResultsPage /></Suspense></ErrorBoundary>} />
         </Route>
 
         {/* 404 catch-all */}
