@@ -40,7 +40,7 @@ import DesignCanvas from './DesignCanvas';
 import TreeViewPanel from './TreeViewPanel';
 import PropertiesPanel from './PropertiesPanel';
 import RibbonMenu from './RibbonMenu';
-import type { Scene3DHandle } from './Scene3D';
+import type { Scene3DHandle, ViewPreset } from './Scene3D';
 import { DipoleDialog } from './DipoleDialog';
 import { LoopDialog } from './LoopDialog';
 import { RodDialog } from './RodDialog';
@@ -146,8 +146,7 @@ function DesignPage() {
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [gridVisible, setGridVisible] = useState(true);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [cameraMode, _setCameraMode] = useState<'perspective' | 'orthographic'>('perspective');
+  const [cameraMode, setCameraMode] = useState<'perspective' | 'orthographic'>('perspective');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
   const [dipoleDialogOpen, setDipoleDialogOpen] = useState(false);
@@ -901,10 +900,12 @@ function DesignPage() {
   };
 
   const handleViewOption = (option: string) => {
-    console.log('View option:', option);
-    // TODO: Implement view changes (camera presets, visualization modes)
     if (option === 'toggle-grid') {
       setGridVisible(!gridVisible);
+    } else if (option === 'toggle-camera') {
+      setCameraMode((mode) => (mode === 'perspective' ? 'orthographic' : 'perspective'));
+    } else if (option === 'view-front' || option === 'view-side' || option === 'view-top') {
+      scene3DRef.current?.setView(option.slice(5) as ViewPreset);
     }
   };
 
@@ -1020,6 +1021,8 @@ function DesignPage() {
         onZoomOut={handleZoomOut}
         onResetView={handleResetView}
         onToggleGrid={() => handleViewOption('toggle-grid')}
+        onViewPreset={(preset) => handleViewOption(`view-${preset}`)}
+        onToggleCameraMode={() => handleViewOption('toggle-camera')}
         onToggleFullscreen={handleToggleFullscreen}
         isFullscreen={isFullscreen}
         leftPanel={
@@ -1204,7 +1207,6 @@ function DesignPage() {
         onClose={() => setLumpedDialogOpen(false)}
         onAdd={handleAddLumpedElement}
         loading={false}
-        maxNodeIndex={mesh?.nodes ? mesh.nodes.length - 1 : 0}
         elements={elements}
       />
       <SourceDialog
@@ -1212,7 +1214,6 @@ function DesignPage() {
         onClose={() => setSourceDialogOpen(false)}
         onAdd={handleAddSource}
         loading={false}
-        maxNodeIndex={mesh?.nodes ? mesh.nodes.length - 1 : 0}
         elements={elements}
       />
       <CircuitEditor

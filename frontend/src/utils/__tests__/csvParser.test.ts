@@ -358,7 +358,7 @@ E, 1, 2, -0.001
 // ===========================================================================
 
 describe('parseCustomAntennaCSV — warnings', () => {
-  it('warns about disconnected components', () => {
+  it('notes separate wire structures (allowed, e.g. parasitic elements)', () => {
     const csv = `
 N, 1, 0, 0, 0
 N, 2, 1, 0, 0
@@ -371,7 +371,18 @@ E, 3, 4
 
     expect(result.errors).toEqual([]);
     expect(result.warnings.length).toBeGreaterThan(0);
-    expect(result.warnings.some((w) => /disconnect/i.test(w) || /component/i.test(w))).toBe(true);
+    expect(result.warnings.some((w) => /2 separate wire structures/.test(w))).toBe(true);
+  });
+
+  it('rejects nodes that no edge touches (B21)', () => {
+    const csv = `
+N, 1, 0, 0, 0
+N, 2, 1, 0, 0
+N, 3, 5, 5, 5
+E, 1, 2
+`.trim();
+    const result = parseCustomAntennaCSV(csv);
+    expect(result.errors).toContain('Node(s) 3 are not connected to any edge');
   });
 
   it('no warning for connected graph', () => {

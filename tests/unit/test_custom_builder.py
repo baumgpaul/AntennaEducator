@@ -750,8 +750,8 @@ class TestCustomConnectivity:
 
         assert "disconnect" not in caplog.text.lower()
 
-    def test_disconnected_graph_warns(self, caplog):
-        """Disconnected graph logs a warning but does not raise."""
+    def test_separate_structures_are_allowed(self, caplog):
+        """Separate wires (parasitic elements, e.g. Yagi directors) are valid."""
         nodes = [
             {"id": 1, "x": 0, "y": 0, "z": 0},
             {"id": 2, "x": 1, "y": 0, "z": 0},
@@ -762,15 +762,23 @@ class TestCustomConnectivity:
             {"node_start": 1, "node_end": 2},
             {"node_start": 3, "node_end": 4},  # separate component
         ]
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.INFO):
             element = create_custom(nodes=nodes, edges=edges)
             mesh = custom_to_mesh(element)
 
-        # Should warn about disconnected components
-        assert "disconnect" in caplog.text.lower() or "component" in caplog.text.lower()
-        # But mesh is still generated
+        assert "2 separate wire structures" in caplog.text
         assert mesh.num_nodes == 4
         assert mesh.num_edges == 2
+
+    def test_node_without_edges_is_rejected(self):
+        """B21: an isolated node has no wire; the solver gave it a dummy cell at the origin."""
+        nodes = [
+            {"id": 1, "x": 0, "y": 0, "z": 0},
+            {"id": 2, "x": 1, "y": 0, "z": 0},
+            {"id": 3, "x": 5, "y": 5, "z": 5},
+        ]
+        with pytest.raises(ValueError, match=r"Node\(s\) 3 are not connected"):
+            create_custom(nodes=nodes, edges=[{"node_start": 1, "node_end": 2}])
 
     def test_single_edge_is_connected(self, caplog):
         """Trivial case: one edge is always connected."""

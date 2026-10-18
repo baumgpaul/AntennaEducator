@@ -145,9 +145,22 @@ function checkConnectivity(nodes: ParsedNode[], edges: ParsedEdge[]): string | n
 
   if (visited.size < nodes.length) {
     const nComponents = countComponents(nodes, adj);
-    return `Geometry has ${nComponents} disconnected components (expected 1 connected graph)`;
+    return (
+      `Geometry has ${nComponents} separate wire structures. That is fine for parasitic ` +
+      'elements (e.g. Yagi directors); make sure at least one structure has a source.'
+    );
   }
   return null;
+}
+
+/** Nodes that no edge touches (B21): an error, not a warning. */
+function findIsolatedNodes(nodes: ParsedNode[], edges: ParsedEdge[]): number[] {
+  const used = new Set<number>();
+  for (const e of edges) {
+    used.add(e.node_start);
+    used.add(e.node_end);
+  }
+  return nodes.filter((n) => !used.has(n.id)).map((n) => n.id);
 }
 
 function countComponents(nodes: ParsedNode[], adj: Map<number, Set<number>>): number {
@@ -244,8 +257,13 @@ export function parseCustomAntennaCSV(csv: string): CsvParseResult {
 
   // Connectivity (only warn, don't error)
   if (errors.length === 0 && nodes.length > 0 && edges.length > 0) {
-    const connWarning = checkConnectivity(nodes, edges);
-    if (connWarning) warnings.push(connWarning);
+    const isolated = findIsolatedNodes(nodes, edges);
+    if (isolated.length > 0) {
+      errors.push(`Node(s) ${isolated.slice(0, 10).join(', ')} are not connected to any edge`);
+    } else {
+      const connWarning = checkConnectivity(nodes, edges);
+      if (connWarning) warnings.push(connWarning);
+    }
   }
 
   return { nodes, edges, warnings, errors };
