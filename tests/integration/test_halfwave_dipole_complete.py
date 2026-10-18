@@ -70,8 +70,8 @@ def test_halfwave_dipole_complete():
 
     Validates:
     - Input resistance: 73 ± 10 Ohms (thin-wire theory)
-    - Reactance: sanity bound only — theory is ~+42 Ohm, the PEEC model gives
-      ~0 Ohm at L = lambda/2 (tracked in issue #71 / xfail test below)
+    - Reactance: sanity bound only — the 5 cm gap shortens the conductor, so X is
+      below the gapless ~+42 Ohm (thin-gap convergence: test_peec_convergence.py)
     - Maximum directivity: 2.15 ± 0.5 dBi
     - Current distribution: Sinusoidal with max at center, zero at ends
     """
@@ -529,7 +529,7 @@ def test_halfwave_dipole_complete():
 
     print("\nValidation Summary:")
     print(f"  [PASS] Impedance: {z_input.real:.1f} Ohm (within ±20 Ohm)")
-    print(f"  [PASS] Reactance: {reactance:.1f} Ohm (< 120 Ohm sanity bound; see issue #71)")
+    print(f"  [PASS] Reactance: {reactance:.1f} Ohm (< 120 Ohm sanity bound)")
     print(f"  [PASS] Current Distribution: End/Max ratio = {end_current_ratio:.3f} (< 0.3)")
     print(f"  [PASS] Directivity: {directivity_dBi:.2f} dBi (within ±1 dB)")
 

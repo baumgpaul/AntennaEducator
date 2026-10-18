@@ -187,10 +187,8 @@ class TestHalfWaveDipoleImpedance:
         z_lossless = _solve_valid("balanced", resistivity=1e-30)
         assert 0.0 <= z_balanced.real - z_lossless.real < 1.0
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="issue #71: reactance depends on feed gap and does not converge with mesh "
-        "refinement (~+1 Ohm here vs thin-wire theory ~+42 Ohm)",
-    )
-    def test_reactance_matches_thin_wire_theory(self, z_balanced):
-        assert abs(z_balanced.imag - 42.5) < 15.0, f"X_in = {z_balanced.imag:.2f} Ohm"
+    def test_reactance_reflects_the_wide_gap(self, z_balanced):
+        """The 5 cm gap removes 10 % of the conductor, so this dipole is well
+        below resonance length: X is far below the gapless ~+42 Ohm. Thin-gap
+        convergence and the Hallén comparison live in test_peec_convergence.py."""
+        assert 10.0 < z_balanced.imag < 42.5, f"X_in = {z_balanced.imag:.2f} Ohm"

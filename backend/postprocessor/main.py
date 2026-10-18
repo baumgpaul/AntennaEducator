@@ -615,7 +615,7 @@ def _compute_port_quantities(
     # Reflection coefficient Γ = (Z_in - Z0) / (Z_in + Z0)
     gamma = (z_in - z0) / (z_in + z0) if abs(z_in + z0) > 1e-30 else complex(1, 0)
 
-    # Return loss S11 [dB]
+    # S11 [dB] = 20·log10|Γ| (negative); the solver's return_loss is its negative
     gamma_mag = abs(gamma)
     s11_db = 20 * np.log10(gamma_mag) if gamma_mag > 1e-30 else -200.0
 

@@ -178,7 +178,11 @@ def build_capacitive_element_vectors(
 
 
 def compute_nodal_potential_coefficient(
-    X: np.ndarray, Y: np.ndarray, gauss_points: np.ndarray, gauss_weights: np.ndarray
+    X: np.ndarray,
+    Y: np.ndarray,
+    gauss_points: np.ndarray,
+    gauss_weights: np.ndarray,
+    radius: float = 0.0,
 ) -> float:
     """
     Compute potential coefficient between two 3-point segments using Gauss quadrature.
@@ -190,11 +194,14 @@ def compute_nodal_potential_coefficient(
         Y: Second segment (source), shape (3, 3) - three xyz points
         gauss_points: Gauss quadrature points in [-1, 1]
         gauss_weights: Gauss quadrature weights
+        radius: Wire radius [m] for the reduced thin-wire kernel (see
+            ``compute_mutual_inductance_1d``; both must use the same kernel)
 
     Returns:
         Potential coefficient (dimensionless)
     """
-    eps = 1e-12
+    # Reduced kernel: distances measured from the wire surface (|r - r'|^2 + a^2)
+    eps = radius**2 if radius > 0 else 1e-12
 
     # Extract points
     x1, x2, x3 = X[0, :], X[1, :], X[2, :]
@@ -446,7 +453,10 @@ def assemble_nodal_potential_matrix_with_cap_elem(
         # Sub-segment 2: x2-x3 expanded to 3 points
         el2 = np.array([x2, (x2 + x3) * 0.5, x3])
 
-        P_ab = compute_nodal_potential_coefficient(el1, el2, gauss_points, gauss_weights)
+        a_i = np.sqrt(0.5 * (r_a**2 + r_b**2))
+        P_ab = compute_nodal_potential_coefficient(
+            el1, el2, gauss_points, gauss_weights, radius=a_i
+        )
 
         # Invert 2×2 local matrix to get node potential coefficient
         M_local = np.array([[P_aa, P_ab], [P_ab, P_bb]])
@@ -464,7 +474,11 @@ def assemble_nodal_potential_matrix_with_cap_elem(
             X_j = cap_elem[:, :, j]  # 3-point structure for node j
 
             # calcCoefficient uses the 3-point structures directly
-            P_mutual = compute_nodal_potential_coefficient(X_j, X_i, gauss_points, gauss_weights)
+            # RMS radius of both nodes keeps P symmetric
+            a_ij = np.sqrt(0.25 * np.sum(radii_cap[i] ** 2 + radii_cap[j] ** 2))
+            P_mutual = compute_nodal_potential_coefficient(
+                X_j, X_i, gauss_points, gauss_weights, radius=a_ij
+            )
             P[i, j] = (1 / (4 * pi * eps_0)) * P_mutual
             P[j, i] = P[i, j]
 
