@@ -147,6 +147,26 @@ describe('ComponentEditDialog', () => {
       expect(mockOnSave).not.toHaveBeenCalled();
     });
 
+    it('keeps the sign of a negative source amplitude (B11)', async () => {
+      const user = userEvent.setup();
+      const source: CircuitComponent = {
+        id: 'c1', type: 'voltage_source', nodeA: 0, nodeB: 1, value: 1, phase: 0, label: '',
+      };
+
+      render(
+        <Provider store={createTestStore()}>
+          <ComponentEditDialog {...defaultProps} editComponent={source} />
+        </Provider>
+      );
+
+      const valueInput = screen.getByLabelText(/Value \(/);
+      await user.clear(valueInput);
+      await user.type(valueInput, '-2');
+      await user.click(screen.getByRole('button', { name: /^Update$/i }));
+
+      expect(mockOnSave).toHaveBeenCalledWith(expect.objectContaining({ value: -2, phase: 0 }));
+    });
+
     it('should accept positive value for resistor', async () => {
       const user = userEvent.setup();
 

@@ -419,3 +419,15 @@ describe('round-trip backend → circuit → backend', () => {
     expect(out[0]).toMatchObject({ R: 75, L: 2e-9, C_inv: 5e11 });
   });
 });
+
+describe('negative source amplitude (B11)', () => {
+  it('becomes reversed polarity, not a positive source', () => {
+    const { sources } = circuitToBackend({
+      components: [
+        { id: 'c1', type: 'voltage_source', nodeA: 0, nodeB: 1, value: -2, phase: 0, label: '' },
+      ],
+      nodes: [],
+    } as never);
+    expect(sources[0].amplitude).toEqual({ real: -2, imag: -0 });
+  });
+});

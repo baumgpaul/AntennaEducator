@@ -7,8 +7,22 @@ Covers:
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from boto3.dynamodb.types import TypeDeserializer
 from fastapi import status
 from fastapi.testclient import TestClient
+
+
+def _transacted(table, op="Put"):
+    """Plain items/keys of the single transact_write_items call (B42: atomic)."""
+    deserializer = TypeDeserializer()
+    (call,) = table.meta.client.transact_write_items.call_args_list
+    field = "Item" if op == "Put" else "Key"
+    return [
+        {k: deserializer.deserialize(v) for k, v in t[op][field].items()}
+        for t in call.kwargs["TransactItems"]
+        if op in t
+    ]
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  SubmissionRepository
@@ -41,10 +55,8 @@ class TestSubmissionRepository:
             frozen_design_state={"elements": []},
             frozen_simulation_config={"method": "peec"},
         )
-        writer = repo.table.batch_writer.return_value.__enter__.return_value
-        assert writer.put_item.call_count == 2
-
-        items = [call[1]["Item"] for call in writer.put_item.call_args_list]
+        items = _transacted(repo.table, "Put")
+        assert len(items) == 2
         pks = {item["PK"] for item in items}
         assert "COURSE#course-1" in pks
         assert "USER#user-1" in pks
@@ -63,10 +75,8 @@ class TestSubmissionRepository:
             user_id="u1",
             project_name="Test",
         )
-        writer = repo.table.batch_writer.return_value.__enter__.return_value
-        items = [call[1]["Item"] for call in writer.put_item.call_args_list]
-        for item in items:
-            assert item["EntityType"] == "SUBMISSION"
+        items = _transacted(repo.table, "Put")
+        assert [item["EntityType"] for item in items] == ["SUBMISSION", "SUBMISSION"]
 
     def test_create_submission_frozen_blobs(self):
         repo = self._make_repo()
@@ -85,8 +95,7 @@ class TestSubmissionRepository:
             frozen_simulation_results=results,
             frozen_ui_state=ui,
         )
-        writer = repo.table.batch_writer.return_value.__enter__.return_value
-        items = {call[1]["Item"]["PK"]: call[1]["Item"] for call in writer.put_item.call_args_list}
+        items = {item["PK"]: item for item in _transacted(repo.table, "Put")}
         forward = items["COURSE#c1"]
         assert forward["FrozenDesignState"] == design
         assert forward["FrozenSimulationConfig"] == config
@@ -104,16 +113,11 @@ class TestSubmissionRepository:
             submission_id="s-1",
             snapshot_key="submission-s-1/submission_snapshot.json",
         )
-        writer = repo.table.batch_writer.return_value.__enter__.return_value
-        for call in writer.put_item.call_args_list:
-            item = call[1]["Item"]
+        written = _transacted(repo.table, "Put")
+        for item in written:
             assert item["SubmissionId"] == "s-1"
             assert "FrozenDesignState" not in item
-        forward = next(
-            c[1]["Item"]
-            for c in writer.put_item.call_args_list
-            if c[1]["Item"]["PK"] == "COURSE#c1"
-        )
+        forward = next(item for item in written if item["PK"] == "COURSE#c1")
         assert forward["SnapshotKey"] == "submission-s-1/submission_snapshot.json"
 
     def test_get_submission(self):
@@ -220,8 +224,8 @@ class TestSubmissionRepository:
 
     def test_update_review(self):
         repo = self._make_repo()
-        repo.table.update_item.return_value = {
-            "Attributes": {
+        repo.table.get_item.return_value = {
+            "Item": {
                 "SubmissionId": "s1",
                 "CourseId": "c1",
                 "ProjectId": "p1",
@@ -249,8 +253,10 @@ class TestSubmissionRepository:
         assert result is not None
         assert result["feedback"] == "Well done!"
         assert result["status"] == "reviewed"
-        # Both forward and reverse items should be updated
-        assert repo.table.update_item.call_count == 2
+        # Both forward and reverse items, in one transaction
+        (call,) = repo.table.meta.client.transact_write_items.call_args_list
+        updated = [t["Update"]["Key"]["PK"]["S"] for t in call.kwargs["TransactItems"]]
+        assert updated == ["COURSE#c1", "USER#u1"]
 
 
 # ══════════════════════════════════════════════════════════════════════════════

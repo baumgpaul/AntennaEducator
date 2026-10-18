@@ -14,6 +14,11 @@ from backend.common.auth.token_costs import DEFAULT_STARTER_TOKENS
 logger = logging.getLogger(__name__)
 
 
+def email_claim_key(email: str) -> Dict[str, str]:
+    """Key of the item that reserves an e-mail address for one account."""
+    return {"PK": f"EMAIL#{email.strip().lower()}", "SK": "CLAIM"}
+
+
 class UserRepository:
     """DynamoDB-based user repository."""
 
@@ -149,12 +154,27 @@ class UserRepository:
         if cognito_sub:
             item["CognitoSub"] = cognito_sub
 
+        # Atomic uniqueness gate: the scan above cannot stop two simultaneous
+        # registrations with the same e-mail (B46); a conditional put can.
+        claim_key = email_claim_key(email)
+        try:
+            self.table.put_item(
+                Item={**claim_key, "EntityType": "EMAIL_CLAIM", "UserId": user_id},
+                ConditionExpression="attribute_not_exists(PK)",
+            )
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                raise ValueError("Email already registered")
+            logger.error(f"Error claiming e-mail: {e}")
+            raise RuntimeError(f"Failed to create user: {e}")
+
         try:
             self.table.put_item(Item=item)
             logger.info(f"Created user: {email} (id={user_id})")
             return self._to_dict(item)
         except ClientError as e:
             logger.error(f"Error creating user: {e}")
+            self.table.delete_item(Key=claim_key)
             raise RuntimeError(f"Failed to create user: {e}")
 
     def get_user_by_email(self, email: str) -> Optional[Dict]:

@@ -6,6 +6,7 @@
 import { authClient } from '@/api/client'
 import type { IAuthService, LoginCredentials, RegisterData, AuthResponse, AuthTokens } from './types'
 import type { User } from '@/types/models'
+import { clearStoredSession } from './session'
 
 export class LocalAuthService implements IAuthService {
   /**
@@ -84,10 +85,8 @@ export class LocalAuthService implements IAuthService {
    * Sign out current user
    */
   async logout(): Promise<void> {
-    // Clear local tokens and user data (no backend logout needed for JWT)
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('refresh_token')
-    localStorage.removeItem('user')
+    // No backend logout needed for JWT
+    clearStoredSession()
   }
 
   /**

@@ -3,8 +3,8 @@
  * Central state management for the application
  */
 
-import { configureStore } from '@reduxjs/toolkit'
-import authReducer from './authSlice'
+import { combineReducers, configureStore, type UnknownAction } from '@reduxjs/toolkit'
+import authReducer, { logoutAsync } from './authSlice'
 import projectsReducer from './projectsSlice'
 import designReducer from './designSlice'
 import uiReducer from './uiSlice'
@@ -15,19 +15,32 @@ import foldersReducer from './foldersSlice'
 import variablesReducer from './variablesSlice'
 import submissionsReducer from './submissionsSlice'
 
+const appReducer = combineReducers({
+  auth: authReducer,
+  projects: projectsReducer,
+  design: designReducer,
+  ui: uiReducer,
+  solver: solverReducer,
+  postprocessing: postprocessingReducer,
+  documentation: documentationReducer,
+  folders: foldersReducer,
+  variables: variablesReducer,
+  submissions: submissionsReducer,
+})
+
+/**
+ * On logout every slice except the UI preferences (theme, sidebar) goes back
+ * to its initial state, so the next user of a shared computer does not see
+ * the previous user's projects, designs or results (B18).
+ */
+export const rootReducer = (state: ReturnType<typeof appReducer> | undefined, action: UnknownAction) =>
+  appReducer(
+    action.type === logoutAsync.fulfilled.type && state ? ({ ui: state.ui } as ReturnType<typeof appReducer>) : state,
+    action,
+  )
+
 export const store = configureStore({
-  reducer: {
-    auth: authReducer,
-    projects: projectsReducer,
-    design: designReducer,
-    ui: uiReducer,
-    solver: solverReducer,
-    postprocessing: postprocessingReducer,
-    documentation: documentationReducer,
-    folders: foldersReducer,
-    variables: variablesReducer,
-    submissions: submissionsReducer,
-  },
+  reducer: rootReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
