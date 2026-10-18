@@ -78,6 +78,10 @@ jobs:
       - name: Unit tests
         run: pytest tests/unit/ -x -q --tb=short --junitxml=junit-backend.xml
 
+      # In-process (TestClient) tests; ones needing running services skip
+      - name: Integration tests
+        run: pytest tests/integration/ -q --tb=short
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7

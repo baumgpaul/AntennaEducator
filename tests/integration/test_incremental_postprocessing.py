@@ -9,13 +9,36 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from unittest.mock import patch
+
+import pytest
 from fastapi.testclient import TestClient
 
+from backend.common.auth.dependencies import get_current_user
+from backend.common.auth.identity import UserIdentity, UserRole
 from backend.postprocessor.main import app as postprocessor_app
 from backend.solver.main import app as solver_app
 
 solver_client = TestClient(solver_app)
 postprocessor_client = TestClient(postprocessor_app)
+
+
+@pytest.fixture(autouse=True)
+def _signed_in_user():
+    """Endpoints require a user with tokens; charging would write to DynamoDB."""
+    user = UserIdentity(
+        id="test-user",
+        email="t@example.com",
+        username="t",
+        role=UserRole.USER,
+        simulation_tokens=9999,
+    )
+    for app in (solver_app, postprocessor_app):
+        app.dependency_overrides[get_current_user] = lambda: user
+    with patch("backend.common.auth.token_dependency.charge_simulation_tokens"):
+        yield
+    for app in (solver_app, postprocessor_app):
+        app.dependency_overrides.clear()
 
 
 def test_incremental_field_computation():
