@@ -3,20 +3,30 @@
 # Flow:
 #   1. Add the "deploy-to-staging" label to a PR targeting main
 #      (subsequent pushes auto-retrigger while the label is present)
-#   2. Source is uploaded to S3, CodeBuild Test runs (lint + unit tests)
-#   3. CodeBuild Deploy runs (Docker → ECR → Lambda, frontend → S3)
+#   2. Only the targets the PR touches are built (dev_tools/ci_changed_targets.py)
+#   3. Deploy: Docker → ECR → Lambda, frontend → S3 + CloudFront, smoke test
 #   4. Success → PR comment confirming staging deploy
 #   5. Manual approval via GitHub "staging" environment gate
 #   6. Approved → auto-merge (squash)
-#      Failure → PR comment with build failure details
+#
+# Where the build runs (repository variable DEPLOY_RUNNER):
+#   github    (default) standard GitHub-hosted runner — free and unmetered for
+#             public repositories. Larger runners are paid even for public
+#             repos: keep runs-on: ubuntu-latest. Docker layers go to the Actions
+#             cache with mode=min; the 10 GB per-repo cache is free and evicts
+#             old entries (billed only if the limit is raised above 10 GB).
+#   codebuild CodeBuild deploy project (BUILD_GENERAL1_MEDIUM, ~$0.01/min,
+#             ~$0.15–0.30 per deploy) — fallback, always rebuilds everything.
+# Lint and tests run in pr-checks.yml (free; Backend/Frontend/Secret scan are
+# required for merging); the deploy job additionally runs the backend unit
+# tests before shipping. The old CodeBuild test stage duplicated them (paid).
 #
 # Setup (one-time):
-#   In GitHub repo Settings → Secrets and variables → Actions:
-#     - AWS_DEPLOY_ROLE_ARN  = (terraform output github_actions_role_arn)
-#     - AWS_ARTIFACTS_BUCKET = (terraform output artifacts_bucket)
-#   Create a "deploy-to-staging" label in the repo (Settings → Labels).
+#   Secrets: AWS_DEPLOY_ROLE_ARN (terraform output github_actions_role_arn),
+#            AWS_ARTIFACTS_BUCKET (only for DEPLOY_RUNNER=codebuild)
+#   Label:   "deploy-to-staging"
 #
-# Also supports manual trigger via workflow_dispatch (deploys current main).
+# Manual trigger (workflow_dispatch) deploys current main, everything by default.
 
 name: AWS Build & Deploy
 
@@ -25,29 +35,178 @@ on:
     types: [labeled, synchronize]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      deploy_all:
+        description: "Rebuild every service and the frontend"
+        type: boolean
+        default: true
 
 concurrency:
   group: aws-deploy-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
+env:
+  AWS_REGION: eu-west-1
+  ENVIRONMENT: staging
+
 jobs:
-  # ── AWS CodeBuild: Test + Deploy ────────────────────────────────────
+  # ── GitHub-hosted build (default, $0) ──────────────────────────────
   aws-build-deploy:
     name: AWS Build & Deploy to Staging
     if: >-
+      vars.DEPLOY_RUNNER != 'codebuild' && (
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.base.ref == 'main' &&
        (github.event.action == 'labeled' && github.event.label.name == 'deploy-to-staging' ||
-        github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'deploy-to-staging')))
+        github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'deploy-to-staging'))))
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 40
     permissions:
       id-token: write        # OIDC authentication to AWS
       contents: read
-      pull-requests: write   # Post PR comments
-    env:
-      AWS_REGION: eu-west-1
+      pull-requests: write   # PR comments
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
+      - name: What to deploy
+        id: targets
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          DEPLOY_ALL: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_all }}
+        run: |
+          if [ "$DEPLOY_ALL" = "true" ]; then
+            echo "services=preprocessor solver postprocessor projects" >> "$GITHUB_OUTPUT"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+          else
+            git diff --name-only "${BASE_SHA:-HEAD~1}" HEAD | python3 dev_tools/ci_changed_targets.py >> "$GITHUB_OUTPUT"
+          fi
+          cat "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v7
+        if: steps.targets.outputs.services != ''
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Backend unit tests (what is shipped)
+        if: steps.targets.outputs.services != ''
+        run: |
+          pip install -e ".[dev,aws]" --quiet
+          pytest tests/unit/ -x -q --tb=short
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Load deploy config (SSM)
+        run: |
+          aws ssm get-parameter --name "/antenna-simulator/${ENVIRONMENT}/deploy-config" \
+            --query Parameter.Value --output text > /tmp/deploy-config.json
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          cfg = json.load(open("/tmp/deploy-config.json"))
+          for k, v in cfg["frontend_env"].items():
+              print(f"{k}={v}")
+          print(f"S3_FRONTEND_BUCKET={cfg['s3_frontend_bucket']}")
+          print(f"CLOUDFRONT_DISTRIBUTION_ID={cfg['cloudfront_distribution_id']}")
+          print(f"AWS_ACCOUNT_ID={cfg['aws_account_id']}")
+          PY
+
+      - name: Log in to ECR
+        if: steps.targets.outputs.services != ''
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.targets.outputs.services != ''
+
+      # The buildx GitHub Actions cache needs the runtime token in the environment
+      - uses: crazy-max/ghaction-github-runtime@v3
+        if: steps.targets.outputs.services != ''
+
+      - name: Build, push and roll out Lambda images
+        if: steps.targets.outputs.services != ''
+        env:
+          SERVICES: ${{ steps.targets.outputs.services }}
+        run: |
+          for SERVICE in $SERVICES; do
+            REPO="antenna-simulator-${SERVICE}-${ENVIRONMENT}"
+            IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPO}:latest"
+            echo "::group::${SERVICE}"
+            # provenance=false: Lambda rejects OCI image indexes with attestations
+            docker buildx build \
+              -f "backend/${SERVICE}/Dockerfile.lambda" \
+              --platform linux/amd64 --provenance=false \
+              --cache-from "type=gha,scope=${SERVICE}" \
+              --cache-to "type=gha,mode=min,scope=${SERVICE}" \
+              -t "$IMAGE_URI" --push .
+            aws lambda update-function-code --function-name "$REPO" --image-uri "$IMAGE_URI" > /dev/null
+            aws lambda wait function-updated --function-name "$REPO"
+            echo "::endgroup::"
+          done
+
+      - uses: actions/setup-node@v7
+        if: steps.targets.outputs.frontend == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build and publish frontend
+        if: steps.targets.outputs.frontend == 'true'
+        working-directory: frontend
+        run: |
+          npm ci
+          NODE_OPTIONS="--max-old-space-size=4096" npm run build
+          aws s3 sync dist/ "s3://${S3_FRONTEND_BUCKET}/" --delete
+          aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths "/*" > /dev/null
+
+      - name: Smoke test
+        if: steps.targets.outputs.services != '' || steps.targets.outputs.frontend == 'true'
+        run: |
+          pip install requests --quiet
+          python dev_tools/test_aws_pipeline.py
+
+      - name: Comment — staging deployed
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SERVICES: ${{ steps.targets.outputs.services }}
+          FRONTEND: ${{ steps.targets.outputs.frontend }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body \
+            "✅ **Deployed to staging** (GitHub runner): services \`${SERVICES:-none}\`, frontend \`${FRONTEND}\`
+
+          https://antennaeducator.nyakyagyawa.com"
+
+      - name: Comment — build failed
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body \
+            "❌ **AWS Build & Deploy failed**
+
+          Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details. Remove and re-add the \`deploy-to-staging\` label to retry."
+
+  # ── CodeBuild fallback (DEPLOY_RUNNER=codebuild, paid) ─────────────
+  codebuild-deploy:
+    name: AWS Build & Deploy to Staging (CodeBuild)
+    if: >-
+      vars.DEPLOY_RUNNER == 'codebuild' && (
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.base.ref == 'main' &&
+       (github.event.action == 'labeled' && github.event.label.name == 'deploy-to-staging' ||
+        github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'deploy-to-staging'))))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
 
@@ -62,128 +221,56 @@ jobs:
           BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
           BUILD_KEY: ${{ github.event.pull_request.number || github.sha }}
         run: |
-          zip -r /tmp/source.zip . -x '.git/*'
+          zip -qr /tmp/source.zip . -x '.git/*'
           aws s3 cp /tmp/source.zip "s3://${BUCKET}/github-actions/${BUILD_KEY}/source.zip"
 
-      # ── Test stage ──────────────────────────────────────────────────
-      - name: Start CodeBuild — Test
-        id: test
+      - name: Run CodeBuild deploy
+        timeout-minutes: 40
         env:
           BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
           BUILD_KEY: ${{ github.event.pull_request.number || github.sha }}
         run: |
           BUILD_ID=$(aws codebuild start-build \
-            --project-name antenna-simulator-test-staging \
-            --source-type-override S3 \
-            --source-location-override "${BUCKET}/github-actions/${BUILD_KEY}/source.zip" \
-            --buildspec-override buildspec-test.yml \
-            --query 'build.id' --output text)
-          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
-          echo "::notice::CodeBuild Test started: $BUILD_ID"
-
-      - name: Wait for Test build
-        timeout-minutes: 15
-        env:
-          BUILD_ID: ${{ steps.test.outputs.build_id }}
-        run: |
-          echo "Polling build ${BUILD_ID}..."
-          while true; do
-            STATUS=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
-              --query 'builds[0].buildStatus' --output text)
-            case "$STATUS" in
-              SUCCEEDED)
-                echo "✅ Test build passed"
-                exit 0
-                ;;
-              IN_PROGRESS)
-                sleep 15
-                ;;
-              *)
-                LOG_URL=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
-                  --query 'builds[0].logs.deepLink' --output text)
-                echo "::error::Test build ${STATUS}. Logs: ${LOG_URL}"
-                exit 1
-                ;;
-            esac
-          done
-
-      # ── Deploy stage ────────────────────────────────────────────────
-      - name: Start CodeBuild — Deploy
-        id: deploy
-        env:
-          BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
-          BUILD_KEY: ${{ github.event.pull_request.number || github.sha }}
-        run: |
-          BUILD_ID=$(aws codebuild start-build \
-            --project-name antenna-simulator-deploy-staging \
+            --project-name "antenna-simulator-deploy-${ENVIRONMENT}" \
             --source-type-override S3 \
             --source-location-override "${BUCKET}/github-actions/${BUILD_KEY}/source.zip" \
             --buildspec-override buildspec-deploy.yml \
             --query 'build.id' --output text)
-          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
           echo "::notice::CodeBuild Deploy started: $BUILD_ID"
-
-      - name: Wait for Deploy build
-        timeout-minutes: 35
-        env:
-          BUILD_ID: ${{ steps.deploy.outputs.build_id }}
-        run: |
-          echo "Polling build ${BUILD_ID}..."
           while true; do
-            STATUS=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
-              --query 'builds[0].buildStatus' --output text)
+            STATUS=$(aws codebuild batch-get-builds --ids "$BUILD_ID" --query 'builds[0].buildStatus' --output text)
             case "$STATUS" in
-              SUCCEEDED)
-                echo "✅ Deploy build passed"
-                exit 0
-                ;;
-              IN_PROGRESS)
-                sleep 15
-                ;;
+              SUCCEEDED) echo "✅ Deploy build passed"; exit 0 ;;
+              IN_PROGRESS) sleep 15 ;;
               *)
-                LOG_URL=$(aws codebuild batch-get-builds --ids "$BUILD_ID" \
-                  --query 'builds[0].logs.deepLink' --output text)
-                echo "::error::Deploy build ${STATUS}. Logs: ${LOG_URL}"
-                exit 1
-                ;;
+                LOG_URL=$(aws codebuild batch-get-builds --ids "$BUILD_ID" --query 'builds[0].logs.deepLink' --output text)
+                echo "::error::Deploy build ${STATUS}. Logs: ${LOG_URL}"; exit 1 ;;
             esac
           done
 
-      # ── Report result (PR only) ────────────────────────────────────
-      - name: Comment — staging deployed
-        if: success() && github.event_name == 'pull_request'
+      - name: Comment — result
+        if: always() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ job.status }}
         run: |
           gh pr comment ${{ github.event.pull_request.number }} --body \
-            "✅ **AWS Build & Deploy succeeded**
+            "AWS Build & Deploy (CodeBuild): **${RESULT}** — [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
 
-          Staging has been updated at https://antennaeducator.nyakyagyawa.com"
-
-      - name: Comment — build failed
-        if: failure() && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body \
-            "❌ **AWS Build & Deploy failed**
-
-          Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details. Remove and re-add the \`deploy-to-staging\` label to retry."
-
-      # ── Cleanup ─────────────────────────────────────────────────────
       - name: Clean up S3 source
         if: always()
         env:
           BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
           BUILD_KEY: ${{ github.event.pull_request.number || github.sha }}
-        run: |
-          aws s3 rm "s3://${BUCKET}/github-actions/${BUILD_KEY}/" --recursive || true
+        run: aws s3 rm "s3://${BUCKET}/github-actions/${BUILD_KEY}/" --recursive || true
 
   # ── Manual approval gate — test staging before merge ──────────────
   verify-staging:
     name: Verify Staging
-    needs: aws-build-deploy
-    if: github.event_name == 'pull_request'
+    needs: [aws-build-deploy, codebuild-deploy]
+    if: >-
+      always() && github.event_name == 'pull_request' &&
+      (needs.aws-build-deploy.result == 'success' || needs.codebuild-deploy.result == 'success')
     runs-on: ubuntu-latest
     environment: staging          # Requires approval in GitHub Environment settings
     steps:
@@ -194,7 +281,7 @@ jobs:
   auto-merge:
     name: Auto-merge PR
     needs: verify-staging
-    if: github.event_name == 'pull_request'
+    if: always() && needs.verify-staging.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write

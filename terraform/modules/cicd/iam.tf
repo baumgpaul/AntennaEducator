@@ -199,8 +199,13 @@ resource "aws_iam_role" "github_actions" {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
         }
+        # Only the two contexts that deploy: PR runs (the deploy-to-staging
+        # label) and manual runs on main. Fork PRs never get an OIDC token.
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:${var.github_owner}/${var.github_repository}:*"
+          "token.actions.githubusercontent.com:sub" = [
+            "repo:${var.github_owner}/${var.github_repository}:pull_request",
+            "repo:${var.github_owner}/${var.github_repository}:ref:refs/heads/main",
+          ]
         }
       }
     }]

@@ -1,4 +1,4 @@
-# CI/CD Module — GitHub Actions orchestrated CodeBuild
+# CI/CD Module — deploys from GitHub Actions (free), CodeBuild as fallback
 #
 # The CI/CD flow is driven by GitHub Actions (.github/workflows/):
 #   1. pr-checks.yml          — lint + tests on every PR (GitHub-hosted)
@@ -10,7 +10,8 @@
 #   - S3 bucket for build artifacts / source uploads
 #   - GitHub OIDC provider + IAM role for GH Actions → AWS authentication
 #
-# Cost: ~$2-4/month (CodeBuild build minutes only)
+# Cost: $0 with the default GitHub-runner deploy (github_deploy.tf); CodeBuild
+# minutes only when DEPLOY_RUNNER=codebuild (~$0.15–0.30 per deploy).
 
 # ─── CodeStar Connection to GitHub ─────────────────────────────────────
 # Retained for potential future use (e.g. CodePipeline, CodeBuild GitHub triggers).
