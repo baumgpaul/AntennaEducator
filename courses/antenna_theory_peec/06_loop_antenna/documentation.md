@@ -46,13 +46,13 @@ For the small-loop regime all shapes with the same area and circumference behave
 
 ## Worked Example
 
-**Setup**: A rectangular (square) loop, side length $s = 0.1\ \mathrm{m}$ (circumference $C = 0.4\ \mathrm{m}$), wire radius $r = 1\ \mathrm{mm}$, 20 segments (5 per side), at $f = 300\ \mathrm{MHz}$ ($C/\lambda = 0.4$).
+**Setup**: A circular loop with circumference $C = 0.4\ \mathrm{m}$ (loop radius $b = C/2\pi \approx 6.4\ \mathrm{cm}$), wire radius $r = 1\ \mathrm{mm}$, 20 segments, swept from $100$ to $500\ \mathrm{MHz}$; at $f = 300\ \mathrm{MHz}$, $C/\lambda = 0.4$. (A square loop with the same circumference behaves similarly.)
 
 This places the loop in the **transition regime** between small and resonant — large enough to have measurable $R_{rad}$ but the current is not yet fully standing-wave.
 
 **Observe in the pre-loaded results:**
 
-1. The **input impedance** is dominated by reactance (inductive for a small loop). $R_{rad}$ is small.
+1. The **input impedance** is dominated by inductive reactance; $R_{rad}$ is much smaller. Towards $C \approx \lambda/2$ ($\approx 375\ \mathrm{MHz}$ here) the loop runs into a parallel (anti-)resonance with very large $|Z_{in}|$, and above it the reactance turns capacitive.
 2. The **3D radiation pattern** has the classic doughnut shape with the maximum in the plane of the loop and null along the loop normal.
 3. The **polarization** is horizontal (azimuthal $\hat{\phi}$) — orthogonal to that of a co-axial vertical dipole.
 4. Directivity $\approx 1.76\ \mathrm{dBi}$ (same as Hertz dipole by duality).
@@ -62,11 +62,11 @@ This places the loop in the **transition regime** between small and resonant —
 ## Your Task
 
 1. Using this small-loop project, note the input impedance and radiation pattern at $300\ \mathrm{MHz}$.
-2. **Scale the loop** to make the circumference equal to one wavelength: $C = \lambda = 1\ \mathrm{m}$, i.e., side $s = 0.25\ \mathrm{m}$. Re-mesh and solve at $300\ \mathrm{MHz}$.
+2. **Scale the loop** to make the circumference equal to one wavelength: $C = \lambda = 1\ \mathrm{m}$, i.e., loop radius $b = 1/(2\pi) \approx 0.16\ \mathrm{m}$. Re-mesh and solve at $300\ \mathrm{MHz}$.
 3. Compare the resonant-loop results with the small-loop:
    - How does $R_{rad}$ change?
    - Does the pattern retain the simple doughnut shape?
    - What is the input reactance — is the loop near resonance?
 4. Perform a **frequency sweep** from $100\ \mathrm{MHz}$ to $500\ \mathrm{MHz}$ for the resonant loop ($C = 1\ \mathrm{m}$). Where does the VSWR reach its minimum?
 
-> **Hint**: A rectangular loop with $C = \lambda$ can resonate (become self-resonant) if the wire inductance is balanced by the distributed capacitance. But unlike a dipole, the resonance behavior is more complex and depends heavily on the feed gap.
+> **Hint**: A loop with $C \approx \lambda$ can resonate (become self-resonant) if the wire inductance is balanced by the distributed capacitance. But unlike a dipole, the resonance behavior is more complex and depends heavily on the feed gap.

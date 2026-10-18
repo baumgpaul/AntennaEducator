@@ -107,10 +107,10 @@ def make_dipole_element(
     )
     backend_mesh = dipole_to_mesh(backend_el)
 
-    # Default port: feed gap (node 11 → node 12 for 21-segment gap dipole)
-    n_seg = segments // 2
-    feed_lower = n_seg + 1
-    feed_upper = n_seg + 2
+    # Default port: the gap nodes the builder fed. It rounds odd totals up
+    # (B19): 21 segments -> 11 per arm -> nodes 12 and 13.
+    feed_lower = backend_el.sources[0].node_end
+    feed_upper = backend_el.sources[1].node_end
 
     frontend_sources = [
         {
@@ -238,8 +238,15 @@ def make_loop_element(
 # ── Solver helpers ─────────────────────────────────────────────────────────────
 
 
-def make_antenna_input(element_id: str, backend_el: Any, backend_mesh: Any) -> AntennaInput:
-    """Convert backend element + mesh to AntennaInput for the multi-antenna solver."""
+def make_antenna_input(
+    element_id: str, backend_el: Any, backend_mesh: Any, position: list | None = None
+) -> AntennaInput:
+    """Convert backend element + mesh to AntennaInput for the multi-antenna solver.
+
+    Meshes are built at the origin; ``position`` offsets the nodes the way the
+    frontend does before solving (otherwise array elements overlap).
+    """
+    dx, dy, dz = position or (0.0, 0.0, 0.0)
     vs_inputs = []
     cs_inputs = []
 
@@ -259,7 +266,7 @@ def make_antenna_input(element_id: str, backend_el: Any, backend_mesh: Any) -> A
 
     return AntennaInput(
         antenna_id=element_id,
-        nodes=backend_mesh.nodes,
+        nodes=[[x + dx, y + dy, z + dz] for x, y, z in backend_mesh.nodes],
         edges=backend_mesh.edges,
         radii=backend_mesh.radii,
         voltage_sources=vs_inputs,
@@ -554,15 +561,16 @@ def generate_module_06(force: bool) -> None:
         log.info("  Module 06: already exists, skipping")
         return
 
-    log.info("  Module 06: Loop Antenna (s=0.1m, 100–500 MHz sweep)")
+    log.info("  Module 06: Loop Antenna (C=0.4m, 100–500 MHz sweep)")
 
     element_id = "loop_module06"
-    # radius = 0.1m perimeter / (2π) ≈ equivalent perimeter to 0.1m-side square loop
-    loop_radius = 0.1 / np.pi  # C=2πr → r=C/(2π), use C≈0.63m for equivalent area
+    # Circumference 0.4 m: C/λ = 0.4 at 300 MHz, below the anti-resonance at
+    # C ≈ λ/2 (a 0.1 m radius gave C = 0.63 m, already capacitive at 300 MHz)
+    loop_radius = 0.4 / (2 * np.pi)
     fe, be, bm = make_loop_element(
         element_id=element_id,
-        name="Small Circular Loop (r=0.1m)",
-        radius=0.1,
+        name="Circular Loop (C=0.4m)",
+        radius=loop_radius,
         wire_radius=0.001,
         segments=20,
         color="#00AEFF",
@@ -621,8 +629,8 @@ def generate_module_07(force: bool) -> None:
 
     # For the array, we need to run the multi-antenna solver with both dipoles
     log.info("    Running multi-antenna solver for 2-element array at 300 MHz ...")
-    ai1 = make_antenna_input(element_id_1, be1, bm1)
-    ai2 = make_antenna_input(element_id_2, be2, bm2)
+    ai1 = make_antenna_input(element_id_1, be1, bm1, position=fe1["position"])
+    ai2 = make_antenna_input(element_id_2, be2, bm2, position=fe2["position"])
     config = SolverConfiguration()
     freq_hz = 300e6
 

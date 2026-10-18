@@ -27,7 +27,9 @@ class PortResult(BaseModel):
     input_impedance: complex = Field(..., description="Input impedance Z [Ω]")
     input_current: complex = Field(..., description="Input current [A]")
     reflection_coefficient: complex = Field(..., description="Reflection coefficient Γ")
-    return_loss: float = Field(..., description="Return loss |S11| [dB]")
+    return_loss: float = Field(
+        ..., description="Return loss -20·log10|Γ| [dB], >= 0 (= -S11 in dB)"
+    )
     input_power: float = Field(..., description="Total input power [W]")
     reflected_power: float = Field(..., description="Reflected power [W]")
     accepted_power: float = Field(..., description="Accepted power [W]")

@@ -96,9 +96,10 @@ export function extractPortQuantities(
     const vswr =
       gammaMag >= 1 ? Infinity : (1 + gammaMag) / (1 - gammaMag);
 
-    // Return loss: clamp at -80 dB for perfect match (avoid -Infinity)
+    // Return loss is positive (higher = better match); clamp a perfect match
+    // at 80 dB like PortQuantityTable and plotDataExtractors (B36)
     const returnLoss =
-      gammaMag < 1e-10 ? -80 : -20 * Math.log10(gammaMag);
+      gammaMag < 1e-10 ? 80 : -20 * Math.log10(gammaMag);
 
     return {
       index: idx,

@@ -89,11 +89,11 @@ describe('extractPortQuantities', () => {
     expect(rows[0].vswr).toBeCloseTo(1.0, 4);
   });
 
-  it('computes S11 magnitude in dB (return loss)', () => {
+  it('reports a perfect match as high (positive) return loss', () => {
     const study = make1DResult('freq', [300e6], [{ real: 50, imag: 0 }], 50);
     const rows = extractPortQuantities(study);
-    // Perfect match: S11 = -Inf dB → clamped
-    expect(rows[0].returnLoss).toBeLessThan(-40);
+    // Perfect match: RL = -20·log10|Γ| → +Inf dB, clamped to 80 dB (B36)
+    expect(rows[0].returnLoss).toBe(80);
   });
 
   it('handles mismatched impedance (purely resistive)', () => {

@@ -69,7 +69,11 @@ def compute_self_inductance(length: float, radius: float) -> float:
 
 
 def compute_mutual_inductance_1d(
-    edge1: EdgeGeometry, edge2: EdgeGeometry, gauss_points: np.ndarray, gauss_weights: np.ndarray
+    edge1: EdgeGeometry,
+    edge2: EdgeGeometry,
+    gauss_points: np.ndarray,
+    gauss_weights: np.ndarray,
+    radius: float = 0.0,
 ) -> float:
     """
     Compute mutual inductance between two wire segments using Gaussian quadrature.
@@ -90,6 +94,11 @@ def compute_mutual_inductance_1d(
         edge2: Source wire segment
         gauss_points: Gaussian quadrature points in [-1, 1], shape (n,)
         gauss_weights: Gaussian quadrature weights, shape (n,)
+        radius: Wire radius [m] for the reduced thin-wire kernel
+            R = sqrt(|r - r'|^2 + a^2). Without it, neighbouring segments get a
+            log-singular kernel and the input reactance of a dipole drifts with
+            mesh refinement instead of converging (issue #71). Must match the
+            kernel used for the potential coefficients.
 
     Returns:
         Mutual inductance [H]
@@ -105,7 +114,8 @@ def compute_mutual_inductance_1d(
     # Reference PEEC: Lcoeff = 10^-7 * cos_e * l_Y * 0.5 * Gauss.w' * Aabs
     mu_0_over_4pi = 1e-7
 
-    eps = edge2.length / 1e6
+    # Reduced kernel: distances measured from the wire surface (|r - r'|^2 + a^2)
+    eps = radius**2 if radius > 0 else 1e-30
 
     # Compute cos(θ) between edge directions
     cos_theta = np.dot(edge1.direction, edge2.direction)
@@ -266,7 +276,11 @@ def assemble_inductance_matrix(
 
         # Mutual inductances on off-diagonal (symmetric)
         for j in range(i + 1, n_edges):
-            M_ij = compute_mutual_inductance_1d(edges[i], edges[j], gauss_points, gauss_weights)
+            # RMS radius keeps L symmetric for wires of different radii
+            a_ij = np.sqrt(0.5 * (radii[i] ** 2 + radii[j] ** 2))
+            M_ij = compute_mutual_inductance_1d(
+                edges[i], edges[j], gauss_points, gauss_weights, radius=a_ij
+            )
             L[i, j] = M_ij
             L[j, i] = M_ij  # Symmetry
 
