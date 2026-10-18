@@ -5,6 +5,7 @@
 
 import { authClient } from './client'
 import type { User } from '@/types/models'
+import { clearStoredSession } from '@/services/auth/session'
 
 // ============================================================================
 // Request/Response Types
@@ -90,9 +91,8 @@ export const register = async (data: RegisterRequest): Promise<RegisterResponse>
  * Logout user - clear tokens and session
  */
 export const logout = async (): Promise<void> => {
-  // Clear local tokens (no backend logout endpoint needed for JWT)
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('refresh_token')
+  // No backend logout endpoint needed for JWT
+  clearStoredSession()
 }
 
 /**

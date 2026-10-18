@@ -10,7 +10,21 @@ Covers:
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from boto3.dynamodb.types import TypeDeserializer
+
 # ── EnrollmentRepository ─────────────────────────────────────────────────────
+
+
+def _transacted(table, op="Put"):
+    """Plain items/keys of the single transact_write_items call (B42: atomic)."""
+    deserializer = TypeDeserializer()
+    (call,) = table.meta.client.transact_write_items.call_args_list
+    field = "Item" if op == "Put" else "Key"
+    return [
+        {k: deserializer.deserialize(v) for k, v in t[op][field].items()}
+        for t in call.kwargs["TransactItems"]
+        if op in t
+    ]
 
 
 class TestEnrollmentRepository:
@@ -21,9 +35,7 @@ class TestEnrollmentRepository:
             "backend.common.repositories.enrollment_repository." "EnrollmentRepository.__init__",
             lambda self: None,
         ):
-            from backend.common.repositories.enrollment_repository import (
-                EnrollmentRepository,
-            )
+            from backend.common.repositories.enrollment_repository import EnrollmentRepository
 
             repo = EnrollmentRepository()
             repo.table = MagicMock()
@@ -38,12 +50,8 @@ class TestEnrollmentRepository:
             user_id="user-1",
             enrolled_by="admin-1",
         )
-        # batch_writer should have been used for 2 items
-        writer = repo.table.batch_writer.return_value.__enter__.return_value
-        assert writer.put_item.call_count == 2
-
-        # Check both items
-        items = [call[1]["Item"] for call in writer.put_item.call_args_list]
+        items = _transacted(repo.table, "Put")
+        assert len(items) == 2
         pks = {item["PK"] for item in items}
         assert "COURSE#course-1" in pks
         assert "USER#user-1" in pks
@@ -55,16 +63,14 @@ class TestEnrollmentRepository:
             user_id="user-1",
             enrolled_by="admin-1",
         )
-        writer = repo.table.batch_writer.return_value.__enter__.return_value
-        items = [call[1]["Item"] for call in writer.put_item.call_args_list]
-        for item in items:
-            assert item["EntityType"] == "ENROLLMENT"
+        items = _transacted(repo.table, "Put")
+        assert [item["EntityType"] for item in items] == ["ENROLLMENT", "ENROLLMENT"]
 
     def test_unenroll_user_deletes_two_items(self):
         repo = self._make_repo()
         repo.unenroll_user(course_id="course-1", user_id="user-1")
-        writer = repo.table.batch_writer.return_value.__enter__.return_value
-        assert writer.delete_item.call_count == 2
+        keys = _transacted(repo.table, "Delete")
+        assert {k["PK"] for k in keys} == {"COURSE#course-1", "USER#user-1"}
 
     def test_list_course_enrollments(self):
         repo = self._make_repo()

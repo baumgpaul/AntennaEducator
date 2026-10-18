@@ -7,6 +7,7 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit'
 import type { User, AuthTokens } from '@/types/models'
 import { getAuthService, type LoginCredentials, type RegisterData } from '@/services/auth'
+import { clearStoredSession } from '@/services/auth/session'
 
 interface AuthState {
   isAuthenticated: boolean
@@ -248,8 +249,7 @@ const authSlice = createSlice({
       state.loading = false
       state.error = null
 
-      // Clear localStorage
-      localStorage.removeItem('user')
+      clearStoredSession()
     })
 
     // Get current user
@@ -282,7 +282,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false
         state.user = null
         state.tokens = null
-        localStorage.removeItem('user')
+        clearStoredSession()
       })
 
     // Validate session (startup token check)
@@ -309,10 +309,7 @@ const authSlice = createSlice({
         state.user = null
         state.tokens = null
         state.loading = false
-        localStorage.removeItem('auth_token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('id_token')
-        localStorage.removeItem('user')
+        clearStoredSession()
         localStorage.setItem('logout_reason', 'session_expired')
       })
   },

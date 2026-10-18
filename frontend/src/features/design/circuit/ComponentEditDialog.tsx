@@ -163,10 +163,12 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
       type,
       nodeA,
       nodeB,
-      value: Math.abs(resolvedValue),
+      // Signed: a negative source amplitude means reversed polarity, which
+      // circuitToBackend turns into amplitude·e^{jφ} = |v|∠(φ+180°) (B11)
+      value: resolvedValue,
       phase: resolvedPhase,
       label,
-      valueExpression: valueStr !== String(Math.abs(resolvedValue)) ? valueStr : undefined,
+      valueExpression: valueStr !== String(resolvedValue) ? valueStr : undefined,
       phaseExpression: phaseStr !== String(resolvedPhase) ? phaseStr : undefined,
     });
 
