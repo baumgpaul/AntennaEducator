@@ -6,8 +6,7 @@
 
 import { useState } from 'react';
 import { Box, Typography, Divider, Button, IconButton, Tooltip } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import { Add as AddIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
 import { axisHeader, downloadFile, safeFilename, tracesToCSV } from '@/utils/exportData';
 import type { ViewConfiguration, ViewItem } from '@/types/postprocessing';
 import UnifiedLinePlot from './plots/UnifiedLinePlot';

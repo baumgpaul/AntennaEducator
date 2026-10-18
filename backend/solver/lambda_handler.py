@@ -4,11 +4,11 @@ This module wraps the FastAPI application with Mangum to enable AWS Lambda execu
 Mangum translates API Gateway/ALB events into ASGI-compatible requests.
 """
 
-import asyncio
 import json
 
 from mangum import Mangum
 
+from backend.common.utils.lambda_loop import run_coroutine
 from backend.solver.main import app
 
 # Create Lambda handler
@@ -24,7 +24,7 @@ def handler(event, context):
     """HTTP requests (Function URL) or queued solve jobs (SQS, ASYNC_JOBS=lambda)."""
     records = event.get("Records") if isinstance(event, dict) else None
     if records and records[0].get("eventSource") == "aws:sqs":
-        return asyncio.run(_run_jobs(records))
+        return run_coroutine(_run_jobs(records))
     return _http_handler(event, context)
 
 

@@ -23,7 +23,7 @@ import {
   Divider,
   Chip,
 } from '@mui/material';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import { PictureAsPdf as PictureAsPdfIcon } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   setExportPDFDialogOpen,

@@ -18,11 +18,7 @@ import {
   FormControl,
   Box,
 } from '@mui/material';
-import ViewInArIcon from '@mui/icons-material/ViewInAr';
-import ShowChartIcon from '@mui/icons-material/ShowChart';
-import RadarIcon from '@mui/icons-material/Radar';
-import PieChartIcon from '@mui/icons-material/PieChart';
-import TableChartIcon from '@mui/icons-material/TableChart';
+import { ViewInAr as ViewInArIcon, ShowChart as ShowChartIcon, Radar as RadarIcon, PieChart as PieChartIcon, TableChart as TableChartIcon } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   setAddViewDialogOpen,

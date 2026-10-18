@@ -24,7 +24,7 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import { FileDownload as FileDownloadIcon } from '@mui/icons-material';
 import type { TableColumn } from '@/types/plotDefinitions';
 import type { FrequencySweepResult } from '@/types/api';
 import type { ParameterStudyResult } from '@/types/parameterStudy';

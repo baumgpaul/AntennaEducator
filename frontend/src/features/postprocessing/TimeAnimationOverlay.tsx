@@ -9,10 +9,7 @@ import {
   Tooltip,
   Paper,
 } from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
-import SkipNextIcon from '@mui/icons-material/SkipNext';
-import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
+import { PlayArrow as PlayArrowIcon, Pause as PauseIcon, SkipNext as SkipNextIcon, SkipPrevious as SkipPreviousIcon } from '@mui/icons-material';
 
 interface TimeAnimationOverlayProps {
   /** Current phase in radians [0, 2π) */
