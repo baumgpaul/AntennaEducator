@@ -52,7 +52,9 @@ import {
   selectItem,
   removeItemFromView,
   toggleItemVisibility,
+  selectPngExportRequest,
 } from '@/store/postprocessingSlice';
+import { downloadFile, safeFilename } from '@/utils/exportData';
 import { selectSelectedFrequencyHz, selectSolveMode, selectSweepPointIndex } from '@/store/solverSlice';
 
 
@@ -408,6 +410,28 @@ function PostprocessingTab({
     }
     return result;
   }, [viewConfigurations, captureView, dispatch]);
+
+  // Ribbon "PNG": save the selected view as an image (same capture as the PDF report)
+  const pngExportRequest = useAppSelector(selectPngExportRequest);
+  const handledPngRequest = useRef(pngExportRequest);
+  useEffect(() => {
+    if (pngExportRequest === handledPngRequest.current) return;
+    handledPngRequest.current = pngExportRequest;
+    if (!selectedViewId) return;
+    const view = viewConfigurations.find((v) => v.id === selectedViewId);
+    const name = safeFilename(`${projectName ?? 'project'}_${view?.name ?? 'view'}`);
+    setSnackbarMessage('Saving PNG…');
+    setShowSnackbar(true);
+    captureView(selectedViewId)
+      .then((url) => {
+        downloadFile(url, `${name}.png`, 'image/png');
+        setSnackbarMessage(`PNG saved: ${name}.png`);
+      })
+      .catch((error) => {
+        setSnackbarMessage(`Error: ${error instanceof Error ? error.message : 'PNG export failed'}`);
+      })
+      .finally(() => setShowSnackbar(true));
+  }, [pngExportRequest, selectedViewId, viewConfigurations, projectName, captureView]);
 
   // Handle PDF export using multi-page report generator
   const handlePDFExport = async (options: PDFExportOptions) => {

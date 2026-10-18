@@ -34,6 +34,7 @@ const initialState: PostprocessingState = {
   scalarPlotPreselect: null,
   exportPDFDialogOpen: false,
   exportType: null,
+  pngExportRequest: 0,
 };
 
 const postprocessingSlice = createSlice({
@@ -299,6 +300,11 @@ const postprocessingSlice = createSlice({
     setExportType: (state, action: PayloadAction<'pdf' | 'paraview' | null>) => {
       state.exportType = action.payload;
     },
+
+    /** Ask PostprocessingTab (which owns the view canvas) to save the selected view as PNG. */
+    requestPngExport: (state) => {
+      state.pngExportRequest = (state.pngExportRequest ?? 0) + 1;
+    },
   },
 });
 
@@ -324,6 +330,7 @@ export const {
   setScalarPlotPreselect,
   setExportPDFDialogOpen,
   setExportType,
+  requestPngExport,
 } = postprocessingSlice.actions;
 
 // Selectors
@@ -380,5 +387,8 @@ export const selectExportPDFDialogOpen = (state: RootState) =>
 
 export const selectExportType = (state: RootState) =>
   state.postprocessing.exportType;
+
+export const selectPngExportRequest = (state: RootState) =>
+  state.postprocessing.pngExportRequest ?? 0;
 
 export default postprocessingSlice.reducer;

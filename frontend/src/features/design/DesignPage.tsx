@@ -32,16 +32,10 @@ import {
 } from '@/store/designSlice';
 import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification, showSuccess } from '@/store/uiSlice';
-import { runMultiAntennaSimulation, computeRadiationPattern, selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
+import { selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
 import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';
 import type { Source } from '@/types/models';
-import {
-  buildMultiAntennaRequest,
-  countSimulationReadyElements,
-  validateHasSources,
-  validateGeometry,
-  getSimulationComplexity,
-} from '@/utils/multiAntennaBuilder';
+import { validateGeometry } from '@/utils/multiAntennaBuilder';
 import DesignCanvas from './DesignCanvas';
 import TreeViewPanel from './TreeViewPanel';
 import PropertiesPanel from './PropertiesPanel';
@@ -896,108 +890,7 @@ function DesignPage() {
       return;
     }
 
-    if (action === 'run-solver') {
-      // Check if we have elements
-      if (!elements || elements.length === 0) {
-        dispatch(addNotification({
-          id: Date.now(),
-          message: 'No antenna elements. Please create an antenna first.',
-          severity: 'warning',
-          duration: 5000,
-        }));
-        return;
-      }
-
-      // Count simulation-ready elements
-      const readyCount = countSimulationReadyElements(elements);
-      if (readyCount === 0) {
-        dispatch(addNotification({
-          id: Date.now(),
-          message: 'No valid elements for simulation. Ensure elements are visible, unlocked, and have meshes.',
-          severity: 'warning',
-          duration: 5000,
-        }));
-        return;
-      }
-
-      // Validate at least one element has a source
-      if (!validateHasSources(elements)) {
-        dispatch(addNotification({
-          id: Date.now(),
-          message: 'No voltage source defined. At least one element must have a source to run simulation.',
-          severity: 'warning',
-          duration: 5000,
-        }));
-        return;
-      }
-
-      // Get simulation complexity for progress estimation
-      const complexity = getSimulationComplexity(elements);
-      console.log('Simulation complexity:', complexity);
-
-      // Default frequency (300 MHz)
-      const frequency = 300e6;
-
-      try {
-        // Build multi-antenna request
-        const request = buildMultiAntennaRequest(elements, frequency);
-
-        dispatch(addNotification({
-          id: Date.now(),
-          message: `Running simulation: ${readyCount} element(s), ${complexity.totalEdges} edge(s) at ${(frequency / 1e6).toFixed(0)} MHz...`,
-          severity: 'info',
-          duration: 3000,
-        }));
-
-        // Run multi-antenna simulation
-        await dispatch(runMultiAntennaSimulation(request)).unwrap();
-
-        dispatch(addNotification({
-          id: Date.now(),
-          message: `Simulation completed successfully! ${readyCount} antenna(s) solved.`,
-          severity: 'success',
-          duration: 5000,
-        }));
-
-        // Compute far-field radiation pattern
-        try {
-          await dispatch(computeRadiationPattern()).unwrap();
-          console.log('Radiation pattern computed successfully');
-        } catch (patternError) {
-          console.warn('Failed to compute radiation pattern:', patternError);
-          // Don't show error notification for pattern computation failure
-        }
-
-        // Auto-open results panel on successful simulation
-        setShowResultsPanel(true);
-
-        // Navigate to results page after a short delay
-        setTimeout(() => {
-          if (projectId) {
-            navigate(`/project/${projectId}/results`);
-          }
-        }, 1500);
-      } catch (error: any) {
-        dispatch(addNotification({
-          id: Date.now(),
-          message: `Simulation failed: ${error}`,
-          severity: 'error',
-          duration: 7000,
-        }));
-      }
-    } else if (action === 'view-results') {
-      // Navigate to dedicated results page
-      if (projectId && results) {
-        navigate(`/project/${projectId}/results`);
-      } else {
-        dispatch(addNotification({
-          id: Date.now(),
-          message: 'No results available. Run a simulation first.',
-          severity: 'info',
-          duration: 4000,
-        }));
-      }
-    } else if (action === 'generate-mesh') {
+    if (action === 'generate-mesh') {
       dispatch(addNotification({
         id: Date.now(),
         message: 'Mesh is automatically generated when antenna is created.',
