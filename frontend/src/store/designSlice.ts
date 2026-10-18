@@ -41,6 +41,9 @@ interface DesignState {
   sources: Source[]
   lumpedElements: LumpedElement[]
 
+  /** Perfectly conducting ground plane at z = 0 (image theory in solver and fields) */
+  groundPlane: boolean
+
   // UI state
   viewMode: '3d' | '2d' | 'tree' | 'properties'
 
@@ -54,6 +57,7 @@ interface DesignState {
 }
 
 const initialState: DesignState = {
+  groundPlane: false,
   // Multi-element system
   elements: [],
   selectedElementId: null,
@@ -890,6 +894,13 @@ const designSlice = createSlice({
       return initialState
     },
 
+    /** Turning the ground plane on or off changes the physics: results go stale. */
+    setGroundPlane: (state, action: PayloadAction<boolean>) => {
+      if (state.groundPlane === action.payload) return
+      state.groundPlane = action.payload
+      state.isSolved = false
+    },
+
     // Load design from saved project
     loadDesign: (_state, action: PayloadAction<Partial<DesignState>>) => {
       return { ...initialState, ...action.payload }
@@ -1257,9 +1268,13 @@ export const {
   setViewMode,
   clearDesign,
   loadDesign,
+  setGroundPlane,
 } = designSlice.actions
 
 // Selectors
 export const selectIsSolved = (state: any) => state.design.isSolved
 
 export default designSlice.reducer
+
+export const selectGroundPlane = (state: { design: { groundPlane?: boolean } }): boolean =>
+  state.design.groundPlane ?? false

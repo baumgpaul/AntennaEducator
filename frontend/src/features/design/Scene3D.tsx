@@ -5,6 +5,8 @@ import { Box } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { ScaleIndicator, AxisLabels } from '@/components/visualization';
 import type { AntennaElement, Mesh } from '@/types/models';
+import { useAppSelector } from '@/store/hooks';
+import { selectGroundPlane } from '@/store/designSlice';
 import * as THREE from 'three';
 
 /** Axis views (Z is up): front looks along +Y, side along -X, top down -Z. */
@@ -193,6 +195,8 @@ const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
   function Scene3D({ children, showScale: _showScale = true, showAxisLabels = true, elements, mesh, gridVisible = true, onGridVisibilityChange: _onGridVisibilityChange, cameraMode = 'perspective', disableCameraAutoAdjust = false }, ref) {
   const controlsRef = useRef<any>(null);
   const theme = useTheme();
+  // Read outside <Canvas> (separate renderer) and passed down as a value
+  const groundPlane = useAppSelector(selectGroundPlane);
   const isDark = theme.palette.mode === 'dark';
 
   // Calculate scene bounds based on antenna geometry
@@ -246,6 +250,14 @@ const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
             infiniteGrid={false}
             rotation={[Math.PI / 2, 0, 0]}
           />
+        )}
+
+        {/* PEC ground plane at z = 0 (solver and fields use image theory) */}
+        {groundPlane && (
+          <mesh position={[0, 0, -0.0005 * gridSize]} renderOrder={-1}>
+            <planeGeometry args={[gridSize, gridSize]} />
+            <meshStandardMaterial color="#b87333" transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} />
+          </mesh>
         )}
 
         {/* Axes helper - auto-scaled */}

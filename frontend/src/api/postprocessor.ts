@@ -64,6 +64,7 @@ export const computeNearField = async (request: {
   edges: number[][]
   radii: number[]
   observation_points: number[][]
+  ground_plane?: boolean
 }): Promise<{
   status: string
   frequency: number
@@ -194,6 +195,7 @@ export const computeFarField = async (request: {
   radii: number[]
   theta_points?: number
   phi_points?: number
+  ground_plane?: boolean
 }): Promise<{
   frequency: number
   theta_angles: number[]

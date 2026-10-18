@@ -60,6 +60,7 @@ export async function exportToVTU(
     edges: firstMesh.edges,
     radii: firstMesh.radii || Array(firstMesh.edges.length).fill(0.001), // Default 1mm radius
     branch_currents: [Array(firstMesh.edges.length).fill('0+0j')], // Placeholder currents
+    ground_plane: state.design?.groundPlane ?? false,
   };
 
   try {
