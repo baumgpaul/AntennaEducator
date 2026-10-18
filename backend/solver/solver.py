@@ -56,6 +56,37 @@ def _retard(static: np.ndarray, dist: np.ndarray, first_order, beta: float) -> n
     return static * (np.exp(-1j * bD) + 1j * bD) - 1j * beta * first_order
 
 
+GROUND_FEED_WARNING = (
+    "{antenna}: fed against ground (node 0). The model has no ground plane, so "
+    "this puts a net charge on the wire and the resistance is not physical (it "
+    "can even be negative). Feed across a gap between two wire nodes instead."
+)
+
+
+def ground_feed_warnings(antennas) -> List[str]:
+    """Antennas whose ground-referenced sources do not cancel.
+
+    Ground (node 0) is a reference at infinity, not a ground plane. A balanced
+    gap feed (+V and -V, or +I and -I, against ground) injects no net charge
+    and is fine; anything else charges the wire as a whole.
+    """
+    warnings = []
+    for antenna in antennas:
+        net = 0j
+        scale = 0.0
+        for vs in antenna.voltage_sources:
+            if (vs.node_start == 0) != (vs.node_end == 0):
+                net += vs.value if vs.node_start == 0 else -vs.value
+                scale = max(scale, abs(vs.value))
+        for cs in antenna.current_sources:
+            if cs.node_end is None and cs.node != 0:
+                net += cs.value
+                scale = max(scale, abs(cs.value))
+        if scale > 0 and abs(net) > 1e-9 * scale:
+            warnings.append(GROUND_FEED_WARNING.format(antenna=antenna.antenna_id))
+    return warnings
+
+
 def _balanced_voltage_partner(voltage_sources) -> Optional[int]:
     """Index of the source that forms a balanced feed with ``voltage_sources[0]``.
 
@@ -1175,4 +1206,5 @@ def solve_multi_antenna(
         "n_total_nodes": merged.n_total_points,
         "n_total_edges": merged.n_total_sticks,
         "solve_time": solve_time,
+        "warnings": ground_feed_warnings(antennas),
     }

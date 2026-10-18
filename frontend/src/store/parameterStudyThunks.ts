@@ -24,6 +24,7 @@ import type {
 import { buildSweepGrid, geometryChanged } from '@/types/parameterStudy';
 import type { MultiAntennaRequest } from '@/types/api';
 import { solveMultiAntenna } from '@/api/solver';
+import { notifySolverWarnings } from './solverWarnings';
 import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
 import { remeshElementExpressions } from '@/store/designSlice';
 import { evaluateExpression } from '@/utils/expressionEvaluator';
@@ -134,6 +135,7 @@ export const runParameterStudy = createAsyncThunk<
       }
 
       const results: ParameterPointResult[] = [];
+      const shownWarnings = new Set<string>();
       // Resolved geometry per element at the previous point (B30)
       const lastResolved = new Map<string, Record<string, number>>();
 
@@ -215,6 +217,7 @@ export const runParameterStudy = createAsyncThunk<
 
         // 6. Solve
         const solverResponse = await solveMultiAntenna(request);
+        notifySolverWarnings(dispatch, solverResponse, shownWarnings);
 
         results.push({
           point,

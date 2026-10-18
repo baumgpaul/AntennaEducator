@@ -71,6 +71,7 @@ def save_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, default=default_serializer)
+        f.write("\n")  # end-of-file-fixer hook
     log.info(f"  Wrote {path.relative_to(REPO_ROOT)}")
 
 

@@ -71,6 +71,8 @@ export interface MultiAntennaSolutionResponse {
   n_total_nodes: number
   n_total_edges: number
   solve_time: number
+  /** Model-validity warnings, e.g. a wire fed against ground (no ground plane) */
+  warnings?: string[]
 }
 
 // ============================================================================

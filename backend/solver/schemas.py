@@ -281,3 +281,6 @@ class MultiAntennaSolutionResponse(BaseModel):
     n_total_nodes: int = Field(..., description="Total nodes in combined system")
     n_total_edges: int = Field(..., description="Total edges in combined system")
     solve_time: float = Field(..., description="Computation time [s]")
+    warnings: List[str] = Field(
+        default_factory=list, description="Model-validity warnings to show the user"
+    )
