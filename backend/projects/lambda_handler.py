@@ -2,7 +2,10 @@
 
 This module wraps the FastAPI application with Mangum to enable AWS Lambda execution.
 Mangum translates API Gateway/ALB events into ASGI-compatible requests.
+Scheduled EventBridge events (``source: aws.events``) run the data-retention job.
 """
+
+import asyncio
 
 from mangum import Mangum
 
@@ -14,7 +17,29 @@ from backend.projects.main import app
 # - API Gateway HTTP API events
 # - Application Load Balancer events
 # - Lambda Function URL events
-handler = Mangum(app, lifespan="off")
+_http_handler = Mangum(app, lifespan="off")
+
+
+def handler(event, context):
+    if isinstance(event, dict) and event.get("source") == "aws.events":
+        return asyncio.run(_run_retention())
+    return _http_handler(event, context)
+
+
+async def _run_retention():
+    from backend.common.auth import create_auth_provider
+    from backend.common.repositories.factory import get_project_repository
+    from backend.projects.documentation_service import get_documentation_service
+    from backend.projects.results_service import get_results_service
+    from backend.projects.retention import run_retention
+
+    return await run_retention(
+        get_project_repository().table,
+        get_results_service(),
+        get_documentation_service(),
+        create_auth_provider(),
+    )
+
 
 # For testing/debugging
 if __name__ == "__main__":

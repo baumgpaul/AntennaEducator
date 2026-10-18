@@ -3,6 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import LegalLinks from '@/features/legal/LegalLinks';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { registerAsync, clearAuthError } from '@/store/authSlice';
 import { showSuccess } from '@/store/uiSlice';
@@ -219,6 +220,12 @@ function RegisterPage() {
                   Sign in
                 </MuiLink>
               </Typography>
+            </Box>
+            <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 2, textAlign: 'center' }}>
+              By creating an account you confirm that you have read the privacy notice.
+            </Typography>
+            <Box sx={{ mt: 3 }}>
+              <LegalLinks />
             </Box>
           </Box>
         </Paper>

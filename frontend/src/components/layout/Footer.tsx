@@ -1,7 +1,9 @@
-import { Box, Typography, Link } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import LegalLinks from '@/features/legal/LegalLinks';
+import { OPERATOR } from '@/features/legal/operator';
 
 /**
- * Footer component with copyright and links
+ * Footer component with copyright and legal links
  */
 function Footer() {
   const currentYear = new Date().getFullYear();
@@ -22,20 +24,10 @@ function Footer() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          © {currentYear} Antenna Educator. All rights reserved.
+          © {currentYear} {OPERATOR.name} · Antenna Educator · MIT License
         </Typography>
 
-        <div style={{ display: 'flex', gap: '16px' }}>
-          <Link href="#" variant="body2" color="text.secondary" underline="hover">
-            Documentation
-          </Link>
-          <Link href="#" variant="body2" color="text.secondary" underline="hover">
-            Support
-          </Link>
-          <Link href="#" variant="body2" color="text.secondary" underline="hover">
-            About
-          </Link>
-        </div>
+        <LegalLinks />
       </div>
     </Box>
   );
