@@ -14,9 +14,9 @@ from datetime import datetime, timezone
 from typing import Dict, Optional
 
 import boto3
+import jwt
 import requests
 from botocore.exceptions import ClientError
-from jose import JWTError, jwt
 
 from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity, UserRole
 from backend.common.auth.provider import AuthProvider
@@ -104,20 +104,20 @@ class CognitoAuthProvider(AuthProvider):
             raise ValueError("Token must be a non-empty string")
 
         try:
-            signing_key = _get_signing_key(token)
+            signing_key = jwt.PyJWK(_get_signing_key(token), algorithm="RS256")
+            # Access tokens carry no ``aud`` claim, so the audience is checked
+            # below per ``token_use`` instead of by the library.
             payload = jwt.decode(
                 token,
-                signing_key,
+                signing_key.key,
                 algorithms=["RS256"],
-                audience=COGNITO_CLIENT_ID,
                 issuer=ISSUER,
-                options={"verify_at_hash": False},
+                options={"verify_aud": False, "require": ["exp", "iss"]},
             )
-        except JWTError as exc:
+        except (jwt.PyJWTError, ValueError) as exc:
             raise ValueError(f"Invalid Cognito token: {exc}")
 
-        # Access tokens carry no ``aud`` claim (python-jose then skips the
-        # audience check), so the app client must be verified via ``client_id``.
+        # The app client is verified via ``client_id`` (access) or ``aud`` (id).
         # Without this, tokens minted for any other client of the pool pass.
         token_use = payload.get("token_use")
         if token_use == "access":
@@ -226,7 +226,7 @@ class CognitoAuthProvider(AuthProvider):
 
         # Verify user is not locked (check DynamoDB)
         # Decode the ID token to get sub (we now verify properly)
-        id_claims = jwt.get_unverified_claims(auth["IdToken"])
+        id_claims = jwt.decode(auth["IdToken"], options={"verify_signature": False})
         user_sub = id_claims.get("sub")
         if user_sub:
             profile = await self.get_user_profile(user_sub, email_hint=email)

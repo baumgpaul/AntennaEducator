@@ -4,8 +4,8 @@ import os
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+import jwt
 import pytest
-from jose import jwt
 
 from backend.common.auth.local_provider import (
     JWT_ALGORITHM,
@@ -120,7 +120,7 @@ class TestLocalProviderValidateToken:
         provider = LocalAuthProvider()
         token = jwt.encode(
             {"sub": "user-123", "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
-            "wrong-secret",
+            "a-different-secret-that-is-also-32-bytes-long",
             algorithm=JWT_ALGORITHM,
         )
         with pytest.raises(ValueError, match="Invalid token"):

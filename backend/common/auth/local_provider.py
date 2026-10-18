@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import bcrypt
-from jose import JWTError, jwt
+import jwt
 
 from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity, UserRole
 from backend.common.auth.provider import AuthProvider
@@ -95,7 +95,7 @@ class LocalAuthProvider(AuthProvider):
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         except jwt.ExpiredSignatureError:
             raise ValueError("Token expired")
-        except JWTError as exc:
+        except jwt.PyJWTError as exc:
             raise ValueError(f"Invalid token: {exc}")
 
         user_id = payload.get("sub")
