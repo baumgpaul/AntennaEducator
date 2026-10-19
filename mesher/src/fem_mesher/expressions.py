@@ -5,6 +5,8 @@ import math
 import operator
 from typing import Mapping
 
+import numpy as np
+
 Number = float | int
 Expr = Number | str
 
@@ -27,6 +29,17 @@ _FUNCTIONS = {
     "max": max,
 }
 _CONSTANTS = {"pi": math.pi}
+# The same functions, element-wise on arrays (fields over many points)
+_ARRAY_FUNCTIONS = {
+    "sqrt": np.sqrt,
+    "sin": np.sin,
+    "cos": np.cos,
+    "tan": np.tan,
+    "atan2": np.arctan2,
+    "abs": np.abs,
+    "min": np.minimum,
+    "max": np.maximum,
+}
 
 
 class ExpressionError(ValueError):
@@ -47,18 +60,41 @@ def evaluate(expr: Expr, names: Mapping[str, float]) -> float:
         tree = ast.parse(expr.strip(), mode="eval")
     except SyntaxError as e:
         raise ExpressionError(f"Invalid expression {expr!r}: {e.msg}") from None
-    return float(_eval(tree.body, names, expr))
+    return float(_eval(tree.body, names, expr, _FUNCTIONS))
 
 
-def _eval(node: ast.AST, names: Mapping[str, float], source: str) -> float:
+def evaluate_field(
+    expr: Expr, names: Mapping[str, float], x: np.ndarray, y: np.ndarray
+) -> np.ndarray:
+    """Expression evaluated at the points (x, y): parameters plus ``x`` and ``y`` [m].
+
+    E.g. ``"V0*x/w"`` for a potential that varies along a boundary. Returns an
+    array shaped like ``x``.
+    """
+    x = np.asarray(x, dtype=float)
+    if isinstance(expr, bool):
+        raise ExpressionError(f"Not a number: {expr!r}")
+    if isinstance(expr, (int, float)):
+        return np.full_like(x, float(expr))
+    try:
+        tree = ast.parse(expr.strip(), mode="eval")
+    except SyntaxError as e:
+        raise ExpressionError(f"Invalid expression {expr!r}: {e.msg}") from None
+    value = _eval(
+        tree.body, {**names, "x": x, "y": np.asarray(y, dtype=float)}, expr, _ARRAY_FUNCTIONS
+    )
+    return np.broadcast_to(np.asarray(value, dtype=float), x.shape).copy()
+
+
+def _eval(node: ast.AST, names: Mapping, source: str, functions: Mapping):
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return node.value
     if isinstance(node, ast.BinOp) and type(node.op) in _BINARY:
         return _BINARY[type(node.op)](
-            _eval(node.left, names, source), _eval(node.right, names, source)
+            _eval(node.left, names, source, functions), _eval(node.right, names, source, functions)
         )
     if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY:
-        return _UNARY[type(node.op)](_eval(node.operand, names, source))
+        return _UNARY[type(node.op)](_eval(node.operand, names, source, functions))
     if isinstance(node, ast.Name):
         if node.id in names:
             return names[node.id]
@@ -68,10 +104,10 @@ def _eval(node: ast.AST, names: Mapping[str, float], source: str) -> float:
     if (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Name)
-        and node.func.id in _FUNCTIONS
+        and node.func.id in functions
         and not node.keywords
     ):
-        return _FUNCTIONS[node.func.id](*(_eval(a, names, source) for a in node.args))
+        return functions[node.func.id](*(_eval(a, names, source, functions) for a in node.args))
     raise ExpressionError(f"Not allowed in an expression: {source!r}")
 
 

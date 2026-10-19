@@ -7,7 +7,14 @@ from collections import Counter
 
 import numpy as np
 import pytest
-from fem_mesher import ExpressionError, Geometry2D, evaluate, evaluate_parameters, mesh_geometry
+from fem_mesher import (
+    ExpressionError,
+    Geometry2D,
+    evaluate,
+    evaluate_field,
+    evaluate_parameters,
+    mesh_geometry,
+)
 from fem_mesher.__main__ import main
 from pydantic import ValidationError
 
@@ -54,6 +61,17 @@ def test_expressions():
 def test_expressions_reject_anything_but_arithmetic(expr):
     with pytest.raises(ExpressionError):
         evaluate(expr, {"d": 1.0})
+
+
+def test_field_expressions_over_points():
+    x, y = np.array([0.0, 1.0, 2.0]), np.array([0.0, 0.5, 1.0])
+    np.testing.assert_allclose(
+        evaluate_field("E0*x + sqrt(y)", {"E0": 2.0}, x, y), 2 * x + np.sqrt(y)
+    )
+    np.testing.assert_allclose(evaluate_field(3, {}, x, y), [3, 3, 3])
+    np.testing.assert_allclose(evaluate_field("max(x, 1)", {}, x, y), [1, 1, 2])
+    with pytest.raises(ExpressionError):
+        evaluate_field("z", {}, x, y)
 
 
 def test_parameters_only_see_earlier_ones():
@@ -156,6 +174,21 @@ def test_box_selection_names_boundaries():
     assert r.mesh.boundary_length("left") == pytest.approx(1.0)
     assert r.mesh.boundary_length("outer") == pytest.approx(6.0)  # selections may overlap
     assert any("nothing" in w for w in r.warnings)
+
+
+def test_box_drawn_exactly_on_an_edge_selects_it():
+    """The UI selects an edge with a zero-width box; OCC's padded bounding boxes miss it."""
+    g = geo(
+        [rect("plate", 0, 0, 0.1, 0.01), circle("hole", 0.05, 0.005, 0.002)],
+        holes=["hole"],
+        selections=[
+            {"name": "top", "xmin": 0, "ymin": 0.01, "xmax": 0.1, "ymax": 0.01},
+            {"name": "ring", "xmin": 0.048, "ymin": 0.003, "xmax": 0.052, "ymax": 0.007},
+        ],
+    )
+    m = mesh_geometry(g).mesh
+    assert m.boundary_length("top") == pytest.approx(0.1)
+    assert edge_set(m, m.boundaries["ring"]) == edge_set(m, m.boundaries["hole"])
 
 
 def test_fully_covered_domain_warns():

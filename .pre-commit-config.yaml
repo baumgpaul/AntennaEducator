@@ -69,6 +69,14 @@ repos:
         files: ^mesher/
         pass_filenames: false
 
+      # FEM solver subproject (needs: pip install -e "femsolver[dev]")
+      - id: pytest-femsolver
+        name: pytest femsolver
+        language: system
+        entry: python -m pytest femsolver/tests -x -q --tb=line --no-header -p no:cacheprovider
+        files: ^(mesher|femsolver)/
+        pass_filenames: false
+
       # Frontend — ESLint
       - id: frontend-lint
         name: frontend eslint
