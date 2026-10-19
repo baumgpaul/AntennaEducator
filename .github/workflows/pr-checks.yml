@@ -118,3 +118,14 @@ jobs:
       - name: Unit tests
         timeout-minutes: 8
         run: npx vitest run --reporter=dot
+
+      # Features in preview (config/features.ts) must not ship in builds
+      # without their flag: no chunk, no strings, not even in source maps
+      - name: Build without preview flags contains no preview code
+        timeout-minutes: 6
+        run: |
+          VITE_FEATURE_FEM=false npx vite build --outDir /tmp/dist-noflags > /dev/null
+          if grep -rlE 'fem-studio|FEM Studio' /tmp/dist-noflags; then
+            echo "::error::FEM preview code found in a build without VITE_FEATURE_FEM"
+            exit 1
+          fi

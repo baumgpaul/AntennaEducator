@@ -7,6 +7,7 @@ import { LoginPage, RegisterPage, ProtectedRoute, RequireRole } from './features
 import NotFoundPage from './features/common/NotFoundPage';
 import { NotificationManager, SessionManager } from './components/common';
 import ErrorBoundary from './components/ErrorBoundary';
+import RequireFem from './features/auth/RequireFem';
 
 // Route-level code splitting — heavy pages loaded on demand
 const ProjectsPage = lazy(() => import('./features/projects/ProjectsPage'));
@@ -17,6 +18,10 @@ const MySubmissionsPage = lazy(() => import('./features/courses/MySubmissionsPag
 const SubmissionsDashboard = lazy(() => import('./features/courses/SubmissionsDashboard'));
 const SubmissionViewer = lazy(() => import('./features/courses/SubmissionViewer'));
 const LegalPage = lazy(() => import('./features/legal/LegalPage'));
+// Not in the bundle at all unless the deployment enables FEM (config/features.ts).
+// The literal env check (not FEATURE_FEM) is what lets the bundler drop the chunk.
+const FemStudioPage =
+  import.meta.env.VITE_FEATURE_FEM === 'true' ? lazy(() => import('./features/fem/FemStudioPage')) : null;
 
 const Fallback = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -55,6 +60,9 @@ function App() {
           <Route path="/admin" element={<RequireRole role="admin"><ErrorBoundary><Suspense fallback={<Fallback />}><AdminPage /></Suspense></ErrorBoundary></RequireRole>} />
           <Route path="/design" element={<ErrorBoundary><Suspense fallback={<Fallback />}><DesignPage /></Suspense></ErrorBoundary>} />
           <Route path="/project/:projectId/design" element={<ErrorBoundary><Suspense fallback={<Fallback />}><DesignPage /></Suspense></ErrorBoundary>} />
+          {FemStudioPage && (
+            <Route path="/fem" element={<RequireFem><ErrorBoundary><Suspense fallback={<Fallback />}><FemStudioPage /></Suspense></ErrorBoundary></RequireFem>} />
+          )}
         </Route>
 
         {/* 404 catch-all */}

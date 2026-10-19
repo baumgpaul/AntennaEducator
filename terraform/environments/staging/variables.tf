@@ -56,3 +56,14 @@ variable "async_jobs" {
     error_message = "async_jobs must be \"off\" or \"lambda\"."
   }
 }
+
+variable "enable_fem" {
+  description = <<-EOT
+    FEM Studio (preview). false (default): the frontend is built without it —
+    no route, menu or code in the bundle — and no FEM backend is deployed ($0).
+    true: built in, visible to maintainers/admins only. Production stays false
+    until FEM passes its release gate (validated cases, course module, docs, cost).
+  EOT
+  type        = bool
+  default     = false
+}

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import {
   Drawer,
   List,
@@ -19,6 +20,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar } from '@/store/uiSlice';
 import { hasRole } from '@/features/auth/RequireRole';
+
+// Only in builds with the FEM flag (config/features.ts); the literal check lets the bundler drop it
+const FemNavItem =
+  import.meta.env.VITE_FEATURE_FEM === 'true' ? lazy(() => import('@/features/fem/FemNavItem')) : null;
 
 /**
  * Sidebar component with navigation menu and project list
@@ -106,6 +111,11 @@ function Sidebar() {
             </ListItemButton>
           </ListItem>
 
+          {FemNavItem && (
+            <Suspense fallback={null}>
+              <FemNavItem />
+            </Suspense>
+          )}
           {isAdmin && (
             <ListItem disablePadding>
               <ListItemButton

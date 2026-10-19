@@ -543,6 +543,7 @@ module "cicd" {
     VITE_POSTPROCESSOR_URL     = "/svc/postprocessor"
     VITE_API_BEHIND_CLOUDFRONT = "true"
     VITE_ASYNC_JOBS            = var.async_jobs == "lambda" ? "true" : "false"
+    VITE_FEATURE_FEM           = var.enable_fem ? "true" : "false"
     # For the post-deploy smoke test (relative URLs are resolved against it)
     SMOKE_BASE_URL = "https://${var.domain_name}"
     VITE_AUTH_PROVIDER        = "cognito"
