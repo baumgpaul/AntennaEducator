@@ -69,4 +69,25 @@ describe('FEM Studio progress', () => {
     };
     expect(progress(state).notes.mesh).toEqual(['Too fine']);
   });
+
+  it('checks every expression before anything is sent', () => {
+    const model = { ...coax(), mesh: { ...coax().mesh, size: 'b/' } };
+    const p = progress(meshed(model));
+    expect(p.done.has('mesh')).toBe(false);
+    expect(p.notes.mesh?.[0]).toMatch(/max size/);
+
+    const potential = {
+      ...coax(),
+      boundary_conditions: [
+        { type: 'potential' as const, boundary: 'inner', value: 'U*x + V9' },
+        { type: 'ground' as const, boundary: 'outer' },
+      ],
+    };
+    const q = progress(meshed(potential));
+    expect(q.done.has('physics')).toBe(false);
+    expect(q.notes.physics?.join()).toMatch(/potential on inner: Unknown parameter "V9"/);
+
+    const spatial = { ...potential, boundary_conditions: [{ ...potential.boundary_conditions[0], value: 'U*x' }, potential.boundary_conditions[1]] };
+    expect(progress(meshed(spatial)).done.has('physics')).toBe(true); // x and y are allowed there
+  });
 });

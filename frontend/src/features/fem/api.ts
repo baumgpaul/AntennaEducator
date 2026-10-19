@@ -66,7 +66,13 @@ export function femError(error: unknown): { message: string; issues: Issue[] } {
   }
   if (typeof detail === 'string') return { message: detail, issues: [] };
   if (Array.isArray(detail)) {
-    return { message: detail.map((d: { msg?: string }) => d.msg).join('; '), issues: [] };
+    // FastAPI validation errors: say where, e.g. "geometry → mesh → size: Input should be …"
+    const where = (loc: unknown[] = []) =>
+      loc.filter((p) => p !== 'body' && !['rectangle', 'circle', 'polygon'].includes(String(p))).join(' → ');
+    return {
+      message: detail.map((d: { msg?: string; loc?: unknown[] }) => `${where(d.loc)}: ${d.msg}`).join('; '),
+      issues: [],
+    };
   }
   return { message: (error as Error)?.message || 'Request failed', issues: [] };
 }

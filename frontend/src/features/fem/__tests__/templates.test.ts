@@ -20,3 +20,14 @@ describe('FEM templates', () => {
     expect(t.analytic!.value(p, t.model) / expected).toBeCloseTo(1, 12);
   });
 });
+
+describe('femError', () => {
+  it('says where a validation error is', async () => {
+    const { femError } = await import('../api');
+    const error = {
+      details: { detail: [{ loc: ['body', 'geometry', 'shapes', 0, 'rectangle', 'width'], msg: 'Input should be a valid number' }] },
+    };
+    expect(femError(error).message).toBe('geometry → shapes → 0 → width: Input should be a valid number');
+    expect(femError({ details: { detail: { message: 'No ground', issues: [{ step: 'physics' }] } } }).issues).toHaveLength(1);
+  });
+});

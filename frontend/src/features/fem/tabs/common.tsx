@@ -1,5 +1,5 @@
 import { Alert, Stack, TextField, Typography } from '@mui/material';
-import type { Expr } from '../expressions';
+import { parseExprInput, type Expr } from '../expressions';
 
 /** Number or expression of the parameters ("2*d"). */
 export function ExprField({
@@ -21,11 +21,7 @@ export function ExprField({
       label={label}
       value={String(value)}
       helperText={helper}
-      onChange={(e) => {
-        const text = e.target.value;
-        const n = Number(text);
-        onChange(text.trim() !== '' && Number.isFinite(n) ? n : text);
-      }}
+      onChange={(e) => onChange(parseExprInput(e.target.value))}
       sx={{ width }}
       inputProps={{ spellCheck: false }}
     />

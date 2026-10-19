@@ -7,6 +7,7 @@ import type { Issue, MeshData, SolveResult } from './api';
 import { geometryOf, isDirichlet, keyOf, problemOf, type FemModel } from './model';
 import type { FemStepId } from './workflow';
 import { evaluateShapes } from './views/geometryDraw';
+import { evaluateParameters, expressionErrors } from './expressions';
 
 export interface StudioState {
   model: FemModel;
@@ -66,11 +67,30 @@ export function progress(state: StudioState): Progress {
     if (hasFixedPotential && unknown.length === 0 && !attention.has('physics')) done.add('physics');
   }
 
+  // Expressions outside the shapes, checked before anything is sent
+  if (!drawn.error) {
+    const params = evaluateParameters(model.parameters);
+    const meshValues = [
+      { label: 'max size', expr: model.mesh.size },
+      ...Object.entries(model.mesh.domain_sizes).map(([d, e]) => ({ label: `size in ${d}`, expr: e })),
+      ...Object.entries(model.mesh.boundary_sizes).map(([b, e]) => ({ label: `size along ${b}`, expr: e })),
+    ];
+    expressionErrors(meshValues, params).forEach((e) => note('mesh', e));
+    const physicsValues = [
+      ...model.boundary_conditions.flatMap((bc) =>
+        'value' in bc ? [{ label: `${bc.type} on ${bc.boundary}`, expr: bc.value, space: true }] : [],
+      ),
+      ...model.sources.map((src) => ({ label: `ρ in ${src.domain}`, expr: src.value, space: true })),
+    ];
+    expressionErrors(physicsValues, params).forEach((e) => note('physics', e));
+    if (physicsValues.length && attention.has('physics')) done.delete('physics');
+  }
+
   for (const issue of state.issues) {
     if (issue.severity === 'error') note(issue.step, issue.message);
   }
 
-  if (done.has('physics') && mesh && mesh.key === meshKey(model)) done.add('mesh');
+  if (done.has('physics') && !attention.has('mesh') && mesh && mesh.key === meshKey(model)) done.add('mesh');
   if (done.has('mesh') && result && result.key === solveKey(model)) {
     done.add('solve');
     done.add('results');

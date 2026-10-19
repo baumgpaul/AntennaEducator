@@ -126,3 +126,31 @@ export function evaluateParameters(parameters: Record<string, Expr>): Record<str
 export function dependsOnSpace(expr: Expr): boolean {
   return typeof expr === 'string' && /\b[xy]\b/.test(expr);
 }
+
+/**
+ * What the user typed: a number when it is one — also with a decimal comma
+ * ("1,5" → 1.5, the usual way of writing it in German) — else the expression.
+ */
+export function parseExprInput(text: string): Expr {
+  const t = text.trim();
+  const normalized = /^-?\d+,\d+$/.test(t) ? t.replace(',', '.') : t;
+  const n = Number(normalized);
+  return normalized !== '' && Number.isFinite(n) ? n : text;
+}
+
+/** Problems with the expressions of a model, checked before anything is sent. */
+export function expressionErrors(
+  values: { label: string; expr: Expr; space?: boolean }[],
+  parameters: Record<string, number>,
+): string[] {
+  const errors: string[] = [];
+  for (const { label, expr, space } of values) {
+    try {
+      const v = evaluate(expr, space ? { ...parameters, x: 0, y: 0 } : parameters);
+      if (!Number.isFinite(v)) errors.push(`${label}: not a finite number`);
+    } catch (e) {
+      errors.push(`${label}: ${(e as Error).message}`);
+    }
+  }
+  return errors;
+}

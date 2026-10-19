@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { dependsOnSpace, evaluate, evaluateParameters, ExpressionError } from '../expressions';
+import { dependsOnSpace, evaluate, evaluateParameters, ExpressionError, parseExprInput } from '../expressions';
 
 describe('expressions (same language as the backend)', () => {
   it('evaluates arithmetic with Python precedence', () => {
@@ -32,5 +32,14 @@ describe('expressions (same language as the backend)', () => {
     expect(dependsOnSpace('E0*x')).toBe(true);
     expect(dependsOnSpace('max_v')).toBe(false);
     expect(dependsOnSpace(3)).toBe(false);
+  });
+
+  it('reads typed input: numbers (also with a decimal comma) or expressions', () => {
+    expect(parseExprInput('1.5')).toBe(1.5);
+    expect(parseExprInput('1,5')).toBe(1.5);
+    expect(parseExprInput('-0,25')).toBe(-0.25);
+    expect(parseExprInput('max(1,5)')).toBe('max(1,5)'); // a list stays an expression
+    expect(parseExprInput('2*d')).toBe('2*d');
+    expect(parseExprInput('')).toBe('');
   });
 });

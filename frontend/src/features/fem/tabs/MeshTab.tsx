@@ -82,7 +82,7 @@ function MeshTab({ studio }: { studio: FemStudio }) {
               />
             ))}
           </Section>
-          <Button variant="contained" onClick={studio.runMesh} disabled={busy !== null || !progress.done.has('physics')}>
+          <Button variant="contained" onClick={studio.runMesh} disabled={busy !== null || !progress.done.has('physics') || progress.attention.has('mesh')}>
             {busy === 'mesh' ? 'Meshing…' : current ? 'Mesh is up to date' : 'Generate mesh'}
           </Button>
         </Stack>

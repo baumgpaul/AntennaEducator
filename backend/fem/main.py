@@ -11,7 +11,9 @@ import threading
 import time
 
 import numpy as np
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fem_mesher import Geometry2D, Mesh, mesh_geometry
@@ -20,6 +22,7 @@ from fem_mesher.geometry import Circle, Polygon, Rectangle
 from fem_solver import EPSILON_0, Electrostatics, SetupError, check, solve
 from fem_solver.opencfs import export
 from pydantic import BaseModel, ConfigDict
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.common.auth.dependencies import get_current_user
 from backend.common.auth.identity import UserIdentity
@@ -51,6 +54,24 @@ if os.getenv("USE_FUNCTION_URL_CORS", "").lower() != "true":
     )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 install_error_handlers(app)
+
+
+# Why a request was refused, for the logs (location and message only: no values, no tokens)
+@app.exception_handler(RequestValidationError)
+async def _log_invalid_request(request: Request, exc: RequestValidationError):
+    reasons = "; ".join(
+        f"{'.'.join(str(p) for p in e.get('loc', ()))}: {e.get('msg')}" for e in exc.errors()[:5]
+    )
+    logger.info("422 %s: %s", request.url.path, reasons)
+    return await request_validation_exception_handler(request, exc)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _log_refused(request: Request, exc: StarletteHTTPException):
+    if exc.status_code in (401, 403, 422):
+        detail = exc.detail.get("message") if isinstance(exc.detail, dict) else exc.detail
+        logger.info("%s %s: %s", exc.status_code, request.url.path, str(detail)[:300])
+    return await http_exception_handler(request, exc)
 
 
 def preview_user(user: UserIdentity = Depends(get_current_user)) -> UserIdentity:
