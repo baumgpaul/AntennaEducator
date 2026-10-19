@@ -67,3 +67,9 @@ variable "enable_fem" {
   type        = bool
   default     = false
 }
+
+variable "fem_bootstrap" {
+  description = "First FEM rollout only (with enable_fem): create the image repository and enable the fem deploy, but not yet the function (it needs the image). Pass -var fem_bootstrap=true once, see fem.tf."
+  type        = bool
+  default     = false
+}

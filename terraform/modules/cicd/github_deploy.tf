@@ -16,6 +16,7 @@ resource "aws_ssm_parameter" "deploy_config" {
     s3_frontend_bucket         = var.s3_frontend_bucket
     cloudfront_distribution_id = var.cloudfront_distribution_id
     aws_account_id             = var.aws_account_id
+    optional_services          = var.optional_services
   })
   tags = var.tags
 }

@@ -53,3 +53,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "optional_services" {
+  description = "Optional Lambda services enabled in this environment (e.g. [\"fem\"]); the deploy job skips the others"
+  type        = list(string)
+  default     = []
+}

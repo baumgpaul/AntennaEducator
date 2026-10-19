@@ -99,7 +99,7 @@ jobs:
           DEPLOY_ALL: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_all }}
         run: |
           if [ "$DEPLOY_ALL" = "true" ]; then
-            echo "services=preprocessor solver postprocessor projects" >> "$GITHUB_OUTPUT"
+            echo "services=preprocessor solver postprocessor projects fem" >> "$GITHUB_OUTPUT"
             echo "frontend=true" >> "$GITHUB_OUTPUT"
           else
             git diff --name-only "${BASE_SHA:-HEAD~1}" HEAD | python3 dev_tools/ci_changed_targets.py >> "$GITHUB_OUTPUT"
@@ -136,6 +136,8 @@ jobs:
           print(f"S3_FRONTEND_BUCKET={cfg['s3_frontend_bucket']}")
           print(f"CLOUDFRONT_DISTRIBUTION_ID={cfg['cloudfront_distribution_id']}")
           print(f"AWS_ACCOUNT_ID={cfg['aws_account_id']}")
+          # Optional services (e.g. fem with enable_fem) deploy only where enabled
+          print(f"OPTIONAL_ENABLED={' '.join(cfg.get('optional_services', []))}")
           PY
 
       - name: Log in to ECR
@@ -154,9 +156,14 @@ jobs:
         env:
           SERVICES: ${{ steps.targets.outputs.services }}
         run: |
+          OPTIONAL="$(python3 -c 'import sys; sys.path.insert(0, "dev_tools"); import ci_changed_targets as t; print(" ".join(t.OPTIONAL))')"
           for SERVICE in $SERVICES; do
             REPO="antenna-simulator-${SERVICE}-${ENVIRONMENT}"
             IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPO}:latest"
+            if [[ " $OPTIONAL " == *" $SERVICE "* && " $OPTIONAL_ENABLED " != *" $SERVICE "* ]]; then
+              echo "::notice::${SERVICE}: not enabled in ${ENVIRONMENT} (deploy config optional_services), skipped"
+              continue
+            fi
             echo "::group::${SERVICE}"
             # provenance=false: Lambda rejects OCI image indexes with attestations
             docker buildx build \
@@ -165,8 +172,14 @@ jobs:
               --cache-from "type=gha,scope=${SERVICE}" \
               --cache-to "type=gha,mode=min,scope=${SERVICE}" \
               -t "$IMAGE_URI" --push .
-            aws lambda update-function-code --function-name "$REPO" --image-uri "$IMAGE_URI" > /dev/null
-            aws lambda wait function-updated --function-name "$REPO"
+            if aws lambda get-function --function-name "$REPO" > /dev/null 2>&1; then
+              aws lambda update-function-code --function-name "$REPO" --image-uri "$IMAGE_URI" > /dev/null
+              aws lambda wait function-updated --function-name "$REPO"
+              echo "DEPLOYED_$(echo "$SERVICE" | tr a-z A-Z)=true" >> "$GITHUB_ENV"  # smoke-test it
+            else
+              # First rollout of a new service: the function needs the image to exist
+              echo "::notice::${SERVICE}: image pushed; terraform apply creates the function"
+            fi
             echo "::endgroup::"
           done
 

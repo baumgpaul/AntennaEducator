@@ -215,12 +215,12 @@ module "cloudfront" {
   price_class = "PriceClass_100"  # North America + Europe (cheapest)
 
   # API behind CloudFront: same-origin /svc/<service>/* for the SPA
-  api_origins = {
+  api_origins = merge({
     projects      = module.lambda_projects.function_url
     preprocessor  = module.lambda_preprocessor.function_url
     solver        = module.lambda_solver.function_url
     postprocessor = module.lambda_postprocessor.function_url
-  }
+  }, local.fem_function ? { fem = module.lambda_fem[0].function_url } : {})
   api_origin_signing = var.api_origin_signing
 
   tags = {
@@ -232,12 +232,12 @@ module "cloudfront" {
 
 # Stage B: only this distribution may invoke the Function URLs
 locals {
-  api_lambda_names = var.api_origin_signing ? {
+  api_lambda_names = var.api_origin_signing ? merge({
     projects      = module.lambda_projects.function_name
     preprocessor  = module.lambda_preprocessor.function_name
     solver        = module.lambda_solver.function_name
     postprocessor = module.lambda_postprocessor.function_name
-  } : {}
+  }, local.fem_function ? { fem = module.lambda_fem[0].function_name } : {}) : {}
 }
 
 resource "aws_lambda_permission" "cloudfront_invoke_url" {
@@ -533,6 +533,9 @@ module "cicd" {
   cloudfront_distribution_id = module.cloudfront.distribution_id
 
   # Frontend build config (public client-side identifiers, kept out of git)
+  # Deployed only where enabled (aws-build-and-merge.yml skips the others)
+  optional_services = local.fem ? ["fem"] : []
+
   frontend_build_env = {
     # Same-origin API paths through CloudFront (see module "cloudfront")
     VITE_API_BASE_URL          = "/svc/projects"
@@ -544,6 +547,7 @@ module "cicd" {
     VITE_API_BEHIND_CLOUDFRONT = "true"
     VITE_ASYNC_JOBS            = var.async_jobs == "lambda" ? "true" : "false"
     VITE_FEATURE_FEM           = var.enable_fem ? "true" : "false"
+    VITE_FEM_URL               = "/svc/fem"
     # For the post-deploy smoke test (relative URLs are resolved against it)
     SMOKE_BASE_URL = "https://${var.domain_name}"
     VITE_AUTH_PROVIDER        = "cognito"
