@@ -13,9 +13,11 @@ Prints: services=<space-separated list>  and  frontend=true|false
 import sys
 from typing import Iterable, List, Set, Tuple
 
-SERVICES = ("preprocessor", "solver", "postprocessor", "projects")
+SERVICES = ("preprocessor", "solver", "postprocessor", "projects", "fem")
 SHARED = ("requirements-lambda.txt", "backend/__init__.py", "backend/common/")
-EXTRA = {"backend/auth/": "projects"}
+EXTRA = {"backend/auth/": "projects", "mesher/": "fem", "femsolver/": "fem"}
+# Deployed only where enabled (deploy config "optional_services", e.g. enable_fem)
+OPTIONAL = ("fem",)
 
 
 def targets(paths: Iterable[str]) -> Tuple[List[str], bool]:

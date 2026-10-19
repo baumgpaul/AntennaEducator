@@ -73,8 +73,8 @@ repos:
       - id: pytest-femsolver
         name: pytest femsolver
         language: system
-        entry: python -m pytest femsolver/tests -x -q --tb=line --no-header -p no:cacheprovider
-        files: ^(mesher|femsolver)/
+        entry: python -m pytest femsolver/tests tests/fem -x -q --tb=line --no-header -p no:cacheprovider
+        files: ^(mesher|femsolver|backend/fem|tests/fem)/
         pass_filenames: false
 
       # Frontend — ESLint

@@ -90,6 +90,8 @@ PREPROCESSOR = _service_url("PREPROCESSOR")
 SOLVER = _service_url("SOLVER")
 POSTPROCESSOR = _service_url("POSTPROCESSOR")
 PROJECTS = _service_url("PROJECTS")
+# Optional: only where FEM Studio is enabled (terraform enable_fem sets VITE_FEM_URL)
+FEM = _service_url("FEM") if (os.getenv("FEM_URL") or os.getenv("VITE_FEM_URL")) else ""
 
 _missing = [
     n
@@ -121,6 +123,7 @@ def main():
         ("solver", SOLVER),
         ("postprocessor", POSTPROCESSOR),
         ("projects", PROJECTS),
+        *([("fem", FEM)] if FEM else []),
     ]:
         try:
             r = requests.get(f"{url}/health", timeout=30)
