@@ -14,7 +14,7 @@ from .mesh import Mesh
 # Gmsh element types: 3/6-node triangles, 2/3-node lines
 _TRIANGLE = {1: 2, 2: 9}
 _LINE = {1: 1, 2: 8}
-_BOX_TOLERANCE = 1e-9
+_BOX_TOLERANCE = 1e-9  # relative to the model size
 
 
 @dataclass
@@ -81,9 +81,10 @@ def mesh_geometry(geometry: Geometry2D, msh_path: str | Path | None = None) -> M
                 warnings.append(f"Domain {n!r} is completely covered by later shapes or holes")
 
         boundary_curves = _classify_curves(owner, names, hole_curves)
+        tolerance = _BOX_TOLERANCE * _model_size()
         for sel in geometry.selections:
             box = [ev(sel.xmin), ev(sel.ymin), ev(sel.xmax), ev(sel.ymax)]
-            curves = [c for c in _meshed_curves() if _inside(gmsh.model.getBoundingBox(1, c), box)]
+            curves = [c for c in _meshed_curves() if _curve_inside(c, box, tolerance)]
             if curves:
                 boundary_curves[sel.name] = curves
             else:
@@ -151,10 +152,23 @@ def _classify_curves(owner, names, hole_curves) -> dict[str, list[int]]:
     return result
 
 
-def _inside(bbox, box) -> bool:
-    xmin, ymin, _, xmax, ymax, _ = bbox
-    t = _BOX_TOLERANCE
-    return xmin >= box[0] - t and ymin >= box[1] - t and xmax <= box[2] + t and ymax <= box[3] + t
+def _model_size() -> float:
+    xmin, ymin, _, xmax, ymax, _ = gmsh.model.getBoundingBox(-1, -1)
+    return max(xmax - xmin, ymax - ymin, 1e-300)
+
+
+def _curve_inside(curve: int, box, tolerance: float) -> bool:
+    """All of the curve inside the box. Sampled on the curve itself: OpenCASCADE
+    pads bounding boxes (~1e-7), which would miss a box drawn exactly on an edge."""
+    lo, hi = gmsh.model.getParametrizationBounds(1, curve)
+    xyz = np.reshape(gmsh.model.getValue(1, curve, np.linspace(lo[0], hi[0], 17)), (-1, 3))
+    x, y = xyz[:, 0], xyz[:, 1]
+    return bool(
+        (x >= box[0] - tolerance).all()
+        and (y >= box[1] - tolerance).all()
+        and (x <= box[2] + tolerance).all()
+        and (y <= box[3] + tolerance).all()
+    )
 
 
 def _apply_sizes(geometry: Geometry2D, ev, domain_surfaces, boundary_curves) -> None:
