@@ -113,7 +113,7 @@ jobs:
           sudo apt-get install -y -qq libglu1-mesa libxcursor1 libxinerama1 libxft2 > /dev/null
 
       - name: Install
-        run: pip install -e ".[dev]" -e "mesher[dev]" -e "femsolver[dev]" --quiet
+        run: pip install -e ".[dev,aws]" -e "mesher[dev]" -e "femsolver[dev]" --quiet  # aws: boto3 for backend/common
 
       - name: Mesher tests
         run: pytest -q mesher/tests
