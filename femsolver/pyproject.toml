@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fem-solver"
+version = "0.1.0"
+description = "Transparent finite element solver for teaching (2D electrostatics first) with openCFS export"
+requires-python = ">=3.11"
+dependencies = ["fem-mesher", "numpy>=1.24", "scipy>=1.10", "pydantic>=2.5"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
