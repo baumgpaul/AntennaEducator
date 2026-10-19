@@ -7,12 +7,13 @@
 # ECR storage of one ~1 GB image ≈ $0.10/month.
 #
 # First rollout in an environment (an image Lambda needs its image to exist):
-#   1. terraform apply -target=module.ecr_fem       (repository)
+#   1. terraform apply -var fem_bootstrap=true  (repository + deploy config only)
 #   2. deploy (GitHub Actions pushes the fem image; the function does not exist yet)
-#   3. terraform apply                               (function, CloudFront route, deploy config)
+#   3. terraform apply                          (function and CloudFront route)
 
 locals {
-  fem = var.enable_fem
+  fem          = var.enable_fem
+  fem_function = var.enable_fem && !var.fem_bootstrap
 }
 
 module "ecr_fem" {
@@ -29,7 +30,7 @@ module "ecr_fem" {
 }
 
 module "lambda_fem" {
-  count  = local.fem ? 1 : 0
+  count  = local.fem_function ? 1 : 0
   source = "../../modules/lambda"
 
   function_name = "antenna-simulator-fem-${var.environment}"

@@ -220,7 +220,7 @@ module "cloudfront" {
     preprocessor  = module.lambda_preprocessor.function_url
     solver        = module.lambda_solver.function_url
     postprocessor = module.lambda_postprocessor.function_url
-  }, local.fem ? { fem = module.lambda_fem[0].function_url } : {})
+  }, local.fem_function ? { fem = module.lambda_fem[0].function_url } : {})
   api_origin_signing = var.api_origin_signing
 
   tags = {
@@ -237,7 +237,7 @@ locals {
     preprocessor  = module.lambda_preprocessor.function_name
     solver        = module.lambda_solver.function_name
     postprocessor = module.lambda_postprocessor.function_name
-  }, local.fem ? { fem = module.lambda_fem[0].function_name } : {}) : {}
+  }, local.fem_function ? { fem = module.lambda_fem[0].function_name } : {}) : {}
 }
 
 resource "aws_lambda_permission" "cloudfront_invoke_url" {

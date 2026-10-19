@@ -90,8 +90,8 @@ PREPROCESSOR = _service_url("PREPROCESSOR")
 SOLVER = _service_url("SOLVER")
 POSTPROCESSOR = _service_url("POSTPROCESSOR")
 PROJECTS = _service_url("PROJECTS")
-# Optional: only where FEM Studio is enabled (terraform enable_fem sets VITE_FEM_URL)
-FEM = _service_url("FEM") if (os.getenv("FEM_URL") or os.getenv("VITE_FEM_URL")) else ""
+# Optional: only where the FEM function exists (the deploy job sets DEPLOYED_FEM)
+FEM = _service_url("FEM") if (os.getenv("FEM_URL") or os.getenv("DEPLOYED_FEM") == "true") else ""
 
 _missing = [
     n

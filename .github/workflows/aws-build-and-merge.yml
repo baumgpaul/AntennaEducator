@@ -175,6 +175,7 @@ jobs:
             if aws lambda get-function --function-name "$REPO" > /dev/null 2>&1; then
               aws lambda update-function-code --function-name "$REPO" --image-uri "$IMAGE_URI" > /dev/null
               aws lambda wait function-updated --function-name "$REPO"
+              echo "DEPLOYED_$(echo "$SERVICE" | tr a-z A-Z)=true" >> "$GITHUB_ENV"  # smoke-test it
             else
               # First rollout of a new service: the function needs the image to exist
               echo "::notice::${SERVICE}: image pushed; terraform apply creates the function"
