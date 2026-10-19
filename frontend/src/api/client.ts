@@ -109,7 +109,7 @@ const refreshAccessToken = async (): Promise<string> => {
 }
 
 // Create base Axios instance
-const createApiClient = (baseURL: string): AxiosInstance => {
+export const createApiClient = (baseURL: string): AxiosInstance => {
   const instance = axios.create({
     baseURL,
     timeout: 300000, // 5 minutes (solver/postprocessor can take time)

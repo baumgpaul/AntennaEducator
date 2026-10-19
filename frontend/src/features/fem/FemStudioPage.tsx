@@ -1,14 +1,22 @@
 import { useMemo, useState } from 'react';
-import { Box, Button, Chip, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Box, Button, Chip, IconButton, Paper, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
 import {
+  ArrowForward,
   CheckCircle,
+  Close,
   ErrorOutline,
   Lock,
   RadioButtonUnchecked,
-  ArrowForward,
   School,
 } from '@mui/icons-material';
 import { FEM_STEPS, nextStep, stepStatuses, type FemStepId, type FemStepStatus } from './workflow';
+import { useFemStudio } from './useFemStudio';
+import GeometryTab from './tabs/GeometryTab';
+import MaterialsTab from './tabs/MaterialsTab';
+import PhysicsTab from './tabs/PhysicsTab';
+import MeshTab from './tabs/MeshTab';
+import SolveTab from './tabs/SolveTab';
+import ResultsTab from './tabs/ResultsTab';
 
 const STATUS_ICON: Record<FemStepStatus, JSX.Element> = {
   done: <CheckCircle color="success" fontSize="small" />,
@@ -24,31 +32,51 @@ const STATUS_TEXT: Record<FemStepStatus, string> = {
   locked: 'locked: finish the previous steps first',
 };
 
+const TAB_CONTENT = {
+  geometry: GeometryTab,
+  materials: MaterialsTab,
+  physics: PhysicsTab,
+  mesh: MeshTab,
+  solve: SolveTab,
+  results: ResultsTab,
+} satisfies Record<FemStepId, unknown>;
+
 /**
- * FEM Studio (preview, behind VITE_FEATURE_FEM): the FEM workflow as tabs,
- * each with a Learn panel. Phase 0 is the shell; the steps are filled in by
- * the following phases.
+ * FEM Studio (preview, behind VITE_FEATURE_FEM): the FEM workflow as tabs.
+ * Each tab shows its status; a Learn panel explains what the step means.
  */
 function FemStudioPage() {
+  const studio = useFemStudio();
   const [active, setActive] = useState<FemStepId>('geometry');
-  // Nothing is modelled yet: the first step is open, the others are locked
-  const statuses = useMemo(() => stepStatuses(new Set()), []);
+  const [learnOpen, setLearnOpen] = useState(true);
+  const { progress } = studio;
+  const statuses = useMemo(() => stepStatuses(progress.done, progress.attention), [progress]);
   const step = FEM_STEPS.find((s) => s.id === active)!;
   const next = nextStep(statuses);
+  const Content = TAB_CONTENT[active];
 
   return (
-    <Box data-testid="fem-studio" sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2, gap: 2 }}>
+    <Box data-testid="fem-studio" sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2, gap: 1.5 }}>
       <Stack direction="row" alignItems="center" spacing={1}>
         <Typography variant="h5">FEM Studio</Typography>
         <Chip label="Preview" color="warning" size="small" />
+        <Typography color="text.secondary" sx={{ ml: 1 }}>
+          {studio.model.name} · 2D electrostatics
+        </Typography>
+        <Box sx={{ flex: 1 }} />
+        {next && next !== active && (
+          <Button endIcon={<ArrowForward />} onClick={() => setActive(next)}>
+            Next: {FEM_STEPS.find((s) => s.id === next)!.label}
+          </Button>
+        )}
+        {!learnOpen && (
+          <Button startIcon={<School />} onClick={() => setLearnOpen(true)}>
+            Learn
+          </Button>
+        )}
       </Stack>
 
-      <Tabs
-        value={active}
-        onChange={(_, value: FemStepId) => setActive(value)}
-        variant="scrollable"
-        aria-label="FEM workflow steps"
-      >
+      <Tabs value={active} onChange={(_, v: FemStepId) => setActive(v)} variant="scrollable" aria-label="FEM workflow steps">
         {FEM_STEPS.map((s, i) => (
           <Tab
             key={s.id}
@@ -62,36 +90,41 @@ function FemStudioPage() {
       </Tabs>
 
       <Box sx={{ display: 'flex', flex: 1, gap: 2, minHeight: 0 }}>
-        <Paper variant="outlined" sx={{ flex: 1, p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="h6">{step.label}</Typography>
-          <Typography color="text.secondary">{step.summary}</Typography>
-          {statuses[step.id] === 'locked' && (
-            <Typography color="text.secondary">
-              This step opens once {step.requires.map((r) => FEM_STEPS.find((s) => s.id === r)!.label).join(', ')}{' '}
-              is complete.
-            </Typography>
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+          {statuses[active] === 'locked' ? (
+            <Paper variant="outlined" sx={{ p: 3 }}>
+              <Typography variant="h6">{step.label}</Typography>
+              <Typography color="text.secondary">{step.summary}</Typography>
+              <Typography color="text.secondary" sx={{ mt: 1 }}>
+                This step opens once{' '}
+                {step.requires.map((r) => FEM_STEPS.find((s) => s.id === r)!.label).join(', ')} is complete.
+              </Typography>
+            </Paper>
+          ) : (
+            <Content studio={studio} />
           )}
-          <Box sx={{ flex: 1 }} />
-          {next && next !== active && (
-            <Box>
-              <Button endIcon={<ArrowForward />} onClick={() => setActive(next)}>
-                Next: {FEM_STEPS.find((s) => s.id === next)!.label}
-              </Button>
-            </Box>
-          )}
-        </Paper>
+        </Box>
 
-        <Paper variant="outlined" sx={{ width: 340, p: 2, overflow: 'auto' }} aria-label="Learn">
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-            <School fontSize="small" color="primary" />
-            <Typography variant="subtitle1">Learn: {step.label}</Typography>
-          </Stack>
-          {step.learn.map((paragraph) => (
-            <Typography key={paragraph} variant="body2" paragraph>
-              {paragraph}
-            </Typography>
-          ))}
-        </Paper>
+        {learnOpen && (
+          <Paper variant="outlined" sx={{ width: 320, p: 2, overflow: 'auto' }} aria-label="Learn">
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+              <School fontSize="small" color="primary" />
+              <Typography variant="subtitle1" sx={{ flex: 1 }}>
+                Learn: {step.label}
+              </Typography>
+              <Tooltip title="Hide">
+                <IconButton size="small" aria-label="Hide the Learn panel" onClick={() => setLearnOpen(false)}>
+                  <Close fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+            {step.learn.map((paragraph) => (
+              <Typography key={paragraph} variant="body2" paragraph>
+                {paragraph}
+              </Typography>
+            ))}
+          </Paper>
+        )}
       </Box>
     </Box>
   );
