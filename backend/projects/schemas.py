@@ -11,7 +11,7 @@ Changes from v1:
 
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -223,6 +223,9 @@ class ProjectBase(BaseModel):
     """Fields shared by create / update / response."""
 
     name: str = Field(..., min_length=3, max_length=100)
+    kind: Literal["peec", "fem"] = Field(
+        "peec", description="Simulation method, fixed at creation: antenna (PEEC) or FEM"
+    )
     description: Optional[str] = Field(
         None,
         max_length=5000,
@@ -305,6 +308,7 @@ class ProjectListResponse(BaseModel):
     id: str
     user_id: str
     name: str
+    kind: Literal["peec", "fem"] = "peec"
     description: Optional[str] = None
     folder_id: Optional[str] = None
     source_project_id: Optional[str] = None

@@ -63,6 +63,9 @@ function App() {
           {FemStudioPage && (
             <Route path="/fem" element={<RequireFem><ErrorBoundary><Suspense fallback={<Fallback />}><FemStudioPage /></Suspense></ErrorBoundary></RequireFem>} />
           )}
+          {FemStudioPage && (
+            <Route path="/project/:projectId/fem" element={<RequireFem><ErrorBoundary><Suspense fallback={<Fallback />}><FemStudioPage /></Suspense></ErrorBoundary></RequireFem>} />
+          )}
         </Route>
 
         {/* 404 catch-all */}

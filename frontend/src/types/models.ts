@@ -211,6 +211,8 @@ export interface SolverResult {
 export interface Project {
   id: string | number
   name: string
+  /** Simulation method, fixed at creation (missing on old projects: peec) */
+  kind?: 'peec' | 'fem'
   description?: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   design_state?: Record<string, any>

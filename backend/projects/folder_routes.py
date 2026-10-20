@@ -585,6 +585,7 @@ async def _deep_copy_project(
         description=original.get("description", ""),
         folder_id=target_folder_id,
         source_project_id=original["id"] if link_to_original else original.get("source_project_id"),
+        kind=original.get("kind", "peec"),
     )
 
     # Copy all JSON blobs (including simulation_results).
