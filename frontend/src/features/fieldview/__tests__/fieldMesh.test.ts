@@ -79,8 +79,8 @@ describe('fitView', () => {
     expect(v.up).toEqual([0, 1, 0]);
     expect(v.position[2]).toBeGreaterThan(0);
     expect([v.position[0], v.position[1]]).toEqual([v.target[0], v.target[1]]);
-    // wide mesh: limited by the 500 px left of the 140 px colour scale
-    expect(v.zoom).toBeCloseTo((0.9 * 500) / 2);
+    // wide mesh: limited by the 544 px left of the 96 px colour scale
+    expect(v.zoom).toBeCloseTo((0.9 * 544) / 2);
     // shifted so the mesh is centred in the free part, not under the scale
     expect(v.target[0]).toBeGreaterThan(1);
   });

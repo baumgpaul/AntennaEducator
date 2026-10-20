@@ -1,4 +1,4 @@
-import { Alert, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Stack, TextField } from '@mui/material';
 import { parseExprInput, type Expr } from '../expressions';
 
 /** Number or expression of the parameters ("2*d"). */
@@ -39,17 +39,6 @@ export function StepNotes({ notes, error }: { notes?: string[]; error?: string |
           {n}
         </Alert>
       ))}
-    </Stack>
-  );
-}
-
-export function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Stack spacing={1}>
-      <Typography variant="subtitle2" color="text.secondary">
-        {title}
-      </Typography>
-      {children}
     </Stack>
   );
 }

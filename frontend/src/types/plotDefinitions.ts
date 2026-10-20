@@ -47,7 +47,9 @@ export interface FieldPlotQuantity {
     | 'Hz'
     | 'Hr'
     | 'Htheta'
-    | 'Hphi';
+    | 'Hphi'
+    /** Electrostatic potential (field solver line probes) */
+    | 'potential';
 }
 
 /** Far-field radiation quantities — typically vs. angle. */

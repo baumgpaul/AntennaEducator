@@ -10,7 +10,8 @@ interface Props {
   onSelect?: (name: string) => void;
   /** Colour per shape name (e.g. by material); default: by shape order */
   fill?: Record<string, string>;
-  height?: number;
+  /** Pixels, or 'fill' to take the height of the parent (a flex column) */
+  height?: number | 'fill';
 }
 
 /** The geometry as drawn: later shapes on top (they win where shapes overlap), holes hatched. */
@@ -22,10 +23,10 @@ function GeometryView({ shapes, bounds, holes, selected, onSelect, fill, height 
   const stroke = Math.max(w, h) / 400;
 
   return (
-    <Box sx={{ position: 'relative' }}>
+    <Box sx={{ position: 'relative', ...(height === 'fill' ? { flex: 1, minHeight: 0 } : {}) }}>
       <svg
         viewBox={vb.join(' ')}
-        style={{ width: '100%', height, background: 'var(--mui-palette-background-default, #fafafa)' }}
+        style={{ width: '100%', height: height === 'fill' ? '100%' : height, display: 'block', background: 'var(--mui-palette-background-default, #fafafa)' }}
         role="img"
         aria-label="Geometry"
       >

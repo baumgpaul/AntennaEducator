@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Box, Snackbar, Alert, IconButton, Tooltip, Button } from '@mui/material';
-import { Description as DescriptionIcon, Lock as LockIcon, ArrowBack as BackIcon, ArrowForward } from '@mui/icons-material';
+import { Box, Snackbar, Alert, Button } from '@mui/material';
+import { Lock as LockIcon, ArrowBack as BackIcon } from '@mui/icons-material';
 import { debounce } from 'lodash';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -50,7 +50,7 @@ import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
 import CircuitTab from './CircuitTab';
 import { PEEC_STEPS, peecProgress, type PeecStepId } from './peecSteps';
-import WorkflowTabs from '@/features/workflow/WorkflowTabs';
+import WorkflowBar from '@/features/workflow/WorkflowBar';
 import SidePanel, { type SidePanelTab } from '@/features/workflow/SidePanel';
 import LockedStep from '@/features/workflow/LockedStep';
 import { nextStep, stepStatuses } from '@/features/workflow/steps';
@@ -1012,31 +1012,16 @@ function DesignPage() {
         </Alert>
       )}
       {/* Tab Navigation */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', backgroundColor: 'background.paper', display: 'flex', alignItems: 'center' }}>
-        <WorkflowTabs
-          steps={PEEC_STEPS}
-          statuses={stepStatus}
-          active={currentTab}
-          onChange={handleTabChange}
-          notes={peec.notes}
-          sx={{ flex: 1 }}
-        />
-        {next && next !== currentTab && (
-          <Button size="small" endIcon={<ArrowForward />} onClick={() => handleTabChange(next)} sx={{ mr: 1 }}>
-            Next: {PEEC_STEPS.find((s) => s.id === next)!.label}
-          </Button>
-        )}
-        <Tooltip title={docPanelOpen ? 'Hide Documentation' : 'Show Documentation'}>
-          <IconButton
-            size="small"
-            onClick={() => dispatch(toggleDocPanel())}
-            color={docPanelOpen ? 'primary' : 'default'}
-            sx={{ mr: 1 }}
-          >
-            <DescriptionIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Box>
+      <WorkflowBar
+        steps={PEEC_STEPS}
+        statuses={stepStatus}
+        active={currentTab}
+        onChange={handleTabChange}
+        notes={peec.notes}
+        next={next}
+        panelOpen={docPanelOpen}
+        onTogglePanel={() => dispatch(toggleDocPanel())}
+      />
 
       {/* Tab Content + Documentation Panel */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
