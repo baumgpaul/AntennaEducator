@@ -29,6 +29,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { FolderTreeNode } from '@/store/foldersSlice';
 import type { Project } from '@/types/models';
+import { projectPath } from '@/utils/projectPath';
 
 interface ProjectTreeViewProps {
   folderTree: FolderTreeNode[];
@@ -69,7 +70,7 @@ function ProjectTreeView({
 
   const handleOpenProject = (project: Project) => {
     if (copyOnly) return;
-    navigate(`/project/${project.id}/design`);
+    navigate(projectPath(project));
   };
 
   const openMenu = (event: React.MouseEvent<HTMLElement>, project: Project) => {
@@ -223,7 +224,7 @@ function ProjectTreeView({
             <MenuItem
               key="open"
               onClick={() => {
-                if (menuProject) navigate(`/project/${menuProject.id}/design`);
+                if (menuProject) navigate(projectPath(menuProject));
                 closeMenu();
               }}
             >

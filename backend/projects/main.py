@@ -212,6 +212,9 @@ async def create_project(
 ):
     # When creating inside a course folder, store under the course owner's PK
     # so list_course_projects (which queries by folder owner_id) can find it.
+    if data.kind == "fem" and not user.is_maintainer:
+        # FEM Studio is a preview (frontend: config/features.ts)
+        raise HTTPException(status_code=403, detail="FEM projects are a preview for maintainers")
     owner_id = user.id
     folder_id = getattr(data, "folder_id", None)
     folder = await _authorize_target_folder(folder_id, user)
@@ -223,6 +226,7 @@ async def create_project(
         name=data.name,
         description=data.description,
         folder_id=folder_id,
+        kind=data.kind,
     )
 
     # Set optional JSON blobs if provided on create

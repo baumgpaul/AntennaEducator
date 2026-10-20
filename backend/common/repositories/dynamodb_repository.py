@@ -84,6 +84,7 @@ class DynamoDBProjectRepository(ProjectRepository):
         description: Optional[str] = None,
         folder_id: Optional[str] = None,
         source_project_id: Optional[str] = None,
+        kind: str = "peec",
     ) -> Dict[str, Any]:
         project_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
@@ -97,6 +98,7 @@ class DynamoDBProjectRepository(ProjectRepository):
             "ProjectId": project_id,
             "UserId": user_id,
             "Name": name,
+            "Kind": kind,  # simulation method: peec | fem (fixed at creation)
             "Description": description or "",
             "FolderId": folder_id or "",
             "DesignState": {},
@@ -276,6 +278,8 @@ class DynamoDBProjectRepository(ProjectRepository):
             "id": pick("ProjectId", "project_id"),
             "user_id": pick("UserId", "user_id"),
             "name": pick("Name", "name", default=""),
+            # projects from before FEM have no Kind: they are antenna (PEEC) projects
+            "kind": pick("Kind", "kind", default="peec"),
             "description": pick("Description", "description", default=""),
             "design_state": _from_dynamodb(pick("DesignState", "design_state", default={})),
             "simulation_config": _from_dynamodb(

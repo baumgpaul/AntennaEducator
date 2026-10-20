@@ -57,6 +57,7 @@ import { FolderDialog } from '@/components/common';
 import NewProjectDialog from '@/features/projects/NewProjectDialog';
 import { formatErrorMessage } from '@/utils/errors';
 import { hasRole } from '@/features/auth/RequireRole';
+import { projectPath } from '@/utils/projectPath';
 
 /**
  * CoursesPage — Browse and copy public courses.
@@ -185,7 +186,7 @@ function CoursesPage() {
   // ── Course project actions (maintainers) ──────────────────────────────
 
   const handleEditProject = (project: ProjectListItem) => {
-    navigate(`/project/${project.id}/design`);
+    navigate(projectPath(project));
   };
 
   const handleDeleteProject = async (project: ProjectListItem) => {

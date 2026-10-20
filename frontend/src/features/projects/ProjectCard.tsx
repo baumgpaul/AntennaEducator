@@ -25,6 +25,7 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Project } from '@/types/models';
+import { projectPath } from '@/utils/projectPath';
 
 interface ProjectCardProps {
   project: Project;
@@ -55,7 +56,7 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, onReset, 
 
   const handleOpen = () => {
     if (copyOnly) return;
-    navigate(`/project/${project.id}/design`);
+    navigate(projectPath(project));
   };
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -119,6 +120,9 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, onReset, 
             <Typography variant="h6" component="h3" noWrap>
               {project.name}
             </Typography>
+            {project.kind === 'fem' && (
+              <Chip label="FEM" size="small" color="secondary" variant="outlined" sx={{ mt: 0.5, mr: 0.5, height: 22, fontSize: '0.7rem' }} />
+            )}
             {copyOnly && (
               <Chip
                 icon={<LockIcon sx={{ fontSize: '0.8rem !important' }} />}

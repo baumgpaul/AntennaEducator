@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getProject, updateProject } from '@/api/projects';
 import { femError, meshModel, solveModel, exportOpenCfs, type Issue } from './api';
 import { EMPTY_MODEL, type FemModel } from './model';
 import { meshKey, progress, shapesKey, solveKey, type StudioState } from './studioState';
 
 const STORAGE_KEY = 'fem-studio-model';
+const SAVE_DELAY_MS = 1000;
+
+export type SaveStatus = 'loading' | 'saved' | 'saving' | 'unsaved' | 'error' | 'draft';
 
 function loadDraft(): FemModel {
   try {
@@ -18,19 +22,79 @@ function loadDraft(): FemModel {
   return EMPTY_MODEL;
 }
 
-/** Model, results and actions of FEM Studio. The model is kept as a draft in this browser. */
-export function useFemStudio() {
-  const [state, setState] = useState<StudioState>(() => ({ model: loadDraft(), issues: [] }));
+/** A project's design_state as a model (a new or unknown state starts empty). */
+export function modelFromProject(designState: unknown, name: string): FemModel {
+  const m = designState as FemModel | undefined;
+  return m && m.version === 1 && Array.isArray(m.shapes) ? { ...m, name } : { ...EMPTY_MODEL, name };
+}
+
+/**
+ * Model, results and actions of FEM Studio. With a project id the model is
+ * the project's design_state, saved automatically; without one it is a draft
+ * kept in this browser (the /fem scratch page).
+ */
+export function useFemStudio(projectId?: string) {
+  const [state, setState] = useState<StudioState>(() => ({
+    model: projectId ? EMPTY_MODEL : loadDraft(),
+    issues: [],
+  }));
   const [busy, setBusy] = useState<null | 'mesh' | 'solve' | 'export'>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>(projectId ? 'loading' : 'draft');
+  const [project, setProject] = useState<{ name: string; fromCourse: boolean; hasDocs: boolean } | null>(null);
+  const loaded = useRef(!projectId);
+  const savedJson = useRef<string | null>(null); // what the project holds: no needless saves
 
+  // Load the project
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.model));
-    } catch {
-      /* draft only */
+    if (!projectId) return;
+    let cancelled = false;
+    loaded.current = false;
+    getProject(projectId)
+      .then((p) => {
+        if (cancelled) return;
+        setProject({ name: p.name, fromCourse: !!p.source_project_id, hasDocs: !!p.has_documentation });
+        const model = modelFromProject(p.design_state, p.name);
+        savedJson.current = JSON.stringify(model);
+        setState({ model, issues: [] });
+        loaded.current = true;
+        setSaveStatus('saved');
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(femError(e).message);
+        setSaveStatus('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  // Save: the project (debounced) or the browser draft
+  useEffect(() => {
+    if (!loaded.current) return;
+    if (!projectId) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.model));
+      } catch {
+        /* draft only */
+      }
+      return;
     }
-  }, [state.model]);
+    const json = JSON.stringify(state.model);
+    if (json === savedJson.current) return;
+    setSaveStatus('unsaved');
+    const timer = setTimeout(() => {
+      setSaveStatus('saving');
+      updateProject(projectId, { design_state: state.model })
+        .then(() => {
+          savedJson.current = json;
+          setSaveStatus('saved');
+        })
+        .catch(() => setSaveStatus('error'));
+    }, SAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [state.model, projectId]);
 
   const update = useCallback((change: (m: FemModel) => FemModel) => {
     setState((s) => ({ ...s, model: change(s.model), issues: [] }));
@@ -38,7 +102,7 @@ export function useFemStudio() {
   }, []);
 
   const load = useCallback((model: FemModel) => {
-    setState({ model: structuredClone(model), issues: [] });
+    setState((s) => ({ model: { ...structuredClone(model), name: s.model.name }, issues: [] }));
     setError(null);
   }, []);
 
@@ -98,7 +162,19 @@ export function useFemStudio() {
   }, [state.model]);
 
   const prog = useMemo(() => progress(state), [state]);
-  return { ...state, progress: prog, busy, error, update, load, runMesh, runSolve, exportFiles };
+  return {
+    ...state,
+    progress: prog,
+    busy,
+    error,
+    saveStatus,
+    project,
+    update,
+    load,
+    runMesh,
+    runSolve,
+    exportFiles,
+  };
 }
 
 export type FemStudio = ReturnType<typeof useFemStudio>;

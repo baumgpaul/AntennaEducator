@@ -13,8 +13,14 @@ import { z } from 'zod';
 import { useAppDispatch } from '@/store/hooks';
 import { createProject } from '@/store/projectsSlice';
 import { showSuccess, showError } from '@/store/uiSlice';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import type { MethodChoice } from '@/features/fem/FemMethodPicker';
 import { formatErrorMessage } from '@/utils/errors';
+
+// Method choice (antenna or FEM): only in builds with the FEM flag, see config/features.ts
+const FemMethodPicker =
+  import.meta.env.VITE_FEATURE_FEM === 'true' ? lazy(() => import('@/features/fem/FemMethodPicker')) : null;
+const ANTENNA: MethodChoice = { kind: 'peec', template: 'plate-capacitor' };
 
 // Validation schema
 const projectSchema = z.object({
@@ -36,6 +42,7 @@ interface NewProjectDialogProps {
 function NewProjectDialog({ open, onClose, folderId }: NewProjectDialogProps) {
   const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(false);
+  const [method, setMethod] = useState<MethodChoice>(ANTENNA);
 
   const {
     control,
@@ -53,6 +60,7 @@ function NewProjectDialog({ open, onClose, folderId }: NewProjectDialogProps) {
   const handleClose = () => {
     if (!loading) {
       reset();
+      setMethod(ANTENNA);
       onClose();
     }
   };
@@ -60,7 +68,11 @@ function NewProjectDialog({ open, onClose, folderId }: NewProjectDialogProps) {
   const onSubmit = async (data: ProjectFormData) => {
     setLoading(true);
     try {
-      await dispatch(createProject({ ...data, folder_id: folderId ?? undefined })).unwrap();
+      const fem =
+        method.kind === 'fem' && method.design_state
+          ? { kind: 'fem' as const, design_state: { ...method.design_state, name: data.name } }
+          : {};
+      await dispatch(createProject({ ...data, ...fem, folder_id: folderId ?? undefined })).unwrap();
       dispatch(showSuccess('Project created successfully!'));
       handleClose();
     } catch (error) {
@@ -118,6 +130,11 @@ function NewProjectDialog({ open, onClose, folderId }: NewProjectDialogProps) {
             />
           )}
         />
+        {FemMethodPicker && (
+          <Suspense fallback={null}>
+            <FemMethodPicker value={method} onChange={setMethod} />
+          </Suspense>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={loading}>
