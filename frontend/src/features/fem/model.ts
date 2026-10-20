@@ -56,7 +56,29 @@ export interface FemModel {
   materials: Record<string, Material>; // domain -> material
   boundary_conditions: BoundaryCondition[];
   sources: ChargeDensity[];
+  /** Results workspace: the user's views (saved with the project) */
+  views?: FemView[];
 }
+
+export type FemView =
+  | {
+      id: string;
+      name: string;
+      type: 'field';
+      quantity: 'potential' | 'E' | 'D';
+      contours: boolean;
+      arrows: boolean;
+      colorMap: 'viridis' | 'plasma' | 'turbo' | 'jet';
+    }
+  | {
+      id: string;
+      name: string;
+      type: 'line';
+      quantity: 'potential' | 'E';
+      start: [Expr, Expr];
+      end: [Expr, Expr];
+    }
+  | { id: string; name: string; type: 'quantities' };
 
 /** Common materials (εr, static). Students can also type their own. */
 export const MATERIAL_LIBRARY: Material[] = [
@@ -79,6 +101,8 @@ export interface Template {
   model: FemModel;
   /** Textbook reference value to compare with (per metre of depth for 2D plane) */
   analytic?: { label: string; quantity: 'capacitance'; value: (p: Record<string, number>, m: FemModel) => number };
+  /** Textbook V and |E| at a point (line probes), or null where it does not apply */
+  fieldAt?: { label: string; value: (x: number, y: number, p: Record<string, number>) => { V: number; E: number } | null };
 }
 
 const baseMesh = (size: Expr, boundary_sizes: Record<string, Expr> = {}): MeshSettings => ({
@@ -120,6 +144,11 @@ export const TEMPLATES: Template[] = [
       ],
       sources: [],
     },
+    fieldAt: {
+      label: 'Ideal plates (no fringing)',
+      value: (x, y, p) =>
+        Math.abs(x) <= p.w / 2 && Math.abs(y) <= p.d / 2 ? { V: (p.U * (y + p.d / 2)) / p.d, E: p.U / p.d } : null,
+    },
     analytic: {
       label: 'Parallel plates without fringing, εA/d',
       quantity: 'capacitance',
@@ -150,6 +179,15 @@ export const TEMPLATES: Template[] = [
         { type: 'ground', boundary: 'outer' },
       ],
       sources: [],
+    },
+    fieldAt: {
+      label: 'Coax: U·ln(b/r)/ln(b/a)',
+      value: (x, y, p) => {
+        const r = Math.hypot(x, y);
+        if (r < p.a || r > p.b) return null;
+        const L = Math.log(p.b / p.a);
+        return { V: (p.U * Math.log(p.b / r)) / L, E: p.U / (r * L) };
+      },
     },
     analytic: {
       label: 'Coax 2πε/ln(b/a)',

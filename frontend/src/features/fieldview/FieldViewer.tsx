@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, OrthographicCamera } from '@react-three/drei';
+import { Line, OrbitControls, OrthographicCamera } from '@react-three/drei';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { CenterFocusStrong } from '@mui/icons-material';
 import type { ColorMapType } from '@/utils/colorMaps';
@@ -16,6 +16,8 @@ export interface FieldViewerProps extends Omit<FieldSurfaceProps, 'range' | 'onP
   /** 2D results (z = 0): top view, pan and zoom only */
   flat?: boolean;
   height?: number | string;
+  /** Lines drawn over the field, e.g. where a line probe samples it */
+  overlayLines?: { from: [number, number, number]; to: [number, number, number]; color?: string }[];
 }
 
 /** Camera and controls framing the mesh; remounted on "reset view" and when the geometry changes. */
@@ -37,7 +39,7 @@ function FittedView({ mesh, flat }: { mesh: FieldMesh; flat: boolean }) {
  * The shared field viewer: a field on a mesh with colour scale, contour lines,
  * arrows, and the value under the cursor. Pan with the mouse, zoom with the wheel.
  */
-function FieldViewer({ mesh, colorMap = 'jet', range, flat = true, height = 460, ...surface }: FieldViewerProps) {
+function FieldViewer({ mesh, colorMap = 'jet', range, flat = true, height = 460, overlayLines = [], ...surface }: FieldViewerProps) {
   const auto = useMemo(() => valueRange(mesh.cellValues ?? mesh.nodeValues ?? []), [mesh]);
   const r = range ?? auto;
   const geometryKey = useMemo(() => {
@@ -62,6 +64,9 @@ function FieldViewer({ mesh, colorMap = 'jet', range, flat = true, height = 460,
           onProbe={(p) => setReading(p && { ...p, mesh })}
           {...surface}
         />
+        {overlayLines.map((l, i) => (
+          <Line key={i} points={[l.from, l.to]} color={l.color ?? '#ff4081'} lineWidth={3} position={[0, 0, 3e-6]} />
+        ))}
       </Canvas>
       <Colorbar min={r.min} max={r.max} colorMap={colorMap} label={mesh.label} unit={mesh.unit} />
       <Tooltip title="Reset view">
