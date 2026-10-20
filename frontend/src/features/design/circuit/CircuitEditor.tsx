@@ -14,6 +14,7 @@
  * - Expression support via variable context
  */
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import {
   ReactFlow,
   Background,
@@ -68,6 +69,10 @@ import type { AntennaElement } from '@/types/models';
 
 export interface CircuitEditorProps {
   open: boolean;
+  /** dialog (default) or inline: embedded in the Circuit tab, stays open after Apply */
+  variant?: 'dialog' | 'inline';
+  /** Inline only: no Apply (read-only submission previews) */
+  readOnly?: boolean;
   onClose: () => void;
   /** Apply changes — receives sources + lumped_elements + ports + appended_nodes */
   onApply: (data: {
@@ -157,16 +162,30 @@ const PALETTE_COLORS: Record<CircuitComponentType, string> = {
 };
 
 // ============================================================================
+const darkTheme = createTheme({ palette: { mode: 'dark' } });
+
+/** Components and appended nodes: what Apply would store (node positions are layout only). */
+function circuitSignature(c: CircuitState): string {
+  return JSON.stringify({
+    components: c.components,
+    appended: c.nodes.filter((n) => n.kind === 'appended').map((n) => [n.index, n.label]),
+  });
+}
+
 // Main Component
 // ============================================================================
 
 export const CircuitEditor: React.FC<CircuitEditorProps> = ({
-  open,
+  open: openProp,
   onClose,
   onApply,
   element,
   terminalNodeIndices,
+  variant = 'dialog',
+  readOnly = false,
 }) => {
+  const inline = variant === 'inline';
+  const open = inline || openProp;
   // Circuit state
   const [circuit, setCircuit] = useState<CircuitState>({ nodes: [], components: [] });
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
@@ -244,6 +263,9 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
   // Parent re-renders pass new `element`/`terminalNodeIndices` references;
   // re-initializing on those would wipe the user's unsaved edits (B8).
   const initializedForRef = useRef<string | null>(null);
+  const [resetCount, setResetCount] = useState(0);
+  // What the element holds: edits are "unsaved" until applied (inline mode)
+  const [baseline, setBaseline] = useState('');
   useEffect(() => {
     if (!open) {
       initializedForRef.current = null;
@@ -282,13 +304,20 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
       sources, lumpedElements, terminalNodeIndices, existingAppended, element.mesh, element.ports,
     );
     setCircuit(initial);
+    setBaseline(circuitSignature(initial));
 
     // Convert to ReactFlow state
     setRfNodes(circuitNodesToRF(initial.nodes));
     setRfEdges(
       circuitComponentsToRF(initial.components, handleEditComponent, handleDeleteComponent),
     );
-  }, [open, element, terminalNodeIndices]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, element, terminalNodeIndices, resetCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dirty = circuitSignature(circuit) !== baseline;
+  const handleRevert = useCallback(() => {
+    initializedForRef.current = null;
+    setResetCount((c) => c + 1);
+  }, []);
 
   // Handle new connection (drag from node to node)
   const onConnect = useCallback(
@@ -474,8 +503,9 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
       .map((n) => ({ index: n.index, label: n.label }));
 
     onApply({ sources, lumped_elements, ports, appended_nodes });
-    onClose();
-  }, [rfNodes, circuit.components, onApply, onClose]);
+    setBaseline(circuitSignature(finalCircuit));
+    if (!inline) onClose();
+  }, [rfNodes, circuit.components, onApply, onClose, inline]);
 
   // Compute parallel edge offsets so overlapping edges are visually separated
   const rfEdgesWithOffsets = useMemo(() => {
@@ -517,22 +547,8 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     return counts;
   }, [circuit.components]);
 
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth={false}
-      fullWidth
-      PaperProps={{
-        sx: {
-          width: '90vw',
-          height: '80vh',
-          maxWidth: 1200,
-          bgcolor: '#121218',
-        },
-      }}
-    >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
+  const title = (
+    <>
         <Typography variant="h6" sx={{ flex: 1 }}>
           Circuit Editor — {element?.name || 'Antenna'}
         </Typography>
@@ -550,9 +566,10 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
             />
           ))}
         </Box>
-      </DialogTitle>
-
-      <DialogContent sx={{ p: 0, display: 'flex', overflow: 'hidden' }}>
+    </>
+  );
+  const body = (
+    <>
         {/* Left Toolbar */}
         <Box
           sx={{
@@ -758,23 +775,10 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
             />
           </ReactFlow>
         </Box>
-      </DialogContent>
-
-      <DialogActions sx={{ px: 2, py: 1.5, borderTop: '1px solid #333' }}>
-        <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
-          {circuit.components.length} component{circuit.components.length !== 1 ? 's' : ''} ·{' '}
-          {circuit.nodes.length} node{circuit.nodes.length !== 1 ? 's' : ''}
-        </Typography>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleApply}
-        >
-          Apply
-        </Button>
-      </DialogActions>
-
+    </>
+  );
+  const editDialog = (
+    <>
       {/* Component Edit Dialog */}
       <ComponentEditDialog
         open={editDialogOpen}
@@ -786,6 +790,72 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
         nodes={circuit.nodes}
         editComponent={editingComponent}
       />
+    </>
+  );
+  const counts = (
+    <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+      {circuit.components.length} component{circuit.components.length !== 1 ? 's' : ''} ·{' '}
+      {circuit.nodes.length} node{circuit.nodes.length !== 1 ? 's' : ''}
+    </Typography>
+  );
+
+  if (inline) {
+    return (
+      // The editor is drawn dark: give its text and buttons the dark palette
+      <ThemeProvider theme={darkTheme}>
+      <Box
+        data-testid="circuit-editor-inline"
+        sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, bgcolor: '#121218', color: 'text.primary', borderRadius: 1, overflow: 'hidden' }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1, borderBottom: '1px solid #333' }}>
+          {title}
+          {dirty && <Chip size="small" color="warning" label="Unsaved changes" />}
+          <Button onClick={handleRevert} disabled={!dirty}>
+            Revert
+          </Button>
+          {!readOnly && (
+            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleApply} disabled={!dirty}>
+              Apply
+            </Button>
+          )}
+        </Box>
+        <Box sx={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>{body}</Box>
+        <Box sx={{ px: 2, py: 0.5, borderTop: '1px solid #333', display: 'flex' }}>{counts}</Box>
+        {editDialog}
+      </Box>
+      </ThemeProvider>
+    );
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth={false}
+      fullWidth
+      PaperProps={{
+        sx: {
+          width: '90vw',
+          height: '80vh',
+          maxWidth: 1200,
+          bgcolor: '#121218',
+        },
+      }}
+    >
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>{title}</DialogTitle>
+      <DialogContent sx={{ p: 0, display: 'flex', overflow: 'hidden' }}>{body}</DialogContent>
+      <DialogActions sx={{ px: 2, py: 1.5, borderTop: '1px solid #333' }}>
+        {counts}
+        <Button onClick={onClose}>Cancel</Button>
+        <Button
+          variant="contained"
+          startIcon={<SaveIcon />}
+          onClick={handleApply}
+        >
+          Apply
+        </Button>
+      </DialogActions>
+      {editDialog}
     </Dialog>
   );
 };

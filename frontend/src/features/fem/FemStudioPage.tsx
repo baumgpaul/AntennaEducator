@@ -1,20 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Button, Chip, IconButton, Paper, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
-import {
-  ArrowForward,
-  CheckCircle,
-  Close,
-  ErrorOutline,
-  Lock,
-  RadioButtonUnchecked,
-  School,
-  Description,
-} from '@mui/icons-material';
+import { Box, Button, Chip, Stack, Typography } from '@mui/material';
+import { ArrowForward, Description, School } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { closePanel, openPanel, togglePanel } from '@/store/documentationSlice';
-import DocumentationPanel from '@/features/design/DocumentationPanel';
-import { FEM_STEPS, nextStep, stepStatuses, type FemStepId, type FemStepStatus } from './workflow';
+import { openPanel, togglePanel } from '@/store/documentationSlice';
+import WorkflowTabs from '@/features/workflow/WorkflowTabs';
+import SidePanel, { type SidePanelTab } from '@/features/workflow/SidePanel';
+import LockedStep from '@/features/workflow/LockedStep';
+import { FEM_STEPS, nextStep, stepStatuses, type FemStepId } from './workflow';
 import { useFemStudio, type SaveStatus } from './useFemStudio';
 import GeometryTab from './tabs/GeometryTab';
 import MaterialsTab from './tabs/MaterialsTab';
@@ -22,20 +15,6 @@ import PhysicsTab from './tabs/PhysicsTab';
 import MeshTab from './tabs/MeshTab';
 import SolveTab from './tabs/SolveTab';
 import ResultsTab from './tabs/ResultsTab';
-
-const STATUS_ICON: Record<FemStepStatus, JSX.Element> = {
-  done: <CheckCircle color="success" fontSize="small" />,
-  attention: <ErrorOutline color="warning" fontSize="small" />,
-  todo: <RadioButtonUnchecked fontSize="small" />,
-  locked: <Lock fontSize="small" color="disabled" />,
-};
-
-const STATUS_TEXT: Record<FemStepStatus, string> = {
-  done: 'done',
-  attention: 'needs attention',
-  todo: 'to do',
-  locked: 'locked: finish the previous steps first',
-};
 
 const TAB_CONTENT = {
   geometry: GeometryTab,
@@ -56,23 +35,22 @@ const SAVE_TEXT: Record<SaveStatus, string> = {
 };
 
 /**
- * FEM Studio (preview, behind VITE_FEATURE_FEM): the FEM workflow as tabs.
- * Each tab shows its status; a Learn panel explains what the step means.
+ * FEM Studio (preview, behind VITE_FEATURE_FEM): the FEM workflow as tabs,
+ * in the same shell as the antenna designer (status per step, Next, and the
+ * right panel with the project's documentation and Learn).
  */
 function FemStudioPage() {
   const { projectId } = useParams<{ projectId?: string }>();
   const studio = useFemStudio(projectId);
   const dispatch = useAppDispatch();
   const [active, setActive] = useState<FemStepId>('geometry');
-  // Right panel (shared with the antenna designer): the project's documentation,
-  // or "Learn" — what the current step means. Course projects open on their text.
+  // Course projects open on their documentation, new ones on Learn
   const panelOpen = useAppSelector((s) => s.documentation.panelOpen);
-  const [chosenTab, setPanelTab] = useState<'docs' | 'learn' | null>(null);
+  const [chosenTab, setPanelTab] = useState<SidePanelTab | null>(null);
   const panelTab = chosenTab ?? (studio.project?.fromCourse ? 'docs' : 'learn');
   useEffect(() => {
     dispatch(openPanel());
   }, [dispatch]);
-  const showDocs = !!projectId && panelTab === 'docs';
   const { progress } = studio;
   const statuses = useMemo(() => stepStatuses(progress.done, progress.attention), [progress]);
   const step = FEM_STEPS.find((s) => s.id === active)!;
@@ -106,79 +84,20 @@ function FemStudioPage() {
         )}
       </Stack>
 
-      <Tabs value={active} onChange={(_, v: FemStepId) => setActive(v)} variant="scrollable" aria-label="FEM workflow steps">
-        {FEM_STEPS.map((s, i) => (
-          <Tab
-            key={s.id}
-            value={s.id}
-            icon={STATUS_ICON[statuses[s.id]]}
-            iconPosition="start"
-            label={`${i + 1} ${s.label}`}
-            title={`${s.label}: ${STATUS_TEXT[statuses[s.id]]}`}
-          />
-        ))}
-      </Tabs>
+      <WorkflowTabs
+        steps={FEM_STEPS}
+        statuses={statuses}
+        active={active}
+        onChange={setActive}
+        numbered
+        notes={progress.notes}
+      />
 
       <Box sx={{ display: 'flex', flex: 1, gap: 2, minHeight: 0 }}>
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
-          {statuses[active] === 'locked' ? (
-            <Paper variant="outlined" sx={{ p: 3 }}>
-              <Typography variant="h6">{step.label}</Typography>
-              <Typography color="text.secondary">{step.summary}</Typography>
-              <Typography color="text.secondary" sx={{ mt: 1 }}>
-                This step opens once{' '}
-                {step.requires.map((r) => FEM_STEPS.find((s) => s.id === r)!.label).join(', ')} is complete.
-              </Typography>
-            </Paper>
-          ) : (
-            <Content studio={studio} />
-          )}
+          {statuses[active] === 'locked' ? <LockedStep step={step} steps={FEM_STEPS} /> : <Content studio={studio} />}
         </Box>
-
-        {panelOpen && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0 }}>
-            {projectId && (
-              <ToggleButtonGroup
-                size="small"
-                exclusive
-                value={panelTab}
-                onChange={(_, v) => v && setPanelTab(v)}
-                aria-label="Right panel"
-              >
-                <ToggleButton value="docs">
-                  <Description fontSize="small" sx={{ mr: 0.5 }} /> Documentation
-                </ToggleButton>
-                <ToggleButton value="learn">
-                  <School fontSize="small" sx={{ mr: 0.5 }} /> Learn
-                </ToggleButton>
-              </ToggleButtonGroup>
-            )}
-            {showDocs ? (
-              <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
-                <DocumentationPanel projectId={projectId!} />
-              </Box>
-            ) : (
-              <Paper variant="outlined" sx={{ width: 320, p: 2, overflow: 'auto', flex: 1 }} aria-label="Learn">
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                  <School fontSize="small" color="primary" />
-                  <Typography variant="subtitle1" sx={{ flex: 1 }}>
-                    Learn: {step.label}
-                  </Typography>
-                  <Tooltip title="Hide">
-                    <IconButton size="small" aria-label="Hide the Learn panel" onClick={() => dispatch(closePanel())}>
-                      <Close fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-                {step.learn.map((paragraph) => (
-                  <Typography key={paragraph} variant="body2" paragraph>
-                    {paragraph}
-                  </Typography>
-                ))}
-              </Paper>
-            )}
-          </Box>
-        )}
+        {panelOpen && <SidePanel projectId={projectId} tab={panelTab} onTabChange={setPanelTab} step={step} />}
       </Box>
     </Box>
   );

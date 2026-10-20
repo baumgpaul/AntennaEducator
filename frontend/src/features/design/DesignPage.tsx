@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Box, Snackbar, Alert, Tabs, Tab, IconButton, Tooltip, Button } from '@mui/material';
-import { Description as DescriptionIcon, Lock as LockIcon, ArrowBack as BackIcon } from '@mui/icons-material';
+import { Box, Snackbar, Alert, IconButton, Tooltip, Button } from '@mui/material';
+import { Description as DescriptionIcon, Lock as LockIcon, ArrowBack as BackIcon, ArrowForward } from '@mui/icons-material';
 import { debounce } from 'lodash';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -48,7 +48,12 @@ import { RodDialog } from './RodDialog';
 import { CustomAntennaDialog } from './CustomAntennaDialog';
 import { LumpedElementDialog } from './LumpedElementDialog';
 import { SourceDialog } from './SourceDialog';
-import { CircuitEditor } from './circuit';
+import CircuitTab from './CircuitTab';
+import { PEEC_STEPS, peecProgress, type PeecStepId } from './peecSteps';
+import WorkflowTabs from '@/features/workflow/WorkflowTabs';
+import SidePanel, { type SidePanelTab } from '@/features/workflow/SidePanel';
+import LockedStep from '@/features/workflow/LockedStep';
+import { nextStep, stepStatuses } from '@/features/workflow/steps';
 import ResultsPanel from './ResultsPanel';
 import { SolverTab } from './SolverTab';
 import PostprocessingTab from './PostprocessingTab';
@@ -56,7 +61,6 @@ import AddViewDialog from './dialogs/AddViewDialog';
 import AddAntennaElementDialog from './dialogs/AddAntennaElementDialog';
 import AddFieldVisualizationDialog from './dialogs/AddFieldVisualizationDialog';
 import AddScalarPlotDialog from './dialogs/AddScalarPlotDialog';
-import DocumentationPanel from './DocumentationPanel';
 import SubmitDialog from './dialogs/SubmitDialog';
 import { togglePanel as toggleDocPanel, closePanel as closeDocPanel, clearDocumentation } from '@/store/documentationSlice';
 import { selectVariables, setVariables, resetVariables } from '@/store/variablesSlice';
@@ -161,7 +165,6 @@ function DesignPage() {
   const [editingCustomElement, setEditingCustomElement] = useState<string | null>(null);
   const [lumpedDialogOpen, setLumpedDialogOpen] = useState(false);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
-  const [circuitEditorOpen, setCircuitEditorOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -169,7 +172,7 @@ function DesignPage() {
   const [triggerSave, setTriggerSave] = useState(0);
   // Track if project is being loaded to skip auto-saves during load
   const projectLoadingRef = useRef<boolean>(true);
-  const [currentTab, setCurrentTab] = useState<'designer' | 'solver' | 'postprocessing'>('designer');
+  const [currentTab, setCurrentTab] = useState<PeecStepId>('designer');
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
 
   // Submission state
@@ -177,13 +180,9 @@ function DesignPage() {
   const submitError = useAppSelector(selectSubmissionsError);
   const folders = useAppSelector((state) => state.folders.folders);
 
-  const handleTabChange = (_: unknown, newValue: 'designer' | 'solver' | 'postprocessing') => {
-    // Block entering Postprocessing tab when solver has no results (idle)
-    // or when postprocessing is actively running to avoid confusing state switches.
-    if (newValue === 'postprocessing') {
-      if (solverWorkflowState === 'idle') return;
-      if (solverState.postprocessingStatus === 'running') return;
-    }
+  const handleTabChange = (newValue: PeecStepId) => {
+    // Locked steps open to explain why; only block switching while postprocessing runs
+    if (newValue === 'postprocessing' && solverState.postprocessingStatus === 'running') return;
     setCurrentTab(newValue);
   };
 
@@ -558,7 +557,7 @@ function DesignPage() {
         setSourceDialogOpen(true);
         break;
       case 'circuit-editor':
-        setCircuitEditorOpen(true);
+        setCurrentTab('circuit');
         break;
       default:
         console.log('Unknown antenna type:', type);
@@ -765,6 +764,21 @@ function DesignPage() {
     }
     return Array.from(indices);
   };
+
+  // Workflow steps (shared shell): status per step, Next
+  const viewCount = useAppSelector((state) => state.postprocessing.viewConfigurations.length);
+  const peec = peecProgress({
+    elements,
+    solved: solverWorkflowState !== 'idle',
+    resultsStale: !!solverState.resultsStale,
+    viewCount,
+  });
+  const stepStatus = stepStatuses(PEEC_STEPS, peec.done, peec.attention);
+  const next = nextStep(PEEC_STEPS, stepStatus);
+  const activeStep = PEEC_STEPS.find((s) => s.id === currentTab)!;
+  // Right panel: the project's documentation (as before) or Learn
+  const [chosenPanelTab, setPanelTab] = useState<SidePanelTab | null>(null);
+  const panelTab: SidePanelTab = chosenPanelTab ?? (projectId ? 'docs' : 'learn');
 
   // Element selection handler
   const handleElementSelect = (elementId: string) => {
@@ -999,16 +1013,19 @@ function DesignPage() {
       )}
       {/* Tab Navigation */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', backgroundColor: 'background.paper', display: 'flex', alignItems: 'center' }}>
-        <Tabs
-          value={currentTab}
+        <WorkflowTabs
+          steps={PEEC_STEPS}
+          statuses={stepStatus}
+          active={currentTab}
           onChange={handleTabChange}
-          aria-label="design workspace tabs"
+          notes={peec.notes}
           sx={{ flex: 1 }}
-        >
-          <Tab label="Designer" value="designer" />
-          <Tab label="Solver" value="solver" />
-          <Tab label="Postprocessing" value="postprocessing" disabled={solverWorkflowState === 'idle'} />
-        </Tabs>
+        />
+        {next && next !== currentTab && (
+          <Button size="small" endIcon={<ArrowForward />} onClick={() => handleTabChange(next)} sx={{ mr: 1 }}>
+            Next: {PEEC_STEPS.find((s) => s.id === next)!.label}
+          </Button>
+        )}
         <Tooltip title={docPanelOpen ? 'Hide Documentation' : 'Show Documentation'}>
           <IconButton
             size="small"
@@ -1139,8 +1156,23 @@ function DesignPage() {
       />
       )}
 
+      {/* Circuit Tab: sources, loads and ports of the selected antenna */}
+      {currentTab === 'circuit' && stepStatus.circuit !== 'locked' && (
+        <CircuitTab
+          elements={elements}
+          selectedElementId={selectedElementId}
+          onSelect={(id) => dispatch(setSelectedElement(id))}
+          onApply={handleCircuitApply}
+          terminalNodeIndices={getTerminalNodeIndices}
+          readOnly={isReadOnly}
+        />
+      )}
+
+      {/* A locked step explains what has to be done first */}
+      {stepStatus[currentTab] === 'locked' && <LockedStep step={activeStep} steps={PEEC_STEPS} />}
+
       {/* Solver Tab */}
-      {currentTab === 'solver' && (
+      {currentTab === 'solver' && stepStatus.solver !== 'locked' && (
         <SolverTab
           elements={elements}
           selectedElementId={selectedElementId}
@@ -1151,7 +1183,7 @@ function DesignPage() {
       )}
 
       {/* Postprocessing Tab (placeholder) */}
-      {currentTab === 'postprocessing' && (
+      {currentTab === 'postprocessing' && stepStatus.postprocessing !== 'locked' && (
         <PostprocessingTab
           solverState={solverWorkflowState}
           elements={elements}
@@ -1166,9 +1198,9 @@ function DesignPage() {
       )}
         </Box>
 
-        {/* Documentation Panel (right-side, all tabs) */}
-        {docPanelOpen && projectId && (
-          <DocumentationPanel projectId={projectId} />
+        {/* Right panel (all tabs): the project's documentation, or Learn */}
+        {docPanelOpen && (
+          <SidePanel projectId={projectId} tab={panelTab} onTabChange={setPanelTab} step={activeStep} />
         )}
       </Box>
 
@@ -1234,17 +1266,6 @@ function DesignPage() {
         onAdd={handleAddSource}
         loading={false}
         elements={elements}
-      />
-      <CircuitEditor
-        open={circuitEditorOpen}
-        onClose={() => setCircuitEditorOpen(false)}
-        onApply={handleCircuitApply}
-        element={elements.find(el => el.id === selectedElementId) ?? null}
-        terminalNodeIndices={
-          selectedElementId
-            ? getTerminalNodeIndices(elements.find(el => el.id === selectedElementId)!)
-            : []
-        }
       />
 
       {/* Postprocessing Dialogs */}
