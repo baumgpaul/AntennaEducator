@@ -3,21 +3,16 @@
  * ("Learn" panel) — the studio is meant to teach how FEM works, not to hide it.
  */
 
+import {
+  nextStep as nextOf,
+  stepStatuses as statusesOf,
+  type StepStatus,
+  type WorkflowStep,
+} from '../workflow/steps';
+
 export type FemStepId = 'geometry' | 'materials' | 'physics' | 'mesh' | 'solve' | 'results';
-
-/** done: complete · attention: something to fix · todo: not started · locked: needs earlier steps */
-export type FemStepStatus = 'done' | 'attention' | 'todo' | 'locked';
-
-export interface FemStep {
-  id: FemStepId;
-  label: string;
-  /** What this step is, in one line */
-  summary: string;
-  /** What it means for the finite element method */
-  learn: string[];
-  /** Steps that must be done before this one can start */
-  requires: FemStepId[];
-}
+export type FemStepStatus = StepStatus;
+export type FemStep = WorkflowStep<FemStepId>;
 
 export const FEM_STEPS: FemStep[] = [
   {
@@ -82,24 +77,15 @@ export const FEM_STEPS: FemStep[] = [
   },
 ];
 
-/**
- * Status of every step from the steps completed so far and those needing
- * attention. A step is locked until all of its prerequisites are done.
- */
+/** Status of every step; a step is locked until all of its prerequisites are done. */
 export function stepStatuses(
   done: ReadonlySet<FemStepId>,
   attention: ReadonlySet<FemStepId> = new Set(),
 ): Record<FemStepId, FemStepStatus> {
-  const result = {} as Record<FemStepId, FemStepStatus>;
-  for (const step of FEM_STEPS) {
-    if (!step.requires.every((r) => done.has(r))) result[step.id] = 'locked';
-    else if (attention.has(step.id)) result[step.id] = 'attention';
-    else result[step.id] = done.has(step.id) ? 'done' : 'todo';
-  }
-  return result;
+  return statusesOf(FEM_STEPS, done, attention);
 }
 
 /** The first step that still needs work (where "Next" leads), or null when all are done. */
 export function nextStep(statuses: Record<FemStepId, FemStepStatus>): FemStepId | null {
-  return FEM_STEPS.find((s) => statuses[s.id] !== 'done')?.id ?? null;
+  return nextOf(FEM_STEPS, statuses);
 }

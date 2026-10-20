@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
@@ -210,10 +210,11 @@ describe('DesignPage Results Navigation', () => {
 
       // Just check that it renders successfully without results
       expect(screen.getByRole('tab', { name: /Solver/i })).toBeInTheDocument();
-      // When solverState is 'idle', Postprocessing tab should be disabled.
-      // MUI Tab renders disabled with the 'Mui-disabled' class.
+      // Without results Postprocessing is locked: it opens and explains what is missing
       const postTab = screen.getByRole('tab', { name: /Postprocessing/i });
-      expect(postTab).toHaveClass('Mui-disabled');
+      expect(postTab.getAttribute('title')).toMatch(/locked/);
+      fireEvent.click(postTab);
+      expect(screen.getByText(/This step opens once Solver is complete/)).toBeInTheDocument();
     });
   });
 

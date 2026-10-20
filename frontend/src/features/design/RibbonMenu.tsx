@@ -59,7 +59,7 @@ import { exportToVTU, canExportToVTU } from '@/utils/ParaViewExporter';
 import type { RootState } from '@/store';
 
 interface RibbonMenuProps {
-  currentTab?: 'designer' | 'solver' | 'postprocessing';
+  currentTab?: 'designer' | 'circuit' | 'solver' | 'postprocessing';
   onAntennaTypeSelect?: (type: string) => void;
   onAnalysisAction?: (action: string) => void;
   onViewOption?: (option: string) => void;
