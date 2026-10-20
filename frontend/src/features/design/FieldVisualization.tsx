@@ -5,11 +5,14 @@
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import FieldSurface from '@/features/fieldview/FieldSurface';
+import { fromGeometry, valueRange } from '@/features/fieldview/fieldMesh';
 import type { FieldDefinition, FieldDefinition1D, FieldDefinition2D, FieldDefinition3D, FieldType } from '@/types/fieldDefinitions';
 import { getEllipseAxesFromPreset } from '@/types/fieldDefinitions';
 import type { ColorMapType } from '@/utils/colorMaps';
 import { createColorArray } from '@/utils/colorMaps';
 import type { DisplayQuantity } from '@/types/postprocessing';
+import { quantityLabel } from './fieldQuantity';
 
 interface ComplexComponent {
   real: number;
@@ -267,7 +270,7 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
   displayQuantity?: DisplayQuantity;
   animationPhase?: number;
 }) {
-  const { geometry, hasColors } = useMemo(() => {
+  const { geometry, values } = useMemo(() => {
     // Calculate segments from sampling (n points → n-1 segments)
     const samplingX = field.sampling?.x || 20;
     const samplingY = field.sampling?.y || 20;
@@ -304,12 +307,6 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
         const { interpolated } = bilinearInterpolate(magnitudes, samplingX, samplingY, factor);
         magnitudes = interpolated;
       }
-
-      // Use manual range if specified, otherwise auto
-      const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
-      const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
-      const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
-      geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
 
       // Compute smooth normals if smooth shading is enabled
@@ -318,8 +315,8 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
       }
     }
 
-    return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, interpolationLevel, displayQuantity, animationPhase]);
+    return { geometry: geom, values: hasColors ? magnitudes : null };
+  }, [field, fieldData, fieldType, smoothShading, interpolationLevel, displayQuantity, animationPhase]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -330,27 +327,19 @@ function PlaneField({ field, opacity, colorMap, fieldData, fieldType, valueRange
   }, [field.centerPoint]);
 
   return (
-    <mesh geometry={geometry} position={position}>
-      {smoothShading && hasColors ? (
-        <meshLambertMaterial
-          color="#ffffff"
-          emissive="#444444"
-          transparent
-          opacity={opacity / 100}
-          side={THREE.DoubleSide}
-          vertexColors
-        />
-      ) : (
-        <meshBasicMaterial
-          color={hasColors ? "#ffffff" : "#4488ff"}
-          transparent
-          opacity={opacity / 100}
-          side={THREE.DoubleSide}
-          wireframe={!hasColors}
-          vertexColors={hasColors}
-        />
-      )}
-    </mesh>
+    <SurfaceField
+      geometry={geometry}
+      values={values}
+      position={position}
+      opacity={opacity}
+      colorMap={colorMap}
+      fieldType={fieldType}
+      displayQuantity={displayQuantity}
+      valueRangeMode={valueRangeMode}
+      valueRangeMin={valueRangeMin}
+      valueRangeMax={valueRangeMax}
+      lit={smoothShading}
+    />
   );
 }
 
@@ -370,7 +359,7 @@ function EllipseField({ field, opacity, colorMap, fieldData, fieldType, valueRan
   displayQuantity?: DisplayQuantity;
   animationPhase?: number;
 }) {
-  const { geometry, hasColors } = useMemo(() => {
+  const { geometry, values } = useMemo(() => {
     const radiusA = (field.radiusA || 50) / 1000; // mm to meters
     const radiusB = (field.radiusB || 50) / 1000;
     const segments = (field.sampling?.x || 32) - 1;
@@ -412,16 +401,12 @@ function EllipseField({ field, opacity, colorMap, fieldData, fieldType, valueRan
     let hasColors = false;
     const magnitudes = selectFieldDisplayValues(fieldData, fieldType, displayQuantity, animationPhase);
     if (magnitudes && magnitudes.length > 0) {
-      const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
-      const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
-      const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
-      geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
       if (smoothShading) geom.computeVertexNormals();
     }
 
-    return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, displayQuantity, animationPhase]);
+    return { geometry: geom, values: hasColors ? magnitudes : null };
+  }, [field, fieldData, fieldType, smoothShading, displayQuantity, animationPhase]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -432,27 +417,19 @@ function EllipseField({ field, opacity, colorMap, fieldData, fieldType, valueRan
   }, [field.centerPoint]);
 
   return (
-    <mesh geometry={geometry} position={position}>
-      {smoothShading && hasColors ? (
-        <meshLambertMaterial
-          color="#ffffff"
-          emissive="#444444"
-          transparent
-          opacity={opacity / 100}
-          side={THREE.DoubleSide}
-          vertexColors
-        />
-      ) : (
-        <meshBasicMaterial
-          color={hasColors ? "#ffffff" : "#44ff88"}
-          transparent
-          opacity={opacity / 100}
-          side={THREE.DoubleSide}
-          wireframe={!hasColors}
-          vertexColors={hasColors}
-        />
-      )}
-    </mesh>
+    <SurfaceField
+      geometry={geometry}
+      values={values}
+      position={position}
+      opacity={opacity}
+      colorMap={colorMap}
+      fieldType={fieldType}
+      displayQuantity={displayQuantity}
+      valueRangeMode={valueRangeMode}
+      valueRangeMin={valueRangeMin}
+      valueRangeMax={valueRangeMax}
+      lit={smoothShading}
+    />
   );
 }
 
@@ -472,7 +449,7 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
   displayQuantity?: DisplayQuantity;
   animationPhase?: number;
 }) {
-  const { geometry, hasColors } = useMemo(() => {
+  const { geometry, values } = useMemo(() => {
     const radius = field.sphereRadius || 50;
     const sampling = field.sampling as { theta?: number; phi?: number; radial?: number };
     const widthSegments = sampling.phi || 20;
@@ -488,17 +465,12 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
     let hasColors = false;
     const magnitudes = selectFieldDisplayValues(fieldData, fieldType, displayQuantity, animationPhase);
     if (magnitudes && magnitudes.length > 0) {
-      // Use manual range if specified, otherwise auto
-      const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
-      const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
-      const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
-      geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
       if (smoothShading) geom.computeVertexNormals();
     }
 
-    return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, displayQuantity, animationPhase]);
+    return { geometry: geom, values: hasColors ? magnitudes : null };
+  }, [field, fieldData, fieldType, smoothShading, displayQuantity, animationPhase]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -509,25 +481,19 @@ function SphereField({ field, opacity, colorMap, fieldData, fieldType, valueRang
   }, [field.centerPoint]);
 
   return (
-    <mesh geometry={geometry} position={position}>
-      {smoothShading && hasColors ? (
-        <meshLambertMaterial
-          color="#ffffff"
-          emissive="#444444"
-          transparent
-          opacity={opacity / 100}
-          vertexColors
-        />
-      ) : (
-        <meshBasicMaterial
-          color={hasColors ? "#ffffff" : "#ff8844"}
-          transparent
-          opacity={opacity / 100}
-          wireframe={!hasColors}
-          vertexColors={hasColors}
-        />
-      )}
-    </mesh>
+    <SurfaceField
+      geometry={geometry}
+      values={values}
+      position={position}
+      opacity={opacity}
+      colorMap={colorMap}
+      fieldType={fieldType}
+      displayQuantity={displayQuantity}
+      valueRangeMode={valueRangeMode}
+      valueRangeMin={valueRangeMin}
+      valueRangeMax={valueRangeMax}
+      lit={smoothShading}
+    />
   );
 }
 
@@ -547,7 +513,7 @@ function CuboidField({ field, opacity, colorMap, fieldData, fieldType, valueRang
   displayQuantity?: DisplayQuantity;
   animationPhase?: number;
 }) {
-  const { geometry, hasColors } = useMemo(() => {
+  const { geometry, values } = useMemo(() => {
     const dims = field.cuboidDimensions || { Lx: 100, Ly: 100, Lz: 100 };
     // Use sampling to determine segments (n points → n-1 segments)
     const sampling = field.sampling as { Nx?: number; Ny?: number; Nz?: number };
@@ -568,17 +534,12 @@ function CuboidField({ field, opacity, colorMap, fieldData, fieldType, valueRang
     let hasColors = false;
     const magnitudes = selectFieldDisplayValues(fieldData, fieldType, displayQuantity, animationPhase);
     if (magnitudes && magnitudes.length > 0) {
-      // Use manual range if specified, otherwise auto
-      const minVal = valueRangeMode === 'manual' ? valueRangeMin : undefined;
-      const maxVal = valueRangeMode === 'manual' ? valueRangeMax : undefined;
-      const colorArray = createColorArray(magnitudes, colorMap, minVal, maxVal);
-      geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
       hasColors = true;
       if (smoothShading) geom.computeVertexNormals();
     }
 
-    return { geometry: geom, hasColors };
-  }, [field, colorMap, fieldData, fieldType, valueRangeMode, valueRangeMin, valueRangeMax, smoothShading, displayQuantity, animationPhase]);
+    return { geometry: geom, values: hasColors ? magnitudes : null };
+  }, [field, fieldData, fieldType, smoothShading, displayQuantity, animationPhase]);
 
   const position = useMemo(() => {
     return new THREE.Vector3(
@@ -589,25 +550,19 @@ function CuboidField({ field, opacity, colorMap, fieldData, fieldType, valueRang
   }, [field.centerPoint]);
 
   return (
-    <mesh geometry={geometry} position={position}>
-      {smoothShading && hasColors ? (
-        <meshLambertMaterial
-          color="#ffffff"
-          emissive="#444444"
-          transparent
-          opacity={opacity / 100}
-          vertexColors
-        />
-      ) : (
-        <meshBasicMaterial
-          color={hasColors ? "#ffffff" : "#ff44aa"}
-          transparent
-          opacity={opacity / 100}
-          wireframe={!hasColors}
-          vertexColors={hasColors}
-        />
-      )}
-    </mesh>
+    <SurfaceField
+      geometry={geometry}
+      values={values}
+      position={position}
+      opacity={opacity}
+      colorMap={colorMap}
+      fieldType={fieldType}
+      displayQuantity={displayQuantity}
+      valueRangeMode={valueRangeMode}
+      valueRangeMin={valueRangeMin}
+      valueRangeMax={valueRangeMax}
+      lit={smoothShading}
+    />
   );
 }
 
@@ -822,6 +777,65 @@ function ArcField({ field, opacity, colorMap, fieldData, fieldType, valueRangeMo
       />
     </mesh>
   );
+}
+
+/**
+ * A surface region drawn by the shared field renderer (same as FEM results):
+ * colours, hover value. Without data: the region's outline as a wireframe.
+ */
+function SurfaceField({
+  geometry,
+  values,
+  position,
+  opacity,
+  colorMap,
+  fieldType,
+  displayQuantity,
+  valueRangeMode,
+  valueRangeMin,
+  valueRangeMax,
+  lit,
+}: {
+  geometry: THREE.BufferGeometry;
+  values: number[] | null;
+  position: THREE.Vector3;
+  opacity: number;
+  colorMap: ColorMapType;
+  fieldType: FieldType;
+  displayQuantity?: DisplayQuantity;
+  valueRangeMode?: 'auto' | 'manual';
+  valueRangeMin?: number;
+  valueRangeMax?: number;
+  lit?: boolean;
+}) {
+  const mesh = useMemo(() => {
+    const pos = geometry.getAttribute('position');
+    if (!values || values.length !== pos.count) return null;
+    const { label, unit } = quantityLabel(fieldType, displayQuantity);
+    return fromGeometry(
+      pos.array as ArrayLike<number>,
+      geometry.index ? (geometry.index.array as ArrayLike<number>) : null,
+      values,
+      [position.x, position.y, position.z],
+      label,
+      unit,
+    );
+  }, [geometry, values, position, fieldType, displayQuantity]);
+  const range = useMemo(() => {
+    const auto = valueRange(values ?? []);
+    return valueRangeMode === 'manual'
+      ? { min: valueRangeMin ?? auto.min, max: valueRangeMax ?? auto.max }
+      : auto;
+  }, [values, valueRangeMode, valueRangeMin, valueRangeMax]);
+
+  if (!mesh) {
+    return (
+      <mesh geometry={geometry} position={position}>
+        <meshBasicMaterial color="#4488ff" transparent opacity={opacity / 100} side={THREE.DoubleSide} wireframe />
+      </mesh>
+    );
+  }
+  return <FieldSurface mesh={mesh} colorMap={colorMap} range={range} opacity={opacity / 100} lit={lit} probeLabel />;
 }
 
 /**

@@ -57,6 +57,27 @@ export function fromTriangles2D(
   };
 }
 
+/**
+ * A surface given as vertex positions (+ optional triangle index), with one
+ * value per vertex, moved by an offset — e.g. a PEEC observation plane or
+ * sphere built as a Three.js geometry.
+ */
+export function fromGeometry(
+  positions: ArrayLike<number>,
+  index: ArrayLike<number> | null,
+  values: ArrayLike<number>,
+  offset: [number, number, number],
+  label: string,
+  unit: string,
+): FieldMesh {
+  const n = positions.length / 3;
+  if (values.length !== n) throw new Error(`${values.length} values for ${n} points`);
+  const p = new Float32Array(positions.length);
+  for (let i = 0; i < positions.length; i++) p[i] = positions[i] + offset[i % 3];
+  const triangles = index ? Uint32Array.from(index) : Uint32Array.from({ length: n }, (_, i) => i);
+  return { positions: p, triangles, nodeValues: Float32Array.from(values), label, unit };
+}
+
 export interface Bounds3 {
   min: [number, number, number];
   max: [number, number, number];
