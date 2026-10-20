@@ -14,12 +14,16 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  TextField,
+  MenuItem,
 } from '@mui/material';
 import { Download } from '@mui/icons-material';
 import { evaluateParameters } from '../expressions';
 import { TEMPLATES } from '../model';
 import type { FemStudio } from '../useFemStudio';
-import MeshView from '../views/MeshView';
+import FieldViewer from '@/features/fieldview/FieldViewer';
+import { boundsOf, fromTriangles2D } from '@/features/fieldview/fieldMesh';
+import type { ColorMapType } from '@/utils/colorMaps';
 import { si } from '../views/geometryDraw';
 import { StepNotes } from './common';
 
@@ -31,22 +35,31 @@ function ResultsTab({ studio }: { studio: FemStudio }) {
   const [field, setField] = useState<Field>('potential');
   const [contours, setContours] = useState(true);
   const [arrows, setArrows] = useState(true);
+  const [colorMap, setColorMap] = useState<ColorMapType>('viridis');
 
-  const values = useMemo(() => {
-    if (!result) return undefined;
-    const t = result.mesh.triangles;
-    const n = t.length / 3;
-    const out = new Array<number>(n);
-    for (let e = 0; e < n; e++) {
-      if (field === 'potential') {
-        out[e] = (result.potential[t[3 * e]] + result.potential[t[3 * e + 1]] + result.potential[t[3 * e + 2]]) / 3;
-      } else {
-        const v = field === 'E' ? result.electric_field : result.flux_density;
-        out[e] = Math.hypot(v[2 * e], v[2 * e + 1]);
-      }
+  // The result as common field data for the shared viewer
+  const fieldMesh = useMemo(() => {
+    if (!result) return null;
+    const { nodes, triangles } = result.mesh;
+    if (field === 'potential') {
+      return fromTriangles2D(nodes, triangles, { node: result.potential, cellVectors2D: result.electric_field }, 'V', 'V');
     }
-    return out;
+    const v = field === 'E' ? result.electric_field : result.flux_density;
+    const magnitude = Array.from({ length: v.length / 2 }, (_, e) => Math.hypot(v[2 * e], v[2 * e + 1]));
+    // colours: the magnitude per element (constant on each P1 triangle); lines: equipotentials
+    return fromTriangles2D(
+      nodes,
+      triangles,
+      { node: result.potential, cell: magnitude, cellVectors2D: result.electric_field },
+      field === 'E' ? '|E|' : '|D|',
+      field === 'E' ? 'V/m' : 'C/m²',
+    );
   }, [result, field]);
+  const arrowSpacing = useMemo(() => {
+    if (!fieldMesh) return 0;
+    const b = boundsOf(fieldMesh);
+    return Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1]) / 18;
+  }, [fieldMesh]);
 
   const template = TEMPLATES.find((t) => t.id === model.template);
   const analytic = useMemo(() => {
@@ -78,15 +91,30 @@ function ResultsTab({ studio }: { studio: FemStudio }) {
           </ToggleButtonGroup>
           <FormControlLabel control={<Switch size="small" checked={contours} onChange={(e) => setContours(e.target.checked)} />} label="Equipotential lines" />
           <FormControlLabel control={<Switch size="small" checked={arrows} onChange={(e) => setArrows(e.target.checked)} />} label="Field arrows" />
+          <TextField
+            select
+            size="small"
+            label="Colours"
+            value={colorMap}
+            onChange={(e) => setColorMap(e.target.value as ColorMapType)}
+            sx={{ minWidth: 120 }}
+          >
+            {(['viridis', 'plasma', 'turbo', 'jet'] as ColorMapType[]).map((c) => (
+              <MenuItem key={c} value={c}>
+                {c}
+              </MenuItem>
+            ))}
+          </TextField>
         </Stack>
-        <MeshView
-          mesh={result.mesh}
-          triangleValues={values}
-          showEdges={false}
-          contours={contours ? { values: result.potential, levels: 12 } : undefined}
-          arrows={arrows ? result.electric_field : undefined}
-          height={460}
-        />
+        {fieldMesh && (
+          <FieldViewer
+            mesh={fieldMesh}
+            colorMap={colorMap}
+            contours={contours ? 12 : 0}
+            arrowSpacing={arrows ? arrowSpacing : 0}
+            flat
+          />
+        )}
         <Typography variant="caption" color="text.secondary">
           {field === 'potential'
             ? 'V is continuous and linear on each triangle. Field lines (arrows) cross the equipotential lines at right angles.'
