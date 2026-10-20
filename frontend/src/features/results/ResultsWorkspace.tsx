@@ -8,12 +8,13 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Paper,
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import { Add, Delete, Edit } from '@mui/icons-material';
+import { PanelSection, Ribbon, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 
 export interface ViewType<T extends string = string> {
   type: T;
@@ -38,14 +39,16 @@ interface Props<T extends string, V extends WorkspaceView<T>> {
   renderView: (view: V) => React.ReactNode;
   /** Settings of the selected view (right panel), or null for none */
   renderProperties?: (view: V) => React.ReactNode | null;
-  /** Extra toolbar content (exports …) */
+  /** More ribbon groups (exports …) */
   actions?: React.ReactNode;
+  /** Alerts above the view (out-of-date results, errors) */
+  notes?: React.ReactNode;
 }
 
 /**
  * Results as views — the layout of the antenna Postprocessing tab, for any
- * method: add views by type, pick one on the left, see it in the middle, set
- * it up on the right. Each method supplies its view types and renderers.
+ * method: add views by type in the ribbon, pick one on the left, see it in
+ * the middle (as large as possible), set it up on the right.
  */
 function ResultsWorkspace<T extends string, V extends WorkspaceView<T>>({
   viewTypes,
@@ -58,34 +61,34 @@ function ResultsWorkspace<T extends string, V extends WorkspaceView<T>>({
   renderView,
   renderProperties,
   actions,
+  notes,
 }: Props<T, V>) {
   const [renaming, setRenaming] = useState<string | null>(null);
+  // narrow screens start with the view itself; the properties open with one click
+  const wide = useMediaQuery('(min-width:1600px)', { noSsr: true });
+  const [propertiesOpen, setPropertiesOpen] = useState(wide);
   const selected = views.find((v) => v.id === selectedId) ?? views[0] ?? null;
   const properties = selected && renderProperties ? renderProperties(selected) : null;
   const iconOf = (t: T) => viewTypes.find((x) => x.type === t)?.icon;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 1 }}>
-      <Paper variant="outlined" sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-        <Typography variant="caption" color="text.secondary">
-          Add view
-        </Typography>
-        <ButtonGroup size="small" variant="outlined">
-          {viewTypes.map((vt) => (
-            <Button key={vt.type} startIcon={vt.icon} onClick={() => onAdd(vt.type)}>
-              {vt.label}
-            </Button>
-          ))}
-        </ButtonGroup>
-        <Box sx={{ flex: 1 }} />
-        {actions}
-      </Paper>
-
-      <Box sx={{ display: 'flex', flex: 1, minHeight: 0, gap: 1 }}>
-        <Paper variant="outlined" sx={{ width: 200, flexShrink: 0, overflow: 'auto' }}>
-          <Typography variant="subtitle2" sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
-            Result views
-          </Typography>
+    <Workspace
+      ribbon={
+        <Ribbon>
+          <RibbonGroup label="Add view">
+            <ButtonGroup size="small" variant="outlined">
+              {viewTypes.map((vt) => (
+                <Button key={vt.type} startIcon={vt.icon} onClick={() => onAdd(vt.type)}>
+                  {vt.label}
+                </Button>
+              ))}
+            </ButtonGroup>
+          </RibbonGroup>
+          {actions}
+        </Ribbon>
+      }
+      left={
+        <PanelSection title="Result views" dense>
           {views.length === 0 && (
             <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
               No views yet: add one above.
@@ -140,29 +143,23 @@ function ResultsWorkspace<T extends string, V extends WorkspaceView<T>>({
               </ListItemButton>
             ))}
           </List>
-        </Paper>
-
-        <Paper variant="outlined" sx={{ flex: 1, minWidth: 0, p: 1.5, overflow: 'auto' }}>
-          {selected ? (
-            renderView(selected)
-          ) : (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Add color="disabled" />
-              <Typography color="text.secondary">Add a view to look at the results.</Typography>
-            </Box>
-          )}
-        </Paper>
-
-        {properties && (
-          <Paper variant="outlined" sx={{ width: 230, flexShrink: 0, p: 2, overflow: 'auto' }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              View properties
-            </Typography>
-            {properties}
-          </Paper>
-        )}
-      </Box>
-    </Box>
+        </PanelSection>
+      }
+      right={properties}
+      rightTitle="View properties"
+      rightOpen={propertiesOpen}
+      onRightToggle={() => setPropertiesOpen((o) => !o)}
+      notes={notes}
+    >
+      {selected ? (
+        renderView(selected)
+      ) : (
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Add color="disabled" />
+          <Typography color="text.secondary">Add a view to look at the results.</Typography>
+        </Box>
+      )}
+    </Workspace>
   );
 }
 

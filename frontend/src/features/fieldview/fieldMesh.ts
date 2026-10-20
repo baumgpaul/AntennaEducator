@@ -210,7 +210,7 @@ export function unshare(m: FieldMesh): { positions: Float32Array; cellOfVertex: 
   return { positions, cellOfVertex };
 }
 
-const COLORBAR_WIDTH = 140; // px taken by the colour scale overlay
+const COLORBAR_WIDTH = 96; // px taken by the compact colour scale overlay
 
 /** Camera framing a mesh in a canvas, leaving room for the colour scale on the right. */
 export function fitView(b: Bounds3, flat: boolean, width: number, height: number) {

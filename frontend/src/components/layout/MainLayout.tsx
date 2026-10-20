@@ -13,9 +13,9 @@ import Footer from './Footer';
 function MainLayout() {
   const location = useLocation();
 
-  // Hide footer on design pages (full-screen workspaces like Designer, Solver, Postprocessing)
-  // Match both /design and /project/:id/design (with or without trailing slash)
-  const isDesignPage = /\/design(\/|$)/.test(location.pathname);
+  // Hide footer on the full-screen workspaces (antenna design, field solver)
+  // Match /design, /project/:id/design and the like (with or without trailing slash)
+  const isDesignPage = /\/(design|fem)(\/|$)/.test(location.pathname);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}>

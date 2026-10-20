@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Button, Chip, Stack, Typography } from '@mui/material';
-import { ArrowForward, Description, School } from '@mui/icons-material';
+import { Box, Chip, Tooltip, Typography } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { openPanel, togglePanel } from '@/store/documentationSlice';
-import WorkflowTabs from '@/features/workflow/WorkflowTabs';
+import WorkflowBar from '@/features/workflow/WorkflowBar';
 import SidePanel, { type SidePanelTab } from '@/features/workflow/SidePanel';
 import LockedStep from '@/features/workflow/LockedStep';
 import { FEM_STEPS, nextStep, stepStatuses, type FemStepId } from './workflow';
@@ -58,42 +57,34 @@ function FemStudioPage() {
   const Content = TAB_CONTENT[active];
 
   return (
-    <Box data-testid="fem-studio" sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2, gap: 1.5 }}>
-      <Stack direction="row" alignItems="center" spacing={1}>
-        <Typography variant="h5">FEM Studio</Typography>
-        <Chip label="Preview" color="warning" size="small" />
-        <Typography color="text.secondary" sx={{ ml: 1 }}>
-          {studio.project?.name ?? studio.model.name} · 2D electrostatics
-        </Typography>
-        <Chip
-          size="small"
-          variant="outlined"
-          color={studio.saveStatus === 'error' ? 'error' : 'default'}
-          label={SAVE_TEXT[studio.saveStatus]}
-        />
-        <Box sx={{ flex: 1 }} />
-        {next && next !== active && (
-          <Button endIcon={<ArrowForward />} onClick={() => setActive(next)}>
-            Next: {FEM_STEPS.find((s) => s.id === next)!.label}
-          </Button>
-        )}
-        {!panelOpen && (
-          <Button startIcon={projectId ? <Description /> : <School />} onClick={() => dispatch(togglePanel())}>
-            {projectId ? 'Documentation' : 'Learn'}
-          </Button>
-        )}
-      </Stack>
-
-      <WorkflowTabs
+    <Box data-testid="fem-studio" sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <WorkflowBar
         steps={FEM_STEPS}
         statuses={statuses}
         active={active}
         onChange={setActive}
-        numbered
         notes={progress.notes}
+        next={next}
+        panelOpen={panelOpen}
+        onTogglePanel={() => dispatch(togglePanel())}
+        extra={
+          <>
+            <Tooltip title="The FEM workspace is a preview: it may still change">
+              <Chip label="Preview" color="warning" size="small" />
+            </Tooltip>
+            <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 220, display: { xs: 'none', xl: 'block' } }}>
+              {studio.project?.name ?? studio.model.name} · 2D electrostatics
+            </Typography>
+            <Chip
+              size="small"
+              variant="outlined"
+              color={studio.saveStatus === 'error' ? 'error' : 'default'}
+              label={SAVE_TEXT[studio.saveStatus]}
+            />
+          </>
+        }
       />
-
-      <Box sx={{ display: 'flex', flex: 1, gap: 2, minHeight: 0 }}>
+      <Box sx={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
           {statuses[active] === 'locked' ? <LockedStep step={step} steps={FEM_STEPS} /> : <Content studio={studio} />}
         </Box>

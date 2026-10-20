@@ -11,6 +11,8 @@ interface ColorbarProps {
   position?: 'right' | 'left';
   /** Index when stacking multiple colorbars (0 = first/top, 1 = second, ...) */
   stackIndex?: number;
+  /** Narrow: a thin bar with max and min beside it, to leave the canvas to the field */
+  compact?: boolean;
 }
 
 /**
@@ -25,6 +27,7 @@ export const Colorbar: React.FC<ColorbarProps> = ({
   unit = '',
   position = 'right',
   stackIndex = 0,
+  compact = false,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -60,6 +63,51 @@ export const Colorbar: React.FC<ColorbarProps> = ({
     if (absValue >= 0.001) return value.toFixed(6);
     return value.toExponential(2);
   };
+
+  if (compact) {
+    const text = isDark ? 'rgba(255,255,255,0.85)' : 'inherit';
+    const short = (v: number) => (v === 0 ? '0' : Math.abs(v) >= 1e4 || Math.abs(v) < 1e-2 ? v.toExponential(1) : v.toPrecision(3));
+    return (
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 12,
+          [position]: 12,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5,
+          backgroundColor: isDark ? 'rgba(30, 30, 30, 0.75)' : 'rgba(255, 255, 255, 0.85)',
+          p: 1,
+          borderRadius: 1,
+          zIndex: 1000,
+        }}
+        aria-label={`Colour scale ${label}`}
+      >
+        <Typography variant="caption" sx={{ fontWeight: 'bold', color: text, lineHeight: 1.2 }}>
+          {label}
+          {unit && ` [${unit}]`}
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 0.75 }}>
+          <Box
+            sx={{
+              width: 12,
+              height: 160,
+              background: `linear-gradient(to top, ${gradientStops})`,
+              border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid #ccc',
+              borderRadius: 0.5,
+            }}
+          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            {[max, (max + min) / 2, min].map((v, i) => (
+              <Typography key={i} variant="caption" sx={{ fontSize: '0.68rem', color: text, lineHeight: 1 }}>
+                {short(v)}
+              </Typography>
+            ))}
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box } from '@mui/material';
 import type { MeshData } from '../api';
 import { colorOf, colormap } from './geometryDraw';
@@ -16,7 +16,8 @@ export interface MeshViewProps {
   highlightBoundaries?: string[];
   selectedTriangle?: number | null;
   onPickTriangle?: (index: number) => void;
-  height?: number;
+  /** Pixels, or 'fill' to take the height of the parent (a flex column) */
+  height?: number | 'fill';
 }
 
 /** Canvas renderer for meshes and fields (y up, aspect ratio kept). */
@@ -32,6 +33,18 @@ function MeshView({
   height = 420,
 }: MeshViewProps) {
   const ref = useRef<HTMLCanvasElement>(null);
+  // the canvas size in CSS pixels, followed as the layout changes
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height: h } = entry.contentRect;
+      setSize((old) => (old && old.w === width && old.h === h ? old : { w: width, h }));
+    });
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, []);
   const bounds = useMemo(() => {
     let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
     for (let i = 0; i < mesh.nodes.length; i += 2) {
@@ -62,8 +75,8 @@ function MeshView({
     const canvas = ref.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    const cw = canvas.clientWidth || 600;
-    const ch = height;
+    const cw = size?.w || canvas.clientWidth || 600;
+    const ch = height === 'fill' ? size?.h || canvas.clientHeight || 420 : height;
     canvas.width = cw * dpr;
     canvas.height = ch * dpr;
     const ctx = canvas.getContext('2d');
@@ -133,7 +146,7 @@ function MeshView({
       ctx.lineWidth = 2.5;
       ctx.stroke();
     }
-  }, [mesh, triangleValues, range, contours, arrows, showEdges, highlightBoundaries, selectedTriangle, height, bounds]);
+  }, [mesh, triangleValues, range, contours, arrows, showEdges, highlightBoundaries, selectedTriangle, height, bounds, size]);
 
   const onClick = (ev: React.MouseEvent<HTMLCanvasElement>) => {
     if (!onPickTriangle) return;
@@ -146,11 +159,18 @@ function MeshView({
   };
 
   return (
-    <Box>
+    <Box sx={height === 'fill' ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : undefined}>
       <canvas
         ref={ref}
         onClick={onClick}
-        style={{ width: '100%', height, display: 'block', cursor: onPickTriangle ? 'crosshair' : undefined }}
+        style={{
+          width: '100%',
+          height: height === 'fill' ? undefined : height,
+          flex: height === 'fill' ? '1 1 0' : undefined,
+          minHeight: 0,
+          display: 'block',
+          cursor: onPickTriangle ? 'crosshair' : undefined,
+        }}
         aria-label="Mesh"
       />
       {range && (

@@ -32,10 +32,14 @@ describe('ResultsWorkspace', () => {
     expect(screen.queryByText('View properties')).not.toBeInTheDocument();
   });
 
-  it('shows the selected view and its properties', () => {
+  it('shows the selected view; its properties open and close (collapsed on narrow screens)', () => {
     setup('2');
     expect(screen.getByText('showing Second')).toBeInTheDocument();
+    expect(screen.queryByText('props of Second')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Show the properties'));
     expect(screen.getByText('props of Second')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Hide the properties'));
+    expect(screen.queryByText('props of Second')).not.toBeInTheDocument();
   });
 
   it('adds, selects, renames and deletes', () => {

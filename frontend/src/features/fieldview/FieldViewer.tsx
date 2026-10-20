@@ -68,7 +68,7 @@ function FieldViewer({ mesh, colorMap = 'jet', range, flat = true, height = 460,
           <Line key={i} points={[l.from, l.to]} color={l.color ?? '#ff4081'} lineWidth={3} position={[0, 0, 3e-6]} />
         ))}
       </Canvas>
-      <Colorbar min={r.min} max={r.max} colorMap={colorMap} label={mesh.label} unit={mesh.unit} />
+      <Colorbar min={r.min} max={r.max} colorMap={colorMap} label={mesh.label} unit={mesh.unit} compact />
       <Tooltip title="Reset view">
         <IconButton
           size="small"

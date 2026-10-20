@@ -1,4 +1,5 @@
-import { FormControlLabel, MenuItem, Stack, Switch, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { FormControlLabel, MenuItem, Stack, Switch, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Hint } from '@/features/workflow/Workspace';
 import { parseExprInput, type Expr } from '../expressions';
 import type { FemView } from '../model';
 import { FIELD_NAMES } from './views';
@@ -46,6 +47,12 @@ function ViewProperties({ view, onChange }: { view: FemView; onChange: (v: FemVi
             </MenuItem>
           ))}
         </TextField>
+        <Hint>
+          {view.quantity === 'potential'
+            ? 'V is continuous and linear on each triangle. Field lines (arrows) cross the equipotential lines at right angles.'
+            : 'E = −∇V is constant on each triangle (P1): fields are one order less accurate than the potential — refine where it changes fast.'}{' '}
+          Pink: where the line probes sample the field.
+        </Hint>
       </Stack>
     );
   }
@@ -81,10 +88,15 @@ function ViewProperties({ view, onChange }: { view: FemView; onChange: (v: FemVi
         </ToggleButtonGroup>
         {point('start', 'Start')}
         {point('end', 'End')}
-        <Typography variant="caption" color="text.secondary">
+        <Hint>
           Use numbers in metres or expressions of the parameters, e.g. a or d/2. The line is drawn in pink on the field
           views.
-        </Typography>
+        </Hint>
+        <Hint>
+          {view.quantity === 'potential'
+            ? 'The FEM potential is piecewise linear: it follows the exact curve closely and gets closer as the mesh is refined.'
+            : '|E| is constant on each element, so it jumps from triangle to triangle around the exact curve.'}
+        </Hint>
       </Stack>
     );
   }

@@ -53,7 +53,7 @@ describe('FemStudioPage', () => {
   it('shows the six workflow tabs with the Learn panel of the active step', () => {
     render(<FemStudioPage />);
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
-      '1 Geometry', '2 Materials', '3 Physics', '4 Mesh', '5 Solve', '6 Results',
+      'Geometry', 'Materials', 'Physics', 'Mesh', 'Solve', 'Results',
     ]);
     expect(screen.getByText('Learn: Geometry')).toBeInTheDocument();
   });
@@ -93,7 +93,7 @@ describe('FemStudioPage', () => {
     expect(screen.getByText('Saved')).toBeInTheDocument();
     // a course copy opens on its documentation
     expect(screen.getByText('Project documentation')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Learn/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Learn' }));
     expect(screen.getByText('Learn: Geometry')).toBeInTheDocument();
 
     fireEvent.change(screen.getAllByLabelText('Value')[0], { target: { value: '0.0006' } });

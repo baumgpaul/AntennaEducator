@@ -22,7 +22,7 @@ function QuantitiesView({ result, model }: { result: SolveResult; model: FemMode
   const diff = (v: number) => (analytic ? ` (${(100 * (v / analytic.value - 1)).toFixed(2)} %)` : '');
 
   return (
-    <Stack spacing={3} sx={{ maxWidth: 640 }}>
+    <Stack spacing={3} sx={{ maxWidth: 680, p: 3, overflow: 'auto' }}>
       {c && (
         <Box>
           <Typography variant="subtitle2" color="text.secondary">

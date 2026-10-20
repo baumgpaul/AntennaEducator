@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { Typography } from '@mui/material';
 import FieldViewer from '@/features/fieldview/FieldViewer';
 import { boundsOf, fromTriangles2D } from '@/features/fieldview/fieldMesh';
 import type { SolveResult } from '../api';
@@ -7,7 +6,7 @@ import type { FemView } from '../model';
 
 type FieldView = Extract<FemView, { type: 'field' }>;
 
-/** A field on the mesh in the shared viewer; probe lines of the model are drawn on top. */
+/** A field on the mesh in the shared viewer, filling the canvas; probe lines of the model are drawn on top. */
 function FieldResultView({
   view,
   result,
@@ -39,22 +38,15 @@ function FieldResultView({
   }, [mesh]);
 
   return (
-    <>
-      <FieldViewer
-        mesh={mesh}
-        colorMap={view.colorMap}
-        contours={view.contours ? 12 : 0}
-        arrowSpacing={view.arrows ? arrowSpacing : 0}
-        overlayLines={probeLines.map((l) => ({ from: [l.start[0], l.start[1], 0], to: [l.end[0], l.end[1], 0] }))}
-        flat
-      />
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-        {view.quantity === 'potential'
-          ? 'V is continuous and linear on each triangle. Field lines (arrows) cross the equipotential lines at right angles.'
-          : 'E = −∇V is constant on each triangle (P1): fields are one order less accurate than the potential — refine where it changes fast.'}
-        {probeLines.length > 0 && ' Pink: where the line probes sample the field.'}
-      </Typography>
-    </>
+    <FieldViewer
+      mesh={mesh}
+      colorMap={view.colorMap}
+      contours={view.contours ? 12 : 0}
+      arrowSpacing={view.arrows ? arrowSpacing : 0}
+      overlayLines={probeLines.map((l) => ({ from: [l.start[0], l.start[1], 0], to: [l.end[0], l.end[1], 0] }))}
+      height="100%"
+      flat
+    />
   );
 }
 
