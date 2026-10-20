@@ -96,3 +96,16 @@ def test_opencfs_export_contains_the_three_files(client):
     assert set(files) == {"simulation.xml", "mat.xml", "model.msh"}
     assert files["model.msh"].startswith("$MeshFormat\n2.2")
     assert '"top"' in files["model.msh"] and 'fileName="model.msh"' in files["simulation.xml"]
+
+
+def test_refused_requests_are_logged_with_their_reason(client, caplog):
+    import logging
+
+    caplog.set_level(logging.INFO, logger="fem")
+    bad = {**GEOMETRY, "mesh": {"size": "1,5"}}
+    client.post("/api/fem/mesh", json={"geometry": bad})
+    shape = {**GEOMETRY, "shapes": [{**GEOMETRY["shapes"][0], "width": [1]}]}
+    client.post("/api/fem/mesh", json={"geometry": shape})
+    text = caplog.text
+    assert "422 /api/fem/mesh" in text and "1,5" in text  # expression error message
+    assert "geometry.shapes.0.rectangle.width" in text  # schema error location
