@@ -109,3 +109,48 @@ def test_refused_requests_are_logged_with_their_reason(client, caplog):
     text = caplog.text
     assert "422 /api/fem/mesh" in text and "1,5" in text  # expression error message
     assert "geometry.shapes.0.rectangle.width" in text  # schema error location
+
+
+def test_solve_summary_has_the_numbers_of_the_full_solve(client):
+    full = client.post("/api/fem/solve", json={"geometry": GEOMETRY, "problem": PROBLEM}).json()
+    r = client.post("/api/fem/solve/summary", json={"geometry": GEOMETRY, "problem": PROBLEM})
+    assert r.status_code == 200, r.text
+    s = r.json()
+    assert "potential" not in s and "mesh" not in s
+    assert s["capacitance"] == pytest.approx(full["capacitance"], rel=1e-12)
+    assert s["energy"] == pytest.approx(full["energy"], rel=1e-12)
+    assert s["nodes"] == full["info"]["n_nodes"] and s["triangles"] == full["info"]["n_elements"]
+
+
+def _coax(f: float):
+    """The coax template with every mesh size scaled by f (as the mesh-convergence study does)."""
+    geometry = {
+        "parameters": {"a": 0.0005, "b": 0.0017},
+        "shapes": [
+            {"kind": "circle", "name": "dielectric", "cx": 0, "cy": 0, "r": "b"},
+            {"kind": "circle", "name": "inner", "cx": 0, "cy": 0, "r": "a"},
+        ],
+        "holes": ["inner"],
+        "mesh": {"size": f"((b-a)/6)*{f}", "elements_per_circle": round(48 / f)},
+    }
+    problem = {
+        "materials": {"dielectric": {"name": "PTFE", "relative_permittivity": 2.1}},
+        "boundary_conditions": [
+            {"type": "potential", "boundary": "inner", "value": 1},
+            {"type": "ground", "boundary": "outer"},
+        ],
+    }
+    return {"geometry": geometry, "problem": problem}
+
+
+def test_coax_capacitance_converges_quadratically_under_uniform_refinement(client):
+    """P1 energy (and so 2W/U²) converges like h²: halving h quarters the error."""
+    import math
+
+    exact = 2 * math.pi * 8.8541878128e-12 * 2.1 / math.log(0.0017 / 0.0005)
+    errors = []
+    for f in (1, 0.5, 0.25):
+        s = client.post("/api/fem/solve/summary", json=_coax(f)).json()
+        errors.append(abs(s["capacitance"]["from_energy"] / exact - 1))
+    orders = [math.log2(errors[i] / errors[i + 1]) for i in range(2)]
+    assert all(1.6 < p < 2.6 for p in orders), (errors, orders)

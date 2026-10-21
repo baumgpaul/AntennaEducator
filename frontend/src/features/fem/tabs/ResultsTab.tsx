@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Button, Tooltip, Typography } from '@mui/material';
 import { RibbonGroup } from '@/features/workflow/Workspace';
-import { Download, Gradient, ShowChart, TableChart } from '@mui/icons-material';
+import { Download, Gradient, ShowChart, TableChart, TrendingDown, Tune } from '@mui/icons-material';
 import ResultsWorkspace, { type ViewType } from '@/features/results/ResultsWorkspace';
 import type { FemView } from '../model';
 import type { FemStudio } from '../useFemStudio';
 import FieldResultView from '../results/FieldResultView';
 import LineResultView from '../results/LineResultView';
 import QuantitiesView from '../results/QuantitiesView';
+import StudyResultView from '../results/StudyResultView';
 import ViewProperties from '../results/ViewProperties';
 import { defaultViews, lineEnds, newView } from '../results/views';
 import { StepNotes } from './common';
@@ -16,6 +17,8 @@ const VIEW_TYPES: ViewType<FemView['type']>[] = [
   { type: 'field', label: 'Field', icon: <Gradient fontSize="small" /> },
   { type: 'line', label: 'Line probe', icon: <ShowChart fontSize="small" /> },
   { type: 'quantities', label: 'Quantities', icon: <TableChart fontSize="small" /> },
+  { type: 'convergence', label: 'Mesh convergence', icon: <TrendingDown fontSize="small" /> },
+  { type: 'sweep', label: 'Parameter sweep', icon: <Tune fontSize="small" /> },
 ];
 
 function ResultsTab({ studio }: { studio: FemStudio }) {
@@ -25,6 +28,9 @@ function ResultsTab({ studio }: { studio: FemStudio }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const setViews = (next: FemView[]) => update((m) => ({ ...m, views: next }));
+  // against the latest views: a study finishing late must not undo edits made meanwhile
+  const replaceView = (nv: FemView) =>
+    update((m) => ({ ...m, views: (m.views ?? defaultViews(m)).map((x) => (x.id === nv.id ? nv : x)) }));
   const probeLines = useMemo(
     () =>
       views.flatMap((v) => {
@@ -51,7 +57,7 @@ function ResultsTab({ studio }: { studio: FemStudio }) {
       selectedId={selectedId}
       onSelect={setSelectedId}
       onAdd={(type) => {
-        const v = newView(type, views, result.mesh.nodes);
+        const v = newView(type, views, result.mesh.nodes, { model, capacitance: result.capacitance != null });
         setViews([...views, v]);
         setSelectedId(v.id);
       }}
@@ -62,13 +68,15 @@ function ResultsTab({ studio }: { studio: FemStudio }) {
           <FieldResultView view={v} result={result} probeLines={probeLines} />
         ) : v.type === 'line' ? (
           <LineResultView view={v} result={result} model={model} />
+        ) : v.type === 'convergence' || v.type === 'sweep' ? (
+          <StudyResultView key={v.id} view={v} model={model} onChange={replaceView} />
         ) : (
           <QuantitiesView result={result} model={model} />
         )
       }
       renderProperties={(v) =>
         v.type === 'quantities' ? null : (
-          <ViewProperties view={v} onChange={(nv) => setViews(views.map((x) => (x.id === nv.id ? nv : x)))} />
+          <ViewProperties view={v} onChange={replaceView} parameters={Object.keys(model.parameters)} />
         )
       }
       actions={

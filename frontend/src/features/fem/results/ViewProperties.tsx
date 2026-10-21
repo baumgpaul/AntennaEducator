@@ -1,13 +1,23 @@
 import { FormControlLabel, MenuItem, Stack, Switch, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { Hint } from '@/features/workflow/Workspace';
 import { parseExprInput, type Expr } from '../expressions';
-import type { FemView } from '../model';
+import type { FemView, StudyQuantity } from '../model';
+import { StudyHint } from './StudyResultView';
 import { FIELD_NAMES } from './views';
 
 const exprText = (e: Expr) => String(e);
 
 /** Settings of the selected result view. */
-function ViewProperties({ view, onChange }: { view: FemView; onChange: (v: FemView) => void }) {
+function ViewProperties({
+  view,
+  onChange,
+  parameters = [],
+}: {
+  view: FemView;
+  onChange: (v: FemView) => void;
+  /** Names of the model's parameters (sweeps) */
+  parameters?: string[];
+}) {
   if (view.type === 'field') {
     return (
       <Stack spacing={2}>
@@ -97,6 +107,73 @@ function ViewProperties({ view, onChange }: { view: FemView; onChange: (v: FemVi
             ? 'The FEM potential is piecewise linear: it follows the exact curve closely and gets closer as the mesh is refined.'
             : '|E| is constant on each element, so it jumps from triangle to triangle around the exact curve.'}
         </Hint>
+      </Stack>
+    );
+  }
+  if (view.type === 'convergence' || view.type === 'sweep') {
+    // settings change the study: its saved points no longer match them
+    const set = (change: Partial<typeof view>) => onChange({ ...view, ...change, run: undefined } as FemView);
+    const exprField = (key: 'from' | 'to', label: string) =>
+      view.type === 'sweep' && (
+        <TextField
+          key={`${key}-${exprText(view[key])}`}
+          size="small"
+          label={label}
+          defaultValue={exprText(view[key])}
+          onBlur={(e) => {
+            const v = parseExprInput(e.target.value);
+            if (v !== view[key]) set({ [key]: v });
+          }}
+        />
+      );
+    return (
+      <Stack spacing={2}>
+        <TextField
+          select
+          size="small"
+          label="Quantity"
+          value={view.quantity}
+          onChange={(e) => set({ quantity: e.target.value as StudyQuantity })}
+        >
+          <MenuItem value="capacitance">Capacitance C = 2W/ΔV²</MenuItem>
+          <MenuItem value="energy">Field energy W</MenuItem>
+        </TextField>
+        {view.type === 'sweep' && (
+          <>
+            <TextField
+              select
+              size="small"
+              label="Parameter"
+              value={parameters.includes(view.parameter) ? view.parameter : ''}
+              onChange={(e) => set({ parameter: e.target.value, name: `Sweep ${e.target.value}` })}
+            >
+              {parameters.map((p) => (
+                <MenuItem key={p} value={p}>
+                  {p}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Stack direction="row" spacing={1}>
+              {exprField('from', 'From')}
+              {exprField('to', 'To')}
+            </Stack>
+          </>
+        )}
+        <TextField
+          select
+          size="small"
+          label={view.type === 'convergence' ? 'Meshes' : 'Values'}
+          value={view.steps}
+          onChange={(e) => set({ steps: Number(e.target.value) })}
+        >
+          {(view.type === 'convergence' ? [3, 4, 5, 6, 7] : [3, 4, 6, 8, 11, 16]).map((n) => (
+            <MenuItem key={n} value={n}>
+              {n}
+              {view.type === 'convergence' && ` (finest: elements ${(2 ** ((n - 3) / 2)).toPrecision(2)}× smaller than the model's)`}
+            </MenuItem>
+          ))}
+        </TextField>
+        <StudyHint view={view} />
       </Stack>
     );
   }

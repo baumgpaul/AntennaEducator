@@ -78,7 +78,47 @@ export type FemView =
       start: [Expr, Expr];
       end: [Expr, Expr];
     }
-  | { id: string; name: string; type: 'quantities' };
+  | { id: string; name: string; type: 'quantities' }
+  | {
+      id: string;
+      name: string;
+      type: 'convergence';
+      quantity: StudyQuantity;
+      /** Number of meshes, from twice the model's element size down by factors of √2 */
+      steps: number;
+      run?: StudyRun;
+    }
+  | {
+      id: string;
+      name: string;
+      type: 'sweep';
+      quantity: StudyQuantity;
+      parameter: string;
+      from: Expr;
+      to: Expr;
+      steps: number;
+      run?: StudyRun;
+    };
+
+/** What a study follows: the capacitance (from the energy, 2W/ΔV²) or the field energy */
+export type StudyQuantity = 'capacitance' | 'energy';
+
+/** One solve of a study: its x (mesh scale or parameter value) and the outcome */
+export interface StudyPoint {
+  x: number;
+  nodes?: number;
+  value?: number;
+  seconds?: number;
+  error?: string;
+}
+
+/** A finished (or cancelled) study, saved with its view; `key` tells whether the model changed since */
+export interface StudyRun {
+  key: string;
+  points: StudyPoint[];
+  /** The textbook value(s) at each x, where the template has one */
+  reference?: (number | null)[];
+}
 
 /** Common materials (εr, static). Students can also type their own. */
 export const MATERIAL_LIBRARY: Material[] = [
