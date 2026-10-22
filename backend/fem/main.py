@@ -173,17 +173,40 @@ def check_endpoint(request: ModelRequest, user: UserIdentity = Depends(preview_u
     }
 
 
-@app.post(f"{API}/solve")
-def solve_endpoint(request: ModelRequest, user: UserIdentity = Depends(preview_user)):
+def _solve(request: ModelRequest):
     result = _mesh(request.geometry)
-    mesh = result.mesh
     try:
-        r = solve(request.problem, mesh)
+        return result, solve(request.problem, result.mesh)
     except SetupError as e:
         raise HTTPException(
             status_code=422,
             detail={"message": str(e), "issues": [i.__dict__ for i in e.issues]},
         ) from e
+
+
+@app.post(f"{API}/solve/summary")
+def solve_summary_endpoint(request: ModelRequest, user: UserIdentity = Depends(preview_user)):
+    """Only the numbers of a solve (no mesh or fields): one point of a study."""
+    t0 = time.perf_counter()
+    result, r = _solve(request)
+    stats = result.mesh.stats()
+    return {
+        "warnings": result.warnings,
+        "nodes": stats["nodes"],
+        "triangles": stats["triangles"],
+        "energy": r.energy,
+        "energy_by_domain": r.energy_by_domain,
+        "charge": r.charge,
+        "capacitance": r.capacitance,
+        "info": r.info.__dict__,
+        "seconds": round(time.perf_counter() - t0, 3),
+    }
+
+
+@app.post(f"{API}/solve")
+def solve_endpoint(request: ModelRequest, user: UserIdentity = Depends(preview_user)):
+    result, r = _solve(request)
+    mesh = result.mesh
     k = r.stiffness.tocoo()
     return {
         "mesh": _mesh_json(mesh),

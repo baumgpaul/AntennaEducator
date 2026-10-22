@@ -10,10 +10,26 @@ export const FIELD_NAMES = { potential: 'Potential', E: 'Field strength |E|', D:
 
 const round = (v: number) => Number(v.toPrecision(4));
 
-/** A new view; a new line probe crosses the middle of the mesh horizontally. */
-export function newView(type: FemView['type'], existing: FemView[], meshNodes: number[] = []): FemView {
+/**
+ * A new view; a new line probe crosses the middle of the mesh horizontally,
+ * a new sweep varies the first parameter from half to one and a half times its value.
+ */
+export function newView(
+  type: FemView['type'],
+  existing: FemView[],
+  meshNodes: number[] = [],
+  context: { model?: FemModel; capacitance?: boolean } = {},
+): FemView {
   const n = existing.filter((v) => v.type === type).length + 1;
   const id = newViewId();
+  const quantity = context.capacitance === false ? 'energy' : 'capacitance';
+  if (type === 'convergence') return { id, name: n > 1 ? `Mesh convergence ${n}` : 'Mesh convergence', type, quantity, steps: 5 };
+  if (type === 'sweep') {
+    const params = context.model ? evaluateParameters(context.model.parameters) : {};
+    const parameter = Object.keys(params)[0] ?? '';
+    const v = params[parameter] ?? 1;
+    return { id, name: `Sweep ${parameter || n}`, type, quantity, parameter, from: round(v / 2), to: round(1.5 * v), steps: 6 };
+  }
   if (type === 'field') {
     const name = existing.some((v) => v.name === FIELD_NAMES.potential) ? `Field ${n}` : FIELD_NAMES.potential;
     return { id, name, type, quantity: 'potential', contours: true, arrows: true, colorMap: 'viridis' };

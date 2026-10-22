@@ -233,6 +233,22 @@ function UnifiedLinePlot({
       return ticks;
     };
 
+    // Log axes: 1, 2, 5 × 10^k spanning the data (linear ticks start at 0, which a log scale cannot show)
+    const computeLogTicks = (min: number, max: number): number[] | undefined => {
+      if (!(min > 0) || !(max > 0)) return undefined;
+      const lo = Math.floor(Math.log10(min));
+      const hi = Math.ceil(Math.log10(max));
+      const ticks: number[] = [];
+      for (let k = lo; k <= hi; k++) {
+        for (const m of hi - lo > 3 ? [1] : [1, 2, 5]) ticks.push(parseFloat((m * 10 ** k).toPrecision(12)));
+      }
+      const first = ticks.filter((t) => t <= min).pop() ?? ticks[0];
+      const last = ticks.find((t) => t >= max) ?? ticks[ticks.length - 1];
+      return ticks.filter((t) => t >= first && t <= last);
+    };
+    const ticksFor = (min: number, max: number, scale?: string) =>
+      !isFinite(min) || !isFinite(max) ? undefined : scale === 'log' ? computeLogTicks(min, max) : computeNiceTicks(min, max, 10);
+
     const leftTraceIds = new Set(traces.filter((t) => t.yAxisId !== 'right').map((t) => t.id));
     const rightTraceIds = new Set(traces.filter((t) => t.yAxisId === 'right').map((t) => t.id));
 
@@ -247,10 +263,10 @@ function UnifiedLinePlot({
     }
 
     return {
-      leftTicks: isFinite(lMin) && isFinite(lMax) ? computeNiceTicks(lMin, lMax, 10) : undefined,
-      rightTicks: isFinite(rMin) && isFinite(rMax) ? computeNiceTicks(rMin, rMax, 10) : undefined,
+      leftTicks: ticksFor(lMin, lMax, yAxisLeftConfig.scale),
+      rightTicks: ticksFor(rMin, rMax, yAxisRightConfig?.scale),
     };
-  }, [chartData, traces]);
+  }, [chartData, traces, yAxisLeftConfig.scale, yAxisRightConfig?.scale]);
   // Empty state after all hooks: an early return above them changed the
   // hook count between renders (crash when data arrives).
   if (!hasData) {

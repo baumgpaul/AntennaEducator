@@ -97,6 +97,27 @@ export async function solveModel(model: FemModel): Promise<SolveResult> {
   return r.data;
 }
 
+/** The numbers of a solve, without mesh or fields: one point of a study */
+export interface SolveSummary {
+  warnings: string[];
+  nodes: number;
+  triangles: number;
+  energy: number;
+  energy_by_domain: Record<string, number>;
+  charge: Record<string, number>;
+  capacitance: { from_charge: number; from_energy: number; voltage: number } | null;
+  seconds: number;
+}
+
+export async function solveSummary(model: FemModel, signal?: AbortSignal): Promise<SolveSummary> {
+  const r = await client.post(
+    '/api/fem/solve/summary',
+    { geometry: geometryOf(model), problem: problemOf(model) },
+    { signal },
+  );
+  return r.data;
+}
+
 export async function exportOpenCfs(model: FemModel): Promise<Record<string, string>> {
   const r = await client.post('/api/fem/export/opencfs', { geometry: geometryOf(model), problem: problemOf(model) });
   return r.data.files;
