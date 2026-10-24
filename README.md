@@ -145,7 +145,7 @@ AntennaEducator/
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for branching strategy, code style, and PR workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branching strategy, code style, and PR workflow, and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for setting up a development machine (`scripts/setup-dev.ps1`) and the deploy flow.
 
 ## License
 

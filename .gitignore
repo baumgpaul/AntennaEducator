@@ -134,6 +134,13 @@ tfplan
 /*.md
 !README.md
 !CONTRIBUTING.md
+!CLAUDE.md
+
+# Private notes repo (baumgpaul/AntennaEducator-notes), cloned here on each machine
+/.notes/
+
+# Claude Code: personal settings stay local (shared ones are .claude/settings.json)
+.claude/settings.local.json
 eslint_output.txt
 eslint_report.json
 build_log.txt
