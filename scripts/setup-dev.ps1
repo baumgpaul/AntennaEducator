@@ -33,8 +33,11 @@ foreach ($t in "git", "python", "node", "npm", "gh", "docker", "aws", "terraform
 $pyVersion = [version]((python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))") 2>$null)
 if ($pyVersion -lt [version]"3.11") { throw "Python 3.11+ required (found $pyVersion)" }
 Ok "Python $pyVersion (CI and Lambda use 3.11)"
-$nodeMajor = [int]((node --version) -replace '^v(\d+).*', '$1')
-if ($nodeMajor -lt 22) { Todo "Node 22+ recommended (found $nodeMajor; CI uses 22)" } else { Ok "Node $nodeMajor" }
+$nodeVersion = [version]((node --version) -replace '^v', '')
+# jsdom (frontend tests) needs ^22.22.2 || ^24.15.0 || >=26
+$nodeOk = ($nodeVersion.Major -eq 22 -and $nodeVersion -ge [version]"22.22.2") -or
+          ($nodeVersion.Major -eq 24 -and $nodeVersion -ge [version]"24.15.0") -or $nodeVersion.Major -ge 26
+if ($nodeOk) { Ok "Node $nodeVersion" } else { Todo "update Node (found $nodeVersion; need 22.22+ or 24.15+, CI uses 22)" }
 
 # ── Python ───────────────────────────────────────────────────────────────
 Step "Python venv (.venv)"

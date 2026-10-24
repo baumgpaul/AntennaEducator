@@ -6,7 +6,7 @@ conventions see [CONTRIBUTING.md](../CONTRIBUTING.md); for architecture,
 
 ## 1. New machine
 
-**Install:** Git, Python 3.11+ (CI and Lambda use 3.11; 3.13 works locally), Node 22+,
+**Install:** Git, Python 3.11+ (CI and Lambda use 3.11; 3.13 works locally), Node 22.22+ or 24.15+ (jsdom's minimum; CI uses 22),
 PowerShell 7, GitHub CLI, Docker Desktop. For infrastructure work also AWS CLI v2 and
 Terraform ≥ 1.14.
 
