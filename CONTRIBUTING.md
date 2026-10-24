@@ -76,30 +76,22 @@ pre-commit run --all-files
 
 ## CI/CD Pipeline
 
-### On Pull Request (automatic — AWS CodeBuild)
+### On Pull Request (automatic — GitHub Actions)
 
-Every PR to `main` runs the checks defined in `buildspec-test.yml`:
-1. **Backend** — Black, isort, Ruff, pytest unit tests
-2. **Frontend** — ESLint, TypeScript type-check, Vitest
+Every PR to `main` runs `.github/workflows/pr-checks.yml`:
+1. **Secret scan** — gitleaks over the PR's commits
+2. **Backend** — Black, isort, Ruff, pytest unit + integration tests
+3. **FEM** — mesher, solver (physics) and FEM service tests
+4. **Frontend** — ESLint, TypeScript type-check, Vitest, flag-off build check
 
-PRs cannot be merged unless all checks pass.
+PRs cannot be merged unless the required checks pass.
 
-### On Merge to main → AWS CodePipeline (automatic)
+### Deploy to staging (label `deploy-to-staging`)
 
-When code is merged to `main`, the AWS CodePipeline triggers:
-
-1. **Source** — pulls latest `main` from GitHub
-2. **Test** — runs full lint + test suite in CodeBuild (`buildspec-test.yml`)
-3. **Deploy** — builds 4 Docker images, pushes to ECR, updates Lambda functions,
-   deploys frontend to S3, invalidates CloudFront (`buildspec-deploy.yml`)
-
-To deploy manually at any time:
-
-```PowerShell
-.\scripts\deploy.ps1 -Environment staging    # staging
-.\scripts\deploy.ps1 -Environment production  # production
-.\scripts\promote.ps1                          # staging → production image promotion
-```
+Adding the `deploy-to-staging` label runs `.github/workflows/aws-build-and-merge.yml`:
+changed services → ECR → Lambda, frontend → S3 + CloudFront, smoke test. After a maintainer
+approves the `staging` environment, the PR is squash-merged automatically. Details:
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#4-from-pr-to-staging).
 
 ## Testing Requirements
 

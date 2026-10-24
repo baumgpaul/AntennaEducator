@@ -1,5 +1,7 @@
 # Copilot Instructions — Antenna Simulator
 
+> Current workflow, project decisions and setup: [CLAUDE.md](../CLAUDE.md) and [docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md). Deploys run in GitHub Actions (`deploy-to-staging` label), not CodePipeline.
+
 ## Architecture Overview
 
 Cloud-native electromagnetic simulation platform with a Python microservice backend and React frontend. Supports multiple simulation methods (PEEC now, FEM planned). **Primary deployment target is AWS** (Lambda + DynamoDB + S3 + Cognito + CloudFront). Standalone mode (Docker / on-prem) exists for university institute deployments. The backend, frontend and several UI features (visualization, postprocessing views) are **under active development** — expect evolving component structures.
@@ -193,16 +195,8 @@ If `black` or `isort` report failures, auto-fix with `black backend/ tests/` and
 
 ## Known Issues & Workarounds
 
-### Frontend Tests — `document is not defined` Failures
-Running `npx vitest run` from the `frontend/` directory produces many failures (`ReferenceError: document is not defined`) in test files that import React components or DOM-dependent code. The vitest config (`frontend/vitest.config.ts`) sets `environment: 'jsdom'` globally, but many test files still fail with this error. **Pure logic tests** (e.g., `VectorRenderer.test.tsx` which tests math functions like `createSeededRandom`, `generateRandomIndices`, `computePoyntingVectors`) pass reliably. When verifying changes, run specific test files rather than the full suite:
-```powershell
-cd frontend
-npx vitest run src/path/to/specific.test.tsx     # Run targeted tests
-npx tsc --noEmit                                  # TypeScript check (always works)
-```
-
-### Pre-Commit Hook — `frontend-typecheck` Fails on Windows
-The pre-commit hook runs `npx --prefix frontend tsc --noEmit`, which on Windows fails to pass `--noEmit` correctly to `tsc` (prints tsc help text instead of type-checking). **Workaround**: run `cd frontend && npx tsc --noEmit` manually — this works correctly. If pre-commit blocks a commit, use `git commit --no-verify` after manually verifying the typecheck passes.
+### Frontend Tests — run inside `frontend/`
+Vitest must run with `frontend/` as working directory (or `npm --prefix frontend run test:run`) so `vitest.config.ts` and its jsdom environment are used; from the repo root every DOM test fails with `document is not defined`. The pre-commit hooks already do this.
 
 ### Console Warning — `selectVariableContextNumeric` Non-Memoized Selector
 `selectVariableContextNumeric` (in `variablesSlice.ts`) computes a new object on every call, triggering a react-redux warning ("Selector returned a different result when called with the same parameters"). This is a **cosmetic warning only** — tests still pass. Fix when convenient: wrap the selector with `createSelector` from `reselect`.
