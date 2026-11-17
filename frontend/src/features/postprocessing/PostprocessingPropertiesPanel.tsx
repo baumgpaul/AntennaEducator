@@ -39,6 +39,15 @@ import {
 import { selectSelectedFrequencyHz } from '../../store/solverSlice';
 import { selectParameterStudy } from '../../store/solverSlice';
 import { TRACE_COLORS } from '@/types/plotDefinitions';
+import type { ViewType } from '@/types/postprocessing';
+
+const VIEW_TYPE_LABELS: Record<ViewType, string> = {
+  '3D': '3D View',
+  Line: 'Line View',
+  Smith: 'Smith Chart',
+  Polar: 'Polar Plot',
+  Table: 'Table View',
+};
 
 /**
  * Get ordinal suffix for density numbers (1st, 2nd, 3rd, 4th, etc.)
@@ -1271,7 +1280,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             Type:
           </Typography>
           <Chip
-            label={selectedView.viewType === '3D' ? '3D View' : 'Line View'}
+            label={VIEW_TYPE_LABELS[selectedView.viewType] ?? selectedView.viewType}
             size="small"
             color={selectedView.viewType === '3D' ? 'primary' : 'secondary'}
           />

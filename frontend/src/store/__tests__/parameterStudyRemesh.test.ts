@@ -124,6 +124,23 @@ describe('geometry restore on failure (B31)', () => {
     const lastLength = (createDipole.mock.calls.at(-1)![0] as { length: number }).length;
     expect(lastLength).toBe(0.5); // nominal L, not the swept value 1
   });
+
+  it('restores the geometry when a point is rejected early (invalid frequency)', async () => {
+    createDipole.mockReset().mockResolvedValue({ element: { sources: [] }, mesh: MESH, message: '' });
+    solveMultiAntenna.mockReset().mockResolvedValue({ frequency: 3e8, converged: true, antenna_solutions: [] });
+    // freq follows L and is negative at the first sweep point (L = 1)
+    const store = makeStore('L', [
+      { name: 'L', expression: '0.5' },
+      { name: 'freq', expression: 'L - 2' },
+    ]);
+
+    const result = await store.dispatch(runParameterStudy(sweep('L')));
+
+    expect(result.meta.requestStatus).toBe('rejected');
+    expect(result.payload).toMatch(/Invalid frequency/);
+    const lastLength = (createDipole.mock.calls.at(-1)![0] as { length: number }).length;
+    expect(lastLength).toBe(0.5);
+  });
 });
 
 describe('geometryChanged', () => {

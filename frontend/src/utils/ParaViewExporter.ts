@@ -13,8 +13,43 @@ import { downloadFile } from './exportData';
 
 interface ExportToVTUOptions {
   fieldId: string;
+  /** Key of the stored field data; defaults to frequencyHz (single solve). */
+  key?: number;
+  /** Frequency written into the file. */
   frequencyHz: number;
   filename: string;
+}
+
+interface SolverLike {
+  solveMode?: string | null;
+  currentFrequency?: number | null; // MHz
+  selectedSweepPointIndex?: number;
+  parameterStudy?: {
+    results?: Array<{ point: { values: Record<string, number> }; solverResponse: unknown }>;
+  } | null;
+}
+
+/**
+ * Which stored field data the views show, and at which frequency.
+ * A single solve keys field data by frequency in Hz; a parameter sweep keys it
+ * by the sweep point index (each point may have its own frequency and geometry).
+ */
+export function fieldDataTarget(
+  solver: SolverLike,
+): { key: number; frequencyHz: number; label: string } | null {
+  const results = solver.parameterStudy?.results;
+  if (solver.solveMode === 'sweep' && results && results.length > 0) {
+    const key = Math.min(Math.max(solver.selectedSweepPointIndex ?? 0, 0), results.length - 1);
+    const point = results[key];
+    const frequencyHz = (point.solverResponse as { frequency?: number } | null)?.frequency ?? 0;
+    const label = Object.entries(point.point.values)
+      .map(([name, value]) => `${name}_${value.toExponential()}`)
+      .join('_');
+    return { key, frequencyHz, label };
+  }
+  if (solver.currentFrequency == null) return null;
+  const hz = solver.currentFrequency * 1e6;
+  return { key: hz, frequencyHz: hz, label: `${solver.currentFrequency.toFixed(2)}MHz` };
 }
 
 type ComplexVector = {
@@ -91,7 +126,8 @@ ${dataArray('types', indices.map(() => VTK_VERTEX), 1, 'UInt8')}
  */
 export async function exportToVTU(options: ExportToVTUOptions, state: RootState): Promise<void> {
   const { fieldId, frequencyHz, filename } = options;
-  const fieldData = state.solver.fieldData?.[fieldId]?.[frequencyHz];
+  const key = options.key ?? frequencyHz;
+  const fieldData = state.solver.fieldData?.[fieldId]?.[key];
 
   if (!fieldData) {
     throw new Error(
@@ -108,8 +144,8 @@ export async function exportToVTU(options: ExportToVTUOptions, state: RootState)
 /**
  * Check if field data is available for export
  */
-export function canExportToVTU(fieldId: string, frequencyHz: number, state: RootState): boolean {
-  const fieldData = state.solver.fieldData?.[fieldId]?.[frequencyHz];
+export function canExportToVTU(fieldId: string, key: number, state: RootState): boolean {
+  const fieldData = state.solver.fieldData?.[fieldId]?.[key];
   return !!(
     fieldData &&
     fieldData.points &&
