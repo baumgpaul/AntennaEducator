@@ -28,6 +28,7 @@ import { FileDownload as FileDownloadIcon } from '@mui/icons-material';
 import type { TableColumn } from '@/types/plotDefinitions';
 import type { FrequencySweepResult } from '@/types/api';
 import type { ParameterStudyResult } from '@/types/parameterStudy';
+import { parseComplex } from '@/utils/complexNumber';
 
 // ============================================================================
 // Complex helpers (mirrored from plotDataExtractors to avoid circular deps)
@@ -38,30 +39,6 @@ interface ComplexLike {
   imag: number;
 }
 
-function parseComplex(v: unknown): ComplexLike {
-  if (v == null) return { real: 0, imag: 0 };
-  if (typeof v === 'object' && v !== null && 'real' in v && 'imag' in v) {
-    return { real: (v as any).real, imag: (v as any).imag };
-  }
-  if (typeof v === 'number') return { real: v, imag: 0 };
-  if (typeof v === 'string') {
-    // Parse "(50+20j)" or "1.0+2.0j" or "1.0-2.0j" format
-    const cleaned = v.replace(/[()]/g, '');
-    const match = cleaned.match(/^([+-]?[\d.eE+-]+)([+-][\d.eE+-]+)[jJ]$/);
-    if (match) {
-      return { real: parseFloat(match[1]), imag: parseFloat(match[2]) };
-    }
-    // Pure imaginary: "2j" or "-3.5j"
-    const imagMatch = cleaned.match(/^([+-]?[\d.eE+-]+)[jJ]$/);
-    if (imagMatch) {
-      return { real: 0, imag: parseFloat(imagMatch[1]) };
-    }
-    // Pure real string
-    const realOnly = parseFloat(cleaned);
-    if (!isNaN(realOnly)) return { real: realOnly, imag: 0 };
-  }
-  return { real: 0, imag: 0 };
-}
 
 function complexMag(z: ComplexLike): number {
   return Math.sqrt(z.real ** 2 + z.imag ** 2);

@@ -40,6 +40,13 @@ function Header() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const isMenuOpen = Boolean(anchorEl);
 
+  // The user cached at login (localStorage) carries the token balance of that
+  // moment: fetch the current one when the app loads.
+  const userId = user?.id;
+  useEffect(() => {
+    if (userId) dispatch(getCurrentUserAsync());
+  }, [dispatch, userId]);
+
   // Refresh token balance whenever the user returns to this tab
   useEffect(() => {
     const handleVisibilityChange = () => {

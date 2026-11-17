@@ -14,6 +14,7 @@ import type {
 } from './plotDefinitions';
 import type { FrequencySweepResult } from './api';
 import type { ParameterStudyResult } from './parameterStudy';
+import { parseComplex } from '@/utils/complexNumber';
 
 // ============================================================================
 // Data point type
@@ -33,33 +34,6 @@ interface ComplexLike {
   imag: number;
 }
 
-function parseComplex(v: unknown): ComplexLike {
-  if (v == null) return { real: 0, imag: 0 };
-  if (typeof v === 'object' && v !== null && 'real' in v && 'imag' in v) {
-    return { real: (v as any).real, imag: (v as any).imag };
-  }
-  if (typeof v === 'number') return { real: v, imag: 0 };
-  if (typeof v === 'string') {
-    // Handle Python complex string formats: "(50+20j)", "(50-20j)", "50+20j", "(-3.2+0j)"
-    const s = v.replace(/[()]/g, '').trim();
-    const match = s.match(/^([+-]?[\d.eE+-]+)\s*([+-]\s*[\d.eE+-]+)[jJ]$/);
-    if (match) {
-      const real = parseFloat(match[1]);
-      const imag = parseFloat(match[2].replace(/\s/g, ''));
-      if (Number.isFinite(real) && Number.isFinite(imag)) return { real, imag };
-    }
-    // Pure imaginary: "20j", "-3.5j"
-    const pureImag = s.match(/^([+-]?[\d.eE+-]+)[jJ]$/);
-    if (pureImag) {
-      const imag = parseFloat(pureImag[1]);
-      if (Number.isFinite(imag)) return { real: 0, imag };
-    }
-    // Plain number string
-    const n = parseFloat(s);
-    return Number.isFinite(n) ? { real: n, imag: 0 } : { real: 0, imag: 0 };
-  }
-  return { real: 0, imag: 0 };
-}
 
 function complexMag(z: ComplexLike): number {
   return Math.sqrt(z.real ** 2 + z.imag ** 2);

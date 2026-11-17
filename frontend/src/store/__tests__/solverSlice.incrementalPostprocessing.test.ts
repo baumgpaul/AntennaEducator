@@ -9,6 +9,17 @@ import solverReducer, {
 } from '../solverSlice';
 import type { FieldDefinition2D } from '@/types/fieldDefinitions';
 
+// The workflow refreshes the token balance at the end (fire-and-forget); a real
+// auth call failed after the file finished and its log made vitest report
+// "Closing rpc while onUserConsoleLog was pending".
+vi.mock('@/services/auth', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getAuthService: () => ({
+    getCurrentUser: vi.fn().mockResolvedValue({ id: 'u1', email: 'a@b.c', username: 'a' }),
+    getAccessToken: () => null,
+  }),
+}));
+
 // Mock API calls
 vi.mock('@/api/postprocessor', () => ({
   computeNearField: vi.fn().mockResolvedValue({
