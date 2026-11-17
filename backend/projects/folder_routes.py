@@ -723,14 +723,8 @@ async def list_users(
     _require_admin(user)
 
     user_repo = _get_user_repo()
-    # Scan all users (fine for small user bases)
     try:
-        resp = user_repo.table.scan(
-            FilterExpression="begins_with(PK, :prefix) AND SK = :sk",
-            ExpressionAttributeValues={":prefix": "USER#", ":sk": "METADATA"},
-        )
-        items = resp.get("Items", [])
-        return [user_repo._to_dict(item) for item in items]
+        return user_repo.list_users()
     except Exception as exc:
         logger.error("Error listing users: %s", exc)
         raise HTTPException(

@@ -37,6 +37,10 @@ import type {
   SweepSpacing,
 } from '@/types/parameterStudy';
 import { buildSweepGrid } from '@/types/parameterStudy';
+import { elementsAffectedBy } from '@/store/parameterStudyThunks';
+
+const FREQUENCY_VARIABLES = new Set(['freq', 'frequency']);
+const NO_ELEMENTS: ReadonlyArray<{ name: string; expressions?: Record<string, string> }> = [];
 
 // ============================================================================
 // Props
@@ -84,6 +88,7 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
 }) => {
   const variables = useAppSelector(selectVariables);
   const numericContext = useAppSelector(selectVariableContextNumeric);
+  const elements = useAppSelector((state) => state.design?.elements ?? NO_ELEMENTS);
 
   const defaultFrequencyVariable = useMemo(() => {
     if (variables.some((v) => v.name === 'freq')) return 'freq';
@@ -171,6 +176,11 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
   }, [sweepVars, numericContext]);
 
   const totalPoints = config ? buildSweepGrid(config).length : 0;
+
+  const scaledByFrequency = useMemo(() => {
+    const swept = sweepVars.map((v) => v.variableName).filter((n) => FREQUENCY_VARIABLES.has(n));
+    return [...new Set(swept.flatMap((name) => elementsAffectedBy(name, variables, elements)))];
+  }, [sweepVars, variables, elements]);
 
   const handleSubmit = () => {
     if (config) onSubmit(config);
@@ -322,6 +332,19 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
             >
               Add second variable
             </Button>
+          )}
+
+          {/* A frequency sweep that also resizes the antenna hides its resonance */}
+          {scaledByFrequency.length > 0 && (
+            <Alert severity="warning" sx={{ py: 0.5 }}>
+              <Typography variant="body2">
+                This frequency sweep also resizes the antenna: the geometry of{' '}
+                <strong>{scaledByFrequency.join(', ')}</strong> depends on the frequency (e.g. length =
+                wavelength / 2). Every point is then a different antenna and its impedance hardly
+                changes. To see how one fixed antenna behaves over frequency, give its dimensions
+                fixed values.
+              </Typography>
+            </Alert>
           )}
 
           <Divider />

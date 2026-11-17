@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildOverriddenContext,
+  elementsAffectedBy,
   resolveElementExpressions,
 } from '@/store/parameterStudyThunks';
 import type { VariableDefinition } from '@/utils/expressionEvaluator';
@@ -106,5 +107,34 @@ describe('resolveElementExpressions', () => {
 
   it('returns empty object for empty expressions', () => {
     expect(resolveElementExpressions({}, {})).toEqual({});
+  });
+});
+
+// ============================================================================
+// elementsAffectedBy
+// ============================================================================
+
+describe('elementsAffectedBy', () => {
+  const vars: VariableDefinition[] = [
+    { name: 'freq', expression: '300e6', unit: 'Hz' },
+    { name: 'wavelength', expression: 'C_0 / freq', unit: 'm' },
+    { name: 'L', expression: '0.5', unit: 'm' },
+  ];
+
+  it('finds geometry that follows the frequency through wavelength', () => {
+    const elements = [
+      { name: 'Scaled dipole', expressions: { length: 'wavelength / 2' } },
+      { name: 'Fixed dipole', expressions: { length: 'L' } },
+      { name: 'Plain rod' },
+    ];
+    expect(elementsAffectedBy('freq', vars, elements)).toEqual(['Scaled dipole']);
+  });
+
+  it('is empty when no geometry depends on the variable', () => {
+    expect(elementsAffectedBy('freq', vars, [{ name: 'd', expressions: { length: '0.5' } }])).toEqual([]);
+  });
+
+  it('is empty for an unknown variable', () => {
+    expect(elementsAffectedBy('nope', vars, [{ name: 'd', expressions: { length: 'wavelength' } }])).toEqual([]);
   });
 });

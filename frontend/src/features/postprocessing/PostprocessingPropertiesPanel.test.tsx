@@ -121,6 +121,36 @@ describe('PostprocessingPropertiesPanel', () => {
       expect(screen.getByText('Line View')).toBeInTheDocument();
     });
 
+    it.each([
+      ['Smith', 'Smith Chart'],
+      ['Polar', 'Polar Plot'],
+      ['Table', 'Table View'],
+    ])('labels a %s view as "%s" (not "Line View")', (viewType, label) => {
+      const store = createMockStore({
+        viewConfigurations: [
+          {
+            id: 'view-1',
+            name: 'Some view',
+            viewType,
+            selectedFrequencyHz: null,
+            items: [],
+            createdAt: '2026-01-02T10:00:00Z',
+            updatedAt: '2026-01-02T10:00:00Z',
+          },
+        ],
+        selectedViewId: 'view-1',
+      });
+
+      render(
+        <Provider store={store}>
+          <PostprocessingPropertiesPanel />
+        </Provider>
+      );
+
+      expect(screen.getByText(label)).toBeInTheDocument();
+      expect(screen.queryByText('Line View')).not.toBeInTheDocument();
+    });
+
     it('should dispatch renameViewConfiguration when name is changed', async () => {
       const store = createMockStore({
         viewConfigurations: [
