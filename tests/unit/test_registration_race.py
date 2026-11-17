@@ -16,6 +16,7 @@ def repo():
         repo = UserRepository()
     repo.table = MagicMock()
     repo.table.scan.return_value = {"Items": []}  # neither request sees the other
+    repo.table.get_item.return_value = {}  # ... nor its e-mail claim yet
     return repo
 
 

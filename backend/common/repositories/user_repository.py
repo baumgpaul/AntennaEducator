@@ -3,7 +3,7 @@
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Dict, Iterator, List, Optional
 
 import boto3
 from botocore.config import Config
@@ -188,14 +188,18 @@ class UserRepository:
             User data dictionary (snake_case) or None if not found
         """
         try:
-            # Use scan with filter (no GSI for local simplicity)
-            response = self.table.scan(
+            # Accounts created since the e-mail claim (B46) are found directly
+            claim = self.table.get_item(Key=email_claim_key(email)).get("Item")
+            if claim and claim.get("UserId"):
+                user = self.get_user_by_id(claim["UserId"])
+                if user:
+                    return user
+            # Older accounts: scan every page (a scan returns at most 1 MB)
+            for item in self._scan_users(
                 FilterExpression="Email = :email AND SK = :sk",
                 ExpressionAttributeValues={":email": email, ":sk": "METADATA"},
-            )
-            items = response.get("Items", [])
-            if items:
-                return self._to_dict(items[0])
+            ):
+                return self._to_dict(item)
             return None
         except ClientError as e:
             logger.error(f"Error querying user by email: {e}")
@@ -225,17 +229,46 @@ class UserRepository:
 
         Returns:
             Number of users
+
+        Raises:
+            RuntimeError: if the table cannot be read. Never 0 on error — the
+                local provider makes the first user an approved admin.
         """
+        kwargs = {
+            "FilterExpression": "begins_with(PK, :prefix) AND SK = :sk",
+            "ExpressionAttributeValues": {":prefix": "USER#", ":sk": "METADATA"},
+            "Select": "COUNT",
+        }
+        count = 0
         try:
-            response = self.table.scan(
-                FilterExpression="begins_with(PK, :prefix) AND SK = :sk",
-                ExpressionAttributeValues={":prefix": "USER#", ":sk": "METADATA"},
-                Select="COUNT",
-            )
-            return response.get("Count", 0)
+            while True:
+                response = self.table.scan(**kwargs)
+                count += response.get("Count", 0)
+                if "LastEvaluatedKey" not in response:
+                    return count
+                kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
         except ClientError as e:
             logger.error(f"Error counting users: {e}")
-            return 0
+            raise RuntimeError("Could not count users") from e
+
+    def list_users(self) -> List[Dict]:
+        """All user accounts (every page of the scan)."""
+        return [
+            self._to_dict(item)
+            for item in self._scan_users(
+                FilterExpression="begins_with(PK, :prefix) AND SK = :sk",
+                ExpressionAttributeValues={":prefix": "USER#", ":sk": "METADATA"},
+            )
+        ]
+
+    def _scan_users(self, **kwargs) -> Iterator[Dict]:
+        """Yield matching items from every page of a table scan."""
+        while True:
+            response = self.table.scan(**kwargs)
+            yield from response.get("Items", [])
+            if "LastEvaluatedKey" not in response:
+                return
+            kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
 
     def set_user_approval(self, user_id: str, is_approved: bool) -> None:
         """Approve or revoke a user account.
