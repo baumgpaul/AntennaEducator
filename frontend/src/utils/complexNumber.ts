@@ -30,27 +30,42 @@ export function parseComplex(val: unknown): ComplexNumber {
     return { real: val[0], imag: val[1] };
   }
   if (typeof val === 'string') {
-    // Strip optional parentheses: "(50+20j)" → "50+20j"
-    const s = val.replace(/[()]/g, '').trim();
-    // Full complex: "a+bj" or "a-bj" (with optional scientific notation)
-    const match = s.match(/^([+-]?[\d.eE+-]+)\s*([+-]\s*[\d.eE+-]+)[jJ]$/);
-    if (match) {
-      const real = parseFloat(match[1]);
-      const imag = parseFloat(match[2].replace(/\s/g, ''));
-      if (Number.isFinite(real) && Number.isFinite(imag)) return { real, imag };
-    }
-    // Pure imaginary: "20j", "-3.5j"
-    const pureImag = s.match(/^([+-]?[\d.eE+-]+)[jJ]$/);
-    if (pureImag) {
-      const imag = parseFloat(pureImag[1]);
-      if (Number.isFinite(imag)) return { real: 0, imag };
-    }
+    const z = parseComplexString(val);
+    if (z) return z;
     // Plain number string
-    const n = parseFloat(s);
+    const n = parseFloat(val.replace(/[()]/g, '').trim());
     if (Number.isFinite(n)) return { real: n, imag: 0 };
     return { real: 0, imag: 0 };
   }
   return { real: 0, imag: 0 };
+}
+
+/** One unsigned decimal number, optionally in scientific notation: 12, 1.5, .5, 3e-05, 2.5E+20 */
+const UNSIGNED = String.raw`(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?`;
+const FULL_COMPLEX = new RegExp(`^([+-]?${UNSIGNED})\\s*([+-])\\s*(${UNSIGNED})[jJ]$`);
+const PURE_IMAGINARY = new RegExp(`^([+-]?${UNSIGNED})[jJ]$`);
+
+/**
+ * Parse a complex string ("a+bj", "(a-bj)", "bj"), including Python's
+ * scientific notation ("0.0123-3.4e-05j"); null if it is not one.
+ *
+ * The real part is a complete number, so the split can never fall inside an
+ * exponent (the old greedy pattern read "0.0123-3.4e-05j" as imag = -5).
+ */
+export function parseComplexString(val: string): ComplexNumber | null {
+  const s = val.trim().replace(/^\((.*)\)$/, '$1').trim();
+  const full = s.match(FULL_COMPLEX);
+  if (full) {
+    const real = parseFloat(full[1]);
+    const imag = parseFloat(full[3]) * (full[2] === '-' ? -1 : 1);
+    return Number.isFinite(real) && Number.isFinite(imag) ? { real, imag } : null;
+  }
+  const pure = s.match(PURE_IMAGINARY);
+  if (pure) {
+    const imag = parseFloat(pure[1]);
+    return Number.isFinite(imag) ? { real: 0, imag } : null;
+  }
+  return null;
 }
 
 /** Parse an array of complex values. */

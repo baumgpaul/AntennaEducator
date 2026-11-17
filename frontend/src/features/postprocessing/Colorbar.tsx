@@ -13,6 +13,8 @@ interface ColorbarProps {
   stackIndex?: number;
   /** Narrow: a thin bar with max and min beside it, to leave the canvas to the field */
   compact?: boolean;
+  /** Laid out by the parent (e.g. a column of several bars) instead of absolutely positioned */
+  inline?: boolean;
 }
 
 /**
@@ -28,8 +30,11 @@ export const Colorbar: React.FC<ColorbarProps> = ({
   position = 'right',
   stackIndex = 0,
   compact = false,
+  inline = false,
 }) => {
   const theme = useTheme();
+  const placement = (top: number | string, offset: number) =>
+    inline ? { position: 'relative' as const } : { position: 'absolute' as const, top, [position]: offset };
   const isDark = theme.palette.mode === 'dark';
 
   // Generate gradient for the colorbar
@@ -70,9 +75,7 @@ export const Colorbar: React.FC<ColorbarProps> = ({
     return (
       <Box
         sx={{
-          position: 'absolute',
-          top: 12,
-          [position]: 12,
+          ...placement(12, 12),
           display: 'flex',
           flexDirection: 'column',
           gap: 0.5,
@@ -112,9 +115,7 @@ export const Colorbar: React.FC<ColorbarProps> = ({
   return (
     <Box
       sx={{
-        position: 'absolute',
-        top: `calc(16px + ${stackIndex * 280}px)`,
-        [position]: 16,
+        ...placement(`calc(16px + ${stackIndex * 280}px)`, 16),
         display: 'flex',
         flexDirection: 'column',
         alignItems: position === 'right' ? 'flex-start' : 'flex-end',

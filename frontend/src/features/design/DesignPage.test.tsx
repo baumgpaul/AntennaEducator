@@ -20,6 +20,25 @@ import submissionsReducer from '@/store/submissionsSlice';
 import foldersReducer from '@/store/foldersSlice';
 import type { RootState } from '@/store/store';
 
+// No real requests on mount: DesignPage fetches the project, folders and
+// documentation; late answers logged after the file finished (vitest teardown errors).
+vi.mock('@/api/projects', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getProject: vi.fn().mockResolvedValue({
+    id: 1,
+    name: 'Test Project',
+    description: '',
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  }),
+  updateProject: vi.fn().mockResolvedValue({}),
+}));
+vi.mock('@/api/folders', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getFolders: vi.fn().mockResolvedValue([]),
+}));
+vi.mock('@/api/documentation');
+
 // Mock react-router-dom
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');

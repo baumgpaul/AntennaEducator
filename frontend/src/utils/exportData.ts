@@ -3,6 +3,7 @@
  */
 import type { PlotTrace } from '@/types/plotDefinitions';
 import type { DataPoint } from '@/types/plotDataExtractors';
+import { parseComplexString } from './complexNumber';
 
 /** Turn a view/plot name into a safe file name (keeps letters, digits, - and _). */
 export function safeFilename(name: string, fallback = 'export'): string {
@@ -78,10 +79,17 @@ interface ResultsSource {
   };
 }
 
+/** JSON replacer: complex strings from the solver ("86.6+40.8j", "(1e-05-2.5e-06j)") become {real, imag}. */
+function complexReplacer(_key: string, value: unknown): unknown {
+  if (typeof value === 'string') return parseComplexString(value) ?? value;
+  return value;
+}
+
 /**
  * Raw solver results of the open project as JSON: single-frequency solution,
  * frequency sweep, parameter study (without mesh snapshots) and far-field
  * patterns. Field data is left out (large; use the ParaView export).
+ * Version 2: complex values are {real, imag} (version 1 had Python strings "a+bj").
  */
 export function buildResultsJSON(state: ResultsSource, project: { id?: unknown; name?: string } | null): string {
   const { solver } = state;
@@ -89,7 +97,7 @@ export function buildResultsJSON(state: ResultsSource, project: { id?: unknown; 
   return JSON.stringify(
     {
       format: 'antenna-educator-results',
-      version: 1,
+      version: 2,
       exported_at: new Date().toISOString(),
       project: project ? { id: project.id, name: project.name } : null,
       solve_mode: solver.solveMode ?? null,
@@ -109,7 +117,7 @@ export function buildResultsJSON(state: ResultsSource, project: { id?: unknown; 
         : null,
       radiation_patterns: solver.radiationPatterns ?? solver.radiationPattern ?? null,
     },
-    null,
+    complexReplacer,
     2,
   );
 }

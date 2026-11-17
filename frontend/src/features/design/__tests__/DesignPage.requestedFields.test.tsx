@@ -24,6 +24,12 @@ vi.mock('@/api/projects');
 vi.mock('@/api/preprocessor');
 vi.mock('@/api/solver');
 vi.mock('@/api/postprocessor');
+// No real requests on mount (they logged after the file finished → vitest teardown errors)
+vi.mock('@/api/folders', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getFolders: vi.fn().mockResolvedValue([]),
+}));
+vi.mock('@/api/documentation');
 
 // Sample field definitions
 const sampleFields: FieldDefinition[] = [

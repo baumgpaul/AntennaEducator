@@ -120,6 +120,9 @@ export function getFieldLabel(fieldType: 'E' | 'H' | 'poynting', isVector = fals
   }
 }
 
+/** What computeAutoRange returns when there is no data for the item (compare by identity). */
+export const NO_DATA_RANGE: Readonly<{ min: number; max: number }> = Object.freeze({ min: 0, max: 1 });
+
 /** Compute auto min/max range from solver data, matching each renderer's logic */
 export function computeAutoRange(
   item: ViewItem,
@@ -183,7 +186,7 @@ export function computeAutoRange(
       break;
     }
   }
-  return { min: 0, max: 1 };
+  return NO_DATA_RANGE;
 }
 
 function PostprocessingTab({
@@ -847,7 +850,8 @@ function PostprocessingTab({
 
           if (colorbarItems.length === 0) return null;
 
-          return colorbarItems.map((colorItem, index) => {
+          const compact = colorbarItems.length > 1;
+          const bars = colorbarItems.map((colorItem) => {
             let min = 0, max = 1, label = 'Value', unit = '';
 
             if (colorItem.valueRangeMode === 'manual') {
@@ -858,6 +862,8 @@ function PostprocessingTab({
               const activePattern = (displayFrequencyHz != null && radiationPatterns?.[displayFrequencyHz])
                 || radiationPattern;
               const range = computeAutoRange(colorItem, solverResults, fieldData, activePattern, displayFrequencyHz, requestedFields);
+              // No data for this item (e.g. not computed for this sweep point): no placeholder 0…1 scale
+              if (range === NO_DATA_RANGE) return null;
               min = range.min;
               max = range.max;
             }
@@ -898,10 +904,32 @@ function PostprocessingTab({
                 label={label}
                 unit={unit}
                 position="right"
-                stackIndex={index}
+                compact={compact}
+                inline
               />
             );
-          });
+          }).filter(Boolean);
+
+          if (bars.length === 0) return null;
+          // One column: bars can never overlap; scrolls if the canvas is too short
+          return (
+            <Box
+              data-testid="colorbar-stack"
+              sx={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
+                maxHeight: 'calc(100% - 32px)',
+                overflowY: 'auto',
+                zIndex: 1000,
+              }}
+            >
+              {bars}
+            </Box>
+          );
         })()}
       </Box>
 

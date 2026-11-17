@@ -64,4 +64,34 @@ describe('buildResultsJSON', () => {
     expect(json.frequency_sweep.frequencies).toEqual([1e8]);
     expect(json.parameter_study.results[0]).toEqual({ point: { L: 0.5 }, solverResponse: { ok: 1 }, converged: true });
   });
+
+  it('writes complex values as {real, imag}, not Python strings', () => {
+    const json = JSON.parse(
+      buildResultsJSON(
+        {
+          solver: {
+            multiAntennaResults: {
+              antenna_solutions: [
+                {
+                  antenna_id: 'dipole_1',
+                  input_impedance: '86.63606582800129+40.835346757860265j',
+                  branch_currents: ['(1e-05-2.5e-06j)', '-0.002+0j', '3j'],
+                },
+              ],
+            },
+          },
+        },
+        null,
+      ),
+    );
+    expect(json.version).toBe(2);
+    const sol = json.single_frequency.antenna_solutions[0];
+    expect(sol.input_impedance).toEqual({ real: 86.63606582800129, imag: 40.835346757860265 });
+    expect(sol.branch_currents).toEqual([
+      { real: 1e-5, imag: -2.5e-6 },
+      { real: -0.002, imag: 0 },
+      { real: 0, imag: 3 },
+    ]);
+    expect(sol.antenna_id).toBe('dipole_1'); // ordinary strings stay
+  });
 });

@@ -112,4 +112,7 @@ export const handlers = [
     mockProjects[duplicate.id] = duplicate;
     return HttpResponse.json(duplicate, { status: 201 });
   }),
+
+  // GET /api/folders - Folder tree (pages fetch it on mount); empty by default
+  http.get(`${API_URL}/api/folders`, () => HttpResponse.json([])),
 ];
