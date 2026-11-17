@@ -17,6 +17,7 @@ import { ParameterStudyDialog } from '../ParameterStudyDialog';
 // ============================================================================
 
 function createTestStore(
+  elements: Array<{ name: string; expressions?: Record<string, string> }> = [],
   variables = [
     { name: 'freq', expression: '300e6', unit: 'Hz', description: 'Frequency' },
     { name: 'wavelength', expression: 'C_0 / freq', unit: 'm', description: 'Wavelength' },
@@ -24,13 +25,16 @@ function createTestStore(
   ],
 ) {
   return configureStore({
-    reducer: { variables: variablesReducer },
+    reducer: { variables: variablesReducer, design: (state: unknown = { elements }) => state },
     preloadedState: { variables: { variables } },
   });
 }
 
-function renderDialog(props: Partial<Parameters<typeof ParameterStudyDialog>[0]> = {}) {
-  const store = createTestStore();
+function renderDialog(
+  props: Partial<Parameters<typeof ParameterStudyDialog>[0]> = {},
+  elements: Array<{ name: string; expressions?: Record<string, string> }> = [],
+) {
+  const store = createTestStore(elements);
   const defaultProps = {
     open: true,
     onClose: vi.fn(),
@@ -124,6 +128,19 @@ describe('ParameterStudyDialog', () => {
       renderDialog();
       // With default freq variable selected, fallback min/max make config valid → 11 points
       expect(screen.getByText(/11 simulation points/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Frequency-dependent geometry', () => {
+    it('warns that a frequency sweep resizes a wavelength-scaled antenna', () => {
+      renderDialog({}, [{ name: 'Dipole', expressions: { length: 'wavelength / 2' } }]);
+      expect(screen.getByText(/resizes the antenna/i)).toBeInTheDocument();
+      expect(screen.getByText(/Dipole/)).toBeInTheDocument();
+    });
+
+    it('does not warn for a fixed antenna', () => {
+      renderDialog({}, [{ name: 'Dipole', expressions: { length: '0.5' } }]);
+      expect(screen.queryByText(/resizes the antenna/i)).not.toBeInTheDocument();
     });
   });
 });

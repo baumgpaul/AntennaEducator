@@ -189,9 +189,8 @@ class TestAdminUserListIncludesTokens:
         # Use the real _to_dict staticmethod
         from backend.common.repositories.user_repository import UserRepository
 
-        mock_repo._to_dict = UserRepository._to_dict
-        mock_repo.table.scan.return_value = {
-            "Items": [
+        mock_repo.list_users.return_value = [
+            UserRepository._to_dict(
                 {
                     "PK": "USER#u1",
                     "SK": "METADATA",
@@ -205,8 +204,8 @@ class TestAdminUserListIncludesTokens:
                     "SimulationTokens": 500,
                     "FlatrateUntil": "2026-12-31T00:00:00+00:00",
                 }
-            ]
-        }
+            )
+        ]
         resp = client_as_admin.get("/api/admin/users")
         assert resp.status_code == 200
         users = resp.json()
