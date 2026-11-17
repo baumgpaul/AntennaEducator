@@ -146,58 +146,75 @@ class TestEnsureTableExists:
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture
+def user_repo():
+    """The backend's UserRepository on an in-memory fake table."""
+    from backend.common.repositories.user_repository import UserRepository
+
+    with patch("backend.common.repositories.user_repository.boto3"):
+        repo = UserRepository()
+    items = {}
+
+    def put_item(Item, ConditionExpression=None):
+        items[(Item["PK"], Item["SK"])] = Item
+
+    repo.table = MagicMock()
+    repo.table.put_item.side_effect = put_item
+    repo.table.get_item.side_effect = lambda Key: (
+        {"Item": items[(Key["PK"], Key["SK"])]} if (Key["PK"], Key["SK"]) in items else {}
+    )
+
+    def scan(**kwargs):
+        # Only the user-by-e-mail filter is needed: "Email = :email AND SK = :sk"
+        values = kwargs.get("ExpressionAttributeValues", {})
+        hits = [
+            i
+            for i in items.values()
+            if i.get("Email") == values.get(":email") and i["SK"] == values.get(":sk")
+        ]
+        return {"Items": hits, "Count": len(hits)}
+
+    repo.table.scan.side_effect = scan
+    repo.items = items
+    return repo
+
+
+def _seed(mod_env, repo):
+    boto3_stub, *_ = _make_boto3_stub(table_exists=True)
+    with patch.dict("sys.modules", {"boto3": boto3_stub}):
+        mod = _import_module()
+        with patch.object(mod, "_user_repository", return_value=repo):
+            mod.seed_admin_user()
+
+
 class TestSeedAdminUser:
-    def test_skips_if_admin_already_exists(self, env_vars):
-        boto3_stub, table_mock, client_mock, waiter_mock = _make_boto3_stub(
-            table_exists=True, user_exists=True
-        )
-        with patch.dict("sys.modules", {"boto3": boto3_stub}):
-            mod = _import_module()
-            with patch.object(mod, "_hash_password", return_value="hashed"):
-                mod.seed_admin_user()
+    def test_seeded_admin_can_log_in(self, env_vars, user_repo):
+        """The login lookup finds the seeded account and its password verifies.
 
-        table_mock.put_item.assert_not_called()
+        The script used to write its own item (SK "USER#…", lower-case "email")
+        that the backend never reads, so the admin from .env could not log in.
+        """
+        from backend.common.auth.local_provider import verify_password
 
-    def test_creates_admin_when_new(self, env_vars):
-        boto3_stub, table_mock, client_mock, waiter_mock = _make_boto3_stub(
-            table_exists=True, user_exists=False
-        )
-        with patch.dict("sys.modules", {"boto3": boto3_stub}):
-            mod = _import_module()
-            with patch.object(mod, "_hash_password", return_value="hashed"):
-                mod.seed_admin_user()
+        _seed(env_vars, user_repo)
 
-        table_mock.put_item.assert_called_once()
-        item = table_mock.put_item.call_args[1]["Item"]
-        assert item["email"] == "admin@test.example"
-        assert item["is_admin"] is True
-        assert "password_hash" in item
+        user = user_repo.get_user_by_email("admin@test.example")
+        assert user is not None
+        assert user["is_admin"] is True
+        assert user["role"] == "admin"
+        assert user["is_approved"] is True
+        assert verify_password("admin-password-123", user["password_hash"])
 
-    def test_uses_env_credentials(self, env_vars, monkeypatch):
+    def test_skips_if_admin_already_exists(self, env_vars, user_repo):
+        _seed(env_vars, user_repo)
+        writes = user_repo.table.put_item.call_count
+        _seed(env_vars, user_repo)
+        assert user_repo.table.put_item.call_count == writes
+
+    def test_uses_env_credentials(self, env_vars, monkeypatch, user_repo):
         monkeypatch.setenv("ADMIN_EMAIL", "custom@example.com")
-        boto3_stub, table_mock, client_mock, waiter_mock = _make_boto3_stub(
-            table_exists=True, user_exists=False
-        )
-        with patch.dict("sys.modules", {"boto3": boto3_stub}):
-            mod = _import_module()
-            with patch.object(mod, "_hash_password", return_value="hashed"):
-                mod.seed_admin_user()
-
-        item = table_mock.put_item.call_args[1]["Item"]
-        assert item["email"] == "custom@example.com"
-
-    def test_admin_has_required_dynamodb_keys(self, env_vars):
-        boto3_stub, table_mock, client_mock, waiter_mock = _make_boto3_stub(
-            table_exists=True, user_exists=False
-        )
-        with patch.dict("sys.modules", {"boto3": boto3_stub}):
-            mod = _import_module()
-            with patch.object(mod, "_hash_password", return_value="hashed"):
-                mod.seed_admin_user()
-
-        item = table_mock.put_item.call_args[1]["Item"]
-        for key in ("PK", "SK", "GSI1PK", "GSI1SK", "user_id", "username", "email"):
-            assert key in item, f"Missing DynamoDB key: {key}"
+        _seed(env_vars, user_repo)
+        assert user_repo.get_user_by_email("custom@example.com") is not None
 
     def test_missing_admin_email_raises(self, env_vars, monkeypatch):
         monkeypatch.delenv("ADMIN_EMAIL", raising=False)

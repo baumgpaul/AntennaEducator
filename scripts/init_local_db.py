@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import logging
 import os
-import uuid
-from datetime import datetime, timezone
+import sys
+from pathlib import Path
 
 import boto3
 from botocore.exceptions import ClientError
@@ -146,42 +146,36 @@ def seed_admin_user() -> None:
         )
         raise ValueError("ADMIN_EMAIL and ADMIN_PASSWORD are required")
 
-    dynamodb = _get_dynamodb_resource()
-    table = dynamodb.Table(_TABLE_NAME)
-
-    # Check whether a user with this email already exists
-    result = table.scan(
-        FilterExpression="email = :e",
-        ExpressionAttributeValues={":e": admin_email},
-        Select="COUNT",
-    )
-    if result.get("Count", 0) > 0:
+    # Write the account through the backend's own repository: a hand-built item
+    # here drifted from the schema the login code reads (SK "METADATA", "Email",
+    # e-mail claim), so the seeded admin could not log in.
+    repo = _user_repository()
+    if repo.get_user_by_email(admin_email):
         logger.info("Admin user '%s' already exists — skipping creation.", admin_email)
         return
 
-    user_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
-    username = admin_email.split("@")[0]
-    password_hash = _hash_password(admin_password)
+    user = repo.create_user(
+        email=admin_email,
+        username=admin_email.split("@")[0],
+        password_hash=_hash_password(admin_password),
+        is_admin=True,
+        is_locked=False,
+        is_approved=True,
+        role="admin",
+    )
+    logger.info("Admin user '%s' (id=%s) created.", admin_email, user["user_id"])
 
-    item = {
-        "PK": f"USER#{user_id}",
-        "SK": f"USER#{user_id}",
-        "GSI1PK": "USER",
-        "GSI1SK": f"USER#{user_id}",
-        "user_id": user_id,
-        "email": admin_email,
-        "username": username,
-        "password_hash": password_hash,
-        "is_admin": True,
-        "is_locked": False,
-        "role": "admin",
-        "created_at": now,
-        "updated_at": now,
-    }
 
-    table.put_item(Item=item)
-    logger.info("Admin user '%s' (id=%s) created.", admin_email, user_id)
+def _user_repository():
+    """The backend's UserRepository on the configured table."""
+    repo_root = Path(__file__).resolve().parent.parent
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    os.environ.setdefault("DYNAMODB_ENDPOINT_URL", _ENDPOINT_URL)
+    os.environ.setdefault("DYNAMODB_TABLE_NAME", _TABLE_NAME)
+    from backend.common.repositories.user_repository import UserRepository
+
+    return UserRepository()
 
 
 def ensure_minio_bucket() -> None:

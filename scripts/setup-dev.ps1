@@ -69,7 +69,15 @@ if (Test-Path ".env") { Ok ".env exists (left unchanged)" } else {
     Todo "edit .env: set ADMIN_EMAIL / ADMIN_PASSWORD for your local admin"
 }
 $feLocal = "frontend\.env.development.local"
-if (Test-Path $feLocal) { Ok "$feLocal exists (left unchanged)" } else {
+if (Test-Path $feLocal) {
+    # Files from before the FEM preview lack the flag: FEM Studio stays hidden
+    if (Select-String -Path $feLocal -Pattern '^\s*VITE_FEATURE_FEM\s*=' -Quiet) {
+        Ok "$feLocal exists (left unchanged)"
+    } else {
+        Add-Content $feLocal "`n# FEM Studio preview (needs the FEM service on :8020 and a maintainer/admin login)`nVITE_FEATURE_FEM=true"
+        Ok "$feLocal exists — added VITE_FEATURE_FEM=true"
+    }
+} else {
     @(
         "# Local overrides for npm run dev (gitignored)"
         "VITE_AUTH_PROVIDER=local"
