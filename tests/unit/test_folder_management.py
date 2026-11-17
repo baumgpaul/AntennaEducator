@@ -885,8 +885,8 @@ class TestAdminEndpoints:
         mocks = _setup_mocks(ADMIN_USER)
 
         mock_user_repo = MagicMock()
-        mock_user_repo.table.scan.return_value = {
-            "Items": [
+        mock_user_repo.list_users.return_value = [
+            UserRepository_to_dict(
                 {
                     "UserId": "u-1",
                     "Email": "a@b.com",
@@ -895,10 +895,9 @@ class TestAdminEndpoints:
                     "IsLocked": False,
                     "Role": "user",
                     "CreatedAt": "2026-01-01",
-                },
-            ]
-        }
-        mock_user_repo._to_dict = UserRepository_to_dict
+                }
+            ),
+        ]
         mock_get_user_repo.return_value = mock_user_repo
 
         client = TestClient(app)
