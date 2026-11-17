@@ -55,7 +55,7 @@ import {
   requestPngExport,
 } from '@/store/postprocessingSlice';
 import { buildResultsJSON, downloadFile, safeFilename } from '@/utils/exportData';
-import { exportToVTU, canExportToVTU } from '@/utils/ParaViewExporter';
+import { exportToVTU, canExportToVTU, fieldDataTarget } from '@/utils/ParaViewExporter';
 import type { RootState } from '@/store';
 
 interface RibbonMenuProps {
@@ -89,7 +89,6 @@ function RibbonMenu({
   const selectedViewId = useAppSelector((state) => state.postprocessing.selectedViewId);
   const selectedElementId = useAppSelector((state) => state.design.selectedElementId);
   const viewConfigurations = useAppSelector((state) => state.postprocessing.viewConfigurations);
-  const currentFrequency = useAppSelector((state) => state.solver.currentFrequency);
   const selectedViewData = useAppSelector((state) =>
     state.postprocessing.viewConfigurations.find(v => v.id === selectedViewId)
   );
@@ -321,9 +320,11 @@ function RibbonMenu({
       return;
     }
 
-    const frequencyHz = currentFrequency != null ? currentFrequency * 1e6 : null;
+    const state = store.getState() as unknown as RootState;
+    // Sweep results are keyed by sweep point, single solves by frequency
+    const target = fieldDataTarget(state.solver);
 
-    if (frequencyHz == null) {
+    if (target == null) {
       setSnackbarMessage('No frequency data available');
       setSnackbarSeverity('error');
       setShowSnackbar(true);
@@ -331,7 +332,7 @@ function RibbonMenu({
     }
 
     // Check if we can export
-    if (!canExportToVTU(fieldItem.fieldId, frequencyHz, store.getState() as unknown as RootState)) {
+    if (!canExportToVTU(fieldItem.fieldId, target.key, state)) {
       setSnackbarMessage('Field data not computed yet. Run postprocessing first.');
       setSnackbarSeverity('error');
       setShowSnackbar(true);
@@ -339,15 +340,15 @@ function RibbonMenu({
     }
 
     // Generate filename
-    const frequencyMHz = (frequencyHz / 1e6).toFixed(2);
-    const filename = `${currentView.name.replace(/[^a-zA-Z0-9]/g, '_')}_${frequencyMHz}MHz`;
+    const filename = safeFilename(`${currentView.name}_${target.label}`);
 
     try {
       await exportToVTU({
         fieldId: fieldItem.fieldId,
-        frequencyHz,
+        key: target.key,
+        frequencyHz: target.frequencyHz,
         filename,
-      }, store.getState() as unknown as RootState);
+      }, state);
 
       setSnackbarMessage(`VTU file exported: ${filename}.vtu`);
       setSnackbarSeverity('success');

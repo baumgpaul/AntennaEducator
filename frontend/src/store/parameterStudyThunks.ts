@@ -78,6 +78,32 @@ export function resolveElementExpressions(
 }
 
 /**
+ * Names of elements whose geometry changes when only `variableName` changes.
+ *
+ * Typical case: a dipole with `length = wavelength / 2` under a frequency
+ * sweep is resized at every point, so the sweep never shows its resonance.
+ */
+export function elementsAffectedBy(
+  variableName: string,
+  variables: VariableDefinition[],
+  elements: ReadonlyArray<{ name: string; expressions?: Record<string, string> }>,
+): string[] {
+  const nominal = buildOverriddenContext(variables, {});
+  const base = nominal[variableName];
+  if (base === undefined) return [];
+  const shifted = buildOverriddenContext(variables, { [variableName]: base === 0 ? 1 : base * 1.37 });
+  return elements
+    .filter((el) => el.expressions && Object.keys(el.expressions).length > 0)
+    .filter((el) =>
+      geometryChanged(
+        resolveElementExpressions(el.expressions!, nominal),
+        resolveElementExpressions(el.expressions!, shifted),
+      ),
+    )
+    .map((el) => el.name);
+}
+
+/**
  * Resolve the solver frequency for a sweep point.
  * Supports both `freq` and `frequency` variable naming.
  */
@@ -183,8 +209,9 @@ export const runParameterStudy = createAsyncThunk<
         );
         const antennaInputs = visibleElements.map(convertElementToAntennaInput);
 
+        // Throw (not return) so the catch below restores the nominal geometry
         if (antennaInputs.length === 0) {
-          return rejectWithValue('No valid antenna elements for simulation');
+          throw new Error('No valid antenna elements for simulation');
         }
 
         // 5b. Capture mesh snapshot for postprocessing
@@ -205,7 +232,7 @@ export const runParameterStudy = createAsyncThunk<
         // Frequency may come from `freq` or `frequency` variables.
         const frequency = resolveSweepFrequency(point.values, ctx);
         if (!frequency) {
-          return rejectWithValue(
+          throw new Error(
             `Invalid frequency at grid point ${i}. Define a positive freq/frequency variable.`,
           );
         }
