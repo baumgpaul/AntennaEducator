@@ -5,6 +5,7 @@ import {
   complexMagnitude,
   complexPhaseDeg,
   formatComplex,
+  parseComplexString,
 } from '@/utils/complexNumber'
 
 describe('parseComplex', () => {
@@ -92,5 +93,31 @@ describe('formatComplex', () => {
 
   it('formats negative imaginary', () => {
     expect(formatComplex({ real: 1, imag: -2 }, 1)).toBe('1.0-2.0j')
+  })
+})
+
+describe('parseComplex — Python scientific notation', () => {
+  // Python writes a part with |x| < 1e-4 (or >= 1e16) in scientific notation.
+  // The old greedy regex split inside the exponent: "0.0123-3.4e-05j" gave imag = -5.
+  it.each([
+    ['0.0123-3.4e-05j', 0.0123, -3.4e-5],
+    ['1e-05-2.5e-06j', 1e-5, -2.5e-6],
+    ['(1.5e-05+0.002j)', 1.5e-5, 0.002],
+    ['-2.5E-07+1E-08j', -2.5e-7, 1e-8],
+    ['1e+20+3e+20j', 1e20, 3e20],
+    ['-4.53-5.98j', -4.53, -5.98],
+    ['.5-.25j', 0.5, -0.25],
+    ['3e-05j', 0, 3e-5],
+    ['-0j', 0, -0],
+  ])('%s', (input, real, imag) => {
+    const z = parseComplex(input)
+    expect(z.real).toBeCloseTo(real, 20)
+    expect(z.imag).toBeCloseTo(imag, 20)
+  })
+
+  it('rejects malformed strings instead of guessing a split', () => {
+    expect(parseComplexString('1e-05-2.5e-06')).toBeNull() // no j
+    expect(parseComplexString('1--2j')).toBeNull()
+    expect(parseComplexString('abc')).toBeNull()
   })
 })

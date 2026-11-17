@@ -407,6 +407,14 @@ describe('multiAntennaBuilder', () => {
       expect(extractComplexValue({ real: 1.0, imag: -0.5 })).toBe('1-0.5j')
     })
 
+    it('reads complex strings in scientific notation (imaginary part used to be dropped)', () => {
+      expect(extractComplexValue('1e-3+2e-3j')).toBe('0.001+0.002j')
+    })
+
+    it('falls back to 1 for an unreadable string', () => {
+      expect(extractComplexValue('abc')).toBe(1.0)
+    })
+
     it('should handle pure imaginary values', () => {
       expect(extractComplexValue({ real: 0, imag: 1.0 })).toBe('0+1j')
     })

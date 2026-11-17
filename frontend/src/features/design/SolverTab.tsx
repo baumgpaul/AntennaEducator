@@ -409,7 +409,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               startIcon={<CalculateIcon />}
               onClick={() => dispatch(setPortQuantitiesRequested(!portQuantitiesRequested))}
               disabled={!isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
-              title={!isSolved ? 'Run solver first' : 'Queue port quantities for Compute PostProcessingResults'}
+              title={!isSolved ? 'Run solver first' : 'Queue port quantities for Compute Postprocessing'}
               variant={portQuantitiesRequested ? 'contained' : 'outlined'}
             >
               {portQuantitiesRequested ? 'Port Quantities Requested' : 'Request Port Quantities'}
@@ -481,7 +481,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
               disabled={!canComputePostprocessing || !isSolved || simulationStatus === 'running' || simulationStatus === 'preparing' || postprocessingStatus === 'running'}
               title={!isSolved ? 'Run solver first before computing postprocessing' : undefined}
             >
-              Compute PostProcessingResults
+              Compute Postprocessing
             </Button>
 
             {postprocessingStatus === 'running' && (

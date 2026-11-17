@@ -7,32 +7,12 @@ import { SmithChart, type SmithChartPoint } from './SmithChart';
 import type { SmithDataSource } from '@/types/plotDefinitions';
 import type { FrequencySweepResult } from '@/types/api';
 import type { ParameterStudyResult } from '@/types/parameterStudy';
+import { parseComplex } from '@/utils/complexNumber';
 
 // ============================================================================
 // Helpers
 // ============================================================================
 
-function parseComplex(v: unknown): { real: number; imag: number } {
-  if (v == null) return { real: 0, imag: 0 };
-  if (typeof v === 'object' && v !== null && 'real' in v && 'imag' in v) {
-    return { real: (v as any).real, imag: (v as any).imag };
-  }
-  if (typeof v === 'number') return { real: v, imag: 0 };
-  if (typeof v === 'string') {
-    const cleaned = v.replace(/[()]/g, '');
-    const match = cleaned.match(/^([+-]?[\d.eE+-]+)([+-][\d.eE+-]+)[jJ]$/);
-    if (match) {
-      return { real: parseFloat(match[1]), imag: parseFloat(match[2]) };
-    }
-    const imagMatch = cleaned.match(/^([+-]?[\d.eE+-]+)[jJ]$/);
-    if (imagMatch) {
-      return { real: 0, imag: parseFloat(imagMatch[1]) };
-    }
-    const realOnly = parseFloat(cleaned);
-    if (!isNaN(realOnly)) return { real: realOnly, imag: 0 };
-  }
-  return { real: 0, imag: 0 };
-}
 
 function extractFromSweep(
   sweep: FrequencySweepResult,

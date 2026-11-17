@@ -15,6 +15,7 @@ import type { AddCurveResult, SourceType } from './AddCurveDialog';
 import { extractPortTraceData, extractDistributionTraceData, extractFarfieldTraceData, extractFieldTraceData } from '@/types/plotDataExtractors';
 import type { DataPoint } from '@/types/plotDataExtractors';
 import type { AxisConfig, PlotTrace } from '@/types/plotDefinitions';
+import { defaultXAxis, defaultYAxis, resolveLineAxes, type SweepContext } from './lineAxes';
 import { TRACE_COLORS } from '@/types/plotDefinitions';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectParameterStudy, selectSelectedFrequencyHz, selectFieldData, selectRequestedFields } from '@/store/solverSlice';
@@ -64,51 +65,12 @@ function LineViewPanel({ view }: LineViewPanelProps) {
   const isParamSweep = !!(parameterStudy && parameterStudy.results?.length > 0);
   const isFreqSweep = !!(frequencySweep && (frequencySweep as any).results?.length > 0);
 
-  /** Build default x-axis config based on sweep context */
-  const buildXAxisConfig = (source: string): AxisConfig => {
-    if (source === 'distribution') {
-      return { label: 'Segment Index', unit: '', scale: 'linear' };
-    }
-    if (source === 'farfield') {
-      return { label: 'θ', unit: '°', scale: 'linear' };
-    }
-    if (source === 'field') {
-      return { label: 'Distance', unit: 'm', scale: 'linear' };
-    }
-    if (isParamSweep && sweepVarName) {
-      const isFreqVar = sweepVarName === 'freq' || sweepVarName === 'frequency';
-      return { label: sweepVarName, unit: isFreqVar ? 'Hz' : '', scale: 'linear' };
-    }
-    if (isFreqSweep) {
-      return { label: 'Frequency', unit: 'Hz', scale: 'linear' };
-    }
-    return { label: 'X', unit: '', scale: 'linear' };
+  const sweepContext: SweepContext = {
+    paramSweepVariable: isParamSweep ? sweepVarName : null,
+    frequencySweep: isFreqSweep,
   };
-
-  /** Build default y-axis label from first trace */
-  const buildYAxisConfig = (traces: PlotTrace[]): AxisConfig => {
-    const first = traces[0];
-    if (!first) return { label: 'Y', unit: '', scale: 'linear' };
-    const q = first.quantity;
-    switch (q.source) {
-      case 'port': {
-        if (q.quantity.startsWith('impedance')) return { label: 'Impedance', unit: 'Ω', scale: 'linear' };
-        if (q.quantity === 'return_loss') return { label: 'Return Loss', unit: 'dB', scale: 'linear' };
-        if (q.quantity === 'vswr') return { label: 'VSWR', unit: '', scale: 'linear' };
-        if (q.quantity.startsWith('reflection')) return { label: '|Γ|', unit: '', scale: 'linear' };
-        return { label: first.label, unit: '', scale: 'linear' };
-      }
-      case 'distribution': {
-        if (q.quantity.startsWith('current')) return { label: 'Current', unit: 'A', scale: 'linear' };
-        if (q.quantity.startsWith('voltage')) return { label: 'Voltage', unit: 'V', scale: 'linear' };
-        return { label: first.label, unit: '', scale: 'linear' };
-      }
-      case 'farfield':
-        return { label: first.label, unit: 'dBi', scale: 'linear' };
-      default:
-        return { label: first.label, unit: '', scale: 'linear' };
-    }
-  };
+  const buildXAxisConfig = (source: string): AxisConfig => defaultXAxis(source, sweepContext);
+  const buildYAxisConfig = defaultYAxis;
 
   const visibleItems = view.items.filter((item) => item.visible);
 
@@ -311,8 +273,11 @@ function LineViewPanel({ view }: LineViewPanelProps) {
         }
       }
 
+      // Items made without axis configs (ribbon "Add Curve", older projects) get defaults
+      const axes = resolveLineAxes(item, sweepContext);
+
       const handleExportCSV = () => {
-        const csv = tracesToCSV(expandedTraces, traceData, axisHeader(item.xAxisConfig, 'x'));
+        const csv = tracesToCSV(expandedTraces, traceData, axisHeader(axes.x, 'x'));
         downloadFile(csv, `${safeFilename(item.label || view.name, 'plot')}.csv`, 'text/csv;charset=utf-8');
       };
 
@@ -331,9 +296,9 @@ function LineViewPanel({ view }: LineViewPanelProps) {
           <UnifiedLinePlot
             traces={expandedTraces}
             traceData={traceData}
-            xAxisConfig={item.xAxisConfig}
-            yAxisLeftConfig={item.yAxisLeftConfig}
-            yAxisRightConfig={item.yAxisRightConfig}
+            xAxisConfig={axes.x}
+            yAxisLeftConfig={axes.left}
+            yAxisRightConfig={axes.right}
             title={item.label}
             height={300}
           />

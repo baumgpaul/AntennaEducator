@@ -4,6 +4,7 @@
  */
 
 import type { AntennaElement, Source } from '@/types/models'
+import { parseComplexString } from './complexNumber'
 import type {
   MultiAntennaRequest,
   AntennaInput,
@@ -22,10 +23,10 @@ export function extractComplexValue(amplitude: Source['amplitude']): number | st
   let imag = 0.0
 
   if (typeof amplitude === 'string') {
-    const complexMatch = amplitude.match(/^([+-]?[\d.]+)([+-][\d.]+)j$/)
-    if (complexMatch) {
-      real = parseFloat(complexMatch[1])
-      imag = parseFloat(complexMatch[2])
+    const z = parseComplexString(amplitude)
+    if (z) {
+      real = z.real
+      imag = z.imag
     } else {
       real = parseFloat(amplitude) || 1.0
     }

@@ -145,7 +145,7 @@ describe('SolverTab', () => {
       />
     );
 
-    expect(screen.getByText('Compute PostProcessingResults')).toBeDisabled();
+    expect(screen.getByText('Compute Postprocessing')).toBeDisabled();
 
     mockState.solver.solverState = 'solved';
     mockState.design.isSolved = true;
@@ -159,7 +159,7 @@ describe('SolverTab', () => {
       />
     );
 
-    expect(screen.getByText('Compute PostProcessingResults')).not.toBeDisabled();
+    expect(screen.getByText('Compute Postprocessing')).not.toBeDisabled();
   });
 
   it('dispatches directivity request when clicking Add Directivity', () => {
