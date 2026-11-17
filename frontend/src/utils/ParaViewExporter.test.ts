@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { buildVtu, canExportToVTU, exportToVTU } from './ParaViewExporter';
+import { buildVtu, canExportToVTU, exportToVTU, fieldDataTarget } from './ParaViewExporter';
 import type { RootState } from '@/store';
 
 const { downloadFile } = vi.hoisted(() => ({ downloadFile: vi.fn() }));
@@ -75,5 +75,44 @@ describe('exportToVTU', () => {
   it('canExportToVTU reflects available data', () => {
     expect(canExportToVTU('field1', 300000000, state)).toBe(true);
     expect(canExportToVTU('field1', 400000000, state)).toBe(false);
+  });
+
+  it('reads sweep data by point index but writes the point frequency', async () => {
+    const sweepState = { solver: { fieldData: { field1: { 2: FIELD } } } } as unknown as RootState;
+    await exportToVTU({ fieldId: 'field1', key: 2, frequencyHz: 4e8, filename: 'pt' }, sweepState);
+    const [content] = downloadFile.mock.calls[0];
+    expect(array(content, 'Frequency_MHz')).toEqual([400]);
+  });
+});
+
+describe('fieldDataTarget', () => {
+  const study = {
+    config: { sweepVariables: [{ variableName: 'freq' }] },
+    results: [
+      { point: { values: { freq: 2e8 } }, solverResponse: { frequency: 2e8 } },
+      { point: { values: { freq: 4e8 } }, solverResponse: { frequency: 4e8 } },
+    ],
+  };
+
+  it('single solve: keyed by frequency in Hz', () => {
+    expect(fieldDataTarget({ solveMode: 'single', currentFrequency: 300 })).toEqual({
+      key: 3e8,
+      frequencyHz: 3e8,
+      label: '300.00MHz',
+    });
+  });
+
+  it('parameter sweep: keyed by the selected sweep point, with that point frequency', () => {
+    const target = fieldDataTarget({
+      solveMode: 'sweep',
+      currentFrequency: 300,
+      parameterStudy: study,
+      selectedSweepPointIndex: 1,
+    });
+    expect(target).toEqual({ key: 1, frequencyHz: 4e8, label: 'freq_4e+8' });
+  });
+
+  it('nothing solved: no target', () => {
+    expect(fieldDataTarget({ solveMode: null, currentFrequency: null })).toBeNull();
   });
 });

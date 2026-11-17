@@ -13,6 +13,8 @@ import documentationReducer from '@/store/documentationSlice';
 import variablesReducer from '@/store/variablesSlice';
 import submissionsReducer from '@/store/submissionsSlice';
 import foldersReducer from '@/store/foldersSlice';
+import * as projectsApi from '@/api/projects';
+import * as foldersApi from '@/api/folders';
 
 // Create mock navigate function at module level
 const mockNavigate = vi.fn();
@@ -26,6 +28,13 @@ vi.mock('react-router-dom', async () => {
     useParams: () => ({ projectId: '1' }),
   };
 });
+
+// No real requests: DesignPage fetches the project, folders and documentation on
+// mount; unanswered requests kept logging after the file finished, which made
+// vitest report "Closing rpc while onUserConsoleLog was pending".
+vi.mock('@/api/projects');
+vi.mock('@/api/folders');
+vi.mock('@/api/documentation');
 
 // Mock child components
 vi.mock('../ElementPanel', () => ({
@@ -94,6 +103,16 @@ const createTestStore = (initialState: Record<string, any> = {}) => {
 describe('DesignPage Results Navigation', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
+    const project = {
+      id: 1,
+      name: 'Test Project',
+      description: '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    vi.mocked(projectsApi.getProject).mockResolvedValue(project as never);
+    vi.mocked(projectsApi.updateProject).mockResolvedValue(project as never);
+    vi.mocked(foldersApi.getFolders).mockResolvedValue([]);
   });
 
   describe('View Results Action', () => {
