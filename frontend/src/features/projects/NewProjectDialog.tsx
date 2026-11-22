@@ -78,7 +78,7 @@ function NewProjectDialog({ open, onClose, folderId }: NewProjectDialogProps) {
       const created = await dispatch(createProject({ ...data, ...fem, folder_id: folderId ?? undefined })).unwrap();
       dispatch(showSuccess('Project created successfully!'));
       handleClose();
-      // Open the new project right away (designer or FEM Studio, by kind)
+      // Open the new project right away (projectPath picks the page by kind)
       navigate(projectPath(created));
     } catch (error) {
       const message = formatErrorMessage(error);
