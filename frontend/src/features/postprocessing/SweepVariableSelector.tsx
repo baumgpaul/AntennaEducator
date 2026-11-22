@@ -14,7 +14,6 @@ import {
   setSweepPointIndex,
   setSelectedFrequency,
 } from '@/store/solverSlice';
-import { applySweepMeshSnapshots } from '@/store/designSlice';
 import {
   generateSweepValues,
 } from '@/types/parameterStudy';
@@ -87,11 +86,8 @@ export const SweepVariableSelector: React.FC = () => {
         if (freq) dispatch(setSelectedFrequency(freq));
       }
 
-      // Use precomputed mesh snapshots from the sweep point. This keeps
-      // navigation local/offline and avoids API remesh calls while browsing.
-      if (ptResult?.meshSnapshots && ptResult.meshSnapshots.length > 0) {
-        dispatch(applySweepMeshSnapshots({ meshSnapshots: ptResult.meshSnapshots }));
-      }
+      // Geometry: postprocessing draws the point's mesh snapshot (selectDisplayElements);
+      // the design itself stays at the nominal geometry.
     },
     [dispatch, study, currentIndices],
   );

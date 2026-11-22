@@ -37,7 +37,7 @@ import {
   toggleItemVisibility,
 } from '../../store/postprocessingSlice';
 import { selectSelectedFrequencyHz } from '../../store/solverSlice';
-import { selectParameterStudy } from '../../store/solverSlice';
+import { selectParameterStudy, selectSolveMode, selectSweepPointIndex } from '../../store/solverSlice';
 import { TRACE_COLORS } from '@/types/plotDefinitions';
 import type { ViewType } from '@/types/postprocessing';
 
@@ -76,6 +76,9 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   const radiationPattern = useAppSelector((state) => state.solver.radiationPattern);
   const selectedFrequencyHz = useAppSelector(selectSelectedFrequencyHz);
   const parameterStudy = useAppSelector(selectParameterStudy);
+  const solveMode = useAppSelector(selectSolveMode);
+  const sweepPointIndex = useAppSelector(selectSweepPointIndex);
+  const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const requestedFields = useAppSelector((state) => state.solver.requestedFields) as FieldDefinition[];
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
@@ -183,7 +186,8 @@ const PostprocessingPropertiesPanel: React.FC = () => {
     if (!selectedItem) return null;
 
     // Compute auto range for current item (used for auto→manual default values)
-    const displayFrequencyHz = selectedFrequencyHz ?? null;
+    // Same key as the 3D view: the sweep point index in a parameter sweep, else the frequency
+    const displayFrequencyHz = solveMode === 'sweep' ? sweepPointIndex : (selectedFrequencyHz ?? null);
     const autoRange = computeAutoRange(
       selectedItem,
       solverResults,
@@ -191,6 +195,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
       radiationPattern,
       displayFrequencyHz,
       requestedFields,
+      { frequencySweep, parameterStudy },
     );
 
     // Handler to save manual range values when switching to auto

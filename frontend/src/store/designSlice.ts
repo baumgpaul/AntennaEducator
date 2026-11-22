@@ -16,7 +16,6 @@ import type {
   AntennaElement,
   AppendedNode,
 } from '@/types/models'
-import type { MeshSnapshot } from '@/types/parameterStudy'
 import { generateDipoleMesh, generateLoopMesh, generateRodMesh, generateCustomMesh, createDipole, createLoop, createRod } from '@/api/preprocessor'
 import { getNextElementColor } from '@/utils/colors'
 import { runParameterStudy } from '@/store/parameterStudyThunks'
@@ -658,70 +657,6 @@ const designSlice = createSlice({
       state.isSolved = false
     },
 
-    // Apply precomputed sweep-point meshes to visible/unlocked elements
-    // so postprocessing sweep navigation does not trigger API remesh calls.
-    applySweepMeshSnapshots: (state, action: PayloadAction<{ meshSnapshots: MeshSnapshot[] }>) => {
-      const { meshSnapshots } = action.payload
-      if (!meshSnapshots || meshSnapshots.length === 0) return
-
-      // Prefer ID-based matching for correctness; fallback to index for old data.
-      const hasIds = meshSnapshots.some((s) => s.elementId)
-
-      if (hasIds) {
-        for (const snap of meshSnapshots) {
-          if (!snap.elementId) continue
-          const element = state.elements.find(
-            (el) => el.id === snap.elementId && el.visible && !el.locked,
-          )
-          if (!element) continue
-
-          element.mesh = {
-            nodes: snap.nodes.map((n) => [...n] as [number, number, number]),
-            edges: snap.edges.map((e) => [...e] as [number, number]),
-            radii: [...snap.radii],
-          }
-
-          if (snap.position && snap.position.length === 3) {
-            element.position = [...snap.position] as [number, number, number]
-          }
-        }
-      } else {
-        // Legacy fallback: match by position index (pre-ID snapshots)
-        const targetIndices = state.elements
-          .map((el, idx) => ({ el, idx }))
-          .filter(({ el }) => el.visible && !el.locked)
-          .map(({ idx }) => idx)
-
-        const count = Math.min(targetIndices.length, meshSnapshots.length)
-        for (let i = 0; i < count; i++) {
-          const element = state.elements[targetIndices[i]]
-          const snap = meshSnapshots[i]
-
-          element.mesh = {
-            nodes: snap.nodes.map((n) => [...n] as [number, number, number]),
-            edges: snap.edges.map((e) => [...e] as [number, number]),
-            radii: [...snap.radii],
-          }
-
-          if (snap.position && snap.position.length === 3) {
-            element.position = [...snap.position] as [number, number, number]
-          }
-        }
-      }
-
-      const selected = state.selectedElementId
-      if (selected) {
-        const selectedElement = state.elements.find((el) => el.id === selected)
-        if (selectedElement?.mesh) {
-          state.mesh = selectedElement.mesh
-          return
-        }
-      }
-      if (state.elements[0]?.mesh) {
-        state.mesh = state.elements[0].mesh
-      }
-    },
-
     // Legacy antenna configuration (backward compatibility)
     setAntennaType: (
       state,
@@ -1242,7 +1177,6 @@ export const {
   // Solver state
   markAsSolved,
   markAsUnsolved,
-  applySweepMeshSnapshots,
   // Legacy actions
   setAntennaType,
   setAntennaConfig,

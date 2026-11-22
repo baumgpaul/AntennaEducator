@@ -29,6 +29,9 @@ import type { PolarDataPoint, PolarDataSeries } from '../postprocessing/plots/Po
 import { PORT_TABLE_COLUMNS, TRACE_COLORS } from '@/types/plotDefinitions';
 import { ViewItemRenderer } from '../postprocessing/ViewItemRenderer';
 import { Colorbar } from '../postprocessing/Colorbar';
+import { compositeSceneWithOverlays } from '../postprocessing/captureComposite';
+import { selectDisplayElements, solutionValuesAt } from '../postprocessing/sweepPointData';
+import { parseComplex as parseComplexValue } from '@/utils/complexNumber';
 import TimeAnimationOverlay from '../postprocessing/TimeAnimationOverlay';
 import FrequencySelector from '../postprocessing/FrequencySelector';
 import { SweepVariableSelector } from '../postprocessing/SweepVariableSelector';
@@ -78,9 +81,10 @@ interface PostprocessingTabProps {
 import type { ViewItem } from '@/types/postprocessing';
 import type { SolverResult, ComplexNumber } from '@/types/models';
 
-/** Compute magnitude of a complex number */
-function complexMag(c: ComplexNumber): number {
-  return Math.sqrt((c.real || 0) * (c.real || 0) + (c.imag || 0) * (c.imag || 0));
+/** Magnitude of a complex value in any backend format ({real, imag}, "a+bj", number) — as the renderers parse it */
+function complexMag(c: ComplexNumber | string | number | unknown): number {
+  const z = parseComplexValue(c);
+  return Math.hypot(z.real || 0, z.imag || 0);
 }
 
 // Exported helpers
@@ -131,21 +135,24 @@ export function computeAutoRange(
   radiationPattern: { pattern_db: number[]; directivity?: number; [key: string]: unknown } | null,
   displayFrequencyHz: number | null,
   requestedFields?: FieldDefinition[] | null,
+  /** Sweep results: the scale must follow the selected sweep point, like the renderer */
+  sweeps?: Pick<Parameters<typeof solutionValuesAt>[2], 'frequencySweep' | 'parameterStudy'>,
 ): { min: number; max: number } {
+  const valuesFor = (field: 'branch_currents' | 'node_voltages') =>
+    (displayFrequencyHz != null
+      ? solutionValuesAt(displayFrequencyHz, field, {
+          results: solverResults,
+          frequencySweep: sweeps?.frequencySweep,
+          parameterStudy: sweeps?.parameterStudy,
+        })
+      : solverResults?.[field]) as unknown[] | null | undefined;
   switch (item.type) {
-    case 'current': {
-      const currents = solverResults?.branch_currents;
-      if (currents && currents.length > 0) {
-        const magnitudes = currents.map(complexMag);
-        return { min: Math.min(...magnitudes), max: Math.max(...magnitudes) };
-      }
-      break;
-    }
+    case 'current':
     case 'voltage': {
-      const voltages = solverResults?.node_voltages;
-      if (voltages && voltages.length > 0) {
-        const magnitudes = voltages.map(complexMag);
-        return { min: Math.min(...magnitudes), max: Math.max(...magnitudes) };
+      const values = valuesFor(item.type === 'current' ? 'branch_currents' : 'node_voltages');
+      if (values && values.length > 0) {
+        const magnitudes = values.map(complexMag);
+        return { min: arrayMin(magnitudes), max: arrayMax(magnitudes) };
       }
       break;
     }
@@ -214,6 +221,8 @@ function PostprocessingTab({
   const sweepPointIndex = useAppSelector(selectSweepPointIndex);
 
   const parameterStudy = useAppSelector(selectParameterStudy);
+  // Sweep mode: draw the selected point's re-meshed geometry, not the nominal design
+  const displayElements = useAppSelector(selectDisplayElements);
 
   // Smith chart summary: |Γ| and VSWR from first solved frequency point
   const smithChartSummary = useMemo(() => {
@@ -343,7 +352,15 @@ function PostprocessingTab({
           } catch { /* ignore */ }
           try {
             const url = canvas.toDataURL('image/png');
-            if (url && url.startsWith('data:image/') && url.length > 100) return url;
+            if (url && url.startsWith('data:image/') && url.length > 100) {
+              // Colour scales are HTML on top of the WebGL canvas: draw them into the image
+              const overlays = Array.from(
+                middlePanelRef.current?.querySelectorAll<HTMLElement>('[data-testid="colorbar-stack"]') ?? [],
+              );
+              return await compositeSceneWithOverlays(url, canvas, overlays, (el, scale) =>
+                html2canvas(el, { backgroundColor: null, scale, useCORS: true, logging: false }),
+              ).catch(() => url);
+            }
           } catch {
             // SecurityError or other — retry next attempt
           }
@@ -804,7 +821,7 @@ function PostprocessingTab({
 
           // Render 3D Scene for 3D views
           return (
-            <Scene3D elements={elements} showScale showAxisLabels>
+            <Scene3D elements={displayElements} showScale showAxisLabels>
               {/* Render all visible items in the selected view */}
               {selectedView?.items
                 .filter((item) => item.visible)
@@ -861,7 +878,7 @@ function PostprocessingTab({
               // Use per-frequency radiation pattern for directivity color range
               const activePattern = (displayFrequencyHz != null && radiationPatterns?.[displayFrequencyHz])
                 || radiationPattern;
-              const range = computeAutoRange(colorItem, solverResults, fieldData, activePattern, displayFrequencyHz, requestedFields);
+              const range = computeAutoRange(colorItem, solverResults, fieldData, activePattern, displayFrequencyHz, requestedFields, { frequencySweep, parameterStudy });
               // No data for this item (e.g. not computed for this sweep point): no placeholder 0…1 scale
               if (range === NO_DATA_RANGE) return null;
               min = range.min;

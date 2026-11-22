@@ -16,6 +16,8 @@ import { showSuccess, showError } from '@/store/uiSlice';
 import { lazy, Suspense, useState } from 'react';
 import type { MethodChoice } from '@/features/fem/FemMethodPicker';
 import { formatErrorMessage } from '@/utils/errors';
+import { projectPath } from '@/utils/projectPath';
+import { useNavigate } from 'react-router-dom';
 
 // Method choice (antenna or FEM): only in builds with the FEM flag, see config/features.ts
 const FemMethodPicker =
@@ -41,6 +43,7 @@ interface NewProjectDialogProps {
  */
 function NewProjectDialog({ open, onClose, folderId }: NewProjectDialogProps) {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [method, setMethod] = useState<MethodChoice>(ANTENNA);
 
@@ -72,9 +75,11 @@ function NewProjectDialog({ open, onClose, folderId }: NewProjectDialogProps) {
         method.kind === 'fem' && method.design_state
           ? { kind: 'fem' as const, design_state: { ...method.design_state, name: data.name } }
           : {};
-      await dispatch(createProject({ ...data, ...fem, folder_id: folderId ?? undefined })).unwrap();
+      const created = await dispatch(createProject({ ...data, ...fem, folder_id: folderId ?? undefined })).unwrap();
       dispatch(showSuccess('Project created successfully!'));
       handleClose();
+      // Open the new project right away (projectPath picks the page by kind)
+      navigate(projectPath(created));
     } catch (error) {
       const message = formatErrorMessage(error);
       dispatch(showError(`Failed to create project: ${message}`));

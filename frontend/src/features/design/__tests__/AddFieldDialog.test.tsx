@@ -205,6 +205,32 @@ describe('AddFieldDialog - T4.B1.2', () => {
       );
     });
 
+    it('starts from the given defaults (λ-sized XZ plane through the antenna)', async () => {
+      const user = userEvent.setup();
+      render(
+        <AddFieldDialog
+          open={true}
+          onClose={mockOnClose}
+          onCreate={mockOnCreate}
+          defaults={{ center: { x: 0, y: 0, z: 10 }, size: 1000, preset: 'XZ' }}
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /Next/i }));
+      await user.click(screen.getByRole('button', { name: /Next/i }));
+      await user.click(screen.getByRole('button', { name: /Next/i }));
+      await user.click(screen.getByRole('button', { name: /Create/i }));
+
+      expect(mockOnCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          shape: 'plane',
+          centerPoint: [0, 0, 10],
+          normalPreset: 'XZ',
+          dimensions: { width: 1000, height: 1000 },
+        })
+      );
+    });
+
     it('closes dialog after successful creation', async () => {
       const user = userEvent.setup();
       render(<AddFieldDialog open={true} onClose={mockOnClose} onCreate={mockOnCreate} />);

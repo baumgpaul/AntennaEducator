@@ -3,6 +3,7 @@ import { ViewItem } from '../../../types/postprocessing';
 import { useAppSelector } from '../../../store/hooks';
 import WireGeometry from '../../design/WireGeometry';
 import { AntennaElement } from '../../../types/models';
+import { selectDisplayElements } from '../sweepPointData';
 
 interface AntennaRendererProps {
   item: ViewItem;
@@ -13,7 +14,8 @@ interface AntennaRendererProps {
  * Uses existing WireGeometry component with custom color and opacity.
  */
 export const AntennaRenderer: React.FC<AntennaRendererProps> = ({ item }) => {
-  const elements = useAppSelector((state) => state.design.elements);
+  // Sweep mode: the selected point's re-meshed geometry
+  const elements = useAppSelector(selectDisplayElements);
 
   if (!elements || elements.length === 0) {
     return null;
