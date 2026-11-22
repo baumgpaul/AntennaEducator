@@ -6,6 +6,7 @@ import { Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { createColorArray, arrayMin, arrayMax } from '../../../utils/colorMaps';
 import { parseComplex } from '../../../api/solverHelpers';
+import { selectDisplayElements, solutionValuesAt } from '../sweepPointData';
 
 interface CurrentRendererProps {
   item: ViewItem;
@@ -33,54 +34,19 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
   const results = useAppSelector((state) => state.solver.results);
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const parameterStudy = useAppSelector((state) => state.solver.parameterStudy);
-  const elements = useAppSelector((state) => state.design.elements);
+  // Sweep mode: the selected point's re-meshed geometry, matching its currents
+  const elements = useAppSelector(selectDisplayElements);
 
   // Get current distribution data — supports single-freq, frequency sweep, and parameter study modes
-  const currentData = useMemo(() => {
-    if (frequencyHz == null) return null;
-
-    // Parameter study mode: frequencyHz is a sweep point INDEX (0, 1, 2, ...)
-    if (parameterStudy?.results?.length) {
-      const pointIdx = Math.round(frequencyHz);
-      const pointResult = parameterStudy.results[pointIdx];
-      if (pointResult) {
-        const resp = pointResult.solverResponse as any;
-        if (resp?.antenna_solutions?.length) {
-          return resp.antenna_solutions.flatMap(
-            (sol: any) => sol.branch_currents || []
-          );
-        }
-      }
-    }
-
-    // Frequency sweep mode: look up the result for this specific frequency (Hz)
-    if (frequencySweep?.frequencies && frequencySweep.results) {
-      const freqIdx = frequencySweep.frequencies.findIndex(
-        (f) => Math.abs(f - frequencyHz) < 1 // 1 Hz tolerance
-      );
-      if (freqIdx >= 0 && frequencySweep.results[freqIdx]) {
-        const sweepResult = frequencySweep.results[freqIdx];
-        if (sweepResult.antenna_solutions?.length) {
-          return sweepResult.antenna_solutions.flatMap(
-            (sol: any) => sol.branch_currents || []
-          );
-        }
-      }
-    }
-
-    // Single-frequency mode: use results.branch_currents
-    if (results?.branch_currents) {
-      return results.branch_currents;
-    }
-
-    // Multi-antenna single freq: results might have antenna_solutions
-    const multiResults = (results as any)?.antenna_solutions;
-    if (multiResults?.length) {
-      return multiResults.flatMap((sol: any) => sol.branch_currents || []);
-    }
-
-    return null;
-  }, [results, frequencySweep, parameterStudy, frequencyHz]);
+  const currentData = useMemo(
+    () =>
+      solutionValuesAt(frequencyHz, 'branch_currents', {
+        results,
+        frequencySweep,
+        parameterStudy,
+      }) as any[] | null,
+    [results, frequencySweep, parameterStudy, frequencyHz],
+  );
 
   if (!currentData || !elements || elements.length === 0) {
     console.log('[CurrentRenderer] ❌ Early exit - currentData:', !!currentData, 'elements:', elements?.length);

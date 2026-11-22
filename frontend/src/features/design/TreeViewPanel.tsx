@@ -42,6 +42,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { DEFAULT_ELEMENT_COLOR } from '@/utils/colors';
+import { countFeeds } from '@/utils/feedCount';
 import type { Mesh, Source, LumpedElement, AntennaElement, ComplexNumber } from '@/types/models';
 import VariablePanel from './VariablePanel';
 
@@ -225,6 +226,9 @@ function TreeViewPanel({
   const [viewRenameDialogOpen, setViewRenameDialogOpen] = useState(false);
   const [renamingViewId, setRenamingViewId] = useState<string | null>(null);
   const [newViewName, setNewViewName] = useState('');
+
+  // A balanced gap feed is two opposite sources in the model but one feed for the user
+  const feedCount = useMemo(() => countFeeds(sources), [sources]);
 
   // Build tree data from elements or single mesh
   const treeData = useMemo<TreeNode[]>(() => {
@@ -1154,9 +1158,9 @@ function TreeViewPanel({
           <>
             <Chip label={`${mesh.edges.length} Edges`} size="small" variant="outlined" />
             <Chip label={`${mesh.nodes.length} Nodes`} size="small" variant="outlined" />
-            {sources.length > 0 && (
+            {feedCount > 0 && (
               <Chip
-                label={`${sources.length} Source${sources.length > 1 ? 's' : ''}`}
+                label={`${feedCount} Source${feedCount > 1 ? 's' : ''}`}
                 size="small"
                 variant="outlined"
                 color="error"

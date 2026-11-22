@@ -20,7 +20,7 @@ import {
   DeleteForever,
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMatch, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar, toggleTheme } from '@/store/uiSlice';
 import { logoutAsync, getCurrentUserAsync } from '@/store/authSlice';
@@ -34,7 +34,13 @@ function Header() {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
   const { mode } = useAppSelector((state) => state.ui.theme);
-  const projectName = useAppSelector((state) => state.projects.currentProject?.name);
+  const currentProject = useAppSelector((state) => state.projects.currentProject);
+  // currentProject outlives the project page: show its name only while that project is open
+  const openProjectId = useMatch('/project/:projectId/*')?.params.projectId;
+  const projectName =
+    currentProject && openProjectId != null && String(currentProject.id) === openProjectId
+      ? currentProject.name
+      : undefined;
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);

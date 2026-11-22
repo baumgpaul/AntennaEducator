@@ -4,6 +4,7 @@ import { useAppSelector } from '../../../store/hooks';
 import * as THREE from 'three';
 import { createColorArray, arrayMin, arrayMax } from '../../../utils/colorMaps';
 import { parseComplex } from '../../../api/solverHelpers';
+import { selectDisplayElements, solutionValuesAt } from '../sweepPointData';
 
 interface VoltageRendererProps {
   item: ViewItem;
@@ -23,54 +24,19 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
   const results = useAppSelector((state) => state.solver.results);
   const frequencySweep = useAppSelector((state) => state.solver.frequencySweep);
   const parameterStudy = useAppSelector((state) => state.solver.parameterStudy);
-  const elements = useAppSelector((state) => state.design.elements);
+  // Sweep mode: the selected point's re-meshed geometry, matching its voltages
+  const elements = useAppSelector(selectDisplayElements);
 
   // Get voltage distribution data — supports single-freq, frequency sweep, and parameter study modes
-  const voltageData = useMemo(() => {
-    if (frequencyHz == null) return null;
-
-    // Parameter study mode: frequencyHz is a sweep point INDEX (0, 1, 2, ...)
-    if (parameterStudy?.results?.length) {
-      const pointIdx = Math.round(frequencyHz);
-      const pointResult = parameterStudy.results[pointIdx];
-      if (pointResult) {
-        const resp = pointResult.solverResponse as any;
-        if (resp?.antenna_solutions?.length) {
-          return resp.antenna_solutions.flatMap(
-            (sol: any) => sol.node_voltages || []
-          );
-        }
-      }
-    }
-
-    // Frequency sweep mode: look up node_voltages for this specific frequency (Hz)
-    if (frequencySweep?.frequencies && frequencySweep.results) {
-      const freqIdx = frequencySweep.frequencies.findIndex(
-        (f) => Math.abs(f - frequencyHz) < 1 // 1 Hz tolerance
-      );
-      if (freqIdx >= 0 && frequencySweep.results[freqIdx]) {
-        const sweepResult = frequencySweep.results[freqIdx];
-        if (sweepResult.antenna_solutions?.length) {
-          return sweepResult.antenna_solutions.flatMap(
-            (sol: any) => sol.node_voltages || []
-          );
-        }
-      }
-    }
-
-    // Single-frequency mode
-    if (results?.node_voltages) {
-      return results.node_voltages;
-    }
-
-    // Multi-antenna single freq
-    const multiResults = (results as any)?.antenna_solutions;
-    if (multiResults?.length) {
-      return multiResults.flatMap((sol: any) => sol.node_voltages || []);
-    }
-
-    return null;
-  }, [results, frequencySweep, parameterStudy, frequencyHz]);
+  const voltageData = useMemo(
+    () =>
+      solutionValuesAt(frequencyHz, 'node_voltages', {
+        results,
+        frequencySweep,
+        parameterStudy,
+      }) as any[] | null,
+    [results, frequencySweep, parameterStudy, frequencyHz],
+  );
 
   // Extract node positions from elements
   const nodes = useMemo(() => {

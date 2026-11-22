@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, LinearProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
 import { PlayArrow as PlayArrowIcon, Tune as TuneIcon, AddCircleOutline as AddCircleOutlineIcon, GridOn as GridOnIcon, Calculate as CalculateIcon, CheckCircle as CheckCircleIcon, Stop as StopIcon, ChevronLeft, ChevronRight } from '@mui/icons-material';
@@ -34,6 +34,7 @@ import {
 } from '@/store/solverSlice';
 import { markAsSolved, selectIsSolved } from '@/store/designSlice';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
+import { defaultFieldRegion } from './defaultFieldRegion';
 import type { ParameterStudyConfig } from '@/types/parameterStudy';
 import { runParameterStudy } from '@/store/parameterStudyThunks';
 import { selectParameterStudy, selectParameterStudyConfig, selectSolveMode } from '@/store/solverSlice';
@@ -66,6 +67,11 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const simulationError = useSelector(selectSolverError);
   const solverProgress = useSelector(selectSolverProgress);
   const currentFrequency = useSelector(selectCurrentFrequency);
+  // New field regions start as a λ-sized XZ plane through the antenna (not 100 mm XY at the feed)
+  const fieldDefaults = useMemo(
+    () => defaultFieldRegion(elements, currentFrequency),
+    [elements, currentFrequency],
+  );
   const sweepInProgress = useSelector(selectSweepInProgress);
   const sweepProgress = useSelector(selectSweepProgress);
   const results = useSelector((state: RootState) => state.solver.results);
@@ -684,6 +690,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         open={addFieldDialogOpen}
         onClose={() => setAddFieldDialogOpen(false)}
         onCreate={handleFieldAdd}
+        defaults={fieldDefaults}
       />
 
       <DirectivitySettingsDialog

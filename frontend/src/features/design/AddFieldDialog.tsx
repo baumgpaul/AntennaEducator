@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 import { ViewInAr, PanoramaFishEye, Timeline } from '@mui/icons-material';
 import { getEllipseAxesFromPreset } from '@/types/fieldDefinitions';
+import { FALLBACK_FIELD_DEFAULTS, type FieldRegionDefaults } from './defaultFieldRegion';
 
 const steps = ['Region Type', 'Shape', 'Parameters', 'Field Type'];
 
@@ -33,6 +34,8 @@ interface AddFieldDialogProps {
   open: boolean;
   onClose: () => void;
   onCreate: (fieldDefinition: any) => void;
+  /** Starting centre/size/orientation (mm), e.g. from defaultFieldRegion(); falls back to 100 mm XY at the origin */
+  defaults?: FieldRegionDefaults;
 }
 
 /**
@@ -44,14 +47,14 @@ interface AddFieldDialogProps {
  * 3. Define parameters (center point, dimensions, sampling)
  * 4. Select field type (E, H, or Poynting)
  */
-export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps) {
+export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FIELD_DEFAULTS }: AddFieldDialogProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [regionType, setRegionType] = useState<'1D' | '2D' | '3D'>('2D');
   const [shape, setShape] = useState<'line' | 'arc' | 'plane' | 'ellipse' | 'sphere' | 'cuboid'>('plane');
   const [center, setCenter] = useState({ x: 0, y: 0, z: 0 });
   // Line start/end points
-  const [lineStart, setLineStart] = useState({ x: 0, y: 0, z: 0 });
-  const [lineEnd, setLineEnd] = useState({ x: 100, y: 0, z: 0 });
+  const [lineStart, setLineStart] = useState({ x: -50, y: 0, z: 0 });
+  const [lineEnd, setLineEnd] = useState({ x: 50, y: 0, z: 0 });
   // Arc angles
   const [arcAngles, setArcAngles] = useState({ start: 0, end: 360 });
   // 1D numPoints
@@ -195,27 +198,37 @@ export function AddFieldDialog({ open, onClose, onCreate }: AddFieldDialogProps)
     onClose();
   };
 
+  /** Geometry fields from `defaults`: centred on the antenna, sized to the wavelength */
+  const applyGeometryDefaults = (d: FieldRegionDefaults) => {
+    const { center: c, size } = d;
+    setCenter({ ...c });
+    setLineStart({ x: c.x - size / 2, y: c.y, z: c.z });
+    setLineEnd({ x: c.x + size / 2, y: c.y, z: c.z });
+    setPlaneDims({ width: size, height: size });
+    setRadiusA(size / 2);
+    setRadiusB(size / 2);
+    setNormalPreset(d.preset);
+    setSphereRadius(size / 2);
+    setCuboidDims({ Lx: size, Ly: size, Lz: size });
+  };
+
+  // Each time the dialog opens, start from the current antenna/frequency defaults
+  useEffect(() => {
+    if (open) applyGeometryDefaults(defaults);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const handleReset = () => {
     setActiveStep(0);
     setRegionType('2D');
     setShape('plane');
-    setCenter({ x: 0, y: 0, z: 0 });
+    applyGeometryDefaults(defaults);
     // 1D states
-    setLineStart({ x: 0, y: 0, z: 0 });
-    setLineEnd({ x: 100, y: 0, z: 0 });
     setArcAngles({ start: 0, end: 360 });
     setNumPoints(20);
     // 2D states
-    setPlaneDims({ width: 100, height: 100 });
-    setRadiusA(50);
-    setRadiusB(50);
-    setNormalPreset('XY');
     setCustomNormal({ x: 0, y: 0, z: 1 });
-    setCustomAxis1({ x: 1, y: 0, z: 0 });
-    setCustomAxis2({ x: 0, y: 1, z: 0 });
     // 3D states
-    setSphereRadius(50);
-    setCuboidDims({ Lx: 100, Ly: 100, Lz: 100 });
     setSampling2D({ x: 20, y: 20 });
     setSphereSampling({ theta: 18, phi: 36, radial: 10 });
     setCuboidSampling({ Nx: 10, Ny: 10, Nz: 10 });
