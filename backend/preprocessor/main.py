@@ -125,7 +125,7 @@ async def health_check():
 async def create_dipole_antenna(
     request: DipoleRequest,
     user: UserIdentity = Depends(get_current_user),
-    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("mesh/dipole")),
 ):
     """Create a dipole antenna element and generate its mesh."""
     try:
@@ -160,7 +160,7 @@ async def create_dipole_antenna(
 async def create_loop_antenna(
     request: LoopRequest,
     user: UserIdentity = Depends(get_current_user),
-    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("mesh/loop")),
 ):
     """Create a circular loop antenna element and generate its mesh."""
     try:
@@ -195,7 +195,7 @@ async def create_loop_antenna(
 async def create_rod_antenna(
     request: RodRequest,
     user: UserIdentity = Depends(get_current_user),
-    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("mesh/rod")),
 ):
     """Create a rod (monopole) antenna element and generate its mesh."""
     try:
@@ -229,7 +229,7 @@ async def create_rod_antenna(
 async def create_custom_antenna(
     request: CustomRequest,
     user: UserIdentity = Depends(get_current_user),
-    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("mesh/custom")),
 ):
     """Create a custom antenna element from explicit node/edge definitions."""
     try:

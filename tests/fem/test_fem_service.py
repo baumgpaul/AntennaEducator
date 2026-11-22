@@ -1,5 +1,7 @@
 """FEM service (backend/fem): endpoints, preview gate, limits, errors."""
 
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -25,8 +27,18 @@ PROBLEM = {
 }
 
 
-def user(role):
-    return UserIdentity(id="u1", email="u@x.example", username="u", role=role)
+def user(role, tokens=30_000):
+    return UserIdentity(
+        id="u1", email="u@x.example", username="u", role=role, simulation_tokens=tokens
+    )
+
+
+@pytest.fixture(autouse=True)
+def repo():
+    """Token charging without DynamoDB."""
+    with patch("backend.common.repositories.user_repository.UserRepository") as cls:
+        cls.return_value.charge_user_tokens.return_value = (3, 29_997)
+        yield cls.return_value
 
 
 @pytest.fixture
@@ -154,3 +166,26 @@ def test_coax_capacitance_converges_quadratically_under_uniform_refinement(clien
         errors.append(abs(s["capacitance"]["from_energy"] / exact - 1))
     orders = [math.log2(errors[i] / errors[i + 1]) for i in range(2)]
     assert all(1.6 < p < 2.6 for p in orders), (errors, orders)
+
+
+def test_fem_solves_are_metered(client, repo):
+    r = client.post("/api/fem/solve", json={"geometry": GEOMETRY, "problem": PROBLEM})
+    assert r.status_code == 200
+    repo.charge_user_tokens.assert_called_once()
+    user_id, cost = repo.charge_user_tokens.call_args.args
+    assert user_id == "u1" and cost >= 1
+
+
+def test_fem_needs_tokens(client, repo):
+    app.dependency_overrides[get_current_user] = lambda: user(UserRole.MAINTAINER, tokens=0)
+    assert client.post("/api/fem/mesh", json={"geometry": GEOMETRY}).status_code == 402
+    repo.charge_user_tokens.assert_not_called()
+
+
+def test_model_check_and_export_stay_free(client, repo):
+    app.dependency_overrides[get_current_user] = lambda: user(UserRole.MAINTAINER, tokens=0)
+    assert (
+        client.post("/api/fem/check", json={"geometry": GEOMETRY, "problem": PROBLEM}).status_code
+        == 200
+    )
+    repo.charge_user_tokens.assert_not_called()

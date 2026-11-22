@@ -13,7 +13,7 @@ common/
 │   ├── factory.py           # Singleton factory (USE_COGNITO env var)
 │   ├── dependencies.py      # get_current_user() FastAPI dependency
 │   ├── identity.py          # UserIdentity, TokenData, TokenResponse models
-│   └── token_costs.py       # Endpoint token costs, usage logging
+│   └── token_costs.py       # Metered tokens (1 token = 1 GB-s), usage logging
 ├── models/             # Shared Pydantic domain models
 │   ├── geometry.py          # AntennaElement, Mesh, Source, LumpedElement
 │   ├── solver.py            # SolverJob, SolverConfig

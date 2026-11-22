@@ -23,7 +23,11 @@ import sys
 import boto3
 from boto3.dynamodb.conditions import Attr
 
-from backend.common.auth.token_costs import DEFAULT_STARTER_TOKENS
+from backend.common.auth.token_costs import (
+    DEFAULT_STARTER_TOKENS,
+    TOKEN_SCHEME,
+    convert_legacy_balance,
+)
 
 
 def find_user_by_email(table, email: str) -> dict | None:
@@ -50,12 +54,15 @@ def make_admin(table, email: str) -> dict:
             f"No user with e-mail {email!r}. Sign up first (and, in Cognito mode, "
             "log in once so the profile exists)."
         )
-    tokens = max(int(user.get("SimulationTokens", 0)), DEFAULT_STARTER_TOKENS)
+    old = int(user.get("SimulationTokens", 0))
+    if user.get("TokenScheme") != TOKEN_SCHEME:
+        old = convert_legacy_balance(old)  # stamped below, so never converted twice
+    tokens = max(old, DEFAULT_STARTER_TOKENS)
     table.update_item(
         Key={"PK": user["PK"], "SK": "METADATA"},
         UpdateExpression=(
             "SET #r = :admin, IsAdmin = :true, IsApproved = :true, IsLocked = :false, "
-            "SimulationTokens = :tokens"
+            "SimulationTokens = :tokens, TokenScheme = :scheme"
         ),
         ExpressionAttributeNames={"#r": "Role"},
         ExpressionAttributeValues={
@@ -63,6 +70,7 @@ def make_admin(table, email: str) -> dict:
             ":true": True,
             ":false": False,
             ":tokens": tokens,
+            ":scheme": TOKEN_SCHEME,
         },
     )
     return user

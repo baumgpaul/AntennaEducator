@@ -25,6 +25,22 @@ def handler(event, context):
     return _http_handler(event, context)
 
 
+def _convert_token_balances() -> None:
+    """Move accounts to metered tokens (idempotent; a no-op once all are converted).
+
+    Runs with the daily schedule so every environment converts after its deploy;
+    a failure is logged and never blocks the retention run.
+    """
+    import logging
+
+    from backend.common.repositories.user_repository import UserRepository
+
+    try:
+        UserRepository().convert_token_balances()
+    except Exception:
+        logging.getLogger(__name__).error("Token scheme conversion failed", exc_info=True)
+
+
 async def _run_retention():
     from backend.common.auth import create_auth_provider
     from backend.common.repositories.factory import get_project_repository
@@ -32,6 +48,7 @@ async def _run_retention():
     from backend.projects.results_service import get_results_service
     from backend.projects.retention import run_retention
 
+    _convert_token_balances()
     return await run_retention(
         get_project_repository().table,
         get_results_service(),

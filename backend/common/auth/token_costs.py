@@ -1,56 +1,70 @@
-"""Token cost definitions for simulation endpoints.
+"""Simulation tokens: metered by the compute a request really used.
 
-Each compute endpoint has an associated token cost. Non-compute endpoints
-(auth, projects, folders, health checks) are free.
+1 token = 1 GB-second of Lambda compute (configured memory × duration), the unit
+AWS bills. Lambda costs ≈ $0.0000167 per GB-s in eu-west-1, so
 
-Costs reflect relative computational expense:
-- Preprocessor (mesh generation): lightweight geometry → 1 token
-- Solver (matrix fill + LU solve): heaviest compute → 5 tokens
-- Postprocessor (field evaluation): moderate compute → 3 tokens
-- Frequency sweeps: 5 × N_frequencies, capped at 250
+- a typical solve (2 GB, ~2 s)          ≈ 4 tokens    ≈ $0.00007
+- the longest async job (2 GB, 15 min)  = 1800 tokens ≈ $0.03
+- the starter amount                    = 30 000 tokens ≈ $0.50
 
-Pricing basis: 500 tokens ≈ €1.00 (≈ 55 single simulations).
+Requests are charged after they succeed, by their measured duration, at least
+1 token. Before a request runs, the balance must cover 1 token (or the
+estimate, for queued jobs), so a user can overrun by at most one request.
+Request fees, DynamoDB, S3 and CloudFront are cents per month at this scale
+and not metered.
 """
 
+import math
+import os
 from dataclasses import dataclass
 
-# Default token allocation for new users
-DEFAULT_STARTER_TOKENS: int = 500
+# 1 token per GB-second of Lambda compute
+TOKENS_PER_GB_SECOND: float = 1.0
 
-# Maximum cost for a single sweep (prevents runaway charges)
-_SWEEP_COST_CAP: int = 250
+# Lambda x86 price, eu-west-1 (for documentation and tests, not for charging)
+LAMBDA_USD_PER_GB_SECOND: float = 0.0000166667
 
-# Cost per frequency point in a sweep
-_COST_PER_SWEEP_FREQ: int = 5
+# Starter allocation: ≈ $0.50 of compute
+DEFAULT_STARTER_TOKENS: int = 30_000
 
-# (service, operation) → token cost
-ENDPOINT_COSTS: dict[tuple[str, str], int] = {
-    # Preprocessor — geometry + mesh generation
-    ("preprocessor", "mesh"): 1,
-    # Solver — electromagnetic computation
-    ("solver", "single"): 5,
-    ("solver", "multi"): 5,
-    # Postprocessor — field computation
-    ("postprocessor", "far_field"): 3,
-    ("postprocessor", "near_field"): 3,
-    ("postprocessor", "export"): 0,
-}
+# Smallest charge per request and the balance a request needs to start
+MIN_TOKENS: int = 1
+
+# Memory assumed when not running on Lambda (local dev, tests): the solver's size
+FALLBACK_MEMORY_MB: int = 2048
+
+# Balances are stamped with the scheme they are counted in (user attribute TokenScheme)
+TOKEN_SCHEME: str = "gbs-v1"
+
+# Old scheme: 500 starter tokens; new: 30 000. Old balances are scaled by this factor.
+LEGACY_TOKEN_FACTOR: int = 60
 
 
-def get_endpoint_cost(service: str, operation: str) -> int:
-    """Look up the token cost for a (service, operation) pair.
+def lambda_memory_mb() -> int:
+    """Configured memory of this Lambda (AWS sets the variable), else the fallback."""
+    try:
+        mb = int(os.environ.get("AWS_LAMBDA_FUNCTION_MEMORY_SIZE", ""))
+    except ValueError:
+        return FALLBACK_MEMORY_MB
+    return mb if mb > 0 else FALLBACK_MEMORY_MB
 
-    Returns 0 for unknown endpoints (free by default).
+
+def metered_cost(seconds: float, memory_mb: int | None = None) -> int:
+    """Tokens for ``seconds`` of compute at ``memory_mb`` (default: this Lambda's)."""
+    mb = memory_mb if memory_mb is not None else lambda_memory_mb()
+    if not math.isfinite(seconds) or seconds < 0:
+        seconds = 0.0
+    gb_seconds = seconds * mb / 1024
+    return max(MIN_TOKENS, math.ceil(gb_seconds * TOKENS_PER_GB_SECOND - 1e-9))
+
+
+def convert_legacy_balance(old_tokens: int) -> int:
+    """New-scheme balance for an account counted in the old fixed-price tokens.
+
+    Keeps the value of what the account had (×60, so the old 500 starter becomes
+    the new 30 000) and never gives less than the new free amount.
     """
-    return ENDPOINT_COSTS.get((service, operation), 0)
-
-
-def calculate_sweep_cost(num_frequencies: int) -> int:
-    """Calculate token cost for a frequency sweep.
-
-    Cost = 5 × num_frequencies, capped at 250.
-    """
-    return min(num_frequencies * _COST_PER_SWEEP_FREQ, _SWEEP_COST_CAP)
+    return max(DEFAULT_STARTER_TOKENS, int(old_tokens) * LEGACY_TOKEN_FACTOR)
 
 
 @dataclass(frozen=True)
