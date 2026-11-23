@@ -226,9 +226,13 @@ function PostprocessingTab({
 
   // Smith chart summary: |Γ| and VSWR from first solved frequency point
   const smithChartSummary = useMemo(() => {
+    type WithImpedance = {
+      antenna_solutions?: Array<{ input_impedance?: ComplexNumber | number | null }>;
+      input_impedance?: ComplexNumber | number | null;
+    };
     const firstResult =
-      (frequencySweep?.results?.[0] as any) ??
-      (solverResults as any) ??
+      (frequencySweep?.results?.[0] as WithImpedance | undefined) ??
+      (solverResults as WithImpedance | null) ??
       null;
     const firstZ =
       firstResult?.antenna_solutions?.[0]?.input_impedance ??

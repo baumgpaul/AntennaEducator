@@ -452,7 +452,7 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
     const num = validateNumber(value, 0.1);
     if (num !== null && field3D) {
       onUpdate({
-        cuboidDimensions: { ...field3D.cuboidDimensions, [axis]: num } as any,
+        cuboidDimensions: { ...field3D.cuboidDimensions, [axis]: num } as FieldDefinition3D['cuboidDimensions'],
       });
       setErrors({ ...errors, [axis]: '' });
       clearLocalValue(axis);
@@ -479,9 +479,8 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
     const num = validateInteger(value, 2);
     if (num !== null) {
       const currentField = field as FieldDefinition2D | FieldDefinition3D;
-      onUpdate({
-        sampling: { ...currentField.sampling, [key]: num } as any,
-      });
+      // 2D or 3D sampling; onUpdate merges it into whichever field this is
+      onUpdate({ sampling: { ...currentField.sampling, [key]: num } } as Partial<FieldDefinition>);
       setErrors({ ...errors, [`sampling_${key}`]: '' });
       clearLocalValue(`sampling_${key}`);
     } else {

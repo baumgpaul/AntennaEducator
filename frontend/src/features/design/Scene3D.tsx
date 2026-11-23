@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useRef, useMemo, useEffect, useImperativeHandle, forwardRef, type ComponentRef } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, PerspectiveCamera, OrthographicCamera, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { Box } from '@mui/material';
@@ -8,6 +8,17 @@ import type { AntennaElement, Mesh } from '@/types/models';
 import { useAppSelector } from '@/store/hooks';
 import { selectGroundPlane } from '@/store/designSlice';
 import * as THREE from 'three';
+
+/** The OrbitControls members used here (useThree().controls is typed loosely). */
+type OrbitLike = {
+  target: THREE.Vector3;
+  update: () => void;
+  dollyIn?: (scale: number) => void;
+  dollyOut?: (scale: number) => void;
+  reset?: () => void;
+};
+const asOrbit = (controls: unknown): OrbitLike | null =>
+  controls && typeof controls === 'object' && 'target' in controls ? (controls as OrbitLike) : null;
 
 /** Axis views (Z is up): front looks along +Y, side along -X, top down -Z. */
 export type ViewPreset = 'front' | 'side' | 'top';
@@ -103,10 +114,11 @@ function CameraController({ bounds, disableAutoAdjust = false }: { bounds: Retur
 
   useEffect(() => {
     if (disableAutoAdjust) return;
-    if (controls && 'target' in controls) {
+    const orbit = asOrbit(controls);
+    if (orbit) {
       // Center camera on antenna
       const target = bounds.center;
-      (controls as any).target.copy(target);
+      orbit.target.copy(target);
 
       // Position camera to see the whole antenna
       const distance = bounds.size * 2.5; // 2.5x the antenna size for good framing
@@ -118,7 +130,7 @@ function CameraController({ bounds, disableAutoAdjust = false }: { bounds: Retur
 
       camera.position.copy(cameraPos);
       camera.lookAt(target);
-      (controls as any).update();
+      orbit.update();
 
       console.log('Camera auto-adjusted:', {
         bounds: { min: bounds.min, max: bounds.max, size: bounds.size },
@@ -141,22 +153,25 @@ const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeo
 
     useImperativeHandle(ref, () => ({
       zoomIn: () => {
-        if (controls && 'dollyOut' in (controls as any)) {
-          (controls as any).dollyOut(1.2);
-          (controls as any).update();
+        const orbit = asOrbit(controls);
+        if (orbit?.dollyOut) {
+          orbit.dollyOut(1.2);
+          orbit.update();
         }
       },
       zoomOut: () => {
-        if (controls && 'dollyIn' in (controls as any)) {
-          (controls as any).dollyIn(1.2);
-          (controls as any).update();
+        const orbit = asOrbit(controls);
+        if (orbit?.dollyIn) {
+          orbit.dollyIn(1.2);
+          orbit.update();
         }
       },
       resetView: () => {
-        if (controls && 'target' in controls && 'reset' in (controls as any)) {
+        const orbit = asOrbit(controls);
+        if (orbit?.reset) {
           // Reset to initial view position
           const target = bounds.center;
-          (controls as any).target.copy(target);
+          orbit.target.copy(target);
 
           const distance = bounds.size * 2.5;
           const cameraPos = new THREE.Vector3(
@@ -167,18 +182,19 @@ const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeo
 
           camera.position.copy(cameraPos);
           camera.lookAt(target);
-          (controls as any).update();
+          orbit.update();
         }
       },
       setView: (preset: ViewPreset) => {
-        if (!controls || !('target' in controls)) return;
+        const orbit = asOrbit(controls);
+        if (!orbit) return;
         const target = bounds.center;
         const distance = bounds.size * 2.5;
         const [dx, dy, dz] = PRESET_DIRECTIONS[preset];
-        (controls as any).target.copy(target);
+        orbit.target.copy(target);
         camera.position.set(target.x + dx * distance, target.y + dy * distance, target.z + dz * distance);
         camera.lookAt(target);
-        (controls as any).update();
+        orbit.update();
       },
     }));
 
@@ -193,7 +209,7 @@ const SceneControlsHelper = forwardRef<Scene3DHandle, { bounds: ReturnType<typeo
  */
 const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
   function Scene3D({ children, showScale: _showScale = true, showAxisLabels = true, elements, mesh, gridVisible = true, onGridVisibilityChange: _onGridVisibilityChange, cameraMode = 'perspective', disableCameraAutoAdjust = false }, ref) {
-  const controlsRef = useRef<any>(null);
+  const controlsRef = useRef<ComponentRef<typeof OrbitControls>>(null);
   const theme = useTheme();
   // Read outside <Canvas> (separate renderer) and passed down as a value
   const groundPlane = useAppSelector(selectGroundPlane);

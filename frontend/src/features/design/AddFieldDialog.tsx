@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 import { ViewInAr, PanoramaFishEye, Timeline } from '@mui/icons-material';
 import { getEllipseAxesFromPreset } from '@/types/fieldDefinitions';
+import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { FALLBACK_FIELD_DEFAULTS, type FieldRegionDefaults } from './defaultFieldRegion';
 
 const steps = ['Region Type', 'Shape', 'Parameters', 'Field Type'];
@@ -33,7 +34,7 @@ const steps = ['Region Type', 'Shape', 'Parameters', 'Field Type'];
 interface AddFieldDialogProps {
   open: boolean;
   onClose: () => void;
-  onCreate: (fieldDefinition: any) => void;
+  onCreate: (fieldDefinition: FieldDefinition) => void;
   /** Starting centre/size/orientation (mm), e.g. from defaultFieldRegion(); falls back to 100 mm XY at the origin */
   defaults?: FieldRegionDefaults;
 }
@@ -127,7 +128,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
   };
 
   const handleCreate = () => {
-    const fieldDefinition: any = {
+    const fieldDefinition: Record<string, unknown> = {
       id: `field-${Date.now()}`,
       name: fieldName.trim() || generateDefaultName(),
       type: regionType,
@@ -193,7 +194,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
       }
     }
 
-    onCreate(fieldDefinition);
+    onCreate(fieldDefinition as FieldDefinition);
     handleReset();
     onClose();
   };
@@ -315,7 +316,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                 name="field-shape"
                 value={shape}
                 label="Shape"
-                onChange={(e) => setShape(e.target.value as any)}
+                onChange={(e) => setShape(e.target.value as typeof shape)}
               >
                 {/* 1D options */}
                 <MenuItem
@@ -458,7 +459,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                   <FormControl fullWidth sx={{ mt: 1 }}>
                     <InputLabel>Orientation</InputLabel>
                     <Select value={normalPreset} label="Orientation"
-                      onChange={(e) => setNormalPreset(e.target.value as any)}>
+                      onChange={(e) => setNormalPreset(e.target.value as typeof normalPreset)}>
                       <MenuItem value="XY">XY Plane</MenuItem>
                       <MenuItem value="YZ">YZ Plane</MenuItem>
                       <MenuItem value="XZ">XZ Plane</MenuItem>
@@ -606,7 +607,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     <Select
                       value={normalPreset}
                       label="Orientation"
-                      onChange={(e) => setNormalPreset(e.target.value as any)}
+                      onChange={(e) => setNormalPreset(e.target.value as typeof normalPreset)}
                     >
                       <MenuItem value="XY">XY Plane</MenuItem>
                       <MenuItem value="YZ">YZ Plane</MenuItem>
@@ -681,7 +682,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     <Select
                       value={normalPreset}
                       label="Orientation"
-                      onChange={(e) => setNormalPreset(e.target.value as any)}
+                      onChange={(e) => setNormalPreset(e.target.value as typeof normalPreset)}
                     >
                       <MenuItem value="XY">XY Plane</MenuItem>
                       <MenuItem value="YZ">YZ Plane</MenuItem>

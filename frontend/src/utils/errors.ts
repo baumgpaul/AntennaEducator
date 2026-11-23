@@ -221,6 +221,7 @@ export const getErrorAction = (error: unknown): string | undefined => {
  * Without this, API errors showed as "Request failed with status code 402".
  */
 export function errorMessage(error: unknown, fallback: string): string {
+  if (typeof error === 'string') return error || fallback // rejectWithValue payload after unwrap()
   const e = error as {
     response?: { data?: { detail?: unknown } }
     message?: unknown

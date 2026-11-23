@@ -17,7 +17,11 @@ import {
 import { MuiColorInput } from 'mui-color-input';
 import { parseDecimalNumber } from '@/utils/numberParser';
 import { formatValue } from '@/utils/expressionEvaluator';
-import type { AntennaElement, Source, ComplexNumber } from '@/types/models';
+import type { AntennaElement, Source, ComplexNumber, DipoleConfig, LoopConfig, RodConfig } from '@/types/models';
+import type { ChipProps } from '@mui/material';
+
+/** Geometry fields of dipole/loop/rod configs (flat, or nested under .parameters). */
+type GeomFields = Partial<DipoleConfig & LoopConfig & RodConfig>;
 
 // Helper to convert comma to period in number inputs
 const handleDecimalInput = (e: React.FormEvent<HTMLDivElement>) => {
@@ -90,14 +94,17 @@ interface PropertiesPanelProps {
  * Each element type stores it under a different key.
  * Handles both array [x,y,z] and object {x,y,z} formats from backend.
  */
-function toArray3(v: any): [number, number, number] {
+function toArray3(v: unknown): [number, number, number] {
   if (Array.isArray(v)) return [v[0] ?? 0, v[1] ?? 0, v[2] ?? 0];
-  if (v && typeof v === 'object') return [v.x ?? 0, v.y ?? 0, v.z ?? 0];
+  if (v && typeof v === 'object') {
+    const p = v as { x?: number; y?: number; z?: number };
+    return [p.x ?? 0, p.y ?? 0, p.z ?? 0];
+  }
   return [0, 0, 1];
 }
 
 function getElementOrientation(element: AntennaElement): [number, number, number] {
-  const cfg = element.config as any;
+  const cfg = element.config as GeomFields & { parameters?: GeomFields };
   // Config can be in flat format (DipoleConfig) or nested backend format (with .parameters)
   const params = cfg.parameters || cfg;
   switch (element.type) {
@@ -315,7 +322,7 @@ function PropertiesPanel({
     }
   };
 
-  const getTypeColor = (type: string) => {
+  const getTypeColor = (type: string): ChipProps['color'] => {
     switch (type) {
       case 'mesh':
         return 'primary';
@@ -570,37 +577,37 @@ function PropertiesPanel({
                   <Stack spacing={1}>
                     {antennaElement.type === 'dipole' && (
                       <>
-                        <GeometryRow label="Length" value={(antennaElement.config as any).length} unit="m" exprKey="length" expressions={antennaElement.expressions} />
+                        <GeometryRow label="Length" value={(antennaElement.config as GeomFields).length} unit="m" exprKey="length" expressions={antennaElement.expressions} />
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="body2" color="text.secondary">Segments:</Typography>
-                          <Typography variant="body2">{(antennaElement.config as any).segments ?? '—'}</Typography>
+                          <Typography variant="body2">{(antennaElement.config as GeomFields).segments ?? '—'}</Typography>
                         </Box>
-                        <GeometryRow label="Wire radius" value={(antennaElement.config as any).wire_radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
-                        <GeometryRow label="Feed gap" value={(antennaElement.config as any).gap} unit="m" exprKey="gap" expressions={antennaElement.expressions} />
+                        <GeometryRow label="Wire radius" value={(antennaElement.config as GeomFields).wire_radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
+                        <GeometryRow label="Feed gap" value={(antennaElement.config as GeomFields).gap} unit="m" exprKey="gap" expressions={antennaElement.expressions} />
                       </>
                     )}
                     {antennaElement.type === 'loop' && (
                       <>
-                        <GeometryRow label="Radius" value={(antennaElement.config as any).radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
+                        <GeometryRow label="Radius" value={(antennaElement.config as GeomFields).radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="body2" color="text.secondary">Segments:</Typography>
-                          <Typography variant="body2">{(antennaElement.config as any).segments ?? '—'}</Typography>
+                          <Typography variant="body2">{(antennaElement.config as GeomFields).segments ?? '—'}</Typography>
                         </Box>
-                        <GeometryRow label="Wire radius" value={(antennaElement.config as any).wire_radius} unit="m" exprKey="wireRadius" expressions={antennaElement.expressions} />
-                        <GeometryRow label="Feed gap" value={(antennaElement.config as any).gap} unit="m" exprKey="feedGap" expressions={antennaElement.expressions} />
+                        <GeometryRow label="Wire radius" value={(antennaElement.config as GeomFields).wire_radius} unit="m" exprKey="wireRadius" expressions={antennaElement.expressions} />
+                        <GeometryRow label="Feed gap" value={(antennaElement.config as GeomFields).gap} unit="m" exprKey="feedGap" expressions={antennaElement.expressions} />
                       </>
                     )}
                     {antennaElement.type === 'rod' && (
                       <>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="body2" color="text.secondary">Length:</Typography>
-                          <Typography variant="body2">{((antennaElement.config as any).length ?? '—')} m</Typography>
+                          <Typography variant="body2">{((antennaElement.config as GeomFields).length ?? '—')} m</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="body2" color="text.secondary">Segments:</Typography>
-                          <Typography variant="body2">{(antennaElement.config as any).segments ?? '—'}</Typography>
+                          <Typography variant="body2">{(antennaElement.config as GeomFields).segments ?? '—'}</Typography>
                         </Box>
-                        <GeometryRow label="Wire radius" value={(antennaElement.config as any).wire_radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
+                        <GeometryRow label="Wire radius" value={(antennaElement.config as GeomFields).wire_radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
                       </>
                     )}
                     {/* Mesh info (always shown) */}
@@ -696,7 +703,7 @@ function PropertiesPanel({
                   </Typography>
                   <Chip
                     label={getTypeLabel(selectedElement.type)}
-                    color={getTypeColor(selectedElement.type) as any}
+                    color={getTypeColor(selectedElement.type)}
                     size="small"
                   />
                 </Box>

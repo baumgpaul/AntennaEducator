@@ -7,6 +7,10 @@ const axiosError = (status: number, detail: unknown) => ({
 });
 
 describe('errorMessage', () => {
+  it('passes a thunk rejection (unwrap() throws the rejectWithValue string) through', () => {
+    expect(errorMessage('Gap must be less than total length', 'Failed')).toBe('Gap must be less than total length');
+  });
+
   it('shows the server detail instead of the generic axios text', () => {
     expect(errorMessage(axiosError(400, 'Gap must be less than total length'), 'Failed')).toBe(
       'Gap must be less than total length',
@@ -26,7 +30,7 @@ describe('errorMessage', () => {
     expect(errorMessage(new Error('Network Error'), 'Failed')).toBe('Network Error');
     expect(errorMessage(axiosError(500, undefined), 'Failed')).toBe('Request failed with status code 500');
     expect(errorMessage(undefined, 'Failed')).toBe('Failed');
-    expect(errorMessage('just a string', 'Failed')).toBe('Failed');
+    expect(errorMessage('', 'Failed')).toBe('Failed');
     expect(errorMessage(new Error(''), 'Failed')).toBe('Failed');
   });
 });

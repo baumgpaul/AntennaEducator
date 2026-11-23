@@ -15,6 +15,7 @@ import {
   Alert,
   Box,
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material';
 import { z } from 'zod';
 
 /**
@@ -84,7 +85,7 @@ export function FrequencyInputDialog({
     setError(null);
   };
 
-  const handleUnitChange = (e: any) => {
+  const handleUnitChange = (e: SelectChangeEvent) => {
     const newUnit = e.target.value as 'MHz' | 'GHz';
     setUnit(newUnit);
     setValidationError(null);
