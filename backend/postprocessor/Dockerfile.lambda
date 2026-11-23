@@ -1,9 +1,9 @@
 # Lambda-optimized Dockerfile for Postprocessor Service
-# Uses AWS Lambda Python 3.11 base image for container-based Lambda functions
+# Uses AWS Lambda Python 3.13 base image (Amazon Linux 2023) for container-based Lambda functions
 
-FROM public.ecr.aws/lambda/python:3.11
+FROM public.ecr.aws/lambda/python:3.13
 
-# Runtime dependencies only. numpy/scipy ship manylinux wheels for Python 3.11,
+# Runtime dependencies only. numpy/scipy ship manylinux wheels for Python 3.13,
 # so no compilers are needed (they used to add several hundred MB per image).
 COPY requirements-lambda.txt ${LAMBDA_TASK_ROOT}/
 RUN pip install --no-cache-dir --only-binary=:all: -r ${LAMBDA_TASK_ROOT}/requirements-lambda.txt

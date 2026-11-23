@@ -96,7 +96,7 @@ multi_line_output = 3
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]  # Field defaults, default_factory, BaseSettings
-python_version = "3.11"
+python_version = "3.13"  # the Lambda runtime; numpy >= 2.5 stubs need 3.12+ syntax
 warn_return_any = false  # numpy/boto3 return Any everywhere: noise, not findings
 ignore_missing_imports = true  # boto3, scipy, gmsh etc. ship no stubs
 warn_unused_configs = true
