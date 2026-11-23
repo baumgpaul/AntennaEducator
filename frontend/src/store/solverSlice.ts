@@ -54,6 +54,34 @@ function hasNonGroundCs(el: { sources?: { type?: string; node_start?: number | n
  * Calculate total size of field data in memory (MB)
  * Used to warn users about large datasets
  */
+/** Efficiency of the solve a pattern belongs to (1 - losses / input from the solver). */
+function solveEfficiency(
+  state: Pick<SolverState, 'solveMode' | 'parameterStudy' | 'frequencySweep' | 'results'>,
+  key: number,
+): number | null {
+  type WithEfficiency = { radiation_efficiency?: number | null; frequency?: number } | null | undefined;
+  let solve: WithEfficiency;
+  if (state.solveMode === 'sweep' && state.parameterStudy?.results?.length) {
+    solve = state.parameterStudy.results[Math.round(key)]?.solverResponse as WithEfficiency; // key = point index
+  } else if (state.frequencySweep?.results?.length) {
+    solve = (state.frequencySweep.results as WithEfficiency[]).find(
+      (r) => r?.frequency != null && Math.abs(r.frequency - key) < 1,
+    );
+  }
+  solve = solve ?? (state.results as unknown as WithEfficiency);
+  const eff = solve?.radiation_efficiency;
+  return typeof eff === 'number' && eff > 0 && eff <= 1 ? eff : null;
+}
+
+/**
+ * The far-field service has no input power and reports efficiency 1 / gain =
+ * directivity. With the solve's efficiency: gain [dBi] = D [dBi] + 10 log10(eta).
+ */
+export function withSolveEfficiency(pattern: RadiationPatternData, efficiency: number | null): RadiationPatternData {
+  if (efficiency == null) return pattern;
+  return { ...pattern, efficiency, gain: pattern.directivity + 10 * Math.log10(efficiency) };
+}
+
 function calculateFieldDataSize(fieldData: SolverState['fieldData']): number {
   if (!fieldData) return 0;
 
@@ -1634,13 +1662,17 @@ const solverSlice = createSlice({
       if (!state.radiationPatterns) {
         state.radiationPatterns = {};
       }
-      state.radiationPatterns[action.payload.frequencyHz] = action.payload.pattern;
+      const pattern = withSolveEfficiency(
+        action.payload.pattern,
+        solveEfficiency(state, action.payload.frequencyHz),
+      );
+      state.radiationPatterns[action.payload.frequencyHz] = pattern;
       // Backward compat: keep radiationPattern in sync with selectedFrequencyHz
       if (
         state.selectedFrequencyHz === action.payload.frequencyHz ||
         state.selectedFrequencyHz == null
       ) {
-        state.radiationPattern = action.payload.pattern;
+        state.radiationPattern = pattern;
       }
     },
 
@@ -1842,7 +1874,10 @@ const solverSlice = createSlice({
     });
 
     builder.addCase(computeRadiationPattern.fulfilled, (state, action) => {
-      state.radiationPattern = action.payload;
+      state.radiationPattern = withSolveEfficiency(
+        action.payload,
+        solveEfficiency(state, action.payload.frequency),
+      );
     });
 
     builder.addCase(computeRadiationPattern.rejected, (state, _action) => {

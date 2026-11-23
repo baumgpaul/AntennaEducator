@@ -72,6 +72,12 @@ export interface MultiAntennaSolutionResponse {
   n_total_nodes: number
   n_total_edges: number
   solve_time: number
+  /** Power delivered by all sources [W] */
+  input_power?: number
+  /** Power lost in wires and lumped loads [W] */
+  power_dissipated?: number
+  /** Radiated / input power = 1 - losses / input (all antennas together) */
+  radiation_efficiency?: number | null
   /** Model-validity warnings, e.g. a wire fed against ground (no ground plane) */
   warnings?: string[]
 }

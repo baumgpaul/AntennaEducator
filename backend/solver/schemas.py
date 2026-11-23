@@ -284,6 +284,13 @@ class MultiAntennaSolutionResponse(BaseModel):
     n_total_nodes: int = Field(..., description="Total nodes in combined system")
     n_total_edges: int = Field(..., description="Total edges in combined system")
     solve_time: float = Field(..., description="Computation time [s]")
+    input_power: Optional[float] = Field(None, description="Power delivered by all sources [W]")
+    power_dissipated: Optional[float] = Field(
+        None, description="Power lost in wires and lumped loads [W]"
+    )
+    radiation_efficiency: Optional[float] = Field(
+        None, description="Radiated / input power = 1 - losses / input (system)"
+    )
     warnings: List[str] = Field(
         default_factory=list, description="Model-validity warnings to show the user"
     )
