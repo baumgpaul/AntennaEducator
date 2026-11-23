@@ -121,7 +121,9 @@ def _balanced_voltage_partner(voltage_sources) -> Optional[int]:
 
 
 def gap_feed_sources(
-    voltage_sources: List[VoltageSource], groups: Optional[List[int]] = None
+    voltage_sources: List[VoltageSource],
+    groups: Optional[List[int]] = None,
+    exclude_nodes: Optional[set] = None,
 ) -> Tuple[List[VoltageSource], List[Tuple[int, float]]]:
     """Replace balanced grounded pairs by one source across the gap.
 
@@ -130,13 +132,17 @@ def gap_feed_sources(
     (-) node to the (+) node with the difference as value (the port voltage) and
     the series elements of both added (they are in series through ground).
 
+    `exclude_nodes`: feed nodes on a ground plane. Node 0 is the plane there, so a
+    source to such a node is a real (monopole) feed and is never paired.
+
     Returns the sources to solve with and, per original source, (index of the
     solve source, sign of its current): the pair's sources carry +I and -I.
     """
     groups = groups if groups is not None else [0] * len(voltage_sources)
+    excluded = exclude_nodes or set()
 
     def grounded(vs):
-        return vs.node_start == 0 and vs.node_end > 0
+        return vs.node_start == 0 and vs.node_end > 0 and vs.node_end not in excluded
 
     partner = {}
     for k, vs in enumerate(voltage_sources):
@@ -356,9 +362,13 @@ def solve_peec_frequency_sweep(
         raise ValueError("At least one voltage source or current source is required")
 
     # Ground plane: wires below it are invalid; wires touching it get a feed gap
+    on_plane: set = set()
     if config.ground_plane:
         check_above_plane(np.asarray(nodes))
+        unlifted = np.asarray(nodes, dtype=float)
         nodes = lift_feed_nodes(nodes, edges, radii)
+        # nodes touching the plane (lifted to the feed gap): feeds there are monopole feeds
+        on_plane = {k + 1 for k in np.flatnonzero(unlifted[:, 2] != np.asarray(nodes)[:, 2])}
 
     # Step 1: Build edge geometries and handle edges to/from ground
     # Ground is node 0. For edges to/from ground, we can't build full EdgeGeometry
@@ -415,12 +425,9 @@ def solve_peec_frequency_sweep(
     # Balanced feeds (+V/-V from ground) are solved as one source across the gap:
     # two branches to infinity let a common-mode current flow whenever the
     # surroundings are not symmetric. Results are reported per original source.
-    if config.ground_plane:  # node 0 is the plane there: grounded sources are real feeds
-        solve_sources, source_map = list(voltage_sources), [
-            (k, 1.0) for k in range(len(voltage_sources))
-        ]
-    else:
-        solve_sources, source_map = gap_feed_sources(voltage_sources, source_groups)
+    # Over a ground plane only pairs above it: node 0 is the plane, so a source to a
+    # node on the plane is a real monopole feed (a vertical dipole's pair was 20 % off).
+    solve_sources, source_map = gap_feed_sources(voltage_sources, source_groups, on_plane)
 
     A = build_incidence_matrix(edges, max_node, voltage_sources=solve_sources, loads=loads)
 
