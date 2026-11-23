@@ -3,6 +3,7 @@ import { ViewItem } from '../../../types/postprocessing';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { useAppSelector } from '../../../store/hooks';
 import FieldVisualization from '../../design/FieldVisualization';
+import type { ColorMapType } from '@/utils/colorMaps';
 
 interface FieldRendererProps {
   item: ViewItem;
@@ -66,7 +67,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     <FieldVisualization
       field={field}
       visualizationMode="magnitude"
-      colorMap={colorMap as any}
+      colorMap={colorMap as ColorMapType}
       opacity={opacity * 100} // Convert to 0-100 range
       selectedComponent="x"
       complexPart="magnitude"

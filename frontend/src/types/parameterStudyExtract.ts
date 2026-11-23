@@ -40,8 +40,8 @@ interface ComplexLike {
 /** Parse a complex value from the solver response into { real, imag }. */
 function parseComplex(v: unknown): ComplexLike {
   if (v == null) return { real: 0, imag: 0 };
-  if (typeof v === 'object' && 'real' in (v as any) && 'imag' in (v as any)) {
-    return { real: (v as any).real, imag: (v as any).imag };
+  if (typeof v === 'object' && 'real' in v && 'imag' in v) {
+    return { real: Number(v.real), imag: Number(v.imag) };
   }
   if (typeof v === 'number') return { real: v, imag: 0 };
   if (typeof v === 'string') {
@@ -70,7 +70,7 @@ export function extractPortQuantities(
 ): PortQuantityRow[] {
 
   return study.results.map((pr, idx) => {
-    const resp = pr.solverResponse as any;
+    const resp = pr.solverResponse as { antenna_solutions?: Array<{ input_impedance?: unknown }> } | undefined;
     const sol = resp?.antenna_solutions?.[antennaIndex];
     const zRaw = sol?.input_impedance;
     const z = parseComplex(zRaw);

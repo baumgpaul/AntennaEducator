@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { createColorArray, arrayMin, arrayMax } from '../../../utils/colorMaps';
 import { parseComplex } from '../../../api/solverHelpers';
 import { selectDisplayElements, solutionValuesAt } from '../sweepPointData';
+import type { ColorMapType } from '@/utils/colorMaps';
 
 interface VoltageRendererProps {
   item: ViewItem;
@@ -34,7 +35,7 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
         results,
         frequencySweep,
         parameterStudy,
-      }) as any[] | null,
+      }) as unknown[] | null,
     [results, frequencySweep, parameterStudy, frequencyHz],
   );
 
@@ -94,7 +95,7 @@ export const VoltageRenderer: React.FC<VoltageRendererProps> = ({
   // Create colors for each node
   const colors = useMemo(() => {
     if (displayValues.length === 0) return new Float32Array(0);
-    return createColorArray(displayValues, colorMap as any, min, max);
+    return createColorArray(displayValues, colorMap as ColorMapType, min, max);
   }, [displayValues, colorMap, min, max]);
 
   // Get node size and opacity - default smaller for antenna scale

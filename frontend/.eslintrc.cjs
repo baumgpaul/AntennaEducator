@@ -46,4 +46,12 @@ module.exports = {
     'react-hooks/preserve-manual-memoization': 'warn',
     'react-hooks/use-memo': 'warn',
   },
+  overrides: [
+    {
+      // Test doubles and deliberately invalid fixtures: loose types are the point
+      // there. Production code keeps the rule (#81).
+      files: ['**/*.test.ts', '**/*.test.tsx', 'src/test/**'],
+      rules: { '@typescript-eslint/no-explicit-any': 'off' },
+    },
+  ],
 }

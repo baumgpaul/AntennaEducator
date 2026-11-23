@@ -50,7 +50,7 @@ class MockIntersectionObserver {
   disconnect = vi.fn();
   takeRecords = vi.fn(() => []);
 }
-global.IntersectionObserver = MockIntersectionObserver as any;
+global.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
 
 // Mock ResizeObserver for react-three-fiber tests
 class MockResizeObserver {
@@ -58,7 +58,7 @@ class MockResizeObserver {
   unobserve = vi.fn();
   disconnect = vi.fn();
 }
-global.ResizeObserver = MockResizeObserver as any;
+global.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
 
 // Mock mui-color-input to avoid ESM import issues
 vi.mock('mui-color-input', async () => {
@@ -69,7 +69,7 @@ vi.mock('mui-color-input', async () => {
       'data-testid': 'color-input',
       type: 'text',
       value: value || '',
-      onChange: (e: any) => onChange?.(e.target.value, { hex: e.target.value }),
+      onChange: (e: { target: { value: string } }) => onChange?.(e.target.value, { hex: e.target.value }),
       placeholder: label,
       ...props,
     });

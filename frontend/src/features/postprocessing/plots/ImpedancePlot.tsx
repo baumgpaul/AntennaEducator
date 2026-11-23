@@ -53,7 +53,9 @@ function ImpedancePlot({ data, title = 'Input Impedance', displayMode = 'rectang
   }, [data, displayMode]);
 
   // Custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
+  type TooltipEntry = { value?: number; payload: { frequency: number } };
+  type CustomTooltipProps = { active?: boolean; payload?: TooltipEntry[] };
+  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       const freq = payload[0].payload.frequency;
 

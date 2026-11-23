@@ -13,7 +13,7 @@ import UnifiedLinePlot from './plots/UnifiedLinePlot';
 import AddCurveDialog from './AddCurveDialog';
 import type { AddCurveResult, SourceType } from './AddCurveDialog';
 import { extractPortTraceData, extractDistributionTraceData, extractFarfieldTraceData, extractFieldTraceData } from '@/types/plotDataExtractors';
-import type { DataPoint } from '@/types/plotDataExtractors';
+import type { DataPoint, FarfieldPatternData } from '@/types/plotDataExtractors';
 import type { AxisConfig, PlotTrace } from '@/types/plotDefinitions';
 import { defaultXAxis, defaultYAxis, resolveLineAxes, type SweepContext } from './lineAxes';
 import { TRACE_COLORS } from '@/types/plotDefinitions';
@@ -44,14 +44,22 @@ function LineViewPanel({ view }: LineViewPanelProps) {
     (parameterStudy && parameterStudy.results && parameterStudy.results.length > 0) ||
     singleResult
   );
+  // Single solve: flat (one antenna) or with antenna_solutions (several)
+  const single = singleResult as unknown as {
+    frequency?: number;
+    branch_currents?: unknown[];
+    node_voltages?: unknown[];
+    input_impedance?: unknown;
+    antenna_solutions?: Array<{ branch_currents: unknown[]; node_voltages: unknown[]; input_impedance?: unknown }>;
+  } | null;
   const hasDistributionData = !!(
     (frequencySweep && frequencySweep.results && frequencySweep.results.length > 0 &&
       frequencySweep.results.some((r) =>
         r.antenna_solutions?.some((a) => a.branch_currents?.length > 0)
       )) ||
     (singleResult && (
-      (singleResult as any).branch_currents?.length > 0 ||
-      (singleResult as any).antenna_solutions?.some((a: any) => a.branch_currents?.length > 0)
+      (single?.branch_currents?.length ?? 0) > 0 ||
+      single?.antenna_solutions?.some((a) => (a.branch_currents?.length ?? 0) > 0)
     ))
   );
   const hasFarfieldData = !!(
@@ -63,7 +71,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
   // Determine the x-axis context from sweep type
   const sweepVarName = parameterStudy?.config.sweepVariables[0]?.variableName;
   const isParamSweep = !!(parameterStudy && parameterStudy.results?.length > 0);
-  const isFreqSweep = !!(frequencySweep && (frequencySweep as any).results?.length > 0);
+  const isFreqSweep = (frequencySweep?.results?.length ?? 0) > 0;
 
   const sweepContext: SweepContext = {
     paramSweepVariable: isParamSweep ? sweepVarName : null,
@@ -193,7 +201,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
       const numAntennas = Math.max(
         1,
         frequencySweep?.results?.[0]?.antenna_solutions?.length ?? 0,
-        (singleResult as any)?.antenna_solutions?.length ?? 0,
+        single?.antenna_solutions?.length ?? 0,
         elements.length,
       );
 
@@ -227,11 +235,11 @@ function LineViewPanel({ view }: LineViewPanelProps) {
       // Determine the frequency key for single-frequency extractors
       const freqKey = selectedFrequencyHz
         ?? frequencySweep?.frequencies?.[0]
-        ?? (singleResult as any)?.frequency
+        ?? single?.frequency
         ?? 0;
 
       // Build patterns lookup — merge singular and plural
-      const patternsLookup: Record<number, any> | null = radiationPatterns
+      const patternsLookup: Record<number, FarfieldPatternData> | null = radiationPatterns
         ?? (radiationPattern ? { [freqKey]: radiationPattern } : null);
 
       for (const trace of expandedTraces) {
@@ -244,7 +252,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
               parameterStudy,
               antennaIdx,
               50,
-              singleResult as any,
+              single as Parameters<typeof extractPortTraceData>[5],
             );
             break;
           case 'distribution':
@@ -253,7 +261,7 @@ function LineViewPanel({ view }: LineViewPanelProps) {
               frequencySweep,
               freqKey,
               antennaIdx,
-              singleResult as any,
+              single,
             );
             break;
           case 'farfield':

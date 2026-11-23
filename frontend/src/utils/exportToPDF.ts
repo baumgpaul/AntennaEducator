@@ -16,7 +16,7 @@ interface ExportToPDFOptions {
     include: boolean;
     projectName?: string;
     frequency?: number; // Hz
-    solverSettings?: Record<string, any>;
+    solverSettings?: Record<string, unknown>;
   };
   resolution: Resolution;
   filename: string;
