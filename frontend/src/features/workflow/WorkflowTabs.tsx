@@ -1,8 +1,9 @@
 import { Tab, Tabs } from '@mui/material';
 import { CheckCircle, ErrorOutlined, Lock, RadioButtonUnchecked } from '@mui/icons-material';
 import { STATUS_TEXT, type StepStatus, type WorkflowStep } from './steps';
+import type { ReactElement } from 'react';
 
-const STATUS_ICON: Record<StepStatus, JSX.Element> = {
+const STATUS_ICON: Record<StepStatus, ReactElement> = {
   done: <CheckCircle color="success" fontSize="small" />,
   attention: <ErrorOutlined color="warning" fontSize="small" />,
   todo: <RadioButtonUnchecked fontSize="small" />,
