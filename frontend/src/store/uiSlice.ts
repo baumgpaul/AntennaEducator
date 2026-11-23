@@ -89,7 +89,7 @@ const uiSlice = createSlice({
     // Modals
     openModal: (
       state,
-      action: PayloadAction<{ modalId: string; data?: any }>
+      action: PayloadAction<{ modalId: string; data?: unknown }>
     ) => {
       state.modals[action.payload.modalId] = true
     },

@@ -9,20 +9,20 @@ export interface CreateProjectRequest {
   name: string;
   kind?: 'peec' | 'fem';
   description?: string;
-  design_state?: Record<string, any>;
-  simulation_config?: Record<string, any>;
-  simulation_results?: Record<string, any>;
-  ui_state?: Record<string, any>;
+  design_state?: Record<string, unknown>;
+  simulation_config?: Record<string, unknown>;
+  simulation_results?: Record<string, unknown>;
+  ui_state?: Record<string, unknown>;
   folder_id?: string | null;
 }
 
 export interface UpdateProjectRequest {
   name?: string;
   description?: string;
-  design_state?: Record<string, any>;
-  simulation_config?: Record<string, any>;
-  simulation_results?: Record<string, any>;
-  ui_state?: Record<string, any>;
+  design_state?: Record<string, unknown>;
+  simulation_config?: Record<string, unknown>;
+  simulation_results?: Record<string, unknown>;
+  ui_state?: Record<string, unknown>;
   folder_id?: string | null;
 }
 

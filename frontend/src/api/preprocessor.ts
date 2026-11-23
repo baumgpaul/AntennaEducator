@@ -166,8 +166,43 @@ export const generateLoopMesh = async (formData: {
   return createLoop(config);
 };
 
+/** Fields of the rod dialog that generateRodMesh reads (metres). */
+export interface RodFormInput {
+  start_x: number
+  start_y: number
+  start_z: number
+  end_x: number
+  end_y: number
+  end_z: number
+  radius: number
+  segments: number
+}
+
+/** Fields of the lumped-element dialog (capacitors arrive as 1/C, converted by the dialog). */
+export interface LumpedElementFormInput {
+  node1: number
+  node2: number
+  antennaId?: string
+  element_type: string
+  resistance?: number
+  inductance?: number
+  capacitance_inv?: number
+}
+
+/** Fields of the source dialog. */
+export interface SourceFormInput {
+  type: 'voltage' | 'current'
+  value: number
+  node1: number
+  node2: number
+  seriesR?: number
+  seriesL?: number
+  seriesC?: number
+  antennaId?: string
+}
+
 // Wrapper function for rod dialog
-export async function generateRodMesh(formData: any): Promise<PreprocessorResponse> {
+export async function generateRodMesh(formData: RodFormInput): Promise<PreprocessorResponse> {
   const startPoint: [number, number, number] = [formData.start_x, formData.start_y, formData.start_z]
   const endPoint: [number, number, number] = [formData.end_x, formData.end_y, formData.end_z]
   const dx = endPoint[0] - startPoint[0]
@@ -229,7 +264,7 @@ export const generateCustomMesh = async (formData: {
 }
 
 // Wrapper function for lumped element dialog
-export async function addLumpedElementToMesh(formData: any): Promise<LumpedElement> {
+export async function addLumpedElementToMesh(formData: LumpedElementFormInput): Promise<LumpedElement> {
   // Convert dialog data to LumpedElement shape
   // Since backend doesn't have a separate endpoint for adding lumped elements,
   // we just return the converted data structure to be stored in Redux
@@ -268,7 +303,7 @@ export async function addLumpedElementToMesh(formData: any): Promise<LumpedEleme
 }
 
 // Wrapper function for source dialog
-export async function addSourceToMesh(formData: any): Promise<Source> {
+export async function addSourceToMesh(formData: SourceFormInput): Promise<Source> {
   // Convert dialog data to Source shape
   // Since backend doesn't have a separate endpoint for adding sources,
   // we just return the converted data structure to be stored in Redux
@@ -281,7 +316,7 @@ export async function addSourceToMesh(formData: any): Promise<Source> {
     node_end: formData.node2,
     series_R: formData.seriesR || 0,
     series_L: formData.seriesL || 0,
-    series_C_inv: formData.seriesC > 0 ? 1 / formData.seriesC : 0, // Convert C to C_inv
+    series_C_inv: formData.seriesC && formData.seriesC > 0 ? 1 / formData.seriesC : 0, // Convert C to C_inv
     tag: formData.antennaId ? `Source on ${formData.antennaId}` : undefined,
   }
 

@@ -86,7 +86,7 @@ export function useFemStudio(projectId?: string) {
     setSaveStatus('unsaved');
     const timer = setTimeout(() => {
       setSaveStatus('saving');
-      updateProject(projectId, { design_state: state.model })
+      updateProject(projectId, { design_state: { ...state.model } })
         .then(() => {
           savedJson.current = json;
           setSaveStatus('saved');

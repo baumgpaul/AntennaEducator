@@ -17,6 +17,7 @@ import { generateObservationPoints } from '@/utils/fieldGeneration';
 import { convertElementToAntennaInput } from '@/utils/multiAntennaBuilder';
 import { getCurrentUserAsync } from '@/store/authSlice';
 import { parseComplex, parseComplexArray } from '@/utils/complexNumber';
+import { errorMessage } from '@/utils/errors';
 
 // ============================================================================
 // Helper Functions
@@ -47,22 +48,6 @@ function hasNonGroundCs(el: { sources?: { type?: string; node_start?: number | n
       && s.node_start != null && s.node_end != null
       && s.node_start >= 1 && s.node_end >= 1
   );
-}
-
-/**
- * Extract a user-friendly error message from Axios errors.
- * Handles both string detail and structured detail objects (e.g. 402 token errors).
- */
-function extractErrorMessage(error: any, fallback: string): string {
-  const detail = error.response?.data?.detail;
-  if (typeof detail === 'string') return detail;
-  if (detail && typeof detail === 'object' && detail.message) {
-    if (detail.required !== undefined && detail.balance !== undefined) {
-      return `${detail.message} (need ${detail.required}, have ${detail.balance})`;
-    }
-    return detail.message;
-  }
-  return error.message || fallback;
 }
 
 /**
@@ -327,9 +312,8 @@ export const runMultiAntennaSimulation = createAsyncThunk<
     const result = await solveMultiAntenna(withGroundPlane(request, getState()));
     notifySolverWarnings(dispatch, result);
     return result;
-  } catch (error: any) {
-    const errorMessage = extractErrorMessage(error, 'Multi-antenna simulation failed');
-    return rejectWithValue(errorMessage);
+  } catch (error) {
+    return rejectWithValue(errorMessage(error, 'Multi-antenna simulation failed'));
   }
 });
 
@@ -422,8 +406,8 @@ export const runFrequencySweep = createAsyncThunk<
     dispatch(getCurrentUserAsync());
 
     return sweepResult;
-  } catch (error: any) {
-    return rejectWithValue(extractErrorMessage(error, 'Frequency sweep failed'));
+  } catch (error) {
+    return rejectWithValue(errorMessage(error, 'Frequency sweep failed'));
   }
 });
 
@@ -498,8 +482,8 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
     }
 
     throw new Error('No antenna solutions returned');
-  } catch (error: any) {
-    return rejectWithValue(extractErrorMessage(error, 'Solve failed'));
+  } catch (error) {
+    return rejectWithValue(errorMessage(error, 'Solve failed'));
   }
 });
 
@@ -509,8 +493,8 @@ export const solveSingleFrequencyWorkflow = createAsyncThunk<
  */
 export const computePostprocessingWorkflow = createAsyncThunk<
   {
-    directivity?: any; // Will be computed if directivityRequested
-    fields?: Array<{ fieldId: string; computed: boolean; dataUrl?: string }>; // Field computation results
+    directivity?: unknown; // Will be computed if directivityRequested
+    fields?: Array<{ fieldId: string; computed: boolean; dataUrl?: string; num_points?: number }>; // Field computation results
     message: string;
   },
   void,
@@ -618,7 +602,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
           const ffMesh = buildCombinedMeshFromSnapshots(snapshots, true, true);
 
           // Branch currents from solver response + VS currents
-          const branchCurrents: any[] = resp.antenna_solutions.flatMap((sol, i) => [
+          const branchCurrents = resp.antenna_solutions.flatMap((sol, i) => [
             ...(sol.branch_currents || []),
             ...(hasNonGroundVs(snapshots[i]) ? (sol.voltage_source_currents || []) : []),
           ]);
@@ -683,7 +667,7 @@ export const computePostprocessingWorkflow = createAsyncThunk<
 
             // Branch currents from solver response + VS currents
             const nfVsPerSnapshot = snapshots.map(s => hasNonGroundVs(s));
-            const branchCurrents: any[] = resp.antenna_solutions?.length
+            const branchCurrents = resp.antenna_solutions?.length
               ? resp.antenna_solutions.flatMap((sol, i) => [
                   ...(sol.branch_currents || []),
                   ...(nfVsPerSnapshot[i] ? (sol.voltage_source_currents || []) : []),
@@ -1053,8 +1037,8 @@ export const computePostprocessingWorkflow = createAsyncThunk<
     dispatch(getCurrentUserAsync());
 
     return { ...response, totalFieldDataSizeMB };
-  } catch (error: any) {
-    return rejectWithValue(extractErrorMessage(error, 'Postprocessing failed'));
+  } catch (error) {
+    return rejectWithValue(errorMessage(error, 'Postprocessing failed'));
   }
 });
 
@@ -1229,8 +1213,8 @@ export const computeRadiationPattern = createAsyncThunk<
 
     const pattern = await computeFarField(request);
     return pattern;
-  } catch (error: any) {
-    return rejectWithValue(extractErrorMessage(error, 'Far-field computation failed'));
+  } catch (error) {
+    return rejectWithValue(errorMessage(error, 'Far-field computation failed'));
   }
 });
 
@@ -1377,8 +1361,8 @@ export const computeRadiationPatternForFrequency = createAsyncThunk<
 
     const pattern = await computeFarField(request);
     return pattern;
-  } catch (error: any) {
-    return rejectWithValue(extractErrorMessage(error, 'Far-field computation failed'));
+  } catch (error) {
+    return rejectWithValue(errorMessage(error, 'Far-field computation failed'));
   }
 });
 
@@ -1450,8 +1434,8 @@ export const requestPortQuantities = createAsyncThunk<
     }
 
     return portResultsMap;
-  } catch (error: any) {
-    return rejectWithValue(extractErrorMessage(error, 'Port quantities computation failed'));
+  } catch (error) {
+    return rejectWithValue(errorMessage(error, 'Port quantities computation failed'));
   }
 });
 
@@ -1830,7 +1814,7 @@ const solverSlice = createSlice({
           // Store antenna_solutions in the results for postprocessing
           antenna_solutions: action.payload.antenna_solutions,
           solve_time: action.payload.solve_time,
-        } as any; // Multi-antenna results have a different shape
+        } as unknown as SolverResult; // Multi-antenna results have a different shape
 
         const allCurrents: number[] = [];
         for (const solution of action.payload.antenna_solutions) {
@@ -1957,7 +1941,7 @@ const solverSlice = createSlice({
         for (const field of action.payload.fields) {
           state.fieldResults[field.fieldId] = {
             computed: field.computed,
-            num_points: (field as any).num_points || 0,
+            num_points: field.num_points || 0,
           };
         }
       }

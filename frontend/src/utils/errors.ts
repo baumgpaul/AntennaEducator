@@ -214,3 +214,26 @@ export const isRetryableError = (error: unknown): boolean => {
 export const getErrorAction = (error: unknown): string | undefined => {
   return parseApiError(error).action
 }
+
+/**
+ * Message for a failed thunk: the server's `detail` (string, or {message, required,
+ * balance} for 402 token errors), else the error's own message, else `fallback`.
+ * Without this, API errors showed as "Request failed with status code 402".
+ */
+export function errorMessage(error: unknown, fallback: string): string {
+  const e = error as {
+    response?: { data?: { detail?: unknown } }
+    message?: unknown
+  } | null
+  const detail = e?.response?.data?.detail
+  if (typeof detail === 'string' && detail) return detail
+  if (detail && typeof detail === 'object') {
+    const d = detail as { message?: unknown; required?: unknown; balance?: unknown }
+    if (typeof d.message === 'string') {
+      return d.required !== undefined && d.balance !== undefined
+        ? `${d.message} (need ${d.required}, have ${d.balance})`
+        : d.message
+    }
+  }
+  return typeof e?.message === 'string' && e.message ? e.message : fallback
+}

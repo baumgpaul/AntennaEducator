@@ -19,6 +19,11 @@ import type {
 import { generateDipoleMesh, generateLoopMesh, generateRodMesh, generateCustomMesh, createDipole, createLoop, createRod } from '@/api/preprocessor'
 import { getNextElementColor } from '@/utils/colors'
 import { runParameterStudy } from '@/store/parameterStudyThunks'
+import { errorMessage } from '@/utils/errors'
+
+/** Element config as stored: flat, or the backend's nested {parameters} form. */
+type ConfigFields = Partial<DipoleConfig & LoopConfig & RodConfig>
+type StoredConfig = ConfigFields & { parameters?: ConfigFields }
 
 interface DesignState {
   // Multi-element system
@@ -176,8 +181,8 @@ export const generateDipole = createAsyncThunk(
     try {
       const response = await generateDipoleMesh(formData)
       return { ...response, formData } // Include formData for position/rotation
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to generate dipole mesh')
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Failed to generate dipole mesh'))
     }
   }
 )
@@ -207,8 +212,8 @@ export const generateLoop = createAsyncThunk(
     try {
       const response = await generateLoopMesh(formData)
       return { ...response, formData }
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to generate loop mesh')
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Failed to generate loop mesh'))
     }
   }
 )
@@ -235,8 +240,8 @@ export const generateRod = createAsyncThunk(
     try {
       const response = await generateRodMesh(formData)
       return { ...response, formData }
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to generate rod mesh')
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Failed to generate rod mesh'))
     }
   }
 )
@@ -277,8 +282,8 @@ export const generateCustom = createAsyncThunk(
     try {
       const response = await generateCustomMesh(formData)
       return { ...response, formData }
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to generate custom antenna mesh')
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Failed to generate custom antenna mesh'))
     }
   }
 )
@@ -294,7 +299,7 @@ export const remeshElementOrientation = createAsyncThunk(
     { getState, rejectWithValue }
   ) => {
     try {
-      const state = (getState() as any).design as DesignState
+      const state = (getState() as { design: DesignState }).design
       const element = state.elements.find(el => el.id === elementId)
       if (!element) {
         return rejectWithValue('Element not found')
@@ -303,12 +308,12 @@ export const remeshElementOrientation = createAsyncThunk(
       let response
 
       // Config may be in flat format or nested backend format (with .parameters)
-      const rawCfg = element.config as any
+      const rawCfg = element.config as StoredConfig
       const params = rawCfg.parameters || rawCfg
 
       switch (element.type) {
         case 'dipole': {
-          const config: DipoleConfig = {
+          const config = {
             length: params.length,
             wire_radius: params.wire_radius,
             gap: params.gap,
@@ -316,24 +321,24 @@ export const remeshElementOrientation = createAsyncThunk(
             balanced_feed: params.balanced_feed,
             center_position: [0, 0, 0],
             orientation,
-          }
+          } as DipoleConfig
           response = await createDipole(config)
           break
         }
         case 'loop': {
-          const config: LoopConfig = {
+          const config = {
             ...params,
             center_position: [0, 0, 0],
             normal_vector: orientation,
-          }
+          } as LoopConfig
           response = await createLoop(config)
           break
         }
         case 'rod': {
-          const config: RodConfig = {
+          const config = {
             ...params,
             direction: orientation,
-          }
+          } as RodConfig
           response = await createRod(config)
           break
         }
@@ -342,8 +347,8 @@ export const remeshElementOrientation = createAsyncThunk(
       }
 
       return { elementId, orientation, mesh: response.mesh }
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to re-mesh element')
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Failed to re-mesh element'))
     }
   }
 )
@@ -387,7 +392,7 @@ export const remeshElementExpressions = createAsyncThunk(
     { getState, rejectWithValue }
   ) => {
     try {
-      const state = (getState() as any).design as DesignState
+      const state = (getState() as { design: DesignState }).design
       const element = state.elements.find(el => el.id === elementId)
       if (!element) {
         return rejectWithValue('Element not found')
@@ -493,8 +498,8 @@ export const remeshElementExpressions = createAsyncThunk(
       }
 
       return { elementId, mesh: response.mesh, updatedParams, sources: response.element?.sources, newPosition }
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to re-mesh element with updated expressions')
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Failed to re-mesh element with updated expressions'))
     }
   }
 )
@@ -614,7 +619,7 @@ const designSlice = createSlice({
         const orientation = action.payload.orientation
 
         // Update the orientation in the config (handle both flat and nested formats)
-        const cfg = element.config as any
+        const cfg = element.config as StoredConfig
         const target = cfg.parameters || cfg
 
         switch (element.type) {
@@ -1085,7 +1090,7 @@ const designSlice = createSlice({
           element.mesh = mesh;
 
           // Update the orientation in the config (handle both flat and nested formats)
-          const cfg = element.config as any;
+          const cfg = element.config as StoredConfig;
           const target = cfg.parameters || cfg;
 
           switch (element.type) {
@@ -1125,8 +1130,7 @@ const designSlice = createSlice({
           element.mesh = mesh;
 
           // Merge updated config values
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const cfg = element.config as any;
+          const cfg = element.config as StoredConfig;
           const target = cfg.parameters || cfg;
           Object.assign(target, updatedParams);
 
@@ -1206,7 +1210,7 @@ export const {
 } = designSlice.actions
 
 // Selectors
-export const selectIsSolved = (state: any) => state.design.isSolved
+export const selectIsSolved = (state: { design: DesignState }) => state.design.isSolved
 
 export default designSlice.reducer
 

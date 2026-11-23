@@ -30,6 +30,7 @@ import { remeshElementExpressions } from '@/store/designSlice';
 import { evaluateExpression } from '@/utils/expressionEvaluator';
 import type { VariableDefinition } from '@/utils/expressionEvaluator';
 import { setProgress, setSweepProgress, runMultiAntennaSimulation, withGroundPlane } from '@/store/solverSlice';
+import { errorMessage } from '@/utils/errors'
 
 // ============================================================================
 // Helpers
@@ -290,14 +291,14 @@ export const runParameterStudy = createAsyncThunk<
         results,
         totalTimeMs: performance.now() - startTime,
       };
-    } catch (error: any) {
+    } catch (error) {
       try {
         await restoreNominalGeometry();
       } catch {
         // Best effort: keep reporting the original failure
       }
       return rejectWithValue(
-        error?.message || 'Parameter study failed',
+        errorMessage(error, 'Parameter study failed'),
       );
     }
   },

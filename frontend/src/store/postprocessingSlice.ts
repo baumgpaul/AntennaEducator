@@ -198,7 +198,7 @@ const postprocessingSlice = createSlice({
         viewId: string;
         itemId: string;
         property: keyof ViewItem;
-        value: any;
+        value: ViewItem[keyof ViewItem];
       }>
     ) => {
       const view = state.viewConfigurations.find(v => v.id === action.payload.viewId);
@@ -207,7 +207,7 @@ const postprocessingSlice = createSlice({
       const item = view.items.find(i => i.id === action.payload.itemId);
       if (!item) return;
 
-      (item as any)[action.payload.property] = action.payload.value;
+      Object.assign(item, { [action.payload.property]: action.payload.value });
       view.updatedAt = new Date().toISOString();
     },
 
