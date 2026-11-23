@@ -84,11 +84,16 @@ function PlaneRegion({
   const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
 
   // Get normal vector
-  const normal: [number, number, number] = field.type === '2D'
-    ? (field.normalPreset && field.normalPreset !== 'Custom'
-      ? getNormalFromPreset(field.normalPreset)
-      : (field.normalVector ?? [0, 0, 1]) as [number, number, number])
-    : [0, 0, 1];
+  // Memoised: a new array on every render rebuilt the geometry on every render
+  const normalPreset = field.type === '2D' ? field.normalPreset : undefined;
+  const normalVector = field.type === '2D' ? field.normalVector : undefined;
+  const normal = useMemo<[number, number, number]>(
+    () =>
+      normalPreset && normalPreset !== 'Custom'
+        ? getNormalFromPreset(normalPreset)
+        : ((normalVector ?? [0, 0, 1]) as [number, number, number]),
+    [normalPreset, normalVector],
+  );
 
   // Create plane geometry
   const planeGeometry = useMemo(() => {
@@ -177,8 +182,11 @@ function EllipseRegion({
   const [cx, cy, cz] = [field.centerPoint[0] / 1000, field.centerPoint[1] / 1000, field.centerPoint[2] / 1000];
 
   // Get axis directions
-  const axis1: [number, number, number] = (field.axis1 ?? [1, 0, 0]) as [number, number, number];
-  const axis2: [number, number, number] = (field.axis2 ?? [0, 1, 0]) as [number, number, number];
+  // Memoised: defaults created on every render rebuilt the geometry on every render
+  const fieldAxis1 = field.axis1;
+  const fieldAxis2 = field.axis2;
+  const axis1 = useMemo(() => (fieldAxis1 ?? [1, 0, 0]) as [number, number, number], [fieldAxis1]);
+  const axis2 = useMemo(() => (fieldAxis2 ?? [0, 1, 0]) as [number, number, number], [fieldAxis2]);
 
   // Create ellipse geometry using a custom shape
   const ellipseGeometry = useMemo(() => {
@@ -290,10 +298,18 @@ function LineRegion({
   // type/shape) — no early return here, hooks must run unconditionally.
 
   // Convert start/end points from mm to meters
-  const startPt = field.startPoint ?? [0, 0, 0];
-  const endPt = field.endPoint ?? [100, 0, 0];
-  const start: [number, number, number] = [startPt[0] / 1000, startPt[1] / 1000, startPt[2] / 1000];
-  const end: [number, number, number] = [endPt[0] / 1000, endPt[1] / 1000, endPt[2] / 1000];
+  // Memoised: new arrays on every render re-created the THREE.Line (and its material)
+  // on every render without disposing the old ones
+  const startPoint = field.startPoint;
+  const endPoint = field.endPoint;
+  const start = useMemo<[number, number, number]>(() => {
+    const p = startPoint ?? [0, 0, 0];
+    return [p[0] / 1000, p[1] / 1000, p[2] / 1000];
+  }, [startPoint]);
+  const end = useMemo<[number, number, number]>(() => {
+    const p = endPoint ?? [100, 0, 0];
+    return [p[0] / 1000, p[1] / 1000, p[2] / 1000];
+  }, [endPoint]);
 
   const lineColor = isSelected ? '#FFFFFF' : color;
 
@@ -374,8 +390,11 @@ function ArcRegion({
   const radiusB = (field.radiusB ?? 100) / 1000;
 
   // Get axis directions
-  const axis1: [number, number, number] = (field.axis1 ?? [1, 0, 0]) as [number, number, number];
-  const axis2: [number, number, number] = (field.axis2 ?? [0, 1, 0]) as [number, number, number];
+  // Memoised: defaults created on every render rebuilt the geometry on every render
+  const fieldAxis1 = field.axis1;
+  const fieldAxis2 = field.axis2;
+  const axis1 = useMemo(() => (fieldAxis1 ?? [1, 0, 0]) as [number, number, number], [fieldAxis1]);
+  const axis2 = useMemo(() => (fieldAxis2 ?? [0, 1, 0]) as [number, number, number], [fieldAxis2]);
 
   // Convert angles from degrees to radians
   const startAngle = ((field.startAngle ?? 0) * Math.PI) / 180;

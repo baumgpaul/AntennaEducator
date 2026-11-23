@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "lint": "eslint . --report-unused-disable-directives --max-warnings 112",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 73",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",

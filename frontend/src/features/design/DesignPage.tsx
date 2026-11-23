@@ -281,7 +281,10 @@ function DesignPage() {
     setTimeout(() => {
       projectLoadingRef.current = false;
     }, 500);
-  }, [currentProject?.id, dispatch]); // Only re-run when project ID changes
+    // Load once per project id: the project object is refreshed after every save and
+    // must not reload the design over the user's edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProject?.id, dispatch]);
 
   // Reset loading flag when switching projects
   useEffect(() => {
@@ -367,33 +370,42 @@ function DesignPage() {
     }, 1500) // 1.5 second debounce
   ).current;
 
+  // The auto-save effects below only decide WHEN to save; what to save is always
+  // the current state. saveNowRef holds that call, refreshed after every render
+  // (this effect runs before the trigger effects declared after it).
+  const saveNowRef = useRef(() => {});
+  useEffect(() => {
+    saveNowRef.current = () => {
+      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
+    };
+  });
+
   // Auto-save when elements change due to property updates
   useEffect(() => {
     if (projectLoadingRef.current) return; // Skip during project load
     if (triggerSave > 0 && projectId && elements.length > 0) {
-      console.log('Triggering auto-save after property change, elements:', elements);
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
+      saveNowRef.current();
     }
-  }, [triggerSave, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced, solverState]);
+  }, [triggerSave, projectId, elements, requestedFields, viewConfigurations, solverState]);
 
   // Auto-save on element addition only (not on every property change)
+  const elementCount = elements?.length ?? 0;
   useEffect(() => {
     if (projectLoadingRef.current) return; // Skip during project load
     // Only save if new elements were added (count increased)
-    if (elements && elements.length > previousElementCountRef.current) {
-      console.log(`New element(s) added: ${previousElementCountRef.current} -> ${elements.length}, saving...`);
-      previousElementCountRef.current = elements.length;
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
-    } else if (elements && elements.length < previousElementCountRef.current) {
+    if (elementCount > previousElementCountRef.current) {
+      previousElementCountRef.current = elementCount;
+      saveNowRef.current();
+    } else if (elementCount < previousElementCountRef.current) {
       // Update count if elements were removed
-      previousElementCountRef.current = elements.length;
+      previousElementCountRef.current = elementCount;
     }
 
     // Cleanup debounce on unmount
     return () => {
       saveProjectDebounced.cancel();
     };
-  }, [elements?.length]); // Only depend on length, not full array
+  }, [elementCount, saveProjectDebounced]); // count only: additions, not every edit
 
   // Auto-save when requested fields (or elements) change.
   // Also when both are empty: deleting the last element must be persisted,
@@ -401,19 +413,17 @@ function DesignPage() {
   useEffect(() => {
     if (projectLoadingRef.current) return; // Skip during project load
     if (projectId) {
-      console.log('Requested fields changed, saving...');
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
+      saveNowRef.current();
     }
-  }, [requestedFields, projectId, elements, viewConfigurations, saveProjectDebounced, solverState]);
+  }, [requestedFields, projectId, elements, viewConfigurations, solverState]);
 
   // Auto-save when the ground plane is switched
   useEffect(() => {
     if (projectLoadingRef.current) return;
     if (projectId) {
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
+      saveNowRef.current();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groundPlane]);
+  }, [groundPlane, projectId]);
 
   // Auto-save when view configurations change
   useEffect(() => {
@@ -424,28 +434,25 @@ function DesignPage() {
     }
     // Save view configurations even when empty (to persist deletions)
     if (projectId) {
-      console.log('View configurations changed, saving...', viewConfigurations.length, 'views');
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
+      saveNowRef.current();
     }
-  }, [viewConfigurations, projectId, elements, requestedFields, saveProjectDebounced, solverState]);
+  }, [viewConfigurations, projectId, elements, requestedFields, solverState]);
 
   // Auto-save when solver completes (results, radiation pattern, field data, etc.)
   useEffect(() => {
     if (projectLoadingRef.current) return; // Skip during project load
     if (projectId && solverState.results) {
-      console.log('Solver results changed, saving...');
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
+      saveNowRef.current();
     }
-  }, [solverState.results, solverState.radiationPattern, solverState.multiAntennaResults, solverState.frequencySweep, projectId, elements, requestedFields, viewConfigurations, saveProjectDebounced, solverState]);
+  }, [solverState.results, solverState.radiationPattern, solverState.multiAntennaResults, solverState.frequencySweep, projectId, elements, requestedFields, viewConfigurations, solverState]);
 
   // Auto-save when variables change
   useEffect(() => {
     if (projectLoadingRef.current) return;
     if (projectId && elements.length > 0) {
-      console.log('Variables changed, saving...');
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
+      saveNowRef.current();
     }
-  }, [variables, projectId]);
+  }, [variables, projectId, elements.length]);
 
   // Re-mesh elements whose expressions depend on changed variables
   const prevVariablesRef = useRef<VariableDefinition[]>(variables);
@@ -533,6 +540,9 @@ function DesignPage() {
     if (currentProject?.id) {
       previousElementCountRef.current = elements.length;
     }
+    // Only on a project switch: with elements.length here the count would follow every
+    // change and the auto-save above would no longer detect added elements.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProject?.id]);
 
   const handleAntennaTypeSelect = (type: string) => {

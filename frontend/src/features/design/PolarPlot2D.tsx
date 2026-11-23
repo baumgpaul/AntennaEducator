@@ -16,36 +16,13 @@ interface PolarPlot2DProps {
   showGrid: boolean
 }
 
-const PolarPlot2D: React.FC<PolarPlot2DProps> = ({
-  patternData,
-  planeType,
-  patternType,
-  scaleType,
-  normalize,
-  showGrid,
-}) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    // Set canvas size to match display size
-    const rect = canvas.getBoundingClientRect()
-    canvas.width = rect.width * window.devicePixelRatio
-    canvas.height = rect.height * window.devicePixelRatio
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
-
-    // Clear canvas
-    ctx.clearRect(0, 0, rect.width, rect.height)
-
-    // Draw the polar plot
-    drawPolarPlot(ctx, rect.width, rect.height)
-  }, [patternData, planeType, patternType, scaleType, normalize, showGrid])
-
+/** Draws the whole plot; pure function of the canvas size and the props. */
+function paintPolarPlot(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  { patternData, planeType, patternType, scaleType, normalize, showGrid }: PolarPlot2DProps,
+) {
   const drawPolarPlot = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
     const centerX = width / 2
     const centerY = height / 2
@@ -291,6 +268,46 @@ const PolarPlot2D: React.FC<PolarPlot2DProps> = ({
     ctx.fillStyle = '#000'
     ctx.fillText('H-plane', legendX + 35, legendY + 30)
   }
+
+  drawPolarPlot(ctx, width, height)
+}
+
+const PolarPlot2D: React.FC<PolarPlot2DProps> = ({
+  patternData,
+  planeType,
+  patternType,
+  scaleType,
+  normalize,
+  showGrid,
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    // Set canvas size to match display size
+    const rect = canvas.getBoundingClientRect()
+    canvas.width = rect.width * window.devicePixelRatio
+    canvas.height = rect.height * window.devicePixelRatio
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+
+    // Clear canvas
+    ctx.clearRect(0, 0, rect.width, rect.height)
+
+    // Draw the polar plot
+    paintPolarPlot(ctx, rect.width, rect.height, {
+      patternData,
+      planeType,
+      patternType,
+      scaleType,
+      normalize,
+      showGrid,
+    })
+  }, [patternData, planeType, patternType, scaleType, normalize, showGrid])
 
   return (
     <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>

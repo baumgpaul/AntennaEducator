@@ -135,7 +135,7 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
     sphereGeometry.rotateX(Math.PI / 2);
 
     return sphereGeometry;
-  }, [theta_angles, phi_angles, processedDirectivity, colors, sizeFactor, min, max, scaleMode]);
+  }, [theta_angles, phi_angles, processedDirectivity, colors, sizeFactor, scaleMode]);
 
   if (!radiationPattern || frequencyHz == null || !theta_angles || !phi_angles || !pattern_db || !geometry) {
     return null;

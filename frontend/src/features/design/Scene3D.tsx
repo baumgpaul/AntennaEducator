@@ -111,17 +111,19 @@ function calculateBounds(elements?: AntennaElement[], mesh?: Mesh) {
  */
 function CameraController({ bounds, disableAutoAdjust = false }: { bounds: ReturnType<typeof calculateBounds>; disableAutoAdjust?: boolean }) {
   const { camera, controls } = useThree();
+  const { size } = bounds;
+  const { x: cx, y: cy, z: cz } = bounds.center;
 
   useEffect(() => {
     if (disableAutoAdjust) return;
     const orbit = asOrbit(controls);
     if (orbit) {
       // Center camera on antenna
-      const target = bounds.center;
+      const target = new THREE.Vector3(cx, cy, cz);
       orbit.target.copy(target);
 
       // Position camera to see the whole antenna
-      const distance = bounds.size * 2.5; // 2.5x the antenna size for good framing
+      const distance = size * 2.5; // 2.5x the antenna size for good framing
       const cameraPos = new THREE.Vector3(
         target.x + distance * 0.6,
         target.y + distance * 0.6,
@@ -131,15 +133,8 @@ function CameraController({ bounds, disableAutoAdjust = false }: { bounds: Retur
       camera.position.copy(cameraPos);
       camera.lookAt(target);
       orbit.update();
-
-      console.log('Camera auto-adjusted:', {
-        bounds: { min: bounds.min, max: bounds.max, size: bounds.size },
-        center: target,
-        cameraPosition: cameraPos,
-        distance
-      });
     }
-  }, [bounds.size, bounds.center.x, bounds.center.y, bounds.center.z, camera, controls]);
+  }, [size, cx, cy, cz, camera, controls, disableAutoAdjust]);
 
   return null;
 }

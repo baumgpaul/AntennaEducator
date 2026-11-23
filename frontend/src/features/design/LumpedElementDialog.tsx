@@ -152,6 +152,9 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
         node2: 1,
       });
     }
+    // Only when the element type changes: choosing an antenna (selectedAntennaId) must
+    // not reset the values the user has typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [elementType, reset]);
 
   const handleFormSubmit = async (data: LumpedElementFormData) => {

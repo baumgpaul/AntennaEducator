@@ -168,12 +168,14 @@ function PropertiesPanel({
   const elementOrientation = antennaElement ? getElementOrientation(antennaElement) : [0, 0, 1] as [number, number, number];
   const [localOrientation, setLocalOrientation] = useState<[number, number, number]>(elementOrientation as [number, number, number]);
 
-  // Sync local orientation when element changes
+  // Sync local orientation when the element or its orientation changes
+  const elementId = antennaElement?.id;
+  const [ox, oy, oz] = elementOrientation;
   useEffect(() => {
-    if (antennaElement) {
-      setLocalOrientation(getElementOrientation(antennaElement));
+    if (elementId) {
+      setLocalOrientation([ox, oy, oz]);
     }
-  }, [antennaElement?.id, antennaElement?.config]);
+  }, [elementId, ox, oy, oz]);
 
   const handlePresetChange = (_: React.MouseEvent<HTMLElement>, value: string | null) => {
     if (!antennaElement || !onOrientationChange) return;
