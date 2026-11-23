@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 
 from backend.common.auth.dependencies import get_current_user
 from backend.common.auth.identity import UserIdentity
-from backend.common.auth.token_costs import calculate_sweep_cost
+from backend.common.auth.token_costs import metered_cost
 from backend.common.auth.token_dependency import (
     TokenCheckResult,
     charge_simulation_tokens,
@@ -161,7 +161,7 @@ def _get_solver_config(request_config):
 async def solve_single_frequency_endpoint(
     request: SingleFrequencyRequest,
     user: UserIdentity = Depends(get_current_user),
-    _tokens: TokenCheckResult = Depends(require_simulation_tokens(5)),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("solve/single")),
 ):
     """Solve PEEC system at a single frequency."""
     try:
@@ -255,9 +255,8 @@ async def solve_frequency_sweep_endpoint(
     user: UserIdentity = Depends(get_current_user),
 ):
     """Solve PEEC system across multiple frequencies."""
-    # Sweep cost scales with number of frequencies (capped at 250)
-    # Checked now, charged only after the sweep succeeded (B43).
-    token_check = check_simulation_tokens(user, calculate_sweep_cost(len(request.frequencies)))
+    # Metered: charged by the sweep's measured duration, only after it succeeded (B43)
+    token_check = check_simulation_tokens(user)
     try:
         # Validate inputs
         if len(request.nodes) < 2:
@@ -377,7 +376,7 @@ async def solve_frequency_sweep_endpoint(
 async def solve_multi_antenna_endpoint(
     request: MultiAntennaRequest,
     user: UserIdentity = Depends(get_current_user),
-    _tokens: TokenCheckResult = Depends(require_simulation_tokens(5)),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("solve/multi")),
 ):
     """Solve multiple antennas at a single frequency."""
     return solve_multi_request(request)
@@ -474,11 +473,16 @@ async def _run_inline_or_queue(kind_name: str, request, user: UserIdentity, toke
         except ValueError as e:  # undefined input (e.g. zero currents, too many points)
             raise HTTPException(status_code=422, detail=str(e))
         return JSONResponse(status_code=200, content={"status": "done", "result": result})
+    # Queued jobs are charged by their run time when they finish; the balance must
+    # cover the estimate now, so a long job cannot start on a nearly empty account.
+    if tokens.should_deduct:
+        estimate = metered_cost(kind.estimate_seconds(request))
+        check_simulation_tokens(user, estimate)
     job_id = await JobStore().submit(
         user.id,
         json.loads(request.model_dump_json()),
-        tokens_charged=tokens.cost if tokens.should_deduct else 0,
         kind=kind_name,
+        metered=tokens.should_deduct,
     )
     return {"job_id": job_id, "status": "queued"}
 
@@ -492,7 +496,7 @@ async def _run_inline_or_queue(kind_name: str, request, user: UserIdentity, toke
 async def submit_solve_job(
     request: MultiAntennaRequest,
     user: UserIdentity = Depends(get_current_user),
-    tokens: TokenCheckResult = Depends(require_simulation_tokens(5)),
+    tokens: TokenCheckResult = Depends(require_simulation_tokens("jobs/solve")),
 ):
     return await _run_inline_or_queue("solve", request, user, tokens)
 
@@ -506,7 +510,7 @@ async def submit_solve_job(
 async def submit_near_field_job(
     request: FieldRequest,
     user: UserIdentity = Depends(get_current_user),
-    tokens: TokenCheckResult = Depends(require_simulation_tokens(3)),
+    tokens: TokenCheckResult = Depends(require_simulation_tokens("jobs/near-field")),
 ):
     return await _run_inline_or_queue("near_field", request, user, tokens)
 
@@ -520,7 +524,7 @@ async def submit_near_field_job(
 async def submit_far_field_job(
     request: FarFieldRequest,
     user: UserIdentity = Depends(get_current_user),
-    tokens: TokenCheckResult = Depends(require_simulation_tokens(3)),
+    tokens: TokenCheckResult = Depends(require_simulation_tokens("jobs/far-field")),
 ):
     return await _run_inline_or_queue("far_field", request, user, tokens)
 

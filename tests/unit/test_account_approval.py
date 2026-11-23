@@ -95,6 +95,19 @@ class TestRepository:
         assert kwargs["ExpressionAttributeValues"][":tokens"] == DEFAULT_STARTER_TOKENS
         assert kwargs["ExpressionAttributeValues"][":approved"] is True
 
+    def test_approval_stamps_the_token_scheme(self):
+        """Granted in today's units: the daily conversion must not multiply it again."""
+        repo = self._repo({"is_approved": False, "simulation_tokens": 0})
+        repo.set_user_approval("u", True)
+        values = repo.table.update_item.call_args.kwargs["ExpressionAttributeValues"]
+        assert values[":scheme"] == "gbs-v1"
+
+    def test_approval_converts_an_old_scheme_balance(self):
+        repo = self._repo({"is_approved": False, "simulation_tokens": 1000, "token_scheme": None})
+        repo.set_user_approval("u", True)
+        values = repo.table.update_item.call_args.kwargs["ExpressionAttributeValues"]
+        assert values[":tokens"] == 60_000
+
     def test_reapproval_does_not_grant_tokens_again(self):
         repo = self._repo({"is_approved": True, "simulation_tokens": 3})
         repo.set_user_approval("u", True)

@@ -147,8 +147,16 @@ class JobStore:
         return {"PK": f"USER#{user_id}", "SK": f"JOB#{job_id}"}
 
     async def submit(
-        self, user_id: str, request: Dict[str, Any], tokens_charged: int, kind: str = "solve"
+        self,
+        user_id: str,
+        request: Dict[str, Any],
+        tokens_charged: int = 0,
+        kind: str = "solve",
+        metered: bool = False,
     ) -> str:
+        """Queue a job. `metered`: charge its measured run time when it succeeds
+        (False for flatrate users: usage is only logged). `tokens_charged` is the
+        pre-metering prepayment, refunded on failure (kept for queued old jobs)."""
         job_id = str(uuid.uuid4())
         await self.storage.store_result(_storage_key(job_id), ResultType.JOB_REQUEST, request)
         self.table.put_item(
@@ -159,6 +167,7 @@ class JobStore:
                 "Kind": kind,
                 "Status": QUEUED,
                 "TokensCharged": tokens_charged,
+                "Metered": metered,
                 "CreatedAt": datetime.now(timezone.utc).isoformat(),
                 "TTL": int(time.time()) + JOB_TTL_DAYS * 86400,
             }
@@ -192,6 +201,18 @@ class JobStore:
         return await self.storage.get_result(_storage_key(job_id), ResultType.SOLVER_RESULTS)
 
 
+def _charge_job(job: Dict[str, Any], user_id: str, kind_name: str, seconds: float) -> None:
+    """Metered charge for a finished job; never fails the job (its result is stored)."""
+    if not job.get("Metered"):
+        return  # flatrate user, or queued before metering (prepaid via TokensCharged)
+    from backend.common.auth.token_dependency import charge_metered
+
+    try:
+        charge_metered(user_id, seconds, endpoint=f"jobs/{kind_name}")
+    except Exception:
+        logger.error("Charging job %s failed", job.get("JobId"), exc_info=True)
+
+
 async def run_job(job_id: str, user_id: str, store: Optional[JobStore] = None) -> None:
     """Worker: run one queued job (called for each SQS record)."""
     from backend.common.repositories.user_repository import UserRepository
@@ -203,10 +224,14 @@ async def run_job(job_id: str, user_id: str, store: Optional[JobStore] = None) -
     store.set_status(user_id, job_id, RUNNING)
     try:
         payload = await store.storage.get_result(_storage_key(job_id), ResultType.JOB_REQUEST)
-        kind = job_kind(job.get("Kind", "solve"))  # jobs queued before kinds were solves
+        kind_name = job.get("Kind", "solve")  # jobs queued before kinds were solves
+        kind = job_kind(kind_name)
+        started = time.perf_counter()
         result = kind.run(kind.parse(payload))
+        seconds = time.perf_counter() - started
         await store.storage.store_result(_storage_key(job_id), ResultType.SOLVER_RESULTS, result)
         store.set_status(user_id, job_id, DONE)
+        _charge_job(job, user_id, kind_name, seconds)
     except Exception as exc:  # the job fails, the queue message is consumed
         logger.error("Job %s failed: %s\n%s", job_id, exc, traceback.format_exc())
         store.set_status(user_id, job_id, FAILED, error=str(exc) or type(exc).__name__)

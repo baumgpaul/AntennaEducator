@@ -283,7 +283,8 @@ def test_big_solve_is_queued(store):
         resp = _post(store, "/api/jobs/solve", DIPOLE)
     assert resp.status_code == 202
     item = store.get("u1", resp.json()["job_id"])
-    assert item["Kind"] == "solve" and item["TokensCharged"] == 5
+    # Metered: nothing prepaid, the worker charges the run time when the job is done
+    assert item["Kind"] == "solve" and item["TokensCharged"] == 0 and item["Metered"] is True
 
 
 def test_field_jobs_inline_and_queued(store):
@@ -300,3 +301,46 @@ def test_field_jobs_inline_and_queued(store):
 def test_inline_field_input_errors_are_422(store):
     zero = {**FIELD, "branch_currents": [[0, 0]], "theta_points": 19, "phi_points": 37}
     assert _post(store, "/api/jobs/far-field", zero, charged=0).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_worker_charges_the_measured_run_time(store):
+    job_id = await store.submit("u1", DIPOLE, metered=True)
+    with patch("backend.common.auth.token_dependency.charge_metered") as charge:
+        await run_job(job_id, "u1", store=store)
+    assert store.get("u1", job_id)["Status"] == DONE
+    charge.assert_called_once()
+    assert charge.call_args.args[0] == "u1" and charge.call_args.args[1] >= 0
+    assert charge.call_args.kwargs["endpoint"] == "jobs/solve"
+
+
+@pytest.mark.asyncio
+async def test_failed_metered_job_costs_nothing(store):
+    job_id = await store.submit("u1", {**DIPOLE, "antennas": []}, metered=True)
+    with (
+        patch("backend.common.auth.token_dependency.charge_metered") as charge,
+        patch("backend.common.repositories.user_repository.UserRepository") as repo_cls,
+    ):
+        await run_job(job_id, "u1", store=store)
+    assert store.get("u1", job_id)["Status"] == FAILED
+    charge.assert_not_called()
+    repo_cls.return_value.refund_user_tokens.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_flatrate_job_is_not_charged(store):
+    job_id = await store.submit("u1", DIPOLE, metered=False)
+    with patch("backend.common.auth.token_dependency.charge_metered") as charge:
+        await run_job(job_id, "u1", store=store)
+    charge.assert_not_called()
+
+
+def test_queued_job_needs_its_estimate_in_the_balance(store):
+    """A long job must not start on a nearly empty account (it runs up to 15 min)."""
+    with (
+        patch("backend.solver.main.INLINE_MAX_SECONDS", -1),
+        patch("backend.solver.main.metered_cost", return_value=101),
+    ):
+        resp = _post(store, "/api/jobs/solve", DIPOLE)  # USER has 100 tokens
+    assert resp.status_code == 402
+    store.sqs.send_message.assert_not_called()
