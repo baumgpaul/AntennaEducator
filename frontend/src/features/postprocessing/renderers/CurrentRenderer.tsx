@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { createColorArray, arrayMin, arrayMax } from '../../../utils/colorMaps';
 import { parseComplex } from '../../../api/solverHelpers';
 import { selectDisplayElements, solutionValuesAt } from '../sweepPointData';
+import type { ColorMapType } from '@/utils/colorMaps';
 
 interface CurrentRendererProps {
   item: ViewItem;
@@ -16,7 +17,7 @@ interface CurrentRendererProps {
 }
 
 // Safe toFixed helper: returns formatted string for numbers or numeric strings, otherwise 'N/A'
-function safeToFixed(value: any, digits: number): string {
+function safeToFixed(value: unknown, digits: number): string {
   if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(digits);
   if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value).toFixed(digits);
   return 'N/A';
@@ -44,7 +45,7 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
         results,
         frequencySweep,
         parameterStudy,
-      }) as any[] | null,
+      }) as unknown[] | null,
     [results, frequencySweep, parameterStudy, frequencyHz],
   );
 
@@ -190,7 +191,7 @@ export const CurrentRenderer: React.FC<CurrentRendererProps> = ({
 
   // Create colors for each edge
   const colors = useMemo(() => {
-    const cols = createColorArray(magnitudes, colorMap as any, min, max);
+    const cols = createColorArray(magnitudes, colorMap as ColorMapType, min, max);
     console.log('[CurrentRenderer] Generated colors for', magnitudes.length, 'edges');
     console.log('[CurrentRenderer] Colors array length:', cols.length, '(should be', magnitudes.length * 3, ')');
     console.log('[CurrentRenderer] First 3 colors (RGB):');
