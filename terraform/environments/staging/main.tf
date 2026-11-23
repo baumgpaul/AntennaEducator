@@ -514,7 +514,7 @@ module "api_gateway" {
 }
 
 # ============================================================================
-# CI/CD — CodePipeline + CodeBuild
+# CI/CD — GitHub Actions deploy (OIDC role + deploy config)
 # ============================================================================
 
 module "cicd" {
