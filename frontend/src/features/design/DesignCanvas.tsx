@@ -132,11 +132,12 @@ function DesignCanvas({
   const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
 
   // Auto-open right panel when an element is selected (unless doc panel is shown)
-  useEffect(() => {
-    if (selectedElementId && !hideRightPanel) {
-      setRightPanelOpen(true);
-    }
-  }, [selectedElementId, hideRightPanel]);
+  const autoOpenFor = selectedElementId && !hideRightPanel ? selectedElementId : null;
+  const [autoOpenedFor, setAutoOpenedFor] = useState(autoOpenFor);
+  if (autoOpenFor !== autoOpenedFor) {
+    setAutoOpenedFor(autoOpenFor);
+    if (autoOpenFor) setRightPanelOpen(true);
+  }
 
   // Effective right panel visibility: hidden when doc panel occupies the space
   const showRightPanel = rightPanelOpen && !hideRightPanel;

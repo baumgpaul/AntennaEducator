@@ -13,7 +13,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import ExpressionField from '@/components/ExpressionField';
@@ -81,7 +81,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
     handleSubmit,
     reset,
     setValue,
-    watch,
+    getValues,
     formState: { errors },
   } = useForm<DipoleFormData>({
     resolver: zodResolver(dipoleSchema),
@@ -109,23 +109,24 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
   });
 
   // Watch orientation values to determine which preset is active
-  const orientationX = watch('orientation.x');
-  const orientationY = watch('orientation.y');
-  const orientationZ = watch('orientation.z');
+  const orientationX = useWatch({ control, name: 'orientation.x' });
+  const orientationY = useWatch({ control, name: 'orientation.y' });
+  const orientationZ = useWatch({ control, name: 'orientation.z' });
 
   // Watch source type for dynamic unit label
-  const sourceType = watch('sourceType');
+  const sourceType = useWatch({ control, name: 'sourceType' });
 
   // Watch all geometry fields for live 3D preview
+  const segments = useWatch({ control, name: 'segments' });
   const previewGeometry = useDipolePreview({
-    length: watch('length'),
-    radius: watch('radius'),
-    gap: watch('gap'),
-    segments: watch('segments'),
+    length: useWatch({ control, name: 'length' }),
+    radius: useWatch({ control, name: 'radius' }),
+    gap: useWatch({ control, name: 'gap' }),
+    segments,
     position: {
-      x: watch('position.x'),
-      y: watch('position.y'),
-      z: watch('position.z'),
+      x: useWatch({ control, name: 'position.x' }),
+      y: useWatch({ control, name: 'position.y' }),
+      z: useWatch({ control, name: 'position.z' }),
     },
     orientation: {
       x: orientationX,
@@ -222,12 +223,12 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
   const sourceNodeIds = useMemo(() => {
     if (previewGeometry.nodes.length < 2) return new Set<number>();
     // For a dipole, the source is at the gap: last node of lower arm and first node of upper arm
-    const segCount = Math.max(Math.round(parseFloat(watch('segments')) || 20), 2);
+    const segCount = Math.max(Math.round(parseFloat(segments) || 20), 2);
     const armSegments = Math.max(Math.ceil(segCount / 2), 1);
     const lowerEnd = armSegments + 1;    // last node of lower arm
     const upperStart = armSegments + 2;   // first node of upper arm
     return new Set<number>([lowerEnd, upperStart]);
-  }, [previewGeometry.nodes.length, watch]);
+  }, [previewGeometry.nodes.length, segments]);
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
@@ -350,7 +351,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
                         return 'Must be integer 5-1000';
                       }
                       // With a feed gap each arm gets half the segments
-                      if (Number(watch('gap')) > 0 && v % 2 !== 0) {
+                      if (Number(getValues('gap')) > 0 && v % 2 !== 0) {
                         return 'Use an even number: the two arms get half each';
                       }
                       return null;

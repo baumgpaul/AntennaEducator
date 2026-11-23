@@ -274,11 +274,12 @@ function PostprocessingTab({
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
 
   // Auto-open properties panel when a view or item is selected
-  useEffect(() => {
-    if (selectedItemId || selectedViewId) {
-      setRightPanelOpen(true);
-    }
-  }, [selectedItemId, selectedViewId]);
+  const autoOpenFor = selectedItemId || selectedViewId ? `${selectedViewId ?? ''}|${selectedItemId ?? ''}` : null;
+  const [autoOpenedFor, setAutoOpenedFor] = useState<string | null>(null);
+  if (autoOpenFor !== autoOpenedFor) {
+    setAutoOpenedFor(autoOpenFor);
+    if (autoOpenFor) setRightPanelOpen(true);
+  }
 
   const [selectedFrequencyIndex] = useState<number>(0); // legacy, kept for fallback
 
@@ -306,11 +307,9 @@ function PostprocessingTab({
     useAnimationPhase(isAnimationPlaying && hasAnimatedItems, animationSpeed);
 
   // Stop playing when no animated items remain
-  useEffect(() => {
-    if (!hasAnimatedItems && isAnimationPlaying) {
-      setIsAnimationPlaying(false);
-    }
-  }, [hasAnimatedItems, isAnimationPlaying]);
+  if (!hasAnimatedItems && isAnimationPlaying) {
+    setIsAnimationPlaying(false);
+  }
 
   const handlePlayPauseToggle = useCallback(() => {
     setIsAnimationPlaying(prev => !prev);
@@ -444,6 +443,8 @@ function PostprocessingTab({
     if (!selectedViewId) return;
     const view = viewConfigurations.find((v) => v.id === selectedViewId);
     const name = safeFilename(`${projectName ?? 'project'}_${view?.name ?? 'view'}`);
+    // Answers an export request from the toolbar (an external event), not derived state
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSnackbarMessage('Saving PNG…');
     setShowSnackbar(true);
     captureView(selectedViewId)

@@ -6,7 +6,7 @@
  * the multi-page PDF is being generated.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -70,8 +70,11 @@ function ExportPDFDialog({ projectName, authorName, submissionMeta, onExport }: 
   const [progressCurrent, setProgressCurrent] = useState(0);
   const [progressTotal, setProgressTotal] = useState(0);
 
-  // Reset on open
-  useEffect(() => {
+  // Reset on open (adjusted during render)
+  const resetFor = open ? (projectName ?? '') : null;
+  const [syncedFor, setSyncedFor] = useState<string | null>(null);
+  if (resetFor !== syncedFor) {
+    setSyncedFor(resetFor);
     if (open) {
       setSections({ cover: true, antennaSummary: true, solverConfig: true, antennaGeometry: true, views: true, documentation: true });
       setIsGenerating(false);
@@ -86,7 +89,7 @@ function ExportPDFDialog({ projectName, authorName, submissionMeta, onExport }: 
         setFilename('antenna_report');
       }
     }
-  }, [open, projectName]);
+  }
 
   const toggleSection = (key: keyof PDFSections) => {
     setSections(prev => ({ ...prev, [key]: !prev[key] }));

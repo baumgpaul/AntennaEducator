@@ -28,6 +28,57 @@ interface ImpedancePlotProps {
   displayMode?: 'rectangular' | 'polar'; // Real/Imag or Magnitude/Phase
 }
 
+// Custom tooltip (module level: a component defined during render remounts every render)
+type TooltipEntry = { value?: number; payload: { frequency: number } };
+type CustomTooltipProps = {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  displayMode?: 'rectangular' | 'polar';
+};
+const CustomTooltip = ({ active, payload, displayMode }: CustomTooltipProps) => {
+  if (active && payload && payload.length) {
+    const freq = payload[0].payload.frequency;
+
+    if (displayMode === 'polar') {
+      const mag = payload[0].value;
+      const phase = payload[1]?.value || 0;
+      return (
+        <Box sx={{ bgcolor: 'background.paper', p: 1, border: '1px solid #ccc', borderRadius: 1 }}>
+          <Typography variant="body2">
+            @ {freq.toFixed(2)} MHz
+          </Typography>
+          <Typography variant="body2" color="primary">
+            |Z| = {mag.toFixed(2)} Ω
+          </Typography>
+          <Typography variant="body2" color="secondary">
+            ∠Z = {phase.toFixed(1)}°
+          </Typography>
+        </Box>
+      );
+    }
+
+    const real = payload[0].value;
+    const imag = payload[1]?.value || 0;
+    return (
+      <Box sx={{ bgcolor: 'background.paper', p: 1, border: '1px solid #ccc', borderRadius: 1 }}>
+        <Typography variant="body2">
+          @ {freq.toFixed(2)} MHz
+        </Typography>
+        <Typography variant="body2" color="primary">
+          Re(Z) = {real.toFixed(2)} Ω
+        </Typography>
+        <Typography variant="body2" color="secondary">
+          Im(Z) = {imag.toFixed(2)} Ω
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          Z = {real.toFixed(1)} {imag >= 0 ? '+' : ''} j{imag.toFixed(1)} Ω
+        </Typography>
+      </Box>
+    );
+  }
+  return null;
+};
+
 function ImpedancePlot({ data, title = 'Input Impedance', displayMode = 'rectangular' }: ImpedancePlotProps) {
   // Transform data for chart
   const chartData = useMemo(() => {
@@ -51,53 +102,6 @@ function ImpedancePlot({ data, title = 'Input Impedance', displayMode = 'rectang
       };
     });
   }, [data, displayMode]);
-
-  // Custom tooltip
-  type TooltipEntry = { value?: number; payload: { frequency: number } };
-  type CustomTooltipProps = { active?: boolean; payload?: TooltipEntry[] };
-  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
-    if (active && payload && payload.length) {
-      const freq = payload[0].payload.frequency;
-
-      if (displayMode === 'polar') {
-        const mag = payload[0].value;
-        const phase = payload[1]?.value || 0;
-        return (
-          <Box sx={{ bgcolor: 'background.paper', p: 1, border: '1px solid #ccc', borderRadius: 1 }}>
-            <Typography variant="body2">
-              @ {freq.toFixed(2)} MHz
-            </Typography>
-            <Typography variant="body2" color="primary">
-              |Z| = {mag.toFixed(2)} Ω
-            </Typography>
-            <Typography variant="body2" color="secondary">
-              ∠Z = {phase.toFixed(1)}°
-            </Typography>
-          </Box>
-        );
-      }
-
-      const real = payload[0].value;
-      const imag = payload[1]?.value || 0;
-      return (
-        <Box sx={{ bgcolor: 'background.paper', p: 1, border: '1px solid #ccc', borderRadius: 1 }}>
-          <Typography variant="body2">
-            @ {freq.toFixed(2)} MHz
-          </Typography>
-          <Typography variant="body2" color="primary">
-            Re(Z) = {real.toFixed(2)} Ω
-          </Typography>
-          <Typography variant="body2" color="secondary">
-            Im(Z) = {imag.toFixed(2)} Ω
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
-            Z = {real.toFixed(1)} {imag >= 0 ? '+' : ''} j{imag.toFixed(1)} Ω
-          </Typography>
-        </Box>
-      );
-    }
-    return null;
-  };
 
   if (!data || data.length === 0) {
     return (
@@ -171,7 +175,7 @@ function ImpedancePlot({ data, title = 'Input Impedance', displayMode = 'rectang
               />
             </>
           )}
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip displayMode={displayMode} />} />
           <Legend verticalAlign="top" height={36} />
         </LineChart>
       </ResponsiveContainer>

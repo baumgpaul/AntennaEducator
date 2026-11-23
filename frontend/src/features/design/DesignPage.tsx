@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Box, Snackbar, Alert, Button } from '@mui/material';
 import { Lock as LockIcon, ArrowBack as BackIcon } from '@mui/icons-material';
 import { debounce } from 'lodash';
@@ -32,7 +32,7 @@ import {
   selectGroundPlane,
 } from '@/store/designSlice';
 import { updateProject, fetchProject } from '@/store/projectsSlice';
-import { addNotification, showSuccess } from '@/store/uiSlice';
+import { addNotification, showError, showSuccess } from '@/store/uiSlice';
 import { selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
 import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';
 import type { CustomConfig, LumpedElement, Port, Source } from '@/types/models';
@@ -121,9 +121,6 @@ function DesignPage() {
   const docPanelOpen = useAppSelector((state) => state.documentation.panelOpen);
   const variables = useAppSelector(selectVariables);
   const groundPlane = useAppSelector(selectGroundPlane);
-  // Read by the (once-created) debounced auto-save
-  const groundPlaneRef = useRef(groundPlane);
-  groundPlaneRef.current = groundPlane;
 
   // Helper: extract persistable solver state for auto-save
   // fieldData is included — the backend stores it in S3 (not DynamoDB)
@@ -291,12 +288,21 @@ function DesignPage() {
     projectLoadingRef.current = true;
   }, [projectId]);
 
-  // Auto-save function with retry logic (debounced)
-  const saveProjectDebounced = useRef(
-    debounce(async (projectElements: typeof elements, fields: typeof requestedFields, views: typeof viewConfigurations, solverData: ReturnType<typeof getPersistableSolverState>, projectVariables: VariableDefinition[], retryCount = 0) => {
+  // Auto-save function with retry logic (debounced), one per project
+  type SaveSnapshot = {
+    elements: typeof elements;
+    fields: typeof requestedFields;
+    views: typeof viewConfigurations;
+    solverData: ReturnType<typeof getPersistableSolverState>;
+    variables: VariableDefinition[];
+    groundPlane: typeof groundPlane;
+  };
+  const saveProjectDebounced = useMemo(() => {
+    const save = debounce(async (snapshot: SaveSnapshot, retryCount = 0) => {
       if (!projectId) {
         return;
       }
+      const { elements: projectElements, fields, views, solverData, variables: projectVariables } = snapshot;
 
       const MAX_RETRIES = 3;
       const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff
@@ -314,7 +320,7 @@ function DesignPage() {
             design_state: {
               elements: projectElements,
               variables: projectVariables,
-              ground_plane: groundPlaneRef.current,
+              ground_plane: snapshot.groundPlane,
               version: 3,
             },
             // Solver / postprocessor settings
@@ -352,7 +358,7 @@ function DesignPage() {
           setSaveError(`Retrying in ${delay / 1000}s...`);
 
           setTimeout(() => {
-            saveProjectDebounced(projectElements, fields, views, solverData, projectVariables, retryCount + 1);
+            save(snapshot, retryCount + 1);
           }, delay);
         } else {
           // Non-retryable error or all retries failed
@@ -367,8 +373,14 @@ function DesignPage() {
           }, 5000);
         }
       }
-    }, 1500) // 1.5 second debounce
-  ).current;
+    }, 1500); // 1.5 second debounce
+    return save;
+  }, [projectId, dispatch]);
+
+  // Leaving the designer (or switching project) writes a pending save instead of dropping it
+  useEffect(() => () => {
+    saveProjectDebounced.flush();
+  }, [saveProjectDebounced]);
 
   // The auto-save effects below only decide WHEN to save; what to save is always
   // the current state. saveNowRef holds that call, refreshed after every render
@@ -376,7 +388,14 @@ function DesignPage() {
   const saveNowRef = useRef(() => {});
   useEffect(() => {
     saveNowRef.current = () => {
-      saveProjectDebounced(elements, requestedFields, viewConfigurations, getPersistableSolverState(), variables);
+      saveProjectDebounced({
+        elements,
+        fields: requestedFields,
+        views: viewConfigurations,
+        solverData: getPersistableSolverState(),
+        variables,
+        groundPlane,
+      });
     };
   });
 
@@ -400,12 +419,7 @@ function DesignPage() {
       // Update count if elements were removed
       previousElementCountRef.current = elementCount;
     }
-
-    // Cleanup debounce on unmount
-    return () => {
-      saveProjectDebounced.cancel();
-    };
-  }, [elementCount, saveProjectDebounced]); // count only: additions, not every edit
+  }, [elementCount]); // count only: additions, not every edit
 
   // Auto-save when requested fields (or elements) change.
   // Also when both are empty: deleting the last element must be persisted,
@@ -826,8 +840,8 @@ function DesignPage() {
   };
 
   // Orientation change handler — re-meshes element via preprocessor
-  const orientationChangeRef = useRef(
-    debounce(async (elementId: string, orientation: [number, number, number]) => {
+  const remeshOrientationDebounced = useMemo(
+    () => debounce(async (elementId: string, orientation: [number, number, number]) => {
       // Validate that the orientation vector is not zero
       if (orientation[0] === 0 && orientation[1] === 0 && orientation[2] === 0) {
         return;
@@ -835,28 +849,19 @@ function DesignPage() {
       console.log('Orientation changed, re-meshing:', elementId, orientation);
       try {
         await dispatch(remeshElementOrientation({ elementId, orientation })).unwrap();
-        dispatch(addNotification({
-          id: Date.now(),
-          message: 'Mesh updated with new orientation',
-          severity: 'success',
-          duration: 2000,
-        }));
+        dispatch(showSuccess('Mesh updated with new orientation', 2000));
         // Trigger auto-save after re-mesh
         setTriggerSave(prev => prev + 1);
       } catch (error) {
         console.error('Re-mesh failed:', error);
-        dispatch(addNotification({
-          id: Date.now(),
-          message: `Failed to update orientation: ${errorMessage(error, 'unknown error')}`,
-          severity: 'error',
-          duration: 5000,
-        }));
+        dispatch(showError(`Failed to update orientation: ${errorMessage(error, 'unknown error')}`, 5000));
       }
-    }, 500)
+    }, 500),
+    [dispatch],
   );
 
   const handleOrientationChange = (elementId: string, orientation: [number, number, number]) => {
-    orientationChangeRef.current(elementId, orientation);
+    remeshOrientationDebounced(elementId, orientation);
   };
 
   const handleSourceChange = (elementId: string, source: Source) => {

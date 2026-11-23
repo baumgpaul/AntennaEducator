@@ -88,19 +88,21 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   // Update local state when selection changes
   const viewId = selectedView?.id;
   const viewNameProp = selectedView?.name;
-  React.useEffect(() => {
-    if (viewId !== undefined && viewNameProp !== undefined) {
-      setViewName(viewNameProp);
-    }
-  }, [viewId, viewNameProp]);
+  const viewKey = viewId !== undefined && viewNameProp !== undefined ? `${viewId}|${viewNameProp}` : null;
+  const [syncedViewKey, setSyncedViewKey] = React.useState<string | null>(null);
+  if (viewKey !== syncedViewKey) {
+    setSyncedViewKey(viewKey);
+    if (viewKey !== null && viewNameProp !== undefined) setViewName(viewNameProp);
+  }
 
   const itemId = selectedItem?.id;
   const itemLabelProp = selectedItem?.label;
-  React.useEffect(() => {
-    if (itemId !== undefined && itemLabelProp !== undefined) {
-      setItemLabel(itemLabelProp);
-    }
-  }, [itemId, itemLabelProp]);
+  const itemKey = itemId !== undefined && itemLabelProp !== undefined ? `${itemId}|${itemLabelProp}` : null;
+  const [syncedItemKey, setSyncedItemKey] = React.useState<string | null>(null);
+  if (itemKey !== syncedItemKey) {
+    setSyncedItemKey(itemKey);
+    if (itemKey !== null && itemLabelProp !== undefined) setItemLabel(itemLabelProp);
+  }
 
   // Empty state: No view selected
   if (!selectedView) {

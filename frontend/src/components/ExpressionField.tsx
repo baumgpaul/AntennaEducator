@@ -6,7 +6,7 @@
  * constraint function (e.g., "must be positive").
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { TextField, type TextFieldProps } from '@mui/material'
 import { useAppSelector } from '@/store/hooks'
 import { selectVariableContextNumeric } from '@/store/variablesSlice'
@@ -43,9 +43,11 @@ export default function ExpressionField({
   const [localValue, setLocalValue] = useState<string>(String(value))
 
   // Sync from parent when value prop changes externally
-  useEffect(() => {
+  const [syncedValue, setSyncedValue] = useState(value)
+  if (value !== syncedValue) {
+    setSyncedValue(value)
     setLocalValue(String(value))
-  }, [value])
+  }
 
   const allContext = useMemo(
     () => ({ ...BUILTIN_CONSTANTS, ...variableContext }),
