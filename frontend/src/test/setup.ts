@@ -12,7 +12,8 @@ if (!globalThis.crypto?.subtle) {
 // Start MSW server before all tests
 beforeAll(() => {
   server.listen({
-    onUnhandledRequest: 'warn',
+    // An unmocked request must not reach the network (and flake on CI): fail the test
+    onUnhandledRequest: 'error',
   });
 });
 
