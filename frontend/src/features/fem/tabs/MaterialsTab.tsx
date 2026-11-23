@@ -1,5 +1,5 @@
 import { Box, MenuItem, Stack, TextField, Typography } from '@mui/material';
-import { Hint, PanelSection, Ribbon, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
+import { CollapsibleSection, Hint, Ribbon, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import { MATERIAL_LIBRARY, type Material } from '../model';
 import type { FemStudio } from '../useFemStudio';
 import GeometryView from '../views/GeometryView';
@@ -40,7 +40,7 @@ function MaterialsTab({ studio }: { studio: FemStudio }) {
         </Ribbon>
       }
       left={
-        <PanelSection title="Material of each domain">
+        <CollapsibleSection title="Material of each domain">
           <Stack spacing={2}>
             {domains.map((d) => {
               const mat = model.materials[d];
@@ -99,7 +99,7 @@ function MaterialsTab({ studio }: { studio: FemStudio }) {
               flux ε ∂V/∂n stays continuous by itself.
             </Hint>
           </Stack>
-        </PanelSection>
+        </CollapsibleSection>
       }
       notes={!!notes?.length && <StepNotes notes={notes} />}
     >

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Box, Button, Stack, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material';
 import { PlayArrow } from '@mui/icons-material';
-import { Hint, PanelSection, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
+import { CollapsibleSection, Hint, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import type { FemStudio } from '../useFemStudio';
 import MeshView from '../views/MeshView';
 import { elementInfo } from '../p1';
@@ -41,7 +41,7 @@ function SolveTab({ studio }: { studio: FemStudio }) {
       }
       left={
         result && (
-          <PanelSection title={current ? 'The linear system' : 'The linear system (of an earlier model)'}>
+          <CollapsibleSection title={current ? 'The linear system' : 'The linear system (of an earlier model)'}>
             <Table size="small">
               <TableBody>
                 <Row label="Unknowns (nodes)" value={result.info.n_nodes.toLocaleString()} />
@@ -65,7 +65,7 @@ function SolveTab({ studio }: { studio: FemStudio }) {
                 unknowns.
               </Hint>
             </Box>
-          </PanelSection>
+          </CollapsibleSection>
         )
       }
       right={

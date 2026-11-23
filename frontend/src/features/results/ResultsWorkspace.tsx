@@ -152,6 +152,7 @@ function ResultsWorkspace<T extends string, V extends WorkspaceView<T>>({
       }
       right={properties}
       rightTitle="View properties"
+      rightSubtitle={selected?.name}
       rightOpen={propertiesOpen}
       onRightToggle={() => setPropertiesOpen((o) => !o)}
       notes={notes}

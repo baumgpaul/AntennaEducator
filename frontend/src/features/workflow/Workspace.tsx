@@ -1,6 +1,18 @@
 import { Children, Fragment, isValidElement, useCallback } from 'react';
-import { Box, ButtonGroup, Divider, IconButton, Paper, Tooltip, Typography, type SxProps } from '@mui/material';
-import { ChevronLeft, ChevronRight } from '@mui/icons-material';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  ButtonGroup,
+  Divider,
+  IconButton,
+  Paper,
+  Tooltip,
+  Typography,
+  type SxProps,
+} from '@mui/material';
+import { ChevronLeft, ChevronRight, ExpandMore } from '@mui/icons-material';
 
 /*
  * The layout of every workflow tab, for both methods, in the antenna
@@ -19,6 +31,7 @@ export function Workspace({
   left,
   right,
   rightTitle,
+  rightSubtitle,
   rightOpen = true,
   onRightToggle,
   notes,
@@ -29,6 +42,8 @@ export function Workspace({
   left?: React.ReactNode;
   right?: React.ReactNode;
   rightTitle?: string;
+  /** Under the title, e.g. the name of what is selected */
+  rightSubtitle?: React.ReactNode;
   rightOpen?: boolean;
   onRightToggle?: () => void;
   /** Alerts above the canvas (what to fix, out-of-date results) */
@@ -54,7 +69,8 @@ export function Workspace({
         </Box>
         {right && (
           <WorkspacePanel side="right" width={300} open={rightOpen} onToggle={onRightToggle} label={title}>
-            <PanelSection title={title}>{right}</PanelSection>
+            <PanelHeader title={title} subtitle={rightSubtitle} />
+            <Box sx={{ p: 2 }}>{right}</Box>
           </WorkspacePanel>
         )}
       </PanelRow>
@@ -228,26 +244,48 @@ export function RibbonGroup({ label, children }: { label: React.ReactNode; child
   );
 }
 
-/** A titled section of a side panel (like "Variables" or "Structure"). */
+/** The header of a properties panel: its title and what it shows (the element, the view). */
+export function PanelHeader({ title, subtitle }: { title: string; subtitle?: React.ReactNode }) {
+  return (
+    <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+      <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, color: 'text.primary' }}>
+        {title}
+      </Typography>
+      {subtitle != null && (
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          {subtitle}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+/** The header bar of a list in a side panel (like "Result Views" or "Requested Quantities"). */
 export function PanelSection({
   title,
+  extra,
   action,
   children,
   dense,
+  sx,
 }: {
   title: string;
+  /** Shown right after the title (status chips) */
+  extra?: React.ReactNode;
+  /** Shown at the right end (add buttons) */
   action?: React.ReactNode;
   children?: React.ReactNode;
   /** No padding around the content (lists) */
   dense?: boolean;
+  sx?: SxProps;
 }) {
   return (
-    <Box>
+    <Box sx={sx}>
       <Box
         sx={{
           px: 2,
           py: 1,
-          minHeight: 42,
+          borderTop: 1,
           borderBottom: 1,
           borderColor: 'divider',
           bgcolor: 'background.default',
@@ -256,13 +294,60 @@ export function PanelSection({
           gap: 1,
         }}
       >
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, flex: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
           {title}
         </Typography>
-        {action}
+        {extra}
+        {action && <Box sx={{ ml: 'auto', my: -1 }}>{action}</Box>}
       </Box>
       {children && <Box sx={dense ? undefined : { p: 2 }}>{children}</Box>}
     </Box>
+  );
+}
+
+/** A collapsible section of a side panel (like "Variables" or "Structure"), open at first. */
+export function CollapsibleSection({
+  title,
+  action,
+  children,
+  dense,
+  detailsSx,
+  defaultExpanded = true,
+}: {
+  title: string;
+  /** Shown at the right end of the header, before the chevron (add buttons) */
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  /** No padding around the content (lists) */
+  dense?: boolean;
+  detailsSx?: SxProps;
+  defaultExpanded?: boolean;
+}) {
+  return (
+    <Accordion
+      disableGutters
+      elevation={0}
+      defaultExpanded={defaultExpanded}
+      sx={{ '&:before': { display: 'none' }, bgcolor: 'transparent', borderBottom: '1px solid', borderColor: 'divider' }}
+    >
+      <AccordionSummary
+        expandIcon={<ExpandMore />}
+        // the summary is a <button>: with a button inside it, it must be a div
+        component={action ? 'div' : undefined}
+        sx={{ minHeight: 36, '& .MuiAccordionSummary-content': { my: 0.5, alignItems: 'center' }, px: 2 }}
+      >
+        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+          {title}
+        </Typography>
+        {action && (
+          // clicks on the action must not open or close the section
+          <Box sx={{ ml: 'auto', mr: 0.5, my: -1 }} onClick={(e) => e.stopPropagation()} onFocus={(e) => e.stopPropagation()}>
+            {action}
+          </Box>
+        )}
+      </AccordionSummary>
+      <AccordionDetails sx={detailsSx ?? (dense ? { p: 0 } : { p: 2 })}>{children}</AccordionDetails>
+    </Accordion>
   );
 }
 

@@ -45,6 +45,7 @@ import { DEFAULT_ELEMENT_COLOR } from '@/utils/colors';
 import { countFeeds } from '@/utils/feedCount';
 import type { Mesh, Source, LumpedElement, AntennaElement, ComplexNumber } from '@/types/models';
 import VariablePanel from './VariablePanel';
+import { CollapsibleSection, PanelSection } from '@/features/workflow/Workspace';
 
 /**
  * Format a source label with type, amplitude and phase.
@@ -642,61 +643,14 @@ function TreeViewPanel({
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {/* Variables Section (designer mode) — shown first */}
         {mode !== 'postprocessing' && (
-          <Accordion
-            disableGutters
-            elevation={0}
-            defaultExpanded
-            sx={{
-              '&:before': { display: 'none' },
-              bgcolor: 'transparent',
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            <AccordionSummary
-              expandIcon={<ExpandMore />}
-              sx={{
-                minHeight: 36,
-                '& .MuiAccordionSummary-content': { my: 0.5 },
-                px: 2,
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Variables
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: 0, px: 0.5 }}>
-              <VariablePanel />
-            </AccordionDetails>
-          </Accordion>
+          <CollapsibleSection title="Variables" detailsSx={{ p: 0, px: 0.5 }}>
+            <VariablePanel />
+          </CollapsibleSection>
         )}
 
         {/* Structure Section (designer mode) — collapsible */}
         {mode !== 'postprocessing' && (
-          <Accordion
-            disableGutters
-            elevation={0}
-            defaultExpanded
-            sx={{
-              '&:before': { display: 'none' },
-              bgcolor: 'transparent',
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            <AccordionSummary
-              expandIcon={<ExpandMore />}
-              sx={{
-                minHeight: 36,
-                '& .MuiAccordionSummary-content': { my: 0.5 },
-                px: 2,
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Structure
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: 0 }}>
+          <CollapsibleSection title="Structure" dense>
               {treeData.length === 0 ? (
                 <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
                   <Typography variant="body2">No antenna loaded</Typography>
@@ -706,46 +660,35 @@ function TreeViewPanel({
                   {treeData.map((node) => renderTreeNode(node, 0))}
                 </List>
               )}
-            </AccordionDetails>
-          </Accordion>
+          </CollapsibleSection>
         )}
 
         {/* Requested Quantities Section (Solver Mode) */}
         {mode === 'solver' && (
           <>
-            <Box
-              sx={{
-                px: 2,
-                py: 1,
-                borderTop: 1,
-                borderBottom: 1,
-                borderColor: 'divider',
-                bgcolor: 'background.default',
-                mt: 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Requested Quantities
-              </Typography>
-              {fieldResults && Object.keys(fieldResults).length > 0 && (() => {
-                const anyFieldOutdated = Object.values(fieldResults).some(r => r && !r.computed);
-                const isOutdated = !isSolved || anyFieldOutdated;
-                return isOutdated ? (
-                  <Chip
-                    label="Outdated"
-                    size="small"
-                    color="warning"
-                    sx={{ height: 18, fontSize: '0.6rem' }}
-                    title={anyFieldOutdated && isSolved
-                      ? 'Field definitions changed. Re-run postprocessing.'
-                      : 'Design changed. Re-run solver and postprocessing.'}
-                  />
-                ) : null;
-              })()}
-            </Box>
+            <PanelSection
+              title="Requested Quantities"
+              sx={{ mt: 1 }}
+              extra={
+                <>
+                  {fieldResults && Object.keys(fieldResults).length > 0 && (() => {
+                    const anyFieldOutdated = Object.values(fieldResults).some(r => r && !r.computed);
+                    const isOutdated = !isSolved || anyFieldOutdated;
+                    return isOutdated ? (
+                      <Chip
+                        label="Outdated"
+                        size="small"
+                        color="warning"
+                        sx={{ height: 18, fontSize: '0.6rem' }}
+                        title={anyFieldOutdated && isSolved
+                          ? 'Field definitions changed. Re-run postprocessing.'
+                          : 'Design changed. Re-run solver and postprocessing.'}
+                      />
+                    ) : null;
+                  })()}
+                </>
+              }
+            />
             <List disablePadding>
               <ListItem disablePadding data-testid="currents-item">
                 <ListItemButton disabled sx={{ pl: 3, opacity: 0.8 }}>
@@ -919,20 +862,7 @@ function TreeViewPanel({
         {/* Postprocessing Mode - View Configurations */}
         {mode === 'postprocessing' && (
           <>
-            <Box
-              sx={{
-                px: 2,
-                py: 1,
-                borderTop: 1,
-                borderBottom: 1,
-                borderColor: 'divider',
-                bgcolor: 'background.default',
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Result Views
-              </Typography>
-            </Box>
+            <PanelSection title="Result Views" />
             {viewConfigurations.length === 0 ? (
               <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
                 <Typography variant="body2">No result views yet</Typography>

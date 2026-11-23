@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button, Tooltip, Typography } from '@mui/material';
-import { RibbonGroup } from '@/features/workflow/Workspace';
+import { RibbonButtons, RibbonGroup } from '@/features/workflow/Workspace';
 import { Download, Gradient, PictureAsPdf, ShowChart, TableChart, TrendingDown, Tune, ViewInAr } from '@mui/icons-material';
 import { downloadFile } from '@/utils/exportData';
 import ResultsWorkspace, { type ViewType } from '@/features/results/ResultsWorkspace';
@@ -122,34 +122,36 @@ function ResultsTab({ studio }: { studio: FemStudio }) {
       }
       actions={
         <RibbonGroup label="Export">
-          <Tooltip title="The solution on its mesh for ParaView (.vtu): V per node; E, D, |E|, domain and εr per element">
-            <span>
-              <Button variant="outlined" size="small" startIcon={<ViewInAr />} onClick={exportVtu}>
-                ParaView
-              </Button>
-            </span>
-          </Tooltip>
-          <Tooltip title={csvView ? `“${csvView.name}” as CSV` : 'Select a line probe or a study that has run'}>
-            <span>
-              <Button variant="outlined" size="small" startIcon={<TableChart />} onClick={exportCsv} disabled={!csvView}>
-                CSV
-              </Button>
-            </span>
-          </Tooltip>
-          <Tooltip title="Model, potential picture, quantities and studies as a PDF report">
-            <span>
-              <Button variant="outlined" size="small" startIcon={<PictureAsPdf />} onClick={exportPdf} disabled={reporting}>
-                {reporting ? 'Building…' : 'PDF report'}
-              </Button>
-            </span>
-          </Tooltip>
-          <Tooltip title="One zip with simulation.xml, mat.xml and model.msh — unpack it into a folder; simulation.xml is the input file">
-            <span>
-              <Button variant="outlined" size="small" startIcon={<Download />} onClick={exportFiles} disabled={busy !== null}>
-                {busy === 'export' ? 'Exporting…' : 'openCFS files'}
-              </Button>
-            </span>
-          </Tooltip>
+          <RibbonButtons>
+            <Tooltip title="The solution on its mesh for ParaView (.vtu): V per node; E, D, |E|, domain and εr per element">
+              <span>
+                <Button startIcon={<ViewInAr />} onClick={exportVtu}>
+                  ParaView
+                </Button>
+              </span>
+            </Tooltip>
+            <Tooltip title={csvView ? `“${csvView.name}” as CSV` : 'Select a line probe or a study that has run'}>
+              <span>
+                <Button startIcon={<TableChart />} onClick={exportCsv} disabled={!csvView}>
+                  CSV
+                </Button>
+              </span>
+            </Tooltip>
+            <Tooltip title="Model, potential picture, quantities and studies as a PDF report">
+              <span>
+                <Button startIcon={<PictureAsPdf />} onClick={exportPdf} disabled={reporting}>
+                  {reporting ? 'Building…' : 'PDF report'}
+                </Button>
+              </span>
+            </Tooltip>
+            <Tooltip title="One zip with simulation.xml, mat.xml and model.msh — unpack it into a folder; simulation.xml is the input file">
+              <span>
+                <Button startIcon={<Download />} onClick={exportFiles} disabled={busy !== null}>
+                  {busy === 'export' ? 'Exporting…' : 'openCFS files'}
+                </Button>
+              </span>
+            </Tooltip>
+          </RibbonButtons>
         </RibbonGroup>
       }
       notes={

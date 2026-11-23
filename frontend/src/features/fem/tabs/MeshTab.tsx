@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Box, Button, IconButton, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { Close, GridOn } from '@mui/icons-material';
-import { Hint, PanelSection, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
+import { CollapsibleSection, Hint, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import type { FemStudio } from '../useFemStudio';
 import MeshView from '../views/MeshView';
 import { colormap } from '../views/geometryDraw';
@@ -49,7 +49,7 @@ function MeshTab({ studio }: { studio: FemStudio }) {
       }
       left={
         <>
-          <PanelSection title="Element size">
+          <CollapsibleSection title="Element size">
             <Stack spacing={2}>
               <ExprField label="max size [m]" value={model.mesh.size} width={248} onChange={(v) => setMesh({ size: v })} />
               <TextField
@@ -61,8 +61,8 @@ function MeshTab({ studio }: { studio: FemStudio }) {
                 onChange={(e) => setMesh({ elements_per_circle: Math.max(4, Math.round(Number(e.target.value))) })}
               />
             </Stack>
-          </PanelSection>
-          <PanelSection title="Finer along a boundary">
+          </CollapsibleSection>
+          <CollapsibleSection title="Finer along a boundary">
             <Stack spacing={1}>
               {Object.entries(model.mesh.boundary_sizes).map(([b, v]) => (
                 <Stack key={b} direction="row" spacing={1} sx={{
@@ -110,8 +110,8 @@ function MeshTab({ studio }: { studio: FemStudio }) {
               </TextField>
               <Hint>Where the field changes fast (edges, thin gaps).</Hint>
             </Stack>
-          </PanelSection>
-          <PanelSection title="Finer inside a domain">
+          </CollapsibleSection>
+          <CollapsibleSection title="Finer inside a domain">
             <Stack spacing={1.5}>
               {progress.domains.map((d) => (
                 <ExprField
@@ -128,15 +128,15 @@ function MeshTab({ studio }: { studio: FemStudio }) {
                 />
               ))}
             </Stack>
-          </PanelSection>
+          </CollapsibleSection>
           {mesh && (
-            <PanelSection title="Element quality">
+            <CollapsibleSection title="Element quality">
               <QualityHistogram histogram={mesh.stats.quality.histogram} min={mesh.stats.quality.min} />
               <Hint>
                 The solution is linear on each triangle; its values at the {mesh.stats.nodes.toLocaleString()} nodes are the
                 unknowns. Quality q = 4√3·A/Σl² is 1 for an equilateral triangle; flat ones (q → 0) spoil the accuracy.
               </Hint>
-            </PanelSection>
+            </CollapsibleSection>
           )}
         </>
       }
