@@ -253,6 +253,10 @@ class FrequencyPoint:
     reflected_power: float
     accepted_power: float
     solve_time: float
+    # System energy balance (all sources, all antennas):
+    total_input_power: float = 0.0  # delivered at all source terminals [W]
+    total_power_dissipated: float = 0.0  # wire resistance + lumped loads [W]
+    radiation_efficiency: Optional[float] = None  # 1 - losses / input; None without input
 
 
 @dataclass
@@ -638,6 +642,28 @@ def solve_peec_frequency_sweep(
         # Accepted power: P_acc = P_in - P_refl = (1 - |Γ|²) * P_in
         accepted_power = input_power - reflected_power
 
+        # System energy balance: power delivered at every source's terminals and
+        # lost in wires and loads; the rest is radiated (lossless check:
+        # tests/integration/test_peec_energy_balance.py).
+        n_vs = len(voltage_sources)
+        total_input_power = 0.0
+        for k, vs in enumerate(voltage_sources):
+            i_k = I[n_edges + k]
+            total_input_power += 0.5 * float(np.real(vs.value * np.conj(i_k)))
+            total_input_power -= 0.5 * vs.R * abs(i_k) ** 2  # internal series R
+        for cs in current_sources:
+            v_node = V[cs.node - 1] if 0 < cs.node <= len(V) else 0.0
+            if cs.node_end is not None and 0 < cs.node_end <= len(V):
+                v_node = v_node - V[cs.node_end - 1]
+            total_input_power += 0.5 * float(np.real(v_node * np.conj(cs.value)))
+        load_loss = sum(0.5 * ld.R * abs(I[n_edges + n_vs + k]) ** 2 for k, ld in enumerate(loads))
+        total_power_dissipated = float(power_dissipated) + float(load_loss)
+        radiation_efficiency = (
+            float(np.clip(1.0 - total_power_dissipated / total_input_power, 0.0, 1.0))
+            if total_input_power > 0
+            else None
+        )
+
         freq_time = time.time() - freq_start
 
         # Store solution
@@ -659,6 +685,9 @@ def solve_peec_frequency_sweep(
             reflected_power=reflected_power,
             accepted_power=accepted_power,
             solve_time=freq_time,
+            total_input_power=total_input_power,
+            total_power_dissipated=total_power_dissipated,
+            radiation_efficiency=radiation_efficiency,
         )
 
         frequency_solutions.append(solution)
@@ -1287,6 +1316,11 @@ def distribute_solution(solution: FrequencyPoint, merged_system: MergedAntennaSy
     return antenna_solutions
 
 
+def _finite_or_none(value) -> Optional[float]:
+    """A finite float, else None (a non-finite solve reports no powers)."""
+    return float(value) if value is not None and np.isfinite(value) else None
+
+
 def solve_multi_antenna(
     antennas: List, frequency: float, config: Optional[SolverConfiguration] = None
 ) -> Dict:
@@ -1342,6 +1376,10 @@ def solve_multi_antenna(
         "n_total_nodes": merged.n_total_points,
         "n_total_edges": merged.n_total_sticks,
         "solve_time": solve_time,
+        # System energy balance: efficiency = 1 - losses / input (all antennas together)
+        "input_power": _finite_or_none(getattr(solution, "total_input_power", None)),
+        "power_dissipated": _finite_or_none(getattr(solution, "total_power_dissipated", None)),
+        "radiation_efficiency": _finite_or_none(getattr(solution, "radiation_efficiency", None)),
         # With a ground plane, feeding against node 0 is the normal monopole feed
         "warnings": [] if config.ground_plane else ground_feed_warnings(antennas),
     }
