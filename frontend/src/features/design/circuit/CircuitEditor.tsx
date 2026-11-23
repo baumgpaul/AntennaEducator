@@ -193,7 +193,9 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
 
   // Keep a ref to latest circuit so edge callbacks always see current data
   const circuitRef = useRef(circuit);
-  circuitRef.current = circuit;
+  useEffect(() => {
+    circuitRef.current = circuit;
+  }, [circuit]);
 
   // Component editing dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);

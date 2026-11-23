@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
@@ -56,7 +56,6 @@ export const LoadDialog: React.FC<LoadDialogProps> = ({
     control,
     handleSubmit,
     reset,
-    watch,
     formState: { errors },
   } = useForm<LoadFormData>({
     resolver: zodResolver(loadSchema),
@@ -68,7 +67,7 @@ export const LoadDialog: React.FC<LoadDialogProps> = ({
     },
   });
 
-  const selectedAntennaId = watch('antennaId');
+  const selectedAntennaId = useWatch({ control, name: 'antennaId' });
   const selectedAntenna = elements.find(el => el.id === selectedAntennaId);
 
   const handleClose = () => {

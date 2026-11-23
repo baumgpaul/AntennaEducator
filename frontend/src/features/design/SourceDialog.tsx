@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
@@ -87,7 +87,6 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
     handleSubmit,
     reset,
     formState: { errors },
-    watch,
   } = useForm<SourceFormData>({
     resolver: zodResolver(sourceSchema),
     defaultValues: {
@@ -102,8 +101,8 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
     },
   });
 
-  const sourceType = watch('type');
-  const selectedAntennaId = watch('antennaId');
+  const sourceType = useWatch({ control, name: 'type' });
+  const selectedAntennaId = useWatch({ control, name: 'antennaId' });
   const selectedAntenna = elements.find(el => el.id === selectedAntennaId);
 
   const handleClose = () => {

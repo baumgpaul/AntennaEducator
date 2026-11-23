@@ -114,12 +114,12 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
   const [sweepVars, setSweepVars] = useState<SweepVarState[]>(buildInitialState);
 
   // Re-initialize when the dialog opens with a (possibly new) initialConfig
-  React.useEffect(() => {
-    if (open) {
-      setSweepVars(buildInitialState());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, defaultFrequencyVariable]);
+  const resetFor = open ? defaultFrequencyVariable : null;
+  const [syncedFor, setSyncedFor] = useState<string | null>(resetFor);
+  if (resetFor !== syncedFor) {
+    setSyncedFor(resetFor);
+    if (resetFor !== null) setSweepVars(buildInitialState());
+  }
 
   // ========================================================================
   // Handlers

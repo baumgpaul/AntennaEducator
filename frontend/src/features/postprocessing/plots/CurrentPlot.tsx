@@ -29,6 +29,32 @@ interface CurrentPlotProps {
   title?: string;
 }
 
+// Custom tooltip (module level: a component defined during render remounts every render)
+type TooltipEntry = { value?: number; payload: { frequency: number } };
+type CustomTooltipProps = { active?: boolean; payload?: TooltipEntry[] };
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
+  if (active && payload && payload.length) {
+    const freq = payload[0].payload.frequency;
+    const mag = payload[0].value;
+    const phase = payload[1]?.value || 0;
+
+    return (
+      <Box sx={{ bgcolor: 'background.paper', p: 1, border: '1px solid #ccc', borderRadius: 1 }}>
+        <Typography variant="body2">
+          @ {freq.toFixed(2)} MHz
+        </Typography>
+        <Typography variant="body2" color="primary">
+          |I| = {mag.toFixed(3)} A
+        </Typography>
+        <Typography variant="body2" color="secondary">
+          ∠I = {phase.toFixed(1)}°
+        </Typography>
+      </Box>
+    );
+  }
+  return null;
+};
+
 function CurrentPlot({ data, antennaId, antennaName, title }: CurrentPlotProps) {
   // Transform data for chart
   const chartData = useMemo(() => {
@@ -38,32 +64,6 @@ function CurrentPlot({ data, antennaId, antennaName, title }: CurrentPlotProps) 
       phase: point.phase * (180 / Math.PI), // Convert to degrees
     }));
   }, [data]);
-
-  // Custom tooltip
-  type TooltipEntry = { value?: number; payload: { frequency: number } };
-  type CustomTooltipProps = { active?: boolean; payload?: TooltipEntry[] };
-  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
-    if (active && payload && payload.length) {
-      const freq = payload[0].payload.frequency;
-      const mag = payload[0].value;
-      const phase = payload[1]?.value || 0;
-
-      return (
-        <Box sx={{ bgcolor: 'background.paper', p: 1, border: '1px solid #ccc', borderRadius: 1 }}>
-          <Typography variant="body2">
-            @ {freq.toFixed(2)} MHz
-          </Typography>
-          <Typography variant="body2" color="primary">
-            |I| = {mag.toFixed(3)} A
-          </Typography>
-          <Typography variant="body2" color="secondary">
-            ∠I = {phase.toFixed(1)}°
-          </Typography>
-        </Box>
-      );
-    }
-    return null;
-  };
 
   if (!data || data.length === 0) {
     return (

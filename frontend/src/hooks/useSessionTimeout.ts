@@ -33,7 +33,8 @@ export function useSessionTimeout() {
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningRef = useRef<NodeJS.Timeout | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
+  // Set by resetTimeout() when the session starts; 0 = no activity recorded yet
+  const lastActivityRef = useRef<number>(0);
 
   const handleLogout = useCallback(() => {
     dispatch(logoutAsync());
@@ -103,10 +104,7 @@ export function useSessionTimeout() {
     };
   }, [isAuthenticated, resetTimeout, handleActivity]);
 
-  return {
-    resetTimeout,
-    lastActivity: lastActivityRef.current,
-  };
+  return { resetTimeout };
 }
 
 export default useSessionTimeout;

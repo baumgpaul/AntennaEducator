@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -134,9 +134,14 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
 
   const variableContext = useAppSelector(selectVariableContextNumeric);
 
-  // Populate from initialData when editing
-  useEffect(() => {
-    if (!open || !initialData) return;
+  // Populate from initialData when editing (adjusted during render)
+  const populateFrom = open ? initialData : undefined;
+  const [populatedFrom, setPopulatedFrom] = useState<typeof initialData>(undefined);
+  if (populateFrom !== populatedFrom) {
+    setPopulatedFrom(populateFrom);
+    if (populateFrom) populateFromInitialData(populateFrom);
+  }
+  function populateFromInitialData(initialData: NonNullable<CustomAntennaDialogProps['initialData']>) {
     const srcIds = new Set(initialData.sourceNodeIds ?? []);
     setName(initialData.name);
     const editNodes: NodeRow[] = initialData.nodes.map((n) => {
@@ -151,7 +156,7 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
       radius: e.radius != null ? String(e.radius) : '0.001',
     })));
     setActiveTab(1); // Start on manual editor for edit mode
-  }, [open, initialData]);
+  }
 
   const resolveCtx = useMemo(
     () => ({ ...BUILTIN_CONSTANTS, ...variableContext }),
