@@ -190,7 +190,9 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
     <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>
         <Typography variant="h6">Configure Loop Antenna</Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           Design a circular loop antenna
         </Typography>
       </DialogTitle>
@@ -202,7 +204,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
             <Box sx={{ flex: '1 1 50%', minWidth: 0 }}>
           <Grid container spacing={3}>
             {/* Name */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="name"
                 control={control}
@@ -219,12 +221,12 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider />
             </Grid>
 
             {/* Loop Radius */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="radius"
                 control={control}
@@ -243,7 +245,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
             </Grid>
 
             {/* Wire Radius */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="wireRadius"
                 control={control}
@@ -262,7 +264,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
             </Grid>
 
             {/* Feed Gap */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="feedGap"
                 control={control}
@@ -281,7 +283,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
             </Grid>
 
             {/* Segments */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="segments"
                 control={control}
@@ -303,16 +305,18 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
             </Grid>
 
             {/* Feed Configuration */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider sx={{ my: 2 }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Feed Configuration
                 </Typography>
               </Divider>
             </Grid>
 
             {/* Source Type Toggle */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="sourceType"
                 control={control}
@@ -335,7 +339,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
             </Grid>
 
             {/* Amplitude */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="sourceAmplitude"
                 control={control}
@@ -354,7 +358,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
             </Grid>
 
             {/* Phase */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="sourcePhase"
                 control={control}
@@ -375,21 +379,23 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
             </Grid>
 
             {/* Position and Orientation Controls */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider sx={{ my: 2 }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Position & Orientation
                 </Typography>
               </Divider>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" gutterBottom>
                 Position (meters)
               </Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="position.x"
                 control={control}
@@ -406,7 +412,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               />
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="position.y"
                 control={control}
@@ -423,7 +429,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               />
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="position.z"
                 control={control}
@@ -440,13 +446,13 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
                 Orientation (rotation angles)
               </Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="orientation.rotX"
                 control={control}
@@ -466,7 +472,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               />
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="orientation.rotY"
                 control={control}
@@ -486,7 +492,7 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
               />
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="orientation.rotZ"
                 control={control}
@@ -512,7 +518,13 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
 
             {/* Right side: 3D preview */}
             <Box sx={{ flex: '1 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, textAlign: 'center' }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  mb: 1,
+                  textAlign: 'center'
+                }}>
                 3D Preview
               </Typography>
               {previewGeometry.nodes.length >= 3 ? (

@@ -128,7 +128,9 @@ function ProjectTreeView({
           </Box>
         }
         secondary={formatDate(project.updated_at)}
-        secondaryTypographyProps={{ variant: 'caption' }}
+        slotProps={{
+          secondary: { variant: 'caption' }
+        }}
       />
       <IconButton size="small" onClick={(e) => openMenu(e, project)}>
         <MoreVert fontSize="small" />
@@ -154,7 +156,9 @@ function ProjectTreeView({
           </ListItemIcon>
           <ListItemText
             primary={node.name}
-            primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+            slotProps={{
+              primary: { variant: 'body2', noWrap: true }
+            }}
           />
           {hasChildren && (
             isExpanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />
@@ -185,7 +189,9 @@ function ProjectTreeView({
           </ListItemIcon>
           <ListItemText
             primary={copyOnly ? 'Course Projects' : 'My Projects'}
-            primaryTypographyProps={{ variant: 'body2', fontWeight: 'bold' }}
+            slotProps={{
+              primary: { variant: 'body2', sx: { fontWeight: 'bold' } }
+            }}
           />
         </ListItemButton>
 
@@ -198,7 +204,9 @@ function ProjectTreeView({
         {/* Empty state */}
         {folderTree.length === 0 && rootProjects.length === 0 && (
           <Box sx={{ pl: 4, py: 2 }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               No projects yet
             </Typography>
           </Box>

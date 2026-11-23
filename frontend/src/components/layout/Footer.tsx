@@ -23,7 +23,9 @@ function Footer() {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           © {currentYear} {OPERATOR.name} · Antenna Educator · MIT License
         </Typography>
 

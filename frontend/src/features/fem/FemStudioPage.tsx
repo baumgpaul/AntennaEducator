@@ -72,7 +72,14 @@ function FemStudioPage() {
             <Tooltip title="The FEM workspace is a preview: it may still change">
               <Chip label="Preview" color="warning" size="small" />
             </Tooltip>
-            <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 220, display: { xs: 'none', xl: 'block' } }}>
+            <Typography
+              variant="body2"
+              noWrap
+              sx={{
+                color: "text.secondary",
+                maxWidth: 220,
+                display: { xs: 'none', xl: 'block' }
+              }}>
               {studio.project?.name ?? studio.model.name} · 2D electrostatics
             </Typography>
             <Chip

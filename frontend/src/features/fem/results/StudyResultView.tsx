@@ -113,7 +113,9 @@ function StudyResultView({
 
   return (
     <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', p: 1.5, gap: 1 }}>
-      <Stack direction="row" spacing={2} alignItems="center">
+      <Stack direction="row" spacing={2} sx={{
+        alignItems: "center"
+      }}>
         {running ? (
           <Button variant="outlined" color="warning" size="small" startIcon={<Stop />} onClick={cancel}>
             Cancel
@@ -125,7 +127,9 @@ function StudyResultView({
         )}
         {running && (
           <Box sx={{ flex: 1, maxWidth: 320 }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Solved {points.length} of {total}
             </Typography>
             <LinearProgress variant="determinate" value={(100 * points.length) / Math.max(total, 1)} />
@@ -143,7 +147,12 @@ function StudyResultView({
 
       {points.length === 0 ? (
         <Box sx={{ flex: 1, display: 'grid', placeItems: 'center' }}>
-          <Typography color="text.secondary" sx={{ maxWidth: 520, textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: "text.secondary",
+              maxWidth: 520,
+              textAlign: 'center'
+            }}>
             {view.type === 'convergence'
               ? `Solve the model on ${total} meshes, each with elements √2 times smaller than the one before, and watch the error of ${symbol} shrink.`
               : `Solve the model for ${total} values of “${view.parameter}” and see how ${symbol} depends on it.`}

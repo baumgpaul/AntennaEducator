@@ -68,7 +68,9 @@ function CurrentPlot({ data, antennaId, antennaName, title }: CurrentPlotProps) 
   if (!data || data.length === 0) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           No current data available for {antennaName || `antenna ${antennaId}`}
         </Typography>
       </Box>

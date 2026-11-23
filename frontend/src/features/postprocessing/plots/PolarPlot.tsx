@@ -155,7 +155,9 @@ function PolarPlot({
           p: 2,
         }}
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           No data available for this plot.
         </Typography>
       </Box>

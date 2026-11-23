@@ -146,17 +146,16 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, onReset, 
         {project.description && !project.description.startsWith('[') && (
           <Typography
             variant="body2"
-            color="text.secondary"
             sx={{
+              color: "text.secondary",
               mb: 2,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
-              minHeight: '2.5em',
-            }}
-          >
+              minHeight: '2.5em'
+            }}>
             {project.description}
           </Typography>
         )}
@@ -179,17 +178,16 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, onReset, 
             {project.documentation_preview && (
               <Typography
                 variant="caption"
-                color="text.secondary"
                 sx={{
+                  color: "text.secondary",
                   display: 'block',
                   mt: 0.25,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   fontStyle: 'italic',
-                  maxWidth: '100%',
-                }}
-              >
+                  maxWidth: '100%'
+                }}>
                 {project.documentation_preview}
               </Typography>
             )}
@@ -198,7 +196,9 @@ function ProjectCard({ project, onEdit, onDelete, onDuplicate, onCopy, onReset, 
       </CardContent>
 
       <CardActions sx={{ px: 2, pb: 2, pt: 0, justifyContent: 'space-between' }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           Updated {formatDate(project.updated_at)}
         </Typography>
         {copyOnly ? (

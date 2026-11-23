@@ -85,7 +85,13 @@ function LoginPage() {
           <Typography variant="h4" align="center" gutterBottom>
             Antenna Educator
           </Typography>
-          <Typography variant="body2" align="center" color="text.secondary" paragraph>
+          <Typography
+            variant="body2"
+            align="center"
+            sx={{
+              color: "text.secondary",
+              marginBottom: "16px"
+            }}>
             Sign in to your account
           </Typography>
 
@@ -147,7 +153,9 @@ function LoginPage() {
                 />
               }
               label={
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   Remember me
                 </Typography>
               }
@@ -166,7 +174,9 @@ function LoginPage() {
             </Button>
 
             <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Don't have an account?{' '}
                 <MuiLink
                   component="button"

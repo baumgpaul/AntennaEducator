@@ -65,7 +65,12 @@ function MySubmissionsPage() {
       <Typography variant="h5" gutterBottom>
         My Submissions
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         View all your course project submissions and instructor feedback.
       </Typography>
 
@@ -100,12 +105,16 @@ function MySubmissionsPage() {
                     </Typography>
                     <Chip label={cfg.label} color={cfg.color} size="small" />
                   </Box>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     Submitted: {new Date(sub.submitted_at).toLocaleString()}
                   </Typography>
                   {sub.feedback && (
                     <Box sx={{ mt: 1, p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
-                      <Typography variant="body2" fontWeight={600}>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 600
+                      }}>
                         Feedback:
                       </Typography>
                       <Typography variant="body2">

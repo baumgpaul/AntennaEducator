@@ -46,7 +46,12 @@ function PendingApproval() {
           <Typography variant="h5" gutterBottom>
             Waiting for approval
           </Typography>
-          <Typography variant="body1" color="text.secondary" paragraph>
+          <Typography
+            variant="body1"
+            sx={{
+              color: "text.secondary",
+              marginBottom: "16px"
+            }}>
             Your account{user?.email ? ` (${user.email})` : ''} has been created, but an
             administrator — usually your course instructor — has to approve it before you can
             use Antenna Educator.
@@ -56,7 +61,9 @@ function PendingApproval() {
               Not approved yet. Please try again later or contact your instructor.
             </Alert>
           )}
-          <Stack direction="row" spacing={2} justifyContent="center">
+          <Stack direction="row" spacing={2} sx={{
+            justifyContent: "center"
+          }}>
             <Button variant="contained" onClick={handleCheckAgain} disabled={checking}>
               {checking ? 'Checking…' : 'Check again'}
             </Button>

@@ -20,7 +20,13 @@ function CircuitTab({ elements, selectedElementId, onSelect, onApply, terminalNo
   return (
     <Box sx={{ display: 'flex', flex: 1, minHeight: 0, gap: 2, p: 2 }}>
       <Paper variant="outlined" sx={{ width: 260, overflow: 'auto' }}>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ px: 2, pt: 1.5 }}>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            color: "text.secondary",
+            px: 2,
+            pt: 1.5
+          }}>
           Antennas
         </Typography>
         <List dense>
@@ -53,7 +59,9 @@ function CircuitTab({ elements, selectedElementId, onSelect, onApply, terminalNo
           />
         ) : (
           <Paper variant="outlined" sx={{ p: 3 }}>
-            <Typography color="text.secondary">
+            <Typography sx={{
+              color: "text.secondary"
+            }}>
               Select an antenna on the left to connect sources, loads and ports to it.
             </Typography>
           </Paper>

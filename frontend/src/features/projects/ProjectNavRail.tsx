@@ -45,7 +45,9 @@ function ProjectNavRail({ activeSection, onSectionChange }: ProjectNavRailProps)
             sx={{ py: 1.5 }}
           >
             <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.label} primaryTypographyProps={{ variant: 'body2' }} />
+            <ListItemText primary={item.label} slotProps={{
+              primary: { variant: 'body2' }
+            }} />
           </ListItemButton>
         ))}
       </List>

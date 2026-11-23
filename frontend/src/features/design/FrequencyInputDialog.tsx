@@ -142,8 +142,10 @@ export function FrequencyInputDialog({
       </DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 2 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={8}>
+          <Grid container spacing={2} sx={{
+            alignItems: "center"
+          }}>
+            <Grid size={8}>
               <TextField
                 autoFocus
                 fullWidth
@@ -154,13 +156,15 @@ export function FrequencyInputDialog({
                 error={!!validationError}
                 helperText={validationError || 'Enter frequency value'}
                 disabled={isLoading}
-                inputProps={{
-                  min: 0.1,
-                  step: unit === 'GHz' ? 0.1 : 10,
+                slotProps={{
+                  htmlInput: {
+                    min: 0.1,
+                    step: unit === 'GHz' ? 0.1 : 10,
+                  }
                 }}
               />
             </Grid>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <FormControl fullWidth disabled={isLoading}>
                 <InputLabel id="frequency-unit-label">Unit</InputLabel>
                 <Select

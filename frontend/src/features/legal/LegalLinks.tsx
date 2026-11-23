@@ -6,10 +6,14 @@ import { OPERATOR } from './operator';
 export default function LegalLinks() {
   return (
     <Box component="nav" sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-      <Link component={RouterLink} to="/privacy" variant="body2" color="text.secondary" underline="hover">
+      <Link component={RouterLink} to="/privacy" variant="body2" underline="hover" sx={{
+        color: "text.secondary"
+      }}>
         Privacy / Datenschutz
       </Link>
-      <Link component={RouterLink} to="/imprint" variant="body2" color="text.secondary" underline="hover">
+      <Link component={RouterLink} to="/imprint" variant="body2" underline="hover" sx={{
+        color: "text.secondary"
+      }}>
         Imprint / Impressum
       </Link>
       <Link
@@ -17,8 +21,10 @@ export default function LegalLinks() {
         target="_blank"
         rel="noopener noreferrer"
         variant="body2"
-        color="text.secondary"
         underline="hover"
+        sx={{
+          color: "text.secondary"
+        }}
       >
         Source code (MIT)
       </Link>

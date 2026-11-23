@@ -47,7 +47,9 @@ function ErrorDisplay({ error, onRetry, compact = false }: ErrorDisplayProps) {
           <Typography variant="h6" gutterBottom>
             {errorInfo.title}
           </Typography>
-          <Typography variant="body2" paragraph>
+          <Typography variant="body2" sx={{
+            marginBottom: "16px"
+          }}>
             {errorInfo.message}
           </Typography>
           {errorInfo.retryable && onRetry && (

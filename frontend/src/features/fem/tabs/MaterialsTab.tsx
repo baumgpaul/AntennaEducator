@@ -48,7 +48,9 @@ function MaterialsTab({ studio }: { studio: FemStudio }) {
                 mat && MATERIAL_LIBRARY.some((x) => x.name === mat.name && x.relative_permittivity === mat.relative_permittivity);
               return (
                 <Stack key={d} spacing={1}>
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack direction="row" spacing={1} sx={{
+                    alignItems: "center"
+                  }}>
                     <Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: fill[d], border: 1, borderColor: 'divider' }} />
                     <Typography variant="body2" noWrap title={d}>
                       {d}
@@ -81,8 +83,10 @@ function MaterialsTab({ studio }: { studio: FemStudio }) {
                         label="εr"
                         sx={{ width: 76 }}
                         value={mat.relative_permittivity}
-                        inputProps={{ min: 0, step: 0.1 }}
                         onChange={(e) => set(d, { ...mat, relative_permittivity: Math.max(Number(e.target.value), 1e-6) })}
+                        slotProps={{
+                          htmlInput: { min: 0, step: 0.1 }
+                        }}
                       />
                     )}
                   </Stack>

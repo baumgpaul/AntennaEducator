@@ -164,7 +164,9 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
           >
             <Stack spacing={1}>
               {Object.entries(model.parameters).map(([name, value], i) => (
-                <Stack key={i} direction="row" spacing={1} alignItems="center">
+                <Stack key={i} direction="row" spacing={1} sx={{
+                  alignItems: "center"
+                }}>
                   <TextField
                     size="small"
                     label="Name"
@@ -213,7 +215,9 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
                   onClick={() => setSelected(s.name)}
                 >
                   <Stack spacing={1}>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
+                    <Stack direction="row" spacing={0.5} sx={{
+                      alignItems: "center"
+                    }}>
                       <TextField
                         size="small"
                         label={s.kind}
@@ -246,7 +250,9 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
                         <Delete fontSize="small" />
                       </IconButton>
                     </Stack>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{
+                      flexWrap: "wrap"
+                    }}>
                       {s.kind === 'rectangle' && (
                         <>
                           <ExprField label="x" value={s.x} onChange={field(i, 'x')} width={104} />
@@ -315,20 +321,36 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
           {meshed && studio.mesh && (
             <PanelSection title="Domains & boundaries">
               <Stack spacing={1}>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap alignItems="center">
+                <Stack
+                  direction="row"
+                  spacing={0.5}
+                  useFlexGap
+                  sx={{
+                    flexWrap: "wrap",
+                    alignItems: "center"
+                  }}>
                   <Typography variant="body2">Domains:</Typography>
                   {progress.domains.map((d) => (
                     <Chip key={d} size="small" label={d} />
                   ))}
                 </Stack>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap alignItems="center">
+                <Stack
+                  direction="row"
+                  spacing={0.5}
+                  useFlexGap
+                  sx={{
+                    flexWrap: "wrap",
+                    alignItems: "center"
+                  }}>
                   <Typography variant="body2">Boundaries:</Typography>
                   {progress.boundaries.map((b) => (
                     <Chip key={b} size="small" variant="outlined" label={b} />
                   ))}
                 </Stack>
                 {studio.mesh.warnings.map((w) => (
-                  <Typography key={w} variant="body2" color="warning.main">
+                  <Typography key={w} variant="body2" sx={{
+                    color: "warning.main"
+                  }}>
                     {w}
                   </Typography>
                 ))}

@@ -473,15 +473,24 @@ export const SmithChart: React.FC<SmithChartProps> = ({
         {tooltip}
       </svg>
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.25 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           Z₀ = {z0} Ω
         </Typography>
         {zoom !== 1 && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             · {zoom.toFixed(1)}×
           </Typography>
         )}
-        <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.disabled",
+            fontSize: '0.65rem'
+          }}>
           scroll to zoom · drag to pan · double-click to reset
         </Typography>
       </Box>

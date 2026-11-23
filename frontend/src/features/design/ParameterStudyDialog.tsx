@@ -28,7 +28,7 @@ import {
   Divider,
   Alert,
 } from '@mui/material';
-import { AddCircleOutline as AddCircleOutlineIcon, DeleteOutline as DeleteOutlineIcon } from '@mui/icons-material';
+import { AddCircleOutlined as AddCircleOutlineIcon, DeleteOutlined as DeleteOutlineIcon } from '@mui/icons-material';
 import { useAppSelector } from '@/store/hooks';
 import { selectVariables, selectVariableContextNumeric } from '@/store/variablesSlice';
 import type {
@@ -269,8 +269,10 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
                 numPoints: parseInt(e.target.value) || 2,
               })
             }
-            inputProps={{ min: 2, max: 200 }}
             sx={{ width: 80 }}
+            slotProps={{
+              htmlInput: { min: 2, max: 200 }
+            }}
           />
         </Box>
 
@@ -309,7 +311,6 @@ export const ParameterStudyDialog: React.FC<ParameterStudyDialogProps> = ({
       onClose={isLoading ? undefined : onClose}
       maxWidth="sm"
       fullWidth
-      disableEscapeKeyDown={isLoading}
     >
       <DialogTitle>Parameter Study</DialogTitle>
       <DialogContent>

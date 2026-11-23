@@ -147,5 +147,5 @@ export function useResolvedExpression(expression: string | number) {
           : 'Invalid expression'
       return { value: null, error: msg }
     }
-  }, [expression, variableContext])
+  }, [expression, variableContext]);
 }

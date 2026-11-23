@@ -25,7 +25,9 @@ function QuantitiesView({ result, model }: { result: SolveResult; model: FemMode
     <Stack spacing={3} sx={{ maxWidth: 680, p: 3, overflow: 'auto' }}>
       {c && (
         <Box>
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>
             Capacitance{perDepth}
           </Typography>
           <Table size="small">
@@ -52,14 +54,18 @@ function QuantitiesView({ result, model }: { result: SolveResult; model: FemMode
               )}
             </TableBody>
           </Table>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Both FEM values agree to rounding: for two electrodes Q·ΔV = uᵀKu exactly. Refine the mesh and watch them
             converge — integral quantities are far more accurate than local fields.
           </Typography>
         </Box>
       )}
       <Box>
-        <Typography variant="subtitle2" color="text.secondary">
+        <Typography variant="subtitle2" sx={{
+          color: "text.secondary"
+        }}>
           Charge on each electrode
         </Typography>
         <Table size="small">
@@ -84,12 +90,16 @@ function QuantitiesView({ result, model }: { result: SolveResult; model: FemMode
             ))}
           </TableBody>
         </Table>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           The reaction charge uses the whole FE solution and converges faster than D·n of the elements at the boundary.
         </Typography>
       </Box>
       <Box>
-        <Typography variant="subtitle2" color="text.secondary">
+        <Typography variant="subtitle2" sx={{
+          color: "text.secondary"
+        }}>
           Field energy W = ½·uᵀKu{perDepth}: {si(result.energy, 'J')}
         </Typography>
         {Object.entries(result.energy_by_domain).map(([d, w]) => (

@@ -590,8 +590,10 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
                           size="small"
                           value={edge.node_start}
                           onChange={(e) => updateEdge(idx, 'node_start', Number(e.target.value))}
-                          inputProps={{ min: 1 }}
                           sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem', py: 0.5 } }}
+                          slotProps={{
+                            htmlInput: { min: 1 }
+                          }}
                         />
                       </TableCell>
                       <TableCell sx={{ p: 0.5 }}>
@@ -600,8 +602,10 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
                           size="small"
                           value={edge.node_end}
                           onChange={(e) => updateEdge(idx, 'node_end', Number(e.target.value))}
-                          inputProps={{ min: 1 }}
                           sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem', py: 0.5 } }}
+                          slotProps={{
+                            htmlInput: { min: 1 }
+                          }}
                         />
                       </TableCell>
                       <TableCell sx={{ p: 0.5 }}>
@@ -634,7 +638,13 @@ export const CustomAntennaDialog: React.FC<CustomAntennaDialogProps> = ({
 
           {/* Right side: always-visible 3D preview */}
           <Box sx={{ flex: '1 1 45%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, textAlign: 'center' }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                mb: 1,
+                textAlign: 'center'
+              }}>
               3D Preview
             </Typography>
             {previewNodes.length >= 2 && previewEdges.length >= 1 ? (

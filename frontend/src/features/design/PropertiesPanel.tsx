@@ -52,11 +52,19 @@ function GeometryRow({
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Typography variant="body2" color="text.secondary">{label}:</Typography>
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>{label}:</Typography>
         <Typography variant="body2">{displayVal}{unit ? ` ${unit}` : ''}</Typography>
       </Box>
       {hasExpr && (
-        <Typography variant="caption" fontFamily="monospace" color="primary.main" sx={{ pl: 1 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            fontFamily: "monospace",
+            color: "primary.main",
+            pl: 1
+          }}>
           = {expr}
         </Typography>
       )}
@@ -275,12 +283,19 @@ function PropertiesPanel({
             value={field.value}
             onChange={(e) => handleChange(parseFloat(e.target.value))}
             disabled={field.editable === false}
-            InputProps={{
-              endAdornment: field.unit ? (
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                  {field.unit}
-                </Typography>
-              ) : undefined,
+            slotProps={{
+              input: {
+                endAdornment: field.unit ? (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      ml: 1
+                    }}>
+                    {field.unit}
+                  </Typography>
+                ) : undefined,
+              }
             }}
           />
         );
@@ -356,7 +371,9 @@ function PropertiesPanel({
         <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, color: 'text.primary' }}>
           Properties
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {antennaElement ? antennaElement.name : selectedElement ? 'Element properties' : 'No element selected'}
         </Typography>
       </Box>
@@ -373,7 +390,9 @@ function PropertiesPanel({
               borderStyle: 'dashed',
             }}
           >
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Select an element in the 3D view or tree to view its properties
             </Typography>
           </Paper>
@@ -383,7 +402,13 @@ function PropertiesPanel({
             {antennaElement && (
               <>
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 1,
+                      display: 'block'
+                    }}>
                     Element Type
                   </Typography>
                   <Chip
@@ -397,7 +422,13 @@ function PropertiesPanel({
 
                 {/* Element Name */}
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 1,
+                      display: 'block'
+                    }}>
                     Name
                   </Typography>
                   <TextField
@@ -411,7 +442,13 @@ function PropertiesPanel({
 
                 {/* Element Color */}
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 1,
+                      display: 'block'
+                    }}>
                     Element Color
                   </Typography>
                   <MuiColorInput
@@ -432,7 +469,13 @@ function PropertiesPanel({
                 <>
                 {/* Position */}
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 1,
+                      display: 'block'
+                    }}>
                     Position
                   </Typography>
                   <Stack spacing={1}>
@@ -454,8 +497,10 @@ function PropertiesPanel({
                         }
                       }}
                       sx={{ bgcolor: 'background.default' }}
-                      InputProps={{
-                        endAdornment: <Typography variant="caption">m</Typography>,
+                      slotProps={{
+                        input: {
+                          endAdornment: <Typography variant="caption">m</Typography>,
+                        }
                       }}
                     />
                     <TextField
@@ -476,8 +521,10 @@ function PropertiesPanel({
                         }
                       }}
                       sx={{ bgcolor: 'background.default' }}
-                      InputProps={{
-                        endAdornment: <Typography variant="caption">m</Typography>,
+                      slotProps={{
+                        input: {
+                          endAdornment: <Typography variant="caption">m</Typography>,
+                        }
                       }}
                     />
                     <TextField
@@ -498,8 +545,10 @@ function PropertiesPanel({
                         }
                       }}
                       sx={{ bgcolor: 'background.default' }}
-                      InputProps={{
-                        endAdornment: <Typography variant="caption">m</Typography>,
+                      slotProps={{
+                        input: {
+                          endAdornment: <Typography variant="caption">m</Typography>,
+                        }
                       }}
                     />
                   </Stack>
@@ -507,10 +556,23 @@ function PropertiesPanel({
 
                 {/* Orientation Vector (replaces rotation for all antenna element types) */}
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 1,
+                      display: 'block'
+                    }}>
                     {getOrientationLabel(antennaElement.type)}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontSize: '0.7rem' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 1,
+                      display: 'block',
+                      fontSize: '0.7rem'
+                    }}>
                     Direction the {antennaElement.type} points along (will be normalized)
                   </Typography>
                   <ToggleButtonGroup
@@ -537,7 +599,9 @@ function PropertiesPanel({
                         handleOrientationComponentChange(0, parseDecimalNumber(e.target.value) || 0);
                       }}
                       sx={{ bgcolor: 'background.default' }}
-                      inputProps={{ step: 0.1 }}
+                      slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }}
                     />
                     <TextField
                       fullWidth
@@ -550,7 +614,9 @@ function PropertiesPanel({
                         handleOrientationComponentChange(1, parseDecimalNumber(e.target.value) || 0);
                       }}
                       sx={{ bgcolor: 'background.default' }}
-                      inputProps={{ step: 0.1 }}
+                      slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }}
                     />
                     <TextField
                       fullWidth
@@ -563,7 +629,9 @@ function PropertiesPanel({
                         handleOrientationComponentChange(2, parseDecimalNumber(e.target.value) || 0);
                       }}
                       sx={{ bgcolor: 'background.default' }}
-                      inputProps={{ step: 0.1 }}
+                      slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }}
                     />
                   </Stack>
                 </Box>
@@ -571,7 +639,13 @@ function PropertiesPanel({
                 {/* Type-Specific Parameters (read-only) */}
                 <Divider />
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 1,
+                      display: 'block'
+                    }}>
                     Geometry Parameters
                   </Typography>
                   <Stack spacing={1}>
@@ -579,7 +653,9 @@ function PropertiesPanel({
                       <>
                         <GeometryRow label="Length" value={(antennaElement.config as GeomFields).length} unit="m" exprKey="length" expressions={antennaElement.expressions} />
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Segments:</Typography>
+                          <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                          }}>Segments:</Typography>
                           <Typography variant="body2">{(antennaElement.config as GeomFields).segments ?? '—'}</Typography>
                         </Box>
                         <GeometryRow label="Wire radius" value={(antennaElement.config as GeomFields).wire_radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
@@ -590,7 +666,9 @@ function PropertiesPanel({
                       <>
                         <GeometryRow label="Radius" value={(antennaElement.config as GeomFields).radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Segments:</Typography>
+                          <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                          }}>Segments:</Typography>
                           <Typography variant="body2">{(antennaElement.config as GeomFields).segments ?? '—'}</Typography>
                         </Box>
                         <GeometryRow label="Wire radius" value={(antennaElement.config as GeomFields).wire_radius} unit="m" exprKey="wireRadius" expressions={antennaElement.expressions} />
@@ -600,11 +678,15 @@ function PropertiesPanel({
                     {antennaElement.type === 'rod' && (
                       <>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Length:</Typography>
+                          <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                          }}>Length:</Typography>
                           <Typography variant="body2">{((antennaElement.config as GeomFields).length ?? '—')} m</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">Segments:</Typography>
+                          <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                          }}>Segments:</Typography>
                           <Typography variant="body2">{(antennaElement.config as GeomFields).segments ?? '—'}</Typography>
                         </Box>
                         <GeometryRow label="Wire radius" value={(antennaElement.config as GeomFields).wire_radius} unit="m" exprKey="radius" expressions={antennaElement.expressions} />
@@ -612,11 +694,15 @@ function PropertiesPanel({
                     )}
                     {/* Mesh info (always shown) */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">Nodes:</Typography>
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>Nodes:</Typography>
                       <Typography variant="body2">{antennaElement.mesh?.nodes?.length ?? 0}</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">Edges:</Typography>
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>Edges:</Typography>
                       <Typography variant="body2">{antennaElement.mesh?.edges?.length ?? 0}</Typography>
                     </Box>
                   </Stack>
@@ -626,7 +712,13 @@ function PropertiesPanel({
                   <>
                     <Divider />
                     <Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "text.secondary",
+                          mb: 1,
+                          display: 'block'
+                        }}>
                         Feed Configuration
                       </Typography>
                       <ToggleButtonGroup
@@ -658,15 +750,17 @@ function PropertiesPanel({
                             emitSourceChange(localSourceType, val, localPhase);
                           }}
                           sx={{ bgcolor: 'background.default' }}
-                          InputProps={{
-                            endAdornment: (
-                              <Typography variant="caption">
-                                {localSourceType === 'voltage' ? 'V' : 'A'}
-                              </Typography>
-                            ),
-                          }}
-                          inputProps={{ step: 0.1, min: 0 }}
-                        />
+                          slotProps={{
+                            input: {
+                              endAdornment: (
+                                <Typography variant="caption">
+                                  {localSourceType === 'voltage' ? 'V' : 'A'}
+                                </Typography>
+                              ),
+                            },
+
+                            htmlInput: { step: 0.1, min: 0 }
+                          }} />
                         <TextField
                           fullWidth
                           size="small"
@@ -680,11 +774,13 @@ function PropertiesPanel({
                             emitSourceChange(localSourceType, localAmplitude, val);
                           }}
                           sx={{ bgcolor: 'background.default' }}
-                          InputProps={{
-                            endAdornment: <Typography variant="caption">°</Typography>,
-                          }}
-                          inputProps={{ step: 1 }}
-                        />
+                          slotProps={{
+                            input: {
+                              endAdornment: <Typography variant="caption">°</Typography>,
+                            },
+
+                            htmlInput: { step: 1 }
+                          }} />
                       </Stack>
                     </Box>
                   </>
@@ -698,7 +794,13 @@ function PropertiesPanel({
             {selectedElement && !antennaElement && (
               <>
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 1,
+                      display: 'block'
+                    }}>
                     Element Type
                   </Typography>
                   <Chip
@@ -712,7 +814,13 @@ function PropertiesPanel({
 
                 {/* Properties */}
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 1,
+                      display: 'block'
+                    }}>
                     Parameters
                   </Typography>
                   <Stack spacing={2}>
@@ -727,24 +835,36 @@ function PropertiesPanel({
               <>
                 <Divider />
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 1,
+                      display: 'block'
+                    }}>
                     Computed Values
                   </Typography>
                   <Stack spacing={1}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         Length:
                       </Typography>
                       <Typography variant="body2">1.234 m</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         Resistance:
                       </Typography>
                       <Typography variant="body2">0.052 Ω</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         Inductance:
                       </Typography>
                       <Typography variant="body2">12.5 nH</Typography>
@@ -758,7 +878,13 @@ function PropertiesPanel({
               <>
                 <Divider />
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 1,
+                      display: 'block'
+                    }}>
                     Source Parameters
                   </Typography>
                   <Stack spacing={2}>
@@ -768,8 +894,10 @@ function PropertiesPanel({
                       label="Magnitude"
                       type="number"
                       defaultValue={1.0}
-                      InputProps={{
-                        endAdornment: <Typography variant="caption">V</Typography>,
+                      slotProps={{
+                        input: {
+                          endAdornment: <Typography variant="caption">V</Typography>,
+                        }
                       }}
                     />
                     <TextField
@@ -778,8 +906,10 @@ function PropertiesPanel({
                       label="Phase"
                       type="number"
                       defaultValue={0}
-                      InputProps={{
-                        endAdornment: <Typography variant="caption">°</Typography>,
+                      slotProps={{
+                        input: {
+                          endAdornment: <Typography variant="caption">°</Typography>,
+                        }
                       }}
                     />
                   </Stack>

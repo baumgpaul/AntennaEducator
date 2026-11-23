@@ -6,7 +6,7 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { reportClientError } from '@/utils/errorReporting';
 import { Box, Button, Container, Paper, Typography } from '@mui/material';
-import { ErrorOutline as ErrorOutlineIcon } from '@mui/icons-material';
+import { ErrorOutlined as ErrorOutlineIcon } from '@mui/icons-material';
 
 interface Props {
   children: ReactNode;

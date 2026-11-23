@@ -90,9 +90,11 @@ function EditProjectDialog({ open, project, onClose }: EditProjectDialogProps) {
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        component: 'form',
-        onSubmit: handleSubmit(onSubmit),
+      slotProps={{
+        paper: {
+          component: 'form',
+          onSubmit: handleSubmit(onSubmit),
+        }
       }}
     >
       <DialogTitle>Edit Project</DialogTitle>

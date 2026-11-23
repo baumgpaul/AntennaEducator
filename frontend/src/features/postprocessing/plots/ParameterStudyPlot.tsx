@@ -82,7 +82,9 @@ export function ParameterStudyPlot({ study, z0 = 50 }: ParameterStudyPlotProps) 
   if (rows.length === 0) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="text.secondary">No results available</Typography>
+        <Typography sx={{
+          color: "text.secondary"
+        }}>No results available</Typography>
       </Box>
     );
   }
@@ -107,8 +109,12 @@ export function ParameterStudyPlot({ study, z0 = 50 }: ParameterStudyPlotProps) 
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 1 }}>
-        <Typography variant="subtitle1" fontWeight={600}>{title}</Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 600
+        }}>{title}</Typography>
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {rows.length} points &middot; {(study.totalTimeMs / 1000).toFixed(1)}s
         </Typography>
       </Box>

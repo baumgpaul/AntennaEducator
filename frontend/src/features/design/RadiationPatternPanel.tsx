@@ -96,13 +96,19 @@ const RadiationPatternPanel: React.FC<RadiationPatternPanelProps> = ({
           <Typography variant="h6">Radiation Pattern</Typography>
           {patternData && (
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Directivity: <strong>{patternData.directivity.toFixed(2)} dBi</strong>
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Gain: <strong>{patternData.gain.toFixed(2)} dBi</strong>
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Efficiency: <strong>{(patternData.efficiency * 100).toFixed(1)}%</strong>
               </Typography>
             </Box>
@@ -233,7 +239,7 @@ const RadiationPatternPanel: React.FC<RadiationPatternPanelProps> = ({
         </Box>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 export default RadiationPatternPanel

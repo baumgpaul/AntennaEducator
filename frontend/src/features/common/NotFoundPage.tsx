@@ -27,7 +27,12 @@ function NotFoundPage() {
           <Typography variant="h5" gutterBottom>
             Page Not Found
           </Typography>
-          <Typography variant="body1" color="text.secondary" paragraph>
+          <Typography
+            variant="body1"
+            sx={{
+              color: "text.secondary",
+              marginBottom: "16px"
+            }}>
             The page you are looking for doesn't exist or has been moved.
           </Typography>
           <Button

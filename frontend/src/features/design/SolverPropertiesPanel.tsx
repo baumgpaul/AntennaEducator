@@ -83,7 +83,9 @@ export function SolverPropertiesPanel({
     <Box sx={{ p: 2 }}>
       {/* Field Region Display Settings */}
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-        <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+        <Typography variant="subtitle2" gutterBottom sx={{
+          fontWeight: 600
+        }}>
           Show Requested Fields
         </Typography>
 
@@ -123,10 +125,14 @@ export function SolverPropertiesPanel({
           />
         ) : (
           <Paper variant="outlined" sx={{ p: 3, mt: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography variant="body2" gutterBottom sx={{
+              color: "text.secondary"
+            }}>
               <strong>Directivity</strong>
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Directivity will be computed in the far field when you click "Compute Postprocessing Result"
             </Typography>
           </Paper>
@@ -507,10 +513,18 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+      <Typography variant="subtitle2" gutterBottom sx={{
+        fontWeight: 600
+      }}>
         {field.name || `Field ${field.id}`}
       </Typography>
-      <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+      <Typography
+        variant="caption"
+        gutterBottom
+        sx={{
+          color: "text.secondary",
+          display: "block"
+        }}>
         Type: {field.type} Region
       </Typography>
 
@@ -525,22 +539,37 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
         onChange={(e) => setLocalValues({ ...localValues, name: e.target.value })}
         error={!!errors.name}
         helperText={errors.name || 'Identifier shown in the tree view'}
-        InputLabelProps={{ shrink: true }}
         sx={{ mb: 2 }}
+        slotProps={{
+          inputLabel: { shrink: true }
+        }}
       />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           Region
         </Typography>
-        <Typography variant="body2" color="text.primary" fontWeight={600}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.primary",
+            fontWeight: 600
+          }}>
           {field.type.toUpperCase()} · {field.shape}
         </Typography>
       </Box>
 
       {/* Per-field opacity */}
       <Box sx={{ mb: 2 }}>
-        <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+        <Typography
+          variant="caption"
+          gutterBottom
+          sx={{
+            color: "text.secondary",
+            display: "block"
+          }}>
           Opacity: {Math.round(getOpacityPercent())}%
         </Typography>
         <Slider
@@ -563,7 +592,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
           {/* ---- Line ---- */}
           {field1D.shape === 'line' && (
             <>
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Start Point (mm):
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -578,13 +613,21 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                     onChange={(e) => setLocalValues({ ...localValues, [`startPoint_${i}`]: e.target.value })}
                     error={!!errors[`startPoint_${i}`]}
                     helperText={errors[`startPoint_${i}`]}
-                    InputLabelProps={{ shrink: true }}
                     sx={{ flex: 1 }}
+                    slotProps={{
+                      inputLabel: { shrink: true }
+                    }}
                   />
                 ))}
               </Box>
 
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 End Point (mm):
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -599,13 +642,21 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                     onChange={(e) => setLocalValues({ ...localValues, [`endPoint_${i}`]: e.target.value })}
                     error={!!errors[`endPoint_${i}`]}
                     helperText={errors[`endPoint_${i}`]}
-                    InputLabelProps={{ shrink: true }}
                     sx={{ flex: 1 }}
+                    slotProps={{
+                      inputLabel: { shrink: true }
+                    }}
                   />
                 ))}
               </Box>
 
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Sampling:
               </Typography>
               <TextField
@@ -618,8 +669,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                 onChange={(e) => setLocalValues({ ...localValues, numPoints: e.target.value })}
                 error={!!errors.numPoints}
                 helperText={errors.numPoints || 'Uniformly distributed along the line'}
-                InputLabelProps={{ shrink: true }}
                 sx={{ mb: 2 }}
+                slotProps={{
+                  inputLabel: { shrink: true }
+                }}
               />
             </>
           )}
@@ -627,7 +680,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
           {/* ---- Arc ---- */}
           {field1D.shape === 'arc' && (
             <>
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Center Point (mm):
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -642,13 +701,21 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                     onChange={(e) => setLocalValues({ ...localValues, [`center_${i}`]: e.target.value })}
                     error={!!errors[`center_${i}`]}
                     helperText={errors[`center_${i}`]}
-                    InputLabelProps={{ shrink: true }}
                     sx={{ flex: 1 }}
+                    slotProps={{
+                      inputLabel: { shrink: true }
+                    }}
                   />
                 ))}
               </Box>
 
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Radii (mm):
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -661,8 +728,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   onChange={(e) => setLocalValues({ ...localValues, radiusA: e.target.value })}
                   error={!!errors.radiusA}
                   helperText={errors.radiusA || 'Along Axis 1'}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
                 <TextField
                   label="Radius B"
@@ -673,8 +742,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   onChange={(e) => setLocalValues({ ...localValues, radiusB: e.target.value })}
                   error={!!errors.radiusB}
                   helperText={errors.radiusB || 'Along Axis 2'}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
               </Box>
 
@@ -696,7 +767,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
               {/* Custom Axis inputs */}
               {field1D.normalPreset === 'Custom' && (
                 <Box sx={{ pl: 2, mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      display: "block",
+                      mb: 0.5
+                    }}>
                     Axis 1 (0° direction):
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
@@ -711,13 +788,20 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                         onChange={(e) =>
                           setLocalValues({ ...localValues, [`arc_axis1_${i}`]: e.target.value })
                         }
-                        InputLabelProps={{ shrink: true }}
-                        inputProps={{ step: 0.1 }}
                         sx={{ flex: 1 }}
-                      />
+                        slotProps={{
+                          htmlInput: { step: 0.1 },
+                          inputLabel: { shrink: true }
+                        }} />
                     ))}
                   </Box>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      display: "block",
+                      mb: 0.5
+                    }}>
                     Axis 2 (90° direction):
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1 }}>
@@ -732,10 +816,11 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                         onChange={(e) =>
                           setLocalValues({ ...localValues, [`arc_axis2_${i}`]: e.target.value })
                         }
-                        InputLabelProps={{ shrink: true }}
-                        inputProps={{ step: 0.1 }}
                         sx={{ flex: 1 }}
-                      />
+                        slotProps={{
+                          htmlInput: { step: 0.1 },
+                          inputLabel: { shrink: true }
+                        }} />
                     ))}
                   </Box>
                   {(errors.arc_axis1 || errors.arc_axis2) && (
@@ -746,7 +831,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                 </Box>
               )}
 
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Arc Angles (degrees):
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -759,8 +850,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   onChange={(e) => setLocalValues({ ...localValues, startAngle: e.target.value })}
                   error={!!errors.startAngle}
                   helperText={errors.startAngle || '0° = along Axis 1'}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
                 <TextField
                   label="End Angle"
@@ -771,12 +864,20 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   onChange={(e) => setLocalValues({ ...localValues, endAngle: e.target.value })}
                   error={!!errors.endAngle}
                   helperText={errors.endAngle || '360° = full ellipse'}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
               </Box>
 
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Sampling:
               </Typography>
               <TextField
@@ -789,8 +890,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                 onChange={(e) => setLocalValues({ ...localValues, numPoints: e.target.value })}
                 error={!!errors.numPoints}
                 helperText={errors.numPoints || 'Uniformly distributed along the arc'}
-                InputLabelProps={{ shrink: true }}
                 sx={{ mb: 2 }}
+                slotProps={{
+                  inputLabel: { shrink: true }
+                }}
               />
             </>
           )}
@@ -800,7 +903,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
       {/* Center Point (for 2D and 3D fields) */}
       {(field2D || field3D) && (
         <>
-          <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+          <Typography
+            variant="caption"
+            gutterBottom
+            sx={{
+              color: "text.secondary",
+              display: "block"
+            }}>
             Center Point (mm):
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -815,8 +924,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                 onChange={(e) => setLocalValues({ ...localValues, [`center_${i}`]: e.target.value })}
                 error={!!errors[`center_${i}`]}
                 helperText={errors[`center_${i}`]}
-                InputLabelProps={{ shrink: true }}
                 sx={{ flex: 1 }}
+                slotProps={{
+                  inputLabel: { shrink: true }
+                }}
               />
             ))}
           </Box>
@@ -829,7 +940,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
           {/* ---- Plane ---- */}
           {field2D.shape === 'plane' && (
             <>
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Plane Dimensions (mm):
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -842,8 +959,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   onChange={(e) => setLocalValues({ ...localValues, width: e.target.value })}
                   error={!!errors.width}
                   helperText={errors.width}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
                 <TextField
                   label="Height"
@@ -854,8 +973,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   onChange={(e) => setLocalValues({ ...localValues, height: e.target.value })}
                   error={!!errors.height}
                   helperText={errors.height}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
               </Box>
 
@@ -877,7 +998,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
               {/* Custom Normal Vector inputs */}
               {field2D.normalPreset === 'Custom' && (
                 <Box sx={{ pl: 2, mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      display: "block",
+                      mb: 0.5
+                    }}>
                     Custom Normal Vector:
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1 }}>
@@ -895,8 +1022,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                         onChange={(e) =>
                           setLocalValues({ ...localValues, [`normal_${i}`]: e.target.value })
                         }
-                        InputLabelProps={{ shrink: true }}
                         sx={{ flex: 1 }}
+                        slotProps={{
+                          inputLabel: { shrink: true }
+                        }}
                       />
                     ))}
                   </Box>
@@ -909,7 +1038,12 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
               {/* Show resolved normal when not custom */}
               {field2D.normalPreset !== 'Custom' && field2D.normalVector && (
                 <Box sx={{ pl: 2, mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      display: "block"
+                    }}>
                     Normal: ({field2D.normalVector[0].toFixed(2)},{' '}
                     {field2D.normalVector[1].toFixed(2)},{' '}
                     {field2D.normalVector[2].toFixed(2)})
@@ -922,7 +1056,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
           {/* ---- Ellipse ---- */}
           {field2D.shape === 'ellipse' && (
             <>
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Ellipse Radii (mm):
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -935,8 +1075,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   onChange={(e) => setLocalValues({ ...localValues, radiusA: e.target.value })}
                   error={!!errors.radiusA}
                   helperText={errors.radiusA || 'Along axis 1'}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
                 <TextField
                   label="Radius B"
@@ -947,8 +1089,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   onChange={(e) => setLocalValues({ ...localValues, radiusB: e.target.value })}
                   error={!!errors.radiusB}
                   helperText={errors.radiusB || 'Along axis 2'}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
               </Box>
 
@@ -970,7 +1114,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
               {/* Custom axis vectors */}
               {field2D.normalPreset === 'Custom' && (
                 <Box sx={{ pl: 2, mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      display: "block",
+                      mb: 0.5
+                    }}>
                     Axis 1 (direction of radius A):
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
@@ -988,14 +1138,22 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                         onChange={(e) =>
                           setLocalValues({ ...localValues, [`axis1_${i}`]: e.target.value })
                         }
-                        InputLabelProps={{ shrink: true }}
                         sx={{ flex: 1 }}
+                        slotProps={{
+                          inputLabel: { shrink: true }
+                        }}
                       />
                     ))}
                   </Box>
                   {errors.axis1 && <FormHelperText error>{errors.axis1}</FormHelperText>}
 
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      display: "block",
+                      mb: 0.5
+                    }}>
                     Axis 2 (direction of radius B):
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1 }}>
@@ -1013,8 +1171,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                         onChange={(e) =>
                           setLocalValues({ ...localValues, [`axis2_${i}`]: e.target.value })
                         }
-                        InputLabelProps={{ shrink: true }}
                         sx={{ flex: 1 }}
+                        slotProps={{
+                          inputLabel: { shrink: true }
+                        }}
                       />
                     ))}
                   </Box>
@@ -1025,10 +1185,20 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
               {/* Resolved axes display when preset */}
               {field2D.normalPreset !== 'Custom' && field2D.axis1 && field2D.axis2 && (
                 <Box sx={{ pl: 2, mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      display: "block"
+                    }}>
                     Axis 1: ({field2D.axis1[0]}, {field2D.axis1[1]}, {field2D.axis1[2]})
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      display: "block"
+                    }}>
                     Axis 2: ({field2D.axis2[0]}, {field2D.axis2[1]}, {field2D.axis2[2]})
                   </Typography>
                 </Box>
@@ -1037,7 +1207,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
           )}
 
           {/* 2D Sampling Resolution */}
-          <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+          <Typography
+            variant="caption"
+            gutterBottom
+            sx={{
+              color: "text.secondary",
+              display: "block"
+            }}>
             Sampling Resolution:
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -1050,8 +1226,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
               onChange={(e) => setLocalValues({ ...localValues, sampling_x: e.target.value })}
               error={!!errors.sampling_x}
               helperText={errors.sampling_x}
-              InputLabelProps={{ shrink: true }}
               sx={{ flex: 1 }}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
             <TextField
               label={field2D.shape === 'ellipse' ? 'Radial' : 'Points Y'}
@@ -1062,8 +1240,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
               onChange={(e) => setLocalValues({ ...localValues, sampling_y: e.target.value })}
               error={!!errors.sampling_y}
               helperText={errors.sampling_y}
-              InputLabelProps={{ shrink: true }}
               sx={{ flex: 1 }}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
           </Box>
         </>
@@ -1075,7 +1255,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
           {/* ---- Sphere ---- */}
           {field3D.shape === 'sphere' && (
             <>
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Sphere Radius (mm):
               </Typography>
               <TextField
@@ -1088,12 +1274,20 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                 onChange={(e) => setLocalValues({ ...localValues, sphereRadius: e.target.value })}
                 error={!!errors.sphereRadius}
                 helperText={errors.sphereRadius}
-                InputLabelProps={{ shrink: true }}
                 sx={{ mb: 2 }}
+                slotProps={{
+                  inputLabel: { shrink: true }
+                }}
               />
 
               {/* Sphere Sampling: theta, phi, radial */}
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Sampling Resolution:
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
@@ -1108,7 +1302,9 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   }
                   error={!!errors.sampling_theta}
                   helperText={errors.sampling_theta || '0° to 180°'}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
                 <TextField
                   label="Phi (azimuth)"
@@ -1121,7 +1317,9 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   }
                   error={!!errors.sampling_phi}
                   helperText={errors.sampling_phi || '0° to 360°'}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
                 <TextField
                   label="Radial layers"
@@ -1134,7 +1332,9 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   }
                   error={!!errors.sampling_radial}
                   helperText={errors.sampling_radial}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
               </Box>
             </>
@@ -1143,7 +1343,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
           {/* ---- Cuboid ---- */}
           {field3D.shape === 'cuboid' && (
             <>
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Cuboid Dimensions (mm):
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
@@ -1156,7 +1362,9 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   onChange={(e) => setLocalValues({ ...localValues, Lx: e.target.value })}
                   error={!!errors.Lx}
                   helperText={errors.Lx}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
                 <TextField
                   label="Length Y"
@@ -1167,7 +1375,9 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   onChange={(e) => setLocalValues({ ...localValues, Ly: e.target.value })}
                   error={!!errors.Ly}
                   helperText={errors.Ly}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
                 <TextField
                   label="Length Z"
@@ -1178,12 +1388,20 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   onChange={(e) => setLocalValues({ ...localValues, Lz: e.target.value })}
                   error={!!errors.Lz}
                   helperText={errors.Lz}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
               </Box>
 
               {/* Cuboid Sampling: Nx, Ny, Nz */}
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Sampling Resolution:
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -1198,8 +1416,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   }
                   error={!!errors.sampling_Nx}
                   helperText={errors.sampling_Nx}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
                 <TextField
                   label="Ny"
@@ -1212,8 +1432,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   }
                   error={!!errors.sampling_Ny}
                   helperText={errors.sampling_Ny}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
                 <TextField
                   label="Nz"
@@ -1226,8 +1448,10 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
                   }
                   error={!!errors.sampling_Nz}
                   helperText={errors.sampling_Nz}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
               </Box>
             </>
@@ -1236,7 +1460,13 @@ function FieldPropertiesEditor({ field, onUpdate, onDelete }: FieldPropertiesEdi
       )}
 
       {/* Field Type */}
-      <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+      <Typography
+        variant="caption"
+        gutterBottom
+        sx={{
+          color: "text.secondary",
+          display: "block"
+        }}>
         Field Type:
       </Typography>
       <RadioGroup
@@ -1331,13 +1561,21 @@ function DirectivitySettingsEditor({ settings, onUpdate }: DirectivitySettingsEd
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+      <Typography variant="subtitle2" gutterBottom sx={{
+        fontWeight: 600
+      }}>
         Directivity
       </Typography>
 
       <Divider sx={{ my: 1.5 }} />
 
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "text.secondary",
+          display: 'block',
+          mb: 2
+        }}>
         Configure the angular discretization for far-field radiation pattern computation.
       </Typography>
 
@@ -1351,9 +1589,11 @@ function DirectivitySettingsEditor({ settings, onUpdate }: DirectivitySettingsEd
         onBlur={handleThetaBlur}
         error={!!thetaError}
         helperText={thetaError || 'Number of points from 0° to 180°'}
-        inputProps={{ min: 5, max: 180, step: 1 }}
         size="small"
         sx={{ mb: 2 }}
+        slotProps={{
+          htmlInput: { min: 5, max: 180, step: 1 }
+        }}
       />
 
       {/* Phi Points */}
@@ -1366,14 +1606,18 @@ function DirectivitySettingsEditor({ settings, onUpdate }: DirectivitySettingsEd
         onBlur={handlePhiBlur}
         error={!!phiError}
         helperText={phiError || 'Number of points from 0° to 360°'}
-        inputProps={{ min: 5, max: 360, step: 1 }}
         size="small"
         sx={{ mb: 2 }}
+        slotProps={{
+          htmlInput: { min: 5, max: 360, step: 1 }
+        }}
       />
 
       {/* Info */}
       <Box sx={{ bgcolor: 'info.lighter', p: 1.5, borderRadius: 1 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           <strong>Total sample points:</strong> {thetaPoints * phiPoints}
           <br />
           <strong>Note:</strong> Changes will require recomputation of the directivity pattern.

@@ -48,7 +48,13 @@ function SidePanel({ projectId, tab, onTabChange, step }: Props) {
         </Box>
       ) : (
         <Paper variant="outlined" sx={{ width: 320, p: 2, overflow: 'auto', flex: 1 }} aria-label="Learn">
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: "center",
+              mb: 1
+            }}>
             <School fontSize="small" color="primary" />
             <Typography variant="subtitle1" sx={{ flex: 1 }}>
               Learn: {step.label}
@@ -60,7 +66,9 @@ function SidePanel({ projectId, tab, onTabChange, step }: Props) {
             </Tooltip>
           </Stack>
           {step.learn.map((paragraph) => (
-            <Typography key={paragraph} variant="body2" paragraph>
+            <Typography key={paragraph} variant="body2" sx={{
+              marginBottom: "16px"
+            }}>
               {paragraph}
             </Typography>
           ))}

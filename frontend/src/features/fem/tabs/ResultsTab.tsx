@@ -43,9 +43,12 @@ function ResultsTab({ studio }: { studio: FemStudio }) {
 
   if (!result) {
     return (
-      <Typography color="text.secondary" sx={{ p: 3 }}>
-        Solve the model on the Solve tab first.
-      </Typography>
+      <Typography
+        sx={{
+          color: "text.secondary",
+          p: 3
+        }}>Solve the model on the Solve tab first.
+              </Typography>
     );
   }
   const current = progress.done.has('results');

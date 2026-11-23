@@ -48,10 +48,14 @@ function ColorScaleLegend({
 
       {/* Value labels */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {min.toExponential(2)} {unit}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {max.toExponential(2)} {unit}
         </Typography>
       </Box>
@@ -69,7 +73,9 @@ function ColorScaleLegend({
               borderRadius: 0.5,
             }}
           />
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Low
           </Typography>
         </Box>
@@ -84,7 +90,9 @@ function ColorScaleLegend({
               borderRadius: 0.5,
             }}
           />
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Medium
           </Typography>
         </Box>
@@ -99,7 +107,9 @@ function ColorScaleLegend({
               borderRadius: 0.5,
             }}
           />
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             High
           </Typography>
         </Box>

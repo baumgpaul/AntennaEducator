@@ -52,7 +52,12 @@ export default function SubmitDialog({
           .
         </DialogContentText>
         {examinerName && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mb: 1
+            }}>
             Examiner: <strong>{examinerName}</strong>
           </Typography>
         )}

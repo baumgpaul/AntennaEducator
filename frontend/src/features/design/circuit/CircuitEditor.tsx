@@ -42,7 +42,7 @@ import {
   ToggleButtonGroup,
   TextField,
 } from '@mui/material';
-import { AddCircleOutline as AddCircleOutlineIcon, Save as SaveIcon, AccountTree as AccountTreeIcon } from '@mui/icons-material';
+import { AddCircleOutlined as AddCircleOutlineIcon, Save as SaveIcon, AccountTree as AccountTreeIcon } from '@mui/icons-material';
 
 import { circuitNodeTypes, type CircuitNodeData } from './CircuitNodeTypes';
 import { circuitEdgeTypes, type CircuitEdgeData } from './CircuitEdgeTypes';
@@ -584,7 +584,13 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
           }}
         >
           {/* Connection Mode */}
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 600,
+              textTransform: 'uppercase'
+            }}>
             Connect Mode
           </Typography>
           <ToggleButtonGroup
@@ -659,7 +665,13 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
           <Divider sx={{ borderColor: '#333' }} />
 
           {/* Add Appended Node */}
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 600,
+              textTransform: 'uppercase'
+            }}>
             Auxiliary Nodes
           </Typography>
           <TextField
@@ -686,25 +698,43 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
           <Divider sx={{ borderColor: '#333' }} />
 
           {/* Legend */}
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 600,
+              textTransform: 'uppercase'
+            }}>
             Legend
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{ width: 12, height: 12, borderRadius: 0.5, border: '2px solid #4a9eff', bgcolor: '#1a3a5c' }} />
-              <Typography variant="caption" color="text.secondary">Terminal node</Typography>
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>Terminal node</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{ width: 12, height: 12, borderRadius: 0.5, border: '2px solid #4caf50', bgcolor: '#1a3c1a' }} />
-              <Typography variant="caption" color="text.secondary">GND (ref)</Typography>
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>GND (ref)</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{ width: 12, height: 12, borderRadius: 0.5, border: '2px solid #ff9800', bgcolor: '#3c2a1a' }} />
-              <Typography variant="caption" color="text.secondary">Auxiliary node</Typography>
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>Auxiliary node</Typography>
             </Box>
           </Box>
 
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, lineHeight: 1.4 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              mt: 1,
+              lineHeight: 1.4
+            }}>
             Drag between nodes to connect. Select a component type first, then drag.
             Click edge label to edit. Select a node or edge and press <b>Delete</b> to remove.
             Alt+click label to drag it, double-click to reset.
@@ -793,7 +823,12 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
     </>
   );
   const counts = (
-    <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+    <Typography
+      variant="caption"
+      sx={{
+        color: "text.secondary",
+        flex: 1
+      }}>
       {circuit.components.length} component{circuit.components.length !== 1 ? 's' : ''} ·{' '}
       {circuit.nodes.length} node{circuit.nodes.length !== 1 ? 's' : ''}
     </Typography>
@@ -833,13 +868,15 @@ export const CircuitEditor: React.FC<CircuitEditorProps> = ({
       onClose={onClose}
       maxWidth={false}
       fullWidth
-      PaperProps={{
-        sx: {
-          width: '90vw',
-          height: '80vh',
-          maxWidth: 1200,
-          bgcolor: '#121218',
-        },
+      slotProps={{
+        paper: {
+          sx: {
+            width: '90vw',
+            height: '80vh',
+            maxWidth: 1200,
+            bgcolor: '#121218',
+          },
+        }
       }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>{title}</DialogTitle>

@@ -158,7 +158,13 @@ export function PanelSection({
 /** Short explanatory text under a canvas or in a panel. */
 export function Hint({ children }: { children: React.ReactNode }) {
   return (
-    <Typography variant="caption" color="text.secondary" component="div" sx={{ lineHeight: 1.5 }}>
+    <Typography
+      variant="caption"
+      component="div"
+      sx={{
+        color: "text.secondary",
+        lineHeight: 1.5
+      }}>
       {children}
     </Typography>
   );

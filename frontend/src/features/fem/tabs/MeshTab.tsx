@@ -65,7 +65,9 @@ function MeshTab({ studio }: { studio: FemStudio }) {
           <PanelSection title="Finer along a boundary">
             <Stack spacing={1}>
               {Object.entries(model.mesh.boundary_sizes).map(([b, v]) => (
-                <Stack key={b} direction="row" spacing={1} alignItems="center">
+                <Stack key={b} direction="row" spacing={1} sx={{
+                  alignItems: "center"
+                }}>
                   <Typography variant="body2" sx={{ width: 80 }} noWrap title={b}>
                     {b}
                   </Typography>
@@ -143,7 +145,11 @@ function MeshTab({ studio }: { studio: FemStudio }) {
       {mesh ? (
         <MeshView mesh={mesh} triangleValues={colorBy === 'quality' ? mesh.quality : undefined} height="fill" />
       ) : (
-        <Typography color="text.secondary" sx={{ p: 3 }}>
+        <Typography
+          sx={{
+            color: "text.secondary",
+            p: 3
+          }}>
           Generate the mesh to see it here.
         </Typography>
       )}
@@ -155,10 +161,18 @@ function QualityHistogram({ histogram, min }: { histogram: number[]; min: number
   const max = Math.max(...histogram, 1);
   return (
     <Box sx={{ mb: 1 }}>
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{
+        color: "text.secondary"
+      }}>
         worst {min.toFixed(2)}
       </Typography>
-      <Stack direction="row" spacing={0.5} alignItems="flex-end" sx={{ height: 60 }}>
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{
+          alignItems: "flex-end",
+          height: 60
+        }}>
         {histogram.map((n, i) => (
           <Box
             key={i}
@@ -167,7 +181,9 @@ function QualityHistogram({ histogram, min }: { histogram: number[]; min: number
           />
         ))}
       </Stack>
-      <Stack direction="row" justifyContent="space-between">
+      <Stack direction="row" sx={{
+        justifyContent: "space-between"
+      }}>
         <Typography variant="caption">0 (flat)</Typography>
         <Typography variant="caption">1 (equilateral)</Typography>
       </Stack>

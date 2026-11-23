@@ -134,10 +134,20 @@ function SubmissionViewer() {
         <Chip label={cfg.label} color={cfg.color} />
       </Box>
 
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 0.5
+        }}>
         Student: <strong>{submission.username || submission.user_id}</strong>
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 2
+        }}>
         Submitted: {new Date(submission.submitted_at).toLocaleString()}
         {submission.reviewed_at && (
           <> &nbsp;·&nbsp; Reviewed: {new Date(submission.reviewed_at).toLocaleString()}</>
@@ -163,7 +173,9 @@ function SubmissionViewer() {
         <Typography variant="subtitle2" gutterBottom>
           Frozen Snapshot
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {elements.length} antenna element{elements.length !== 1 ? 's' : ''}
           {hasResults ? ' · Simulation results included' : ' · No simulation results'}
         </Typography>
