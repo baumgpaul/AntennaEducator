@@ -188,10 +188,38 @@ def compute_ac_resistance(
     # x/2 + 1/4 + 3/(32x) for x ≫ 1. jve (exponentially scaled) keeps the ratio
     # finite for thick wires at high frequency; the scaling cancels in the ratio.
     # (Replaces a piecewise fit that dropped to R_dc/2 at a/δ = 1.)
+    return compute_internal_impedance(length, radius, frequency, resistivity, permeability).real
+
+
+def compute_internal_impedance(
+    length: float,
+    radius: float,
+    frequency: float,
+    resistivity: float = DEFAULT_RESISTIVITY,
+    permeability: float = MU_0,
+) -> complex:
+    """Internal impedance of a round wire segment (exact Bessel solution).
+
+        Z = R_dc · (ka/2) · J0(ka)/J1(ka),   k = (1 - j)/δ
+
+    Re Z is the AC resistance (``compute_ac_resistance``); Im Z = ω·L_int is the
+    reactance of the magnetic field inside the wire: L_int' = μ/(8π) for a uniform
+    current (low frequency), Im Z → Re Z when the current crowds into the skin.
+    The external (partial) inductance is computed separately.
+    """
+    if length <= 0:
+        raise ValueError(f"Length must be positive, got {length}")
+    if radius <= 0:
+        raise ValueError(f"Radius must be positive, got {radius}")
+    if frequency < 0:
+        raise ValueError(f"Frequency must be non-negative, got {frequency}")
+    r_dc = compute_dc_resistance(length, radius, resistivity)
+    if frequency == 0:
+        return complex(r_dc, 0.0)
     delta = compute_skin_depth(frequency, resistivity, permeability)
     ka = (1 - 1j) * radius / delta
-    ratio = float(np.real(0.5 * ka * jve(0, ka) / jve(1, ka)))
-    return compute_dc_resistance(length, radius, resistivity) * ratio
+    # jve (exponentially scaled) keeps the ratio finite for thick wires; the scaling cancels
+    return complex(r_dc * 0.5 * ka * jve(0, ka) / jve(1, ka))
 
 
 def assemble_resistance_matrix(

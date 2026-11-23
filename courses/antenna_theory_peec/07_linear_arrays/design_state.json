@@ -300,7 +300,7 @@
       "lumped_elements": [],
       "ports": [
         {
-          "id": "6171b040-d033-4ded-8cb0-8553943e4631",
+          "id": "45cd0eb6-bcaf-42a6-9227-0356502682fd",
           "node_start": 12,
           "node_end": 0,
           "z0": 50.0,
@@ -612,7 +612,7 @@
       "lumped_elements": [],
       "ports": [
         {
-          "id": "e56b5cae-3623-4543-8163-aa94933c1af4",
+          "id": "2533198e-56fc-476f-a48d-7940007e14aa",
           "node_start": 12,
           "node_end": 0,
           "z0": 50.0,
