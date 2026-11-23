@@ -7,6 +7,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // Same origin as the mocked projects API (test/mocks/handlers.ts): msw 3 enforces
+    // CORS on intercepted requests. In production the API is same-origin too (CloudFront).
+    environmentOptions: { jsdom: { url: 'http://localhost:8010' } },
     setupFiles: ['./src/test/setup.ts'],
     testTimeout: 10000,
     hookTimeout: 10000,
