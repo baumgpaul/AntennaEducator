@@ -22,19 +22,30 @@ function HomePage() {
         <Typography variant="h3" gutterBottom>
           Welcome to Antenna Educator
         </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
+        <Typography
+          variant="body1"
+          sx={{
+            color: "text.secondary",
+            marginBottom: "16px"
+          }}>
           Design, simulate, and analyze antenna systems with our comprehensive PEEC-based solver.
         </Typography>
       </div>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Folder sx={{ fontSize: 48, mb: 2, color: 'primary.main' }} />
             <Typography variant="h5" gutterBottom>
               Projects
             </Typography>
-            <Typography variant="body2" color="text.secondary" paragraph sx={{ flexGrow: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                flexGrow: 1,
+                marginBottom: "16px"
+              }}>
               Manage your antenna projects, save designs, and track simulation progress all in one
               place.
             </Typography>

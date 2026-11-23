@@ -23,7 +23,9 @@ export function ExprField({
       helperText={helper}
       onChange={(e) => onChange(parseExprInput(e.target.value))}
       sx={{ width }}
-      inputProps={{ spellCheck: false }}
+      slotProps={{
+        htmlInput: { spellCheck: false }
+      }}
     />
   );
 }

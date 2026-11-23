@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, LinearProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
 import { errorMessage } from '@/utils/errors';
-import { PlayArrow as PlayArrowIcon, Tune as TuneIcon, AddCircleOutline as AddCircleOutlineIcon, GridOn as GridOnIcon, Calculate as CalculateIcon, CheckCircle as CheckCircleIcon, Stop as StopIcon, ChevronLeft, ChevronRight } from '@mui/icons-material';
+import { PlayArrow as PlayArrowIcon, Tune as TuneIcon, AddCircleOutlined as AddCircleOutlineIcon, GridOn as GridOnIcon, Calculate as CalculateIcon, CheckCircle as CheckCircleIcon, Stop as StopIcon, ChevronLeft, ChevronRight } from '@mui/icons-material';
 import TreeViewPanel from './TreeViewPanel';
 import Scene3D from './Scene3D';
 import WireGeometry from './WireGeometry';
@@ -287,7 +287,12 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         {/* Group 1: Solve Control */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                fontWeight: 600
+              }}>
               Solve Control
             </Typography>
             {/* Determine display state for Solve Control */}
@@ -394,7 +399,13 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
 
         {/* Group 2: Request Quantity */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 600,
+              mb: 0.5
+            }}>
             Request Quantity
           </Typography>
           <ButtonGroup size="small" variant="outlined">
@@ -429,7 +440,12 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         {/* Group 3: Postprocessing */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                fontWeight: 600
+              }}>
               Postprocessing
             </Typography>
             {postprocessingStatus === 'completed' && fieldResults && (() => {

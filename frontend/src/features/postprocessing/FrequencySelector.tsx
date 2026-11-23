@@ -83,7 +83,9 @@ export const FrequencySelector: React.FC = () => {
 
   return (
     <Box sx={{ px: 2, pt: 1.5, pb: 0.5, borderBottom: 1, borderColor: 'divider' }}>
-      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+      <Typography variant="subtitle2" gutterBottom sx={{
+        color: "text.secondary"
+      }}>
         Frequency
       </Typography>
       <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>

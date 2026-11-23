@@ -109,7 +109,9 @@ export default function VariablePanel() {
         sx={{ '&:before': { display: 'none' }, bgcolor: 'transparent' }}
       >
         <AccordionSummary expandIcon={<ExpandMore sx={{ fontSize: '1rem' }} />} sx={{ minHeight: 28, '& .MuiAccordionSummary-content': { my: 0.25 } }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Constants
           </Typography>
         </AccordionSummary>
@@ -120,18 +122,31 @@ export default function VariablePanel() {
                 <TableRow key={c.name} sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
                   <TableCell sx={cellSx}>
                     <Tooltip title={c.description}>
-                      <Typography variant="caption" fontFamily="monospace" fontWeight={600} color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontFamily: "monospace",
+                          fontWeight: 600,
+                          color: "text.secondary"
+                        }}>
                         {c.name}
                       </Typography>
                     </Tooltip>
                   </TableCell>
                   <TableCell sx={cellSx} align="right">
-                    <Typography variant="caption" fontFamily="monospace" color="text.secondary">
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontFamily: "monospace",
+                        color: "text.secondary"
+                      }}>
                       {formatValue(c.value)}
                     </Typography>
                   </TableCell>
                   <TableCell sx={cellSx}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {c.unit}
                     </Typography>
                   </TableCell>
@@ -179,11 +194,13 @@ export default function VariablePanel() {
                     size="small"
                     fullWidth
                     sx={inputSx}
-                    InputProps={{ disableUnderline: true }}
-                    inputProps={{
-                      style: { fontFamily: 'monospace', fontWeight: 600 },
-                    }}
-                  />
+                    slotProps={{
+                      input: { disableUnderline: true },
+
+                      htmlInput: {
+                        style: { fontFamily: 'monospace', fontWeight: 600 },
+                      }
+                    }} />
                 </TableCell>
                 {/* Expression */}
                 <TableCell sx={{ ...cellSx, width: '35%' }}>
@@ -195,18 +212,21 @@ export default function VariablePanel() {
                     fullWidth
                     error={isError}
                     sx={inputSx}
-                    InputProps={{ disableUnderline: true }}
-                    inputProps={{ style: { fontFamily: 'monospace' } }}
-                  />
+                    slotProps={{
+                      input: { disableUnderline: true },
+                      htmlInput: { style: { fontFamily: 'monospace' } }
+                    }} />
                 </TableCell>
                 {/* Evaluated Value */}
                 <TableCell sx={{ ...cellSx, width: '20%' }} align="right">
                   <Tooltip title={isError ? String(evalResult) : ''}>
                     <Typography
                       variant="caption"
-                      fontFamily="monospace"
                       color={isError ? 'error' : 'text.primary'}
                       noWrap
+                      sx={{
+                        fontFamily: "monospace"
+                      }}
                     >
                       {displayValue}
                     </Typography>
@@ -221,9 +241,10 @@ export default function VariablePanel() {
                     size="small"
                     placeholder=""
                     sx={{ ...inputSx, width: 30 }}
-                    InputProps={{ disableUnderline: true }}
-                    inputProps={{ style: { fontFamily: 'monospace', fontSize: '0.75rem' } }}
-                  />
+                    slotProps={{
+                      input: { disableUnderline: true },
+                      htmlInput: { style: { fontFamily: 'monospace', fontSize: '0.75rem' } }
+                    }} />
                   <Tooltip title="Remove variable">
                     <IconButton
                       size="small"
@@ -235,7 +256,7 @@ export default function VariablePanel() {
                   </Tooltip>
                 </TableCell>
               </TableRow>
-            )
+            );
           })}
         </TableBody>
       </Table>
@@ -249,5 +270,5 @@ export default function VariablePanel() {
         </Tooltip>
       </Box>
     </Box>
-  )
+  );
 }

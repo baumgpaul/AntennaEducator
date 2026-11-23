@@ -304,7 +304,9 @@ export default function AddCurveDialog({
           <List>
             {existingTraceMixed && (
               <Box sx={{ p: 1 }}>
-                <Typography variant="body2" color="warning.main">A plot in this view already contains traces with different x-axis types. Adding new curves is disabled to prevent incompatible overlays.</Typography>
+                <Typography variant="body2" sx={{
+                  color: "warning.main"
+                }}>A plot in this view already contains traces with different x-axis types. Adding new curves is disabled to prevent incompatible overlays.</Typography>
               </Box>
             )}
             {SOURCE_OPTIONS.map((opt) => {
@@ -338,7 +340,12 @@ export default function AddCurveDialog({
         {/* Step 2: Quantity */}
         {activeStep === 1 && selectedSource && (
           <>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 1
+              }}>
               Choose a quantity to plot:
             </Typography>
             <List dense>
@@ -370,7 +377,12 @@ export default function AddCurveDialog({
             <Typography variant="subtitle2" gutterBottom>
               Overlay Variable
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2
+              }}>
               Each value of the overlay variable becomes a separate curve.
               The other variable is held at a fixed value.
             </Typography>
@@ -410,7 +422,9 @@ export default function AddCurveDialog({
             )}
 
             <Box sx={{ mt: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Preview: {overlayValues.length} curves — {selectedQuantity?.label} vs. sweep,
                 one per {overlayVar?.variableName} value
                 {fixedVar ? ` at ${fixedVar.variableName}=${formatValue(fixedValues[fixedValueIdx])}` : ''}

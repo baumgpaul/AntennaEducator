@@ -230,7 +230,12 @@ function CoursesPage() {
         <School sx={{ mr: 1, color: 'primary.main' }} />
         <Typography variant="h5">Courses</Typography>
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 2
+        }}>
         Public courses available for all users. Copy them into your projects to get started.
       </Typography>
 
@@ -249,7 +254,9 @@ function CoursesPage() {
         {pathStack.map((folder, index) => {
           const isLast = index === pathStack.length - 1;
           return isLast ? (
-            <Typography key={folder.id} variant="body2" color="text.primary">
+            <Typography key={folder.id} variant="body2" sx={{
+              color: "text.primary"
+            }}>
               {folder.name}
             </Typography>
           ) : (
@@ -301,7 +308,7 @@ function CoursesPage() {
       {loading && (
         <Grid container spacing={2}>
           {[...Array(4)].map((_, i) => (
-            <Grid item xs={12} sm={6} md={4} key={i}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
               <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 1 }} />
             </Grid>
           ))}
@@ -313,12 +320,17 @@ function CoursesPage() {
         <>
           {visibleCourses.length > 0 && (
             <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  color: "text.secondary",
+                  mb: 1
+                }}>
                 Courses
               </Typography>
               <Grid container spacing={2}>
                 {visibleCourses.map((course) => (
-                  <Grid item xs={12} sm={6} md={4} key={course.id}>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={course.id}>
                     <Card
                       variant="outlined"
                       sx={{
@@ -363,12 +375,17 @@ function CoursesPage() {
           {/* Projects inside current course folder */}
           {currentParentId && courseProjects.length > 0 && (
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  color: "text.secondary",
+                  mb: 1
+                }}>
                 Projects in this course
               </Typography>
               <Grid container spacing={2}>
                 {courseProjects.map((project) => (
-                  <Grid item xs={12} sm={6} md={4} key={project.id}>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={project.id}>
                     <Card variant="outlined">
                       <CardContent>
                         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
@@ -377,7 +394,9 @@ function CoursesPage() {
                               {project.name}
                             </Typography>
                             {project.description && !project.description.startsWith('[') && (
-                              <Typography variant="body2" color="text.secondary" noWrap>
+                              <Typography variant="body2" noWrap sx={{
+                                color: "text.secondary"
+                              }}>
                                 {project.description}
                               </Typography>
                             )}
@@ -422,7 +441,9 @@ function CoursesPage() {
               <Typography variant="h6" gutterBottom>
                 {currentParentId ? 'No items in this course' : 'No courses available yet'}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 {isMaintainer
                   ? 'Create the first course to get started.'
                   : 'Check back later for new courses.'}

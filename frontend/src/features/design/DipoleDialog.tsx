@@ -233,7 +233,12 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
     <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>
         Dipole Antenna Configuration
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mt: 0.5
+          }}>
           Design a center-fed dipole antenna
         </Typography>
       </DialogTitle>
@@ -245,7 +250,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
             <Box sx={{ flex: '1 1 50%', minWidth: 0 }}>
           <Grid container spacing={3}>
             {/* Name */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="name"
                 control={control}
@@ -262,16 +267,18 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Geometry Parameters
                 </Typography>
               </Divider>
             </Grid>
 
             {/* Length */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="length"
                 control={control}
@@ -290,7 +297,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
             </Grid>
 
             {/* Radius */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="radius"
                 control={control}
@@ -309,7 +316,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
             </Grid>
 
             {/* Gap */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="gap"
                 control={control}
@@ -328,7 +335,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
             </Grid>
 
             {/* Segments */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="segments"
                 control={control}
@@ -355,16 +362,18 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
             </Grid>
 
             {/* Feed Configuration */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider sx={{ my: 2 }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Feed Configuration
                 </Typography>
               </Divider>
             </Grid>
 
             {/* Source Type Toggle */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="sourceType"
                 control={control}
@@ -387,7 +396,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
             </Grid>
 
             {/* Amplitude */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="sourceAmplitude"
                 control={control}
@@ -406,7 +415,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
             </Grid>
 
             {/* Phase */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="sourcePhase"
                 control={control}
@@ -427,21 +436,23 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
             </Grid>
 
             {/* Position Controls */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider sx={{ my: 2 }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Position & Orientation
                 </Typography>
               </Divider>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" gutterBottom>
                 Position (meters)
               </Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="position.x"
                 control={control}
@@ -458,7 +469,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               />
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="position.y"
                 control={control}
@@ -475,7 +486,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               />
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="position.z"
                 control={control}
@@ -493,16 +504,18 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
             </Grid>
 
             {/* Orientation Vector Controls */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
                 Orientation Vector
               </Typography>
-              <Typography variant="caption" color="text.secondary" gutterBottom>
+              <Typography variant="caption" gutterBottom sx={{
+                color: "text.secondary"
+              }}>
                 Direction the dipole points along (will be normalized)
               </Typography>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <ToggleButtonGroup
                 value={getActivePreset()}
                 exclusive
@@ -518,7 +531,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               </ToggleButtonGroup>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="orientation.x"
                 control={control}
@@ -534,7 +547,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               />
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="orientation.y"
                 control={control}
@@ -550,7 +563,7 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
               />
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="orientation.z"
                 control={control}
@@ -572,7 +585,13 @@ export const DipoleDialog: React.FC<DipoleDialogProps> = ({ open, onClose, onGen
 
             {/* Right side: 3D preview */}
             <Box sx={{ flex: '1 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, textAlign: 'center' }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  mb: 1,
+                  textAlign: 'center'
+                }}>
                 3D Preview
               </Typography>
               {previewGeometry.nodes.length >= 2 ? (

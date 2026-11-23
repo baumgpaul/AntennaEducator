@@ -94,9 +94,11 @@ function NewProjectDialog({ open, onClose, folderId }: NewProjectDialogProps) {
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        component: 'form',
-        onSubmit: handleSubmit(onSubmit),
+      slotProps={{
+        paper: {
+          component: 'form',
+          onSubmit: handleSubmit(onSubmit),
+        }
       }}
     >
       <DialogTitle>Create New Project</DialogTitle>

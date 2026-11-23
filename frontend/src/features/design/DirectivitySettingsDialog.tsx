@@ -75,7 +75,9 @@ const DirectivitySettingsDialog: React.FC<DirectivitySettingsDialogProps> = ({
       <DialogTitle>Directivity Pattern Settings</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 2 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             Configure the angular discretization for far-field radiation pattern computation.
           </Typography>
 
@@ -88,7 +90,9 @@ const DirectivitySettingsDialog: React.FC<DirectivitySettingsDialogProps> = ({
               onChange={handleThetaChange}
               error={!!errors.theta}
               helperText={errors.theta || 'Number of points from 0° to 180° (default: 19)'}
-              inputProps={{ min: 5, max: 180, step: 1 }}
+              slotProps={{
+                htmlInput: { min: 5, max: 180, step: 1 }
+              }}
             />
           </Box>
 
@@ -101,12 +105,16 @@ const DirectivitySettingsDialog: React.FC<DirectivitySettingsDialogProps> = ({
               onChange={handlePhiChange}
               error={!!errors.phi}
               helperText={errors.phi || 'Number of points from 0° to 360° (default: 37)'}
-              inputProps={{ min: 5, max: 360, step: 1 }}
+              slotProps={{
+                htmlInput: { min: 5, max: 360, step: 1 }
+              }}
             />
           </Box>
 
           <Box sx={{ bgcolor: 'info.lighter', p: 2, borderRadius: 1 }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               <strong>Total sample points:</strong> {thetaPoints * phiPoints}
               <br />
               <strong>Note:</strong> Higher values provide smoother patterns but increase computation time.

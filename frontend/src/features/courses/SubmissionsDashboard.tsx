@@ -144,13 +144,20 @@ function SubmissionsDashboard() {
         </Button>
         <Typography variant="h5">Submissions</Typography>
         {courseName && (
-          <Typography variant="h5" color="text.secondary">
+          <Typography variant="h5" sx={{
+            color: "text.secondary"
+          }}>
             — {courseName}
           </Typography>
         )}
       </Box>
       {!loading && submissions.length > 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mb: 3
+          }}>
           {studentGroups.length} student{studentGroups.length !== 1 ? 's' : ''} ·{' '}
           {submissions.length} submission{submissions.length !== 1 ? 's' : ''}
         </Typography>
@@ -224,7 +231,9 @@ function SubmissionsDashboard() {
                                 ) : (
                                   <SendIcon fontSize="small" color="warning" />
                                 )}
-                                <Typography variant="body2" fontWeight={isLatest ? 600 : 400}>
+                                <Typography variant="body2" sx={{
+                                  fontWeight: isLatest ? 600 : 400
+                                }}>
                                   {sub.project_name}
                                 </Typography>
                                 <Chip label={cfg.label} color={cfg.color} size="small" />
@@ -235,15 +244,19 @@ function SubmissionsDashboard() {
                             }
                             secondary={
                               <Box component="span">
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" sx={{
+                                  color: "text.secondary"
+                                }}>
                                   {new Date(sub.submitted_at).toLocaleString()}
                                 </Typography>
                                 {sub.feedback && (
                                   <Typography
                                     variant="caption"
-                                    color="text.secondary"
-                                    sx={{ display: 'block', mt: 0.5 }}
-                                  >
+                                    sx={{
+                                      color: "text.secondary",
+                                      display: 'block',
+                                      mt: 0.5
+                                    }}>
                                     Feedback: {sub.feedback.length > 80 ? sub.feedback.slice(0, 80) + '…' : sub.feedback}
                                   </Typography>
                                 )}

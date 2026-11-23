@@ -251,7 +251,7 @@ function ProjectsPage() {
   // ── Skeleton loader ──────────────────────────────────────────────────────
 
   const ProjectSkeleton = () => (
-    <Grid item xs={12} sm={6} md={4} data-testid="skeleton-project-card">
+    <Grid size={{ xs: 12, sm: 6, md: 4 }} data-testid="skeleton-project-card">
       <Box sx={{ p: 2 }}>
         <Skeleton variant="rectangular" height={140} sx={{ mb: 2, borderRadius: 1 }} />
         <Skeleton variant="text" sx={{ fontSize: '1.5rem' }} />
@@ -278,14 +278,16 @@ function ProjectsPage() {
         placeholder="Search projects..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon />
-            </InputAdornment>
-          ),
-        }}
         sx={{ flex: 1, minWidth: 200 }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }
+        }}
       />
 
       <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -334,7 +336,12 @@ function ProjectsPage() {
       <Typography variant="h6" gutterBottom>
         {searchQuery ? 'No projects found' : 'No projects yet'}
       </Typography>
-      <Typography variant="body2" color="text.secondary" paragraph>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          marginBottom: "16px"
+        }}>
         {searchQuery
           ? 'Try adjusting your search query'
           : 'Create your first antenna simulation project to get started'}
@@ -382,7 +389,7 @@ function ProjectsPage() {
     return (
       <Grid container spacing={3}>
         {childFolders.map((folder) => (
-          <Grid item xs={12} sm={6} md={4} key={`folder-${folder.id}`}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={`folder-${folder.id}`}>
             <FolderCard
               folder={folder}
               projectCount={projectCountByFolder.get(folder.id) ?? 0}
@@ -395,7 +402,7 @@ function ProjectsPage() {
           </Grid>
         ))}
         {displayProjects.map((project) => (
-          <Grid item xs={12} sm={6} md={4} key={project.id}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={project.id}>
             <ProjectCard
               project={project}
               onEdit={handleEditProject}
@@ -421,7 +428,9 @@ function ProjectsPage() {
             {breadcrumbs.map((crumb, index) => {
               const isLast = index === breadcrumbs.length - 1;
               return isLast ? (
-                <Typography key={crumb.id ?? 'root'} variant="body2" color="text.primary">
+                <Typography key={crumb.id ?? 'root'} variant="body2" sx={{
+                  color: "text.primary"
+                }}>
                   {crumb.name}
                 </Typography>
               ) : (

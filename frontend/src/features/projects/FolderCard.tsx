@@ -93,7 +93,9 @@ function FolderCard({
             </IconButton>
           )}
         </Box>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {summary}
         </Typography>
         {folder.source_course_id && (
@@ -109,7 +111,9 @@ function FolderCard({
       </CardContent>
 
       <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {folder.source_course_id ? 'Course' : 'Folder'}
         </Typography>
       </CardActions>

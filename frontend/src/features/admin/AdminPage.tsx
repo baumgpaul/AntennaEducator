@@ -344,7 +344,12 @@ function AdminPage() {
         <Typography variant="h5" color="error">
           Access Denied
         </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+        <Typography
+          variant="body1"
+          sx={{
+            color: "text.secondary",
+            mt: 1
+          }}>
           You need admin privileges to access this page.
         </Typography>
       </Box>
@@ -358,7 +363,12 @@ function AdminPage() {
         <AdminPanelSettings color="primary" />
         <Typography variant="h5">User Management</Typography>
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         Manage user roles across the platform. Maintainers can manage courses.
         Admins can manage everything.
       </Typography>
@@ -422,7 +432,9 @@ function AdminPage() {
             ) : users.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     No users found
                   </Typography>
                 </TableCell>
@@ -434,171 +446,176 @@ function AdminPage() {
 
                 return (
                   <Fragment key={user.user_id}>
-                  <TableRow hover>
-                    <TableCell>
-                      {user.username}
-                      {isCurrentUser && (
-                        <Chip label="You" size="small" variant="outlined" sx={{ ml: 1 }} />
-                      )}
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      {isChanging ? (
-                        <CircularProgress size={20} />
-                      ) : (
-                        <Select
-                          value={user.role}
-                          size="small"
-                          disabled={isCurrentUser}
-                          onChange={(e) => handleRoleChange(user, e.target.value)}
-                          sx={{ minWidth: 130 }}
-                        >
-                          <MenuItem value="user">User</MenuItem>
-                          <MenuItem value="maintainer">Maintainer</MenuItem>
-                          <MenuItem value="admin">Admin</MenuItem>
-                        </Select>
-                      )}
-                    </TableCell>
-                    <TableCell align="right">
-                      {editingTokenUserId === user.user_id ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
-                          <TextField
+                    <TableRow hover>
+                      <TableCell>
+                        {user.username}
+                        {isCurrentUser && (
+                          <Chip label="You" size="small" variant="outlined" sx={{ ml: 1 }} />
+                        )}
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        {isChanging ? (
+                          <CircularProgress size={20} />
+                        ) : (
+                          <Select
+                            value={user.role}
                             size="small"
-                            type="number"
-                            value={tokenInputValue}
-                            onChange={(e) => setTokenInputValue(e.target.value)}
-                            sx={{ width: 90 }}
-                            inputProps={{ min: 0 }}
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleTokenSave(user.user_id);
-                              if (e.key === 'Escape') handleTokenCancel();
-                            }}
-                          />
-                          <IconButton size="small" color="success" onClick={() => handleTokenSave(user.user_id)}>
-                            <CheckIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={handleTokenCancel}>
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
-                          {user.simulation_tokens}
-                          <Tooltip title="Edit tokens">
-                            <IconButton size="small" onClick={() => handleTokenEdit(user)}>
-                              <EditIcon fontSize="small" />
+                            disabled={isCurrentUser}
+                            onChange={(e) => handleRoleChange(user, e.target.value)}
+                            sx={{ minWidth: 130 }}
+                          >
+                            <MenuItem value="user">User</MenuItem>
+                            <MenuItem value="maintainer">Maintainer</MenuItem>
+                            <MenuItem value="admin">Admin</MenuItem>
+                          </Select>
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        {editingTokenUserId === user.user_id ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={tokenInputValue}
+                              onChange={(e) => setTokenInputValue(e.target.value)}
+                              sx={{ width: 90 }}
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleTokenSave(user.user_id);
+                                if (e.key === 'Escape') handleTokenCancel();
+                              }}
+                              slotProps={{
+                                htmlInput: { min: 0 }
+                              }}
+                            />
+                            <IconButton size="small" color="success" onClick={() => handleTokenSave(user.user_id)}>
+                              <CheckIcon fontSize="small" />
                             </IconButton>
+                            <IconButton size="small" onClick={handleTokenCancel}>
+                              <CloseIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ) : (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
+                            {user.simulation_tokens}
+                            <Tooltip title="Edit tokens">
+                              <IconButton size="small" onClick={() => handleTokenEdit(user)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {user.flatrate_until && new Date(user.flatrate_until) > new Date() ? (
+                          <Tooltip title={`Until ${new Date(user.flatrate_until).toLocaleDateString()}`}>
+                            <Chip
+                              icon={<AllInclusive />}
+                              label="Active"
+                              color="success"
+                              size="small"
+                              onDelete={() => handleRevokeFlatrate(user)}
+                            />
                           </Tooltip>
-                        </Box>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {user.flatrate_until && new Date(user.flatrate_until) > new Date() ? (
-                        <Tooltip title={`Until ${new Date(user.flatrate_until).toLocaleDateString()}`}>
-                          <Chip
-                            icon={<AllInclusive />}
-                            label="Active"
-                            color="success"
-                            size="small"
-                            onDelete={() => handleRevokeFlatrate(user)}
-                          />
-                        </Tooltip>
-                      ) : (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => {
-                            setFlatrateDialogUser(user);
-                            setFlatrateDays('30');
-                          }}
-                        >
-                          Grant
-                        </Button>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip title={isCurrentUser ? 'Cannot lock yourself' : (user.is_locked ? 'Unlock user' : 'Lock user')}>
-                        <span>
-                          <Switch
-                            size="small"
-                            checked={!user.is_locked}
-                            disabled={isCurrentUser || isChanging}
-                            onChange={() => handleToggleLock(user)}
-                          />
-                        </span>
-                      </Tooltip>
-                      {user.is_approved === false ? (
-                        <>
-                          <Chip label="Pending" color="warning" size="small" />
+                        ) : (
                           <Button
                             size="small"
-                            variant="contained"
-                            sx={{ ml: 1 }}
-                            disabled={isChanging}
-                            onClick={() => handleApprove(user)}
+                            variant="outlined"
+                            onClick={() => {
+                              setFlatrateDialogUser(user);
+                              setFlatrateDays('30');
+                            }}
                           >
-                            Approve
+                            Grant
                           </Button>
-                        </>
-                      ) : user.is_locked ? (
-                        <Chip label="Locked" color="error" size="small" />
-                      ) : (
-                        <Chip label="Active" color="success" size="small" variant="outlined" />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {user.created_at
-                        ? new Date(user.created_at).toLocaleDateString()
-                        : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip title="Usage history">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleToggleUsage(user.user_id)}
-                        >
-                          {expandedUsageUserId === user.user_id ? (
-                            <ExpandLessIcon fontSize="small" />
-                          ) : (
-                            <HistoryIcon fontSize="small" />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                  {/* Usage history expandable row */}
-                  <TableRow>
-                    <TableCell colSpan={8} sx={{ py: 0, borderBottom: expandedUsageUserId === user.user_id ? undefined : 'none' }}>
-                      <Collapse in={expandedUsageUserId === user.user_id} unmountOnExit>
-                        <Box sx={{ py: 1, pl: 2 }}>
-                          <Typography variant="subtitle2" gutterBottom>
-                            Recent Token Usage
-                          </Typography>
-                          {usageLoading ? (
-                            <CircularProgress size={20} />
-                          ) : usageData.length === 0 ? (
-                            <Typography variant="body2" color="text.secondary">
-                              No usage history
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title={isCurrentUser ? 'Cannot lock yourself' : (user.is_locked ? 'Unlock user' : 'Lock user')}>
+                          <span>
+                            <Switch
+                              size="small"
+                              checked={!user.is_locked}
+                              disabled={isCurrentUser || isChanging}
+                              onChange={() => handleToggleLock(user)}
+                            />
+                          </span>
+                        </Tooltip>
+                        {user.is_approved === false ? (
+                          <>
+                            <Chip label="Pending" color="warning" size="small" />
+                            <Button
+                              size="small"
+                              variant="contained"
+                              sx={{ ml: 1 }}
+                              disabled={isChanging}
+                              onClick={() => handleApprove(user)}
+                            >
+                              Approve
+                            </Button>
+                          </>
+                        ) : user.is_locked ? (
+                          <Chip label="Locked" color="error" size="small" />
+                        ) : (
+                          <Chip label="Active" color="success" size="small" variant="outlined" />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {user.created_at
+                          ? new Date(user.created_at).toLocaleDateString()
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title="Usage history">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleToggleUsage(user.user_id)}
+                          >
+                            {expandedUsageUserId === user.user_id ? (
+                              <ExpandLessIcon fontSize="small" />
+                            ) : (
+                              <HistoryIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                    {/* Usage history expandable row */}
+                    <TableRow>
+                      <TableCell colSpan={8} sx={{ py: 0, borderBottom: expandedUsageUserId === user.user_id ? undefined : 'none' }}>
+                        <Collapse in={expandedUsageUserId === user.user_id} unmountOnExit>
+                          <Box sx={{ py: 1, pl: 2 }}>
+                            <Typography variant="subtitle2" gutterBottom>
+                              Recent Token Usage
                             </Typography>
-                          ) : (
-                            <List dense disablePadding>
-                              {usageData.map((entry, idx) => (
-                                <ListItem key={idx} disableGutters sx={{ py: 0.25 }}>
-                                  <ListItemText
-                                    primary={`${entry.endpoint} (${entry.service})`}
-                                    secondary={`${entry.was_flatrate ? 'Flatrate' : `-${entry.cost} tokens`} — Balance: ${entry.balance_after} — ${new Date(entry.timestamp).toLocaleString()}`}
-                                    primaryTypographyProps={{ variant: 'body2' }}
-                                    secondaryTypographyProps={{ variant: 'caption' }}
-                                  />
-                                </ListItem>
-                              ))}
-                            </List>
-                          )}
-                        </Box>
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
+                            {usageLoading ? (
+                              <CircularProgress size={20} />
+                            ) : usageData.length === 0 ? (
+                              <Typography variant="body2" sx={{
+                                color: "text.secondary"
+                              }}>
+                                No usage history
+                              </Typography>
+                            ) : (
+                              <List dense disablePadding>
+                                {usageData.map((entry, idx) => (
+                                  <ListItem key={idx} disableGutters sx={{ py: 0.25 }}>
+                                    <ListItemText
+                                      primary={`${entry.endpoint} (${entry.service})`}
+                                      secondary={`${entry.was_flatrate ? 'Flatrate' : `-${entry.cost} tokens`} — Balance: ${entry.balance_after} — ${new Date(entry.timestamp).toLocaleString()}`}
+                                      slotProps={{
+                                        primary: { variant: 'body2' },
+                                        secondary: { variant: 'caption' }
+                                      }} />
+                                  </ListItem>
+                                ))}
+                              </List>
+                            )}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
                   </Fragment>
                 );
               })
@@ -614,7 +631,12 @@ function AdminPage() {
         <SchoolIcon color="primary" />
         <Typography variant="h5">Course Management</Typography>
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         Manage course enrollments and reassign course ownership.
       </Typography>
 
@@ -632,7 +654,9 @@ function AdminPage() {
             {courses.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     No courses found
                   </Typography>
                 </TableCell>
@@ -697,7 +721,9 @@ function AdminPage() {
                           {enrollmentLoading ? (
                             <CircularProgress size={20} />
                           ) : enrollments.length === 0 ? (
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" sx={{
+                              color: "text.secondary"
+                            }}>
                               No enrolled users
                             </Typography>
                           ) : (
@@ -722,9 +748,10 @@ function AdminPage() {
                                   <ListItemText
                                     primary={resolveUsername(enrollment.user_id)}
                                     secondary={`Enrolled ${new Date(enrollment.enrolled_at).toLocaleDateString()}`}
-                                    primaryTypographyProps={{ variant: 'body2' }}
-                                    secondaryTypographyProps={{ variant: 'caption' }}
-                                  />
+                                    slotProps={{
+                                      primary: { variant: 'body2' },
+                                      secondary: { variant: 'caption' }
+                                    }} />
                                 </ListItem>
                               ))}
                             </List>
@@ -830,9 +857,11 @@ function AdminPage() {
             type="number"
             value={flatrateDays}
             onChange={(e) => setFlatrateDays(e.target.value)}
-            inputProps={{ min: 1 }}
             fullWidth
             autoFocus
+            slotProps={{
+              htmlInput: { min: 1 }
+            }}
           />
         </DialogContent>
         <DialogActions>

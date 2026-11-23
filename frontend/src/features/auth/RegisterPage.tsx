@@ -75,11 +75,15 @@ function RegisterPage() {
       >
         <Container maxWidth="sm">
           <Paper elevation={3} sx={{ p: 4 }}>
-            <Typography variant="h4" align="center" gutterBottom color="success.main">
+            <Typography variant="h4" align="center" gutterBottom sx={{
+              color: "success.main"
+            }}>
               Request Submitted
             </Typography>
             <Alert severity="info" sx={{ mt: 2, mb: 3 }}>
-              <Typography variant="body1" paragraph>
+              <Typography variant="body1" sx={{
+                marginBottom: "16px"
+              }}>
                 Your account has been created and is waiting for approval.
               </Typography>
               <Typography variant="body2">
@@ -118,7 +122,13 @@ function RegisterPage() {
           <Typography variant="h4" align="center" gutterBottom>
             Create Account
           </Typography>
-          <Typography variant="body2" align="center" color="text.secondary" paragraph>
+          <Typography
+            variant="body2"
+            align="center"
+            sx={{
+              color: "text.secondary",
+              marginBottom: "16px"
+            }}>
             Sign up for Antenna Educator
           </Typography>
 
@@ -209,7 +219,9 @@ function RegisterPage() {
             </Button>
 
             <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Already have an account?{' '}
                 <MuiLink
                   component="button"
@@ -221,7 +233,14 @@ function RegisterPage() {
                 </MuiLink>
               </Typography>
             </Box>
-            <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 2, textAlign: 'center' }}>
+            <Typography
+              variant="caption"
+              component="p"
+              sx={{
+                color: "text.secondary",
+                mt: 2,
+                textAlign: 'center'
+              }}>
               By creating an account you confirm that you have read the privacy notice.
             </Typography>
             <Box sx={{ mt: 3 }}>

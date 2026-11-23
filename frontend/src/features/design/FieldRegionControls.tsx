@@ -67,7 +67,9 @@ export function FieldRegionControls({
         }}
         onClick={() => setExpanded(!expanded)}
       >
-        <Typography variant="subtitle2" fontWeight={600}>
+        <Typography variant="subtitle2" sx={{
+          fontWeight: 600
+        }}>
           Field Regions
         </Typography>
         <IconButton size="small" sx={{ ml: 1 }}>
@@ -97,7 +99,9 @@ export function FieldRegionControls({
 
           {/* Opacity slider */}
           <Box sx={{ mt: 2 }}>
-            <Typography variant="caption" color="text.secondary" gutterBottom>
+            <Typography variant="caption" gutterBottom sx={{
+              color: "text.secondary"
+            }}>
               Opacity: {Math.round(opacity * 100)}%
             </Typography>
             <Slider

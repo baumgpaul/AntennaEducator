@@ -141,12 +141,16 @@ function ExportPDFDialog({ projectName, authorName, submissionMeta, onExport }: 
           {/* Project info */}
           <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
             {projectName && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Project: <strong>{projectName}</strong>
               </Typography>
             )}
             {authorName && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Author: <strong>{authorName}</strong>
               </Typography>
             )}
@@ -236,11 +240,15 @@ function ExportPDFDialog({ projectName, authorName, submissionMeta, onExport }: 
           {isGenerating && (
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   {progressMessage}
                 </Typography>
                 {progressTotal > 0 && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {progressCurrent}/{progressTotal}
                   </Typography>
                 )}

@@ -67,7 +67,9 @@ function VoltagePlot({ data, portNumber, title }: VoltagePlotProps) {
   if (!data || data.length === 0) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           No voltage data available for Port {portNumber}
         </Typography>
       </Box>

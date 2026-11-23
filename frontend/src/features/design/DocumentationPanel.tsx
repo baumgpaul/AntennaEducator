@@ -898,9 +898,10 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
             <ListItemText
               primary={tmpl.label}
               secondary={tmpl.description}
-              primaryTypographyProps={{ variant: 'body2' }}
-              secondaryTypographyProps={{ variant: 'caption' }}
-            />
+              slotProps={{
+                primary: { variant: 'body2' },
+                secondary: { variant: 'caption' }
+              }} />
           </MenuItem>
         ))}
       </Menu>

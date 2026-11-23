@@ -179,7 +179,9 @@ function Header() {
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         >
           <MenuItem disabled>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {user?.email || 'Guest User'}
             </Typography>
           </MenuItem>

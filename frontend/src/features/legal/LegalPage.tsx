@@ -45,13 +45,17 @@ export default function LegalPage({ doc }: { doc: 'privacy' | 'imprint' }) {
                 {section.title}
               </Typography>
               {section.paragraphs.map((p) => (
-                <Typography key={p} variant="body1" paragraph>
+                <Typography key={p} variant="body1" sx={{
+                  marginBottom: "16px"
+                }}>
                   {p}
                 </Typography>
               ))}
             </Box>
           ))}
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {lang === 'de' ? 'Stand' : 'Version'}: {LEGAL_VERSION}
           </Typography>
           <Box sx={{ mt: 2 }}>

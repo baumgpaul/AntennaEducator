@@ -25,7 +25,9 @@ function FemMethodPicker({ value, onChange }: { value: MethodChoice; onChange: (
   if (!canUseFem(user)) return null;
   return (
     <Box sx={{ mt: 2 }}>
-      <Typography variant="subtitle2" color="text.secondary">
+      <Typography variant="subtitle2" sx={{
+        color: "text.secondary"
+      }}>
         Method
       </Typography>
       <RadioGroup value={value.kind} onChange={(e) => onChange(withModel({ ...value, kind: e.target.value as MethodChoice['kind'] }))}>

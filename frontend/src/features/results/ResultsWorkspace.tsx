@@ -90,7 +90,12 @@ function ResultsWorkspace<T extends string, V extends WorkspaceView<T>>({
       left={
         <PanelSection title="Result views" dense>
           {views.length === 0 && (
-            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                p: 2
+              }}>
               No views yet: add one above.
             </Typography>
           )}
@@ -156,7 +161,9 @@ function ResultsWorkspace<T extends string, V extends WorkspaceView<T>>({
       ) : (
         <Box sx={{ p: 4, textAlign: 'center' }}>
           <Add color="disabled" />
-          <Typography color="text.secondary">Add a view to look at the results.</Typography>
+          <Typography sx={{
+            color: "text.secondary"
+          }}>Add a view to look at the results.</Typography>
         </Box>
       )}
     </Workspace>

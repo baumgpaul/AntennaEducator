@@ -43,7 +43,9 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
         }}
       >
         <CircularProgress />
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           Verifying session…
         </Typography>
       </Box>

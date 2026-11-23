@@ -146,7 +146,9 @@ function ResultsPanel({
               </Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
                 <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Resistance (R)
                   </Typography>
                   <Typography variant="h5" sx={{ mt: 0.5 }}>
@@ -154,7 +156,9 @@ function ResultsPanel({
                   </Typography>
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Reactance (X)
                   </Typography>
                   <Typography variant="h5" sx={{ mt: 0.5 }}>
@@ -163,7 +167,9 @@ function ResultsPanel({
                   </Typography>
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Magnitude |Z|
                   </Typography>
                   <Typography variant="h5" sx={{ mt: 0.5 }}>
@@ -171,7 +177,9 @@ function ResultsPanel({
                   </Typography>
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     VSWR (50Ω)
                   </Typography>
                   <Typography
@@ -186,19 +194,34 @@ function ResultsPanel({
                 </Paper>
               </Box>
               <Divider sx={{ my: 2 }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 <strong>Complex notation:</strong> Z = {impedance.real.toFixed(2)} {impedance.imag >= 0 ? '+' : ''}
                 {impedance.imag.toFixed(2)}j Ω
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mt: 1
+                }}>
                 <strong>Interpretation:</strong>
               </Typography>
-              <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+              <Typography
+                variant="caption"
+                component="div"
+                sx={{
+                  color: "text.secondary",
+                  mt: 0.5
+                }}>
                 • {impedance.imag > 0 && 'Inductive reactance (antenna too long)'}
                 {impedance.imag < 0 && 'Capacitive reactance (antenna too short)'}
                 {impedance.imag === 0 && 'Resonant (ideal)'}
               </Typography>
-              <Typography variant="caption" color="text.secondary" component="div">
+              <Typography variant="caption" component="div" sx={{
+                color: "text.secondary"
+              }}>
                 • {vswr && vswr < 1.5 && 'Excellent match'}
                 {vswr && vswr >= 1.5 && vswr < 2 && 'Good match'}
                 {vswr && vswr >= 2 && vswr < 3 && 'Acceptable match'}
@@ -208,10 +231,14 @@ function ResultsPanel({
           ) : (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <ElectricalServices sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 No impedance data available
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Run a simulation to see input impedance
               </Typography>
             </Box>
@@ -225,12 +252,19 @@ function ResultsPanel({
               <Typography variant="h6" gutterBottom>
                 Current Distribution
               </Typography>
-              <Typography variant="body2" color="text.secondary" paragraph>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  marginBottom: "16px"
+                }}>
                 Branch currents displayed on antenna geometry. Toggle visualization mode to see current distribution.
               </Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2, mt: 2 }}>
                 <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Total Edges
                   </Typography>
                   <Typography variant="h5" sx={{ mt: 0.5 }}>
@@ -238,7 +272,9 @@ function ResultsPanel({
                   </Typography>
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Max Current
                   </Typography>
                   <Typography variant="h5" sx={{ mt: 0.5 }}>
@@ -246,7 +282,9 @@ function ResultsPanel({
                   </Typography>
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Min Current
                   </Typography>
                   <Typography variant="h5" sx={{ mt: 0.5 }}>
@@ -255,17 +293,23 @@ function ResultsPanel({
                 </Paper>
               </Box>
               <Divider sx={{ my: 2 }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 <strong>Color mapping:</strong> Blue (low) → Green (medium) → Red (high)
               </Typography>
             </Box>
           ) : (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <ShowChart sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 No current distribution data
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Run a simulation to see current distribution
               </Typography>
             </Box>
@@ -286,10 +330,14 @@ function ResultsPanel({
         <TabPanel value={activeTab} index={3}>
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Assessment sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Statistics panel coming soon
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Solver convergence, timing, and analysis metrics
             </Typography>
           </Box>

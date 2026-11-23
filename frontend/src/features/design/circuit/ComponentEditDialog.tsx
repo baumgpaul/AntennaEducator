@@ -186,7 +186,7 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           {/* Component Type */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <FormControl fullWidth size="small">
               <InputLabel>Type</InputLabel>
               <Select
@@ -220,7 +220,7 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
           </Grid>
 
           {/* Value */}
-          <Grid item xs={isSource ? 6 : 12}>
+          <Grid size={isSource ? 6 : 12}>
             <ExpressionField
               label={`Value (${defaults.unit})`}
               value={valueStr}
@@ -228,7 +228,13 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
               size="small"
             />
             {type === 'port' && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: 'block' }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  mt: 0.25,
+                  display: 'block'
+                }}>
                 Reference impedance — used for postprocessing only
               </Typography>
             )}
@@ -236,7 +242,7 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
 
           {/* Phase (sources only) */}
           {isSource && (
-            <Grid item xs={6}>
+            <Grid size={6}>
               <ExpressionField
                 label="Phase (°)"
                 value={phaseStr}
@@ -247,7 +253,7 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
           )}
 
           {/* Node A */}
-          <Grid item xs={6}>
+          <Grid size={6}>
             <FormControl fullWidth size="small">
               <InputLabel>Node A</InputLabel>
               <Select
@@ -270,7 +276,7 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
           </Grid>
 
           {/* Node B */}
-          <Grid item xs={6}>
+          <Grid size={6}>
             <FormControl fullWidth size="small">
               <InputLabel>Node B</InputLabel>
               <Select
@@ -293,7 +299,7 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
           </Grid>
 
           {/* Label */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               label="Label (optional)"
               value={label}
@@ -306,7 +312,7 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
 
           {/* Error */}
           {error && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="body2" color="error">
                 {error}
               </Typography>

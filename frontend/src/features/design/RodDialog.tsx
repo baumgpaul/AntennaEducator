@@ -171,12 +171,12 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
             <Box sx={{ flex: '1 1 50%', minWidth: 0 }}>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             {/* Start Point */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" gutterBottom>
                 Start Point (m)
               </Typography>
             </Grid>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="start_x"
                 control={control}
@@ -192,7 +192,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 )}
               />
             </Grid>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="start_y"
                 control={control}
@@ -208,7 +208,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 )}
               />
             </Grid>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="start_z"
                 control={control}
@@ -226,12 +226,12 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
             </Grid>
 
             {/* End Point */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" gutterBottom>
                 End Point (m)
               </Typography>
             </Grid>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="end_x"
                 control={control}
@@ -247,7 +247,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 )}
               />
             </Grid>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="end_y"
                 control={control}
@@ -263,7 +263,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
                 )}
               />
             </Grid>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="end_z"
                 control={control}
@@ -281,7 +281,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
             </Grid>
 
             {/* Wire Radius */}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Controller
                 name="radius"
                 control={control}
@@ -300,7 +300,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
             </Grid>
 
             {/* Segments */}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Controller
                 name="segments"
                 control={control}
@@ -322,7 +322,7 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
             </Grid>
 
             {/* Rod Length Display */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Alert severity="info">
                 <strong>Calculated Length:</strong> {rodLength.toFixed(4)} m ({(rodLength * 100).toFixed(2)} cm)
               </Alert>
@@ -334,7 +334,14 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
 
             {/* Right side: 3D preview */}
             <Box sx={{ flex: '1 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, mt: 1, textAlign: 'center' }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  mb: 1,
+                  mt: 1,
+                  textAlign: 'center'
+                }}>
                 3D Preview
               </Typography>
               {previewGeometry.nodes.length >= 2 ? (

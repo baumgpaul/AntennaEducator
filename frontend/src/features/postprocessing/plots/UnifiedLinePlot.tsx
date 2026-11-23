@@ -284,10 +284,14 @@ function UnifiedLinePlot({
           gap: 1,
         }}
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           No data available for this plot.
         </Typography>
-        <Typography variant="caption" color="text.disabled">
+        <Typography variant="caption" sx={{
+          color: "text.disabled"
+        }}>
           Run a simulation (Solve Single or Parameter Sweep) to populate this chart.
         </Typography>
       </Box>
@@ -451,7 +455,14 @@ function UnifiedLinePlot({
       </Box>
 
       {isZoomed && (
-        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.disabled",
+            display: 'block',
+            textAlign: 'center',
+            mt: 0.5
+          }}>
           Zoomed — double-click chart or click <ZoomOutMapIcon sx={{ fontSize: 12, verticalAlign: 'middle' }} /> to reset
         </Typography>
       )}

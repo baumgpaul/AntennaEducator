@@ -130,7 +130,9 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Typography variant="h6">Add Source</Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           Add voltage or current source to antenna
         </Typography>
       </DialogTitle>
@@ -140,15 +142,22 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
           <Grid container spacing={3}>
             {/* Selected Antenna Display */}
             {selectedAntenna && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
-                  <Typography variant="subtitle2" color="text.secondary">
+                  <Typography variant="subtitle2" sx={{
+                    color: "text.secondary"
+                  }}>
                     Antenna
                   </Typography>
                   <Typography variant="h6">
                     {selectedAntenna.name}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "text.secondary",
+                      mt: 0.5
+                    }}>
                     Type: {selectedAntenna.type}
                   </Typography>
                 </Paper>
@@ -157,7 +166,7 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
 
             {/* Antenna Selection */}
             {elements.length > 1 && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="antennaId"
                   control={control}
@@ -181,7 +190,7 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
             )}
 
             {/* Source Type */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="type"
                 control={control}
@@ -201,7 +210,7 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
             </Grid>
 
             {/* Node 1 */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="node1"
                 control={control}
@@ -231,7 +240,7 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
             </Grid>
 
             {/* Node 2 */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="node2"
                 control={control}
@@ -261,7 +270,7 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
             </Grid>
 
             {/* Value */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="value"
                 control={control}
@@ -273,15 +282,17 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
                     fullWidth
                     error={!!errors.value}
                     helperText={errors.value?.message || ''}
-                    inputProps={{ step: 0.1, min: 0 }}
                     onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    slotProps={{
+                      htmlInput: { step: 0.1, min: 0 }
+                    }}
                   />
                 )}
               />
             </Grid>
 
             {/* Series Components */}
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="seriesR"
                 control={control}
@@ -293,14 +304,16 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
                     fullWidth
                     error={!!errors.seriesR}
                     helperText={errors.seriesR?.message || ''}
-                    inputProps={{ step: 0.1, min: 0 }}
                     onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    slotProps={{
+                      htmlInput: { step: 0.1, min: 0 }
+                    }}
                   />
                 )}
               />
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="seriesL"
                 control={control}
@@ -312,14 +325,16 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
                     fullWidth
                     error={!!errors.seriesL}
                     helperText={errors.seriesL?.message || ''}
-                    inputProps={{ step: 0.01e-9, min: 0 }}
                     onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    slotProps={{
+                      htmlInput: { step: 0.01e-9, min: 0 }
+                    }}
                   />
                 )}
               />
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Controller
                 name="seriesC"
                 control={control}
@@ -331,15 +346,17 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
                     fullWidth
                     error={!!errors.seriesC}
                     helperText={errors.seriesC?.message || ''}
-                    inputProps={{ step: 0.01e-12, min: 0 }}
                     onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    slotProps={{
+                      htmlInput: { step: 0.01e-12, min: 0 }
+                    }}
                   />
                 )}
               />
             </Grid>
 
             {/* Info Alert */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Alert severity="info">
                 <strong>Node Indexing:</strong> Positive (mesh nodes), 0 (ground), Negative (appended network)
                 <br />
@@ -348,7 +365,7 @@ export const SourceDialog: React.FC<SourceDialogProps> = ({
             </Grid>
 
             {meshNodeLimit(elements, selectedAntennaId, maxNodeIndex) === 0 && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Alert severity="warning">
                   <strong>Warning:</strong> No antenna mesh loaded. Generate an antenna first to see available nodes.
                 </Alert>

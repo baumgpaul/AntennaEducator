@@ -167,7 +167,9 @@ function LineViewPanel({ view }: LineViewPanelProps) {
           gap: 2,
         }}
       >
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" sx={{
+          color: "text.secondary"
+        }}>
           No curves added yet.
         </Typography>
         <Button
@@ -317,7 +319,9 @@ function LineViewPanel({ view }: LineViewPanelProps) {
     // Legacy scalar-plot stub
     return (
       <Box key={item.id} sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           Plot type not yet implemented. Use the ribbon menu to add a Line Plot view instead.
         </Typography>
       </Box>

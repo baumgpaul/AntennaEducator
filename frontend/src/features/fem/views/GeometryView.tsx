@@ -54,7 +54,14 @@ function GeometryView({ shapes, bounds, holes, selected, onSelect, fill, height 
           })}
         </g>
       </svg>
-      <Typography variant="caption" color="text.secondary" sx={{ position: 'absolute', left: 8, bottom: 4 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "text.secondary",
+          position: 'absolute',
+          left: 8,
+          bottom: 4
+        }}>
         {si(w, 'm', 3)} × {si(h, 'm', 3)}
       </Typography>
     </Box>

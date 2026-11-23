@@ -186,7 +186,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
           <Grid container spacing={2} sx={{ mt: 1 }}>
             {/* Antenna Display */}
             {selectedAntenna && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
                   <Typography variant="subtitle2" color="textSecondary">
                     Antenna
@@ -202,7 +202,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
             )}
 
             {/* Antenna Selection */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="antennaId"
                 control={control}
@@ -229,7 +229,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
             </Grid>
 
             {/* Element Type */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <FormControl fullWidth error={!!errors.element_type}>
                 <InputLabel id="element-type-label">Element Type</InputLabel>
                 <Select
@@ -268,7 +268,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
 
             {/* Element-specific fields */}
             {(elementType === 'R') && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="resistance"
                   control={control}
@@ -280,8 +280,10 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                       fullWidth
                       error={!!(errors as ValueErrors).resistance}
                       helperText={(errors as ValueErrors).resistance?.message}
-                      inputProps={{ step: 0.1 }}
                       onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                      slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }}
                     />
                   )}
                 />
@@ -289,7 +291,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
             )}
 
             {(elementType === 'L') && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="inductance"
                   control={control}
@@ -301,8 +303,10 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                       fullWidth
                       error={!!(errors as ValueErrors).inductance}
                       helperText={(errors as ValueErrors).inductance?.message || 'Use scientific notation (e.g., 1e-9)'}
-                      inputProps={{ step: 1e-10 }}
                       onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                      slotProps={{
+                        htmlInput: { step: 1e-10 }
+                      }}
                     />
                   )}
                 />
@@ -310,7 +314,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
             )}
 
             {(elementType === 'C') && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="capacitance"
                   control={control}
@@ -322,8 +326,10 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                       fullWidth
                       error={!!(errors as ValueErrors).capacitance}
                       helperText={(errors as ValueErrors).capacitance?.message || 'Use scientific notation (e.g., 1e-12 for 1 pF)'}
-                      inputProps={{ step: 1e-13 }}
                       onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                      slotProps={{
+                        htmlInput: { step: 1e-13 }
+                      }}
                     />
                   )}
                 />
@@ -331,12 +337,12 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
             )}
 
             {/* Node Placement */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" gutterBottom>
                 Node Placement
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="node1"
                 control={control}
@@ -364,7 +370,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                 )}
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Controller
                 name="node2"
                 control={control}
@@ -394,7 +400,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
             </Grid>
 
             {/* Info Alert */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Alert severity="info">
                 <strong>Lumped Elements:</strong> Add discrete components between mesh nodes.
                 <br />
@@ -409,7 +415,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
             </Grid>
 
             {meshNodeLimit(elements, selectedAntennaId, maxNodeIndex) === 0 && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Alert severity="warning">
                   <strong>Warning:</strong> No antenna mesh loaded. Generate an antenna first to see available nodes.
                 </Alert>

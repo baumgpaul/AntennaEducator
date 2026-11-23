@@ -7,8 +7,14 @@ function LockedStep<Id extends string>({ step, steps }: { step: WorkflowStep<Id>
   return (
     <Paper variant="outlined" sx={{ p: 3, m: 2 }}>
       <Typography variant="h6">{step.label}</Typography>
-      <Typography color="text.secondary">{step.summary}</Typography>
-      <Typography color="text.secondary" sx={{ mt: 1 }}>
+      <Typography sx={{
+        color: "text.secondary"
+      }}>{step.summary}</Typography>
+      <Typography
+        sx={{
+          color: "text.secondary",
+          mt: 1
+        }}>
         This step opens once {needed} is complete.
       </Typography>
     </Paper>

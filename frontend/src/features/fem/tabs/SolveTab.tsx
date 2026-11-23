@@ -88,7 +88,11 @@ function SolveTab({ studio }: { studio: FemStudio }) {
       {result ? (
         <MeshView mesh={result.mesh} selectedTriangle={picked} onPickTriangle={setPicked} height="fill" />
       ) : (
-        <Typography color="text.secondary" sx={{ p: 3 }}>
+        <Typography
+          sx={{
+            color: "text.secondary",
+            p: 3
+          }}>
           Solve to look inside: the system, its sparsity and the element matrices.
         </Typography>
       )}
@@ -114,7 +118,9 @@ function ElementPanel({ element }: { element: ReturnType<typeof elementInfo> }) 
       <Typography variant="subtitle2">
         Triangle {element.index} in “{element.domain}”
       </Typography>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body2" sx={{
+        color: "text.secondary"
+      }}>
         nodes {element.nodes.join(', ')}
       </Typography>
       <Box sx={{ my: 1 }}>

@@ -621,7 +621,9 @@ function PostprocessingTab({
               height: '100%',
             }}
           >
-            <Typography variant="h6" color="text.secondary">
+            <Typography variant="h6" sx={{
+              color: "text.secondary"
+            }}>
               No view selected. Create a view to get started.
             </Typography>
           </Box>
@@ -661,7 +663,9 @@ function PostprocessingTab({
             if (!polarItem) {
               return (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', p: 4 }}>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1" sx={{
+                    color: "text.secondary"
+                  }}>
                     No pattern cut added. Use the ribbon to add a Pattern Cut or Sweep Overlay.
                   </Typography>
                 </Box>
@@ -805,7 +809,9 @@ function PostprocessingTab({
             if (!tableItem) {
               return (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', p: 4 }}>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1" sx={{
+                    color: "text.secondary"
+                  }}>
                     No port quantities added. Use the ribbon to add a Port Quantities table.
                   </Typography>
                 </Box>

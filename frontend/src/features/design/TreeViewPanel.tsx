@@ -615,7 +615,9 @@ function TreeViewPanel({
           </ListItemIcon>
           <ListItemText
             primary={node.label}
-            primaryTypographyProps={{ variant: 'body2' }}
+            slotProps={{
+              primary: { variant: 'body2' }
+            }}
           />
         </ListItemButton>
       </ListItem>
@@ -751,7 +753,9 @@ function TreeViewPanel({
                   <ListItemText
                     primary="Currents & Voltages"
                     secondary="Always included"
-                    secondaryTypographyProps={{ variant: 'caption' }}
+                    slotProps={{
+                      secondary: { variant: 'caption' }
+                    }}
                   />
                   <Lock fontSize="small" color="disabled" />
                 </ListItemButton>
@@ -795,7 +799,9 @@ function TreeViewPanel({
                     <ListItemText
                       primary="Directivity"
                       secondary={fieldResults?.['directivity']?.computed ? "✓ Far-field pattern" : "Far-field pattern"}
-                      secondaryTypographyProps={{ variant: 'caption' }}
+                      slotProps={{
+                        secondary: { variant: 'caption' }
+                      }}
                     />
                   </ListItemButton>
                 </ListItem>
@@ -810,7 +816,9 @@ function TreeViewPanel({
                     <ListItemText
                       primary="Port Quantities"
                       secondary="Will compute with postprocessing"
-                      secondaryTypographyProps={{ variant: 'caption' }}
+                      slotProps={{
+                        secondary: { variant: 'caption' }
+                      }}
                     />
                   </ListItemButton>
                 </ListItem>
@@ -880,16 +888,18 @@ function TreeViewPanel({
                       </ListItemIcon>
                       <ListItemText
                         primary={field.name || `${field.type} ${field.shape}`}
-                        primaryTypographyProps={{
-                          variant: 'body2',
-                          sx: { fontWeight: field.id === selectedFieldId ? 600 : 400 },
-                        }}
                         secondary={`${field.type} - ${field.shape}${isComputed ? ' ✓' : ''}`}
-                        secondaryTypographyProps={{
-                          variant: 'caption',
-                          sx: { color: isComputed ? 'success.main' : 'text.secondary' },
-                        }}
-                      />
+                        slotProps={{
+                          primary: {
+                            variant: 'body2',
+                            sx: { fontWeight: field.id === selectedFieldId ? 600 : 400 },
+                          },
+
+                          secondary: {
+                            variant: 'caption',
+                            sx: { color: isComputed ? 'success.main' : 'text.secondary' },
+                          }
+                        }} />
                     </ListItemButton>
                   </ListItem>
                 );
@@ -1026,20 +1036,22 @@ function TreeViewPanel({
                               >
                                 <ListItemText
                                   primary={item.label || item.type}
-                                  primaryTypographyProps={{
-                                    variant: 'body2',
-                                    sx: {
-                                      fontWeight: item.id === selectedItemId ? 600 : 400,
-                                      opacity: item.visible === false ? 0.5 : 1,
-                                    },
-                                  }}
                                   secondary={
                                     item.type === 'smith-chart' && smithChartSummary
                                       ? smithChartSummary
                                       : item.type
                                   }
-                                  secondaryTypographyProps={{ variant: 'caption' }}
-                                />
+                                  slotProps={{
+                                    primary: {
+                                      variant: 'body2',
+                                      sx: {
+                                        fontWeight: item.id === selectedItemId ? 600 : 400,
+                                        opacity: item.visible === false ? 0.5 : 1,
+                                      },
+                                    },
+
+                                    secondary: { variant: 'caption' }
+                                  }} />
                               </ListItemButton>
                             </ListItem>
                           ))}

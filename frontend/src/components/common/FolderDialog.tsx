@@ -56,9 +56,11 @@ function FolderDialog({
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSubmit();
           }}
-          inputProps={{ maxLength: 100 }}
           error={name.trim().length > 0 && name.trim().length < 1}
           helperText={name.trim().length > 100 ? 'Max 100 characters' : ''}
+          slotProps={{
+            htmlInput: { maxLength: 100 }
+          }}
         />
       </DialogContent>
       <DialogActions>

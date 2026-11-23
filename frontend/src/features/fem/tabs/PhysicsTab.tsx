@@ -73,7 +73,6 @@ function PhysicsTab({ studio }: { studio: FemStudio }) {
                           size="small"
                           sx={{ flex: 1, minWidth: 0 }}
                           value={type}
-                          inputProps={{ 'aria-label': `Condition on ${b}` }}
                           onChange={(e) => {
                             const t = e.target.value as BoundaryCondition['type'] | 'none';
                             if (t === 'none') setCondition(b, null);
@@ -84,6 +83,9 @@ function PhysicsTab({ studio }: { studio: FemStudio }) {
                                 boundary: b,
                                 value: 'value' in (bc ?? {}) ? (bc as { value: number }).value : t === 'potential' ? 1 : 1e-6,
                               });
+                          }}
+                          slotProps={{
+                            htmlInput: { 'aria-label': `Condition on ${b}` }
                           }}
                         >
                           {TYPES.map((t) => (
@@ -114,7 +116,9 @@ function PhysicsTab({ studio }: { studio: FemStudio }) {
               {progress.domains.map((d) => {
                 const src = sourceOf(d);
                 return (
-                  <Stack key={d} direction="row" spacing={1} alignItems="center">
+                  <Stack key={d} direction="row" spacing={1} sx={{
+                    alignItems: "center"
+                  }}>
                     <Typography variant="body2" sx={{ width: 100 }} noWrap title={d}>
                       {d}
                     </Typography>
@@ -145,7 +149,11 @@ function PhysicsTab({ studio }: { studio: FemStudio }) {
       {mesh ? (
         <MeshView mesh={mesh} showEdges={false} highlightBoundaries={focus ? [focus] : []} height="fill" />
       ) : (
-        <Typography color="text.secondary" sx={{ p: 3 }}>
+        <Typography
+          sx={{
+            color: "text.secondary",
+            p: 3
+          }}>
           Find the domains and boundaries on the Geometry tab first.
         </Typography>
       )}

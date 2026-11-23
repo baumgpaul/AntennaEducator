@@ -253,7 +253,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
         // Step 1: Region Type
         return (
           <Grid container spacing={2}>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Card variant="outlined" sx={{ bgcolor: regionType === '1D' ? 'action.selected' : 'background.paper' }}>
                 <CardActionArea onClick={() => {
                   setRegionType('1D');
@@ -262,14 +262,16 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                   <CardContent sx={{ textAlign: 'center', py: 4 }}>
                     <Timeline sx={{ fontSize: 60, mb: 2 }} />
                     <Typography variant="h6">1D Region</Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       Line or Arc
                     </Typography>
                   </CardContent>
                 </CardActionArea>
               </Card>
             </Grid>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Card variant="outlined" sx={{ bgcolor: regionType === '2D' ? 'action.selected' : 'background.paper' }}>
                 <CardActionArea onClick={() => {
                   setRegionType('2D');
@@ -278,14 +280,16 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                   <CardContent sx={{ textAlign: 'center', py: 4 }}>
                     <PanoramaFishEye sx={{ fontSize: 60, mb: 2 }} />
                     <Typography variant="h6">2D Region</Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       Plane or Ellipse
                     </Typography>
                   </CardContent>
                 </CardActionArea>
               </Card>
             </Grid>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Card variant="outlined" sx={{ bgcolor: regionType === '3D' ? 'action.selected' : 'background.paper' }}>
                 <CardActionArea onClick={() => {
                   setRegionType('3D');
@@ -294,7 +298,9 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                   <CardContent sx={{ textAlign: 'center', py: 4 }}>
                     <ViewInAr sx={{ fontSize: 60, mb: 2 }} />
                     <Typography variant="h6">3D Region</Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       Sphere or Cuboid
                     </Typography>
                   </CardContent>
@@ -371,49 +377,51 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             {/* ── Line: Start and End Points ── */}
             {shape === 'line' && (
               <>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="subtitle2" gutterBottom>
                     Start Point (mm)
                   </Typography>
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField fullWidth label="X" type="number" value={lineStart.x}
                     onChange={(e) => setLineStart({ ...lineStart, x: parseFloat(e.target.value) || 0 })} />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField fullWidth label="Y" type="number" value={lineStart.y}
                     onChange={(e) => setLineStart({ ...lineStart, y: parseFloat(e.target.value) || 0 })} />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField fullWidth label="Z" type="number" value={lineStart.z}
                     onChange={(e) => setLineStart({ ...lineStart, z: parseFloat(e.target.value) || 0 })} />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
                     End Point (mm)
                   </Typography>
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField fullWidth label="X" type="number" value={lineEnd.x}
                     onChange={(e) => setLineEnd({ ...lineEnd, x: parseFloat(e.target.value) || 0 })} />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField fullWidth label="Y" type="number" value={lineEnd.y}
                     onChange={(e) => setLineEnd({ ...lineEnd, y: parseFloat(e.target.value) || 0 })} />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField fullWidth label="Z" type="number" value={lineEnd.z}
                     onChange={(e) => setLineEnd({ ...lineEnd, z: parseFloat(e.target.value) || 0 })} />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
                     Sampling
                   </Typography>
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField fullWidth label="Number of Points" type="number" value={numPoints}
                     onChange={(e) => setNumPoints(parseInt(e.target.value) || 2)}
-                    helperText="Uniformly distributed along the line" inputProps={{ min: 2 }} />
+                    helperText="Uniformly distributed along the line" slotProps={{
+                    htmlInput: { min: 2 }
+                  }} />
                 </Grid>
               </>
             )}
@@ -421,41 +429,41 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             {/* ── Arc: Center, Axes, Radii, Angles ── */}
             {shape === 'arc' && (
               <>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="subtitle2" gutterBottom>
                     Center Point (mm)
                   </Typography>
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField fullWidth label="X" type="number" value={center.x}
                     onChange={(e) => setCenter({ ...center, x: parseFloat(e.target.value) || 0 })} />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField fullWidth label="Y" type="number" value={center.y}
                     onChange={(e) => setCenter({ ...center, y: parseFloat(e.target.value) || 0 })} />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField fullWidth label="Z" type="number" value={center.z}
                     onChange={(e) => setCenter({ ...center, z: parseFloat(e.target.value) || 0 })} />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
                     Ellipse Radii (mm)
                   </Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField fullWidth label="Radius A" type="number" value={radiusA}
                     onChange={(e) => setRadiusA(parseFloat(e.target.value) || 1)}
                     helperText="Along Axis 1" />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField fullWidth label="Radius B" type="number" value={radiusB}
                     onChange={(e) => setRadiusB(parseFloat(e.target.value) || 1)}
                     helperText="Along Axis 2" />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <FormControl fullWidth sx={{ mt: 1 }}>
                     <InputLabel>Orientation</InputLabel>
                     <Select value={normalPreset} label="Orientation"
@@ -469,68 +477,86 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                 </Grid>
                 {normalPreset === 'Custom' && (
                   <>
-                    <Grid item xs={12}>
-                      <Typography variant="caption" color="text.secondary">
+                    <Grid size={12}>
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         Axis 1 (0° direction):
                       </Typography>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="X" type="number" value={customAxis1.x}
-                        onChange={(e) => setCustomAxis1({ ...customAxis1, x: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, x: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="Y" type="number" value={customAxis1.y}
-                        onChange={(e) => setCustomAxis1({ ...customAxis1, y: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, y: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="Z" type="number" value={customAxis1.z}
-                        onChange={(e) => setCustomAxis1({ ...customAxis1, z: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, z: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
-                    <Grid item xs={12}>
-                      <Typography variant="caption" color="text.secondary">
+                    <Grid size={12}>
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         Axis 2 (90° direction):
                       </Typography>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="X" type="number" value={customAxis2.x}
-                        onChange={(e) => setCustomAxis2({ ...customAxis2, x: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, x: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="Y" type="number" value={customAxis2.y}
-                        onChange={(e) => setCustomAxis2({ ...customAxis2, y: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, y: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="Z" type="number" value={customAxis2.z}
-                        onChange={(e) => setCustomAxis2({ ...customAxis2, z: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, z: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
                   </>
                 )}
 
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
                     Arc Angles (degrees)
                   </Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField fullWidth label="Start Angle" type="number" value={arcAngles.start}
                     onChange={(e) => setArcAngles({ ...arcAngles, start: parseFloat(e.target.value) || 0 })}
                     helperText="0° = along Axis 1" />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField fullWidth label="End Angle" type="number" value={arcAngles.end}
                     onChange={(e) => setArcAngles({ ...arcAngles, end: parseFloat(e.target.value) || 360 })}
                     helperText="360° = full ellipse" />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
                     Sampling
                   </Typography>
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField fullWidth label="Number of Points" type="number" value={numPoints}
                     onChange={(e) => setNumPoints(parseInt(e.target.value) || 2)}
-                    helperText="Uniformly distributed along the arc" inputProps={{ min: 2 }} />
+                    helperText="Uniformly distributed along the arc" slotProps={{
+                    htmlInput: { min: 2 }
+                  }} />
                 </Grid>
               </>
             )}
@@ -538,12 +564,12 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             {/* Center Point (2D and 3D shapes) */}
             {(shape === 'plane' || shape === 'ellipse' || shape === 'sphere' || shape === 'cuboid') && (
               <>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="subtitle2" gutterBottom>
                     Center Point
                   </Typography>
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="X (mm)"
@@ -552,7 +578,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     onChange={(e) => setCenter({ ...center, x: parseFloat(e.target.value) || 0 })}
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="Y (mm)"
@@ -561,7 +587,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     onChange={(e) => setCenter({ ...center, y: parseFloat(e.target.value) || 0 })}
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="Z (mm)"
@@ -572,7 +598,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                 </Grid>
 
                 {/* Shape-specific parameters */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
                     Dimensions
                   </Typography>
@@ -583,7 +609,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             {/* ── Plane ── */}
             {shape === 'plane' && (
               <>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     fullWidth
                     label="Width (mm)"
@@ -592,7 +618,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     onChange={(e) => setPlaneDims({ ...planeDims, width: parseFloat(e.target.value) || 0 })}
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     fullWidth
                     label="Height (mm)"
@@ -601,7 +627,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     onChange={(e) => setPlaneDims({ ...planeDims, height: parseFloat(e.target.value) || 0 })}
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <FormControl fullWidth>
                     <InputLabel>Orientation</InputLabel>
                     <Select
@@ -618,34 +644,40 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                 </Grid>
                 {normalPreset === 'Custom' && (
                   <>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField
                         fullWidth
                         label="Normal X"
                         type="number"
                         value={customNormal.x}
                         onChange={(e) => setCustomNormal({ ...customNormal, x: parseFloat(e.target.value) || 0 })}
-                        inputProps={{ step: 0.1 }}
+                        slotProps={{
+                          htmlInput: { step: 0.1 }
+                        }}
                       />
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField
                         fullWidth
                         label="Normal Y"
                         type="number"
                         value={customNormal.y}
                         onChange={(e) => setCustomNormal({ ...customNormal, y: parseFloat(e.target.value) || 0 })}
-                        inputProps={{ step: 0.1 }}
+                        slotProps={{
+                          htmlInput: { step: 0.1 }
+                        }}
                       />
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField
                         fullWidth
                         label="Normal Z"
                         type="number"
                         value={customNormal.z}
                         onChange={(e) => setCustomNormal({ ...customNormal, z: parseFloat(e.target.value) || 0 })}
-                        inputProps={{ step: 0.1 }}
+                        slotProps={{
+                          htmlInput: { step: 0.1 }
+                        }}
                       />
                     </Grid>
                   </>
@@ -656,7 +688,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             {/* ── Ellipse / Circle ── */}
             {shape === 'ellipse' && (
               <>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     fullWidth
                     label="Radius A (mm)"
@@ -666,7 +698,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     helperText="Semi-axis along Axis 1"
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     fullWidth
                     label="Radius B (mm)"
@@ -676,7 +708,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     helperText="Semi-axis along Axis 2"
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <FormControl fullWidth>
                     <InputLabel>Orientation</InputLabel>
                     <Select
@@ -693,39 +725,55 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                 </Grid>
                 {normalPreset === 'Custom' && (
                   <>
-                    <Grid item xs={12}>
-                      <Typography variant="caption" color="text.secondary">
+                    <Grid size={12}>
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         Axis 1 direction (semi-major):
                       </Typography>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="A1 X" type="number" value={customAxis1.x}
-                        onChange={(e) => setCustomAxis1({ ...customAxis1, x: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, x: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="A1 Y" type="number" value={customAxis1.y}
-                        onChange={(e) => setCustomAxis1({ ...customAxis1, y: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, y: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="A1 Z" type="number" value={customAxis1.z}
-                        onChange={(e) => setCustomAxis1({ ...customAxis1, z: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis1({ ...customAxis1, z: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
-                    <Grid item xs={12}>
-                      <Typography variant="caption" color="text.secondary">
+                    <Grid size={12}>
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         Axis 2 direction (semi-minor):
                       </Typography>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="A2 X" type="number" value={customAxis2.x}
-                        onChange={(e) => setCustomAxis2({ ...customAxis2, x: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, x: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="A2 Y" type="number" value={customAxis2.y}
-                        onChange={(e) => setCustomAxis2({ ...customAxis2, y: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, y: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <TextField fullWidth label="A2 Z" type="number" value={customAxis2.z}
-                        onChange={(e) => setCustomAxis2({ ...customAxis2, z: parseFloat(e.target.value) || 0 })} inputProps={{ step: 0.1 }} />
+                        onChange={(e) => setCustomAxis2({ ...customAxis2, z: parseFloat(e.target.value) || 0 })} slotProps={{
+                        htmlInput: { step: 0.1 }
+                      }} />
                     </Grid>
                   </>
                 )}
@@ -734,7 +782,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
 
             {/* ── Sphere ── */}
             {shape === 'sphere' && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   fullWidth
                   label="Radius (mm)"
@@ -748,7 +796,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             {/* ── Cuboid ── */}
             {shape === 'cuboid' && (
               <>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="Lx (mm)"
@@ -757,7 +805,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     onChange={(e) => setCuboidDims({ ...cuboidDims, Lx: parseFloat(e.target.value) || 0 })}
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="Ly (mm)"
@@ -766,7 +814,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     onChange={(e) => setCuboidDims({ ...cuboidDims, Ly: parseFloat(e.target.value) || 0 })}
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="Lz (mm)"
@@ -780,7 +828,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
 
             {/* Sampling Resolution (only for 2D/3D shapes, not line/arc) */}
             {(shape === 'plane' || shape === 'ellipse' || shape === 'sphere' || shape === 'cuboid') && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
                   Sampling Resolution
                 </Typography>
@@ -790,7 +838,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             {/* 2D sampling: plane uses x/y; ellipse uses angle/radius */}
             {shape === 'plane' && (
               <>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     fullWidth
                     label="Points in X"
@@ -799,7 +847,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     onChange={(e) => setSampling2D({ ...sampling2D, x: parseInt(e.target.value) || 0 })}
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     fullWidth
                     label="Points in Y"
@@ -812,7 +860,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             )}
             {shape === 'ellipse' && (
               <>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     fullWidth
                     label="Angular Points"
@@ -822,7 +870,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     helperText="Points around circumference"
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     fullWidth
                     label="Radial Points"
@@ -838,7 +886,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             {/* Sphere sampling: theta, phi, radial */}
             {shape === 'sphere' && (
               <>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="Theta Points"
@@ -848,7 +896,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     helperText="Elevation (0° → 180°)"
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="Phi Points"
@@ -858,7 +906,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     helperText="Azimuth (0° → 360°)"
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="Radial Points"
@@ -874,7 +922,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             {/* Cuboid sampling: Nx, Ny, Nz */}
             {shape === 'cuboid' && (
               <>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="Nx"
@@ -884,7 +932,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     helperText="Points along X"
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="Ny"
@@ -894,7 +942,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     helperText="Points along Y"
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     fullWidth
                     label="Nz"
@@ -919,7 +967,9 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
               value={fieldName}
               onChange={(e) => setFieldName(e.target.value)}
               helperText="Shown in the tree view and properties"
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
             <FormControl component="fieldset">
               <FormLabel component="legend">Select Field Type</FormLabel>

@@ -114,10 +114,14 @@ const PostprocessingPropertiesPanel: React.FC = () => {
           boxSizing: 'border-box',
         }}
       >
-        <Typography variant="h6" color="text.secondary" gutterBottom>
+        <Typography variant="h6" gutterBottom sx={{
+          color: "text.secondary"
+        }}>
           No view selected
         </Typography>
-        <Typography variant="body2" color="text.disabled">
+        <Typography variant="body2" sx={{
+          color: "text.disabled"
+        }}>
           Create a view to get started
         </Typography>
       </Box>
@@ -1019,7 +1023,12 @@ const PostprocessingPropertiesPanel: React.FC = () => {
         return (
           <>
             {/* Trace List */}
-            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+                mb: 1
+              }}>
               Traces ({selectedItem.traces?.length ?? 0})
             </Typography>
             {(selectedItem.traces ?? []).map((trace, idx) => (
@@ -1095,13 +1104,25 @@ const PostprocessingPropertiesPanel: React.FC = () => {
               </Box>
             ))}
             {(!selectedItem.traces || selectedItem.traces.length === 0) && (
-              <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic', mb: 2 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.disabled",
+                  fontStyle: 'italic',
+                  mb: 2
+                }}>
                 No traces. Use "Add Curve" to add data.
               </Typography>
             )}
 
             {/* X-Axis Config */}
-            <Typography variant="body2" fontWeight={600} sx={{ mt: 2, mb: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+                mt: 2,
+                mb: 1
+              }}>
               X-Axis
             </Typography>
             <TextField
@@ -1132,7 +1153,12 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             />
 
             {/* Left Y-Axis Config */}
-            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+                mb: 1
+              }}>
               Left Y-Axis
             </Typography>
             <TextField
@@ -1182,7 +1208,12 @@ const PostprocessingPropertiesPanel: React.FC = () => {
             {/* Right Y-Axis Config (only if any trace uses it) */}
             {selectedItem.traces?.some((t) => t.yAxisId === 'right') && (
               <>
-                <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
                   Right Y-Axis
                 </Typography>
                 <TextField
@@ -1235,15 +1266,20 @@ const PostprocessingPropertiesPanel: React.FC = () => {
 
       case 'port-table':
         return (
-          <Typography variant="body2" color="text.secondary">
-            Port quantity table shows impedance, reflection coefficient, return loss, and VSWR for each frequency point.
-          </Typography>
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>Port quantity table shows impedance, reflection coefficient, return loss, and VSWR for each frequency point.
+                      </Typography>
         );
 
       default:
         return (
-          <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic' }}>
-            No additional properties for {selectedItem.type}
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.disabled",
+              fontStyle: 'italic'
+            }}>No additional properties for {selectedItem.type}
           </Typography>
         );
     }
@@ -1264,7 +1300,9 @@ const PostprocessingPropertiesPanel: React.FC = () => {
     >
       {/* View-Level Properties */}
       <Box>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+        <Typography variant="subtitle2" gutterBottom sx={{
+          color: "text.secondary"
+        }}>
           View Properties
         </Typography>
 
@@ -1281,7 +1319,9 @@ const PostprocessingPropertiesPanel: React.FC = () => {
 
         {/* View Type Chip (read-only) */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             Type:
           </Typography>
           <Chip
@@ -1309,7 +1349,9 @@ const PostprocessingPropertiesPanel: React.FC = () => {
       {/* Item-Specific Properties */}
       {selectedItem && (
         <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle2" gutterBottom sx={{
+            color: "text.secondary"
+          }}>
             Item Properties
           </Typography>
 

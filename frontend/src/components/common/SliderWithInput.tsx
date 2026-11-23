@@ -114,11 +114,13 @@ const SliderWithInput: React.FC<SliderWithInputProps> = ({
           onChange={handleTextChange}
           onBlur={handleTextBlur}
           size="small"
-          inputProps={{
-            inputMode: 'decimal',
-            style: { textAlign: 'right', padding: '4px 8px' },
-          }}
           sx={{ width: inputWidth }}
+          slotProps={{
+            htmlInput: {
+              inputMode: 'decimal',
+              style: { textAlign: 'right', padding: '4px 8px' },
+            }
+          }}
         />
       </Box>
     </Box>

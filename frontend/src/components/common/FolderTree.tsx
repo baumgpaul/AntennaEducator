@@ -93,7 +93,9 @@ function FolderTree({
           </ListItemIcon>
           <ListItemText
             primary={node.name}
-            primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+            slotProps={{
+              primary: { variant: 'body2', noWrap: true }
+            }}
           />
           {hasChildren && (
             <IconButton
@@ -137,7 +139,9 @@ function FolderTree({
           </ListItemIcon>
           <ListItemText
             primary={rootLabel}
-            primaryTypographyProps={{ variant: 'body2', fontWeight: 'bold' }}
+            slotProps={{
+              primary: { variant: 'body2', sx: { fontWeight: 'bold' } }
+            }}
           />
           {!readOnly && onCreateFolder && (
             <Tooltip title="New Folder">
@@ -159,7 +163,9 @@ function FolderTree({
 
         {tree.length === 0 && (
           <Box sx={{ pl: 4, py: 1 }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               No folders yet
             </Typography>
           </Box>
