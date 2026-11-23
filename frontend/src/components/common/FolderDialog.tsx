@@ -6,7 +6,7 @@ import {
   Button,
   TextField,
 } from '@mui/material';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 interface FolderDialogProps {
   open: boolean;
@@ -30,9 +30,13 @@ function FolderDialog({
 }: FolderDialogProps) {
   const [name, setName] = useState(initialName);
 
-  useEffect(() => {
-    if (open) setName(initialName);
-  }, [open, initialName]);
+  // Start from initialName each time the dialog opens (adjusted during render)
+  const resetFor = open ? initialName : null;
+  const [syncedFor, setSyncedFor] = useState<string | null>(null);
+  if (resetFor !== syncedFor) {
+    setSyncedFor(resetFor);
+    if (resetFor !== null) setName(resetFor);
+  }
 
   const handleSubmit = () => {
     const trimmed = name.trim();

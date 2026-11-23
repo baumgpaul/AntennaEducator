@@ -3,7 +3,7 @@
  * Select plot type (impedance/voltage/current) and port number
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -39,13 +39,12 @@ function AddScalarPlotDialog() {
   >('impedance_real');
 
   // Apply preselect when dialog opens
-  useEffect(() => {
-    if (open && preselect) {
-      if (preselect === 'impedance') {
-        setDataType('impedance_real');
-      }
-    }
-  }, [open, preselect]);
+  const resetFor = open ? (preselect ?? '') : null;
+  const [syncedFor, setSyncedFor] = useState<string | null>(null);
+  if (resetFor !== syncedFor) {
+    setSyncedFor(resetFor);
+    if (resetFor === 'impedance') setDataType('impedance_real');
+  }
 
   const handleClose = () => {
     dispatch(setAddScalarPlotDialogOpen(false));

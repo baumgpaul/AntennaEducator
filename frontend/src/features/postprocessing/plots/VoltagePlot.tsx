@@ -28,6 +28,32 @@ interface VoltagePlotProps {
   title?: string;
 }
 
+// Custom tooltip (module level: a component defined during render remounts every render)
+type TooltipEntry = { value?: number; payload: { frequency: number } };
+type CustomTooltipProps = { active?: boolean; payload?: TooltipEntry[] };
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
+  if (active && payload && payload.length) {
+    const freq = payload[0].payload.frequency;
+    const mag = payload[0].value;
+    const phase = payload[1]?.value || 0;
+
+    return (
+      <Box sx={{ bgcolor: 'background.paper', p: 1, border: '1px solid #ccc', borderRadius: 1 }}>
+        <Typography variant="body2">
+          @ {freq.toFixed(2)} MHz
+        </Typography>
+        <Typography variant="body2" color="primary">
+          |V| = {mag.toFixed(3)} V
+        </Typography>
+        <Typography variant="body2" color="secondary">
+          ∠V = {phase.toFixed(1)}°
+        </Typography>
+      </Box>
+    );
+  }
+  return null;
+};
+
 function VoltagePlot({ data, portNumber, title }: VoltagePlotProps) {
   // Transform data for chart
   const chartData = useMemo(() => {
@@ -37,32 +63,6 @@ function VoltagePlot({ data, portNumber, title }: VoltagePlotProps) {
       phase: point.phase * (180 / Math.PI), // Convert to degrees
     }));
   }, [data]);
-
-  // Custom tooltip
-  type TooltipEntry = { value?: number; payload: { frequency: number } };
-  type CustomTooltipProps = { active?: boolean; payload?: TooltipEntry[] };
-  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
-    if (active && payload && payload.length) {
-      const freq = payload[0].payload.frequency;
-      const mag = payload[0].value;
-      const phase = payload[1]?.value || 0;
-
-      return (
-        <Box sx={{ bgcolor: 'background.paper', p: 1, border: '1px solid #ccc', borderRadius: 1 }}>
-          <Typography variant="body2">
-            @ {freq.toFixed(2)} MHz
-          </Typography>
-          <Typography variant="body2" color="primary">
-            |V| = {mag.toFixed(3)} V
-          </Typography>
-          <Typography variant="body2" color="secondary">
-            ∠V = {phase.toFixed(1)}°
-          </Typography>
-        </Box>
-      );
-    }
-    return null;
-  };
 
   if (!data || data.length === 0) {
     return (

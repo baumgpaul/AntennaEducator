@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, LinearProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
 import { errorMessage } from '@/utils/errors';
@@ -95,11 +95,11 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
   const [parameterStudyDialogOpen, setParameterStudyDialogOpen] = useState(false);
 
   // Auto-open properties panel when a field is selected
-  useEffect(() => {
-    if (selectedFieldId) {
-      setRightPanelOpen(true);
-    }
-  }, [selectedFieldId]);
+  const [autoOpenedFor, setAutoOpenedFor] = useState(selectedFieldId);
+  if (selectedFieldId !== autoOpenedFor) {
+    setAutoOpenedFor(selectedFieldId);
+    if (selectedFieldId) setRightPanelOpen(true);
+  }
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info'>('success');

@@ -13,7 +13,7 @@
  * Convention: the chart is a unit circle centered at origin in Γ-space.
  * SVG coordinates: cx=center, cy=center, radius maps Γ to pixels.
  */
-import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect, useId } from 'react';
 import { Box, Typography } from '@mui/material';
 
 // ============================================================================
@@ -400,7 +400,7 @@ export const SmithChart: React.FC<SmithChartProps> = ({
   const realAxisY = cy;
 
   // Unique clip-path id to avoid collisions when multiple charts render
-  const clipId = useMemo(() => `smith-clip-${Math.random().toString(36).slice(2, 8)}`, []);
+  const clipId = `smith-clip-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
   return (
     <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>

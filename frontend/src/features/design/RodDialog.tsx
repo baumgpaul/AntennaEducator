@@ -11,7 +11,7 @@ import {
   CircularProgress,
   Typography,
 } from '@mui/material';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import ExpressionField from '@/components/ExpressionField';
@@ -64,7 +64,6 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     formState: { errors: _errors },
     reset,
-    watch,
   } = useForm<RodFormData>({
     resolver: zodResolver(rodSchema),
     defaultValues: {
@@ -79,12 +78,12 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
     },
   });
 
-  const startX = watch('start_x');
-  const startY = watch('start_y');
-  const startZ = watch('start_z');
-  const endX = watch('end_x');
-  const endY = watch('end_y');
-  const endZ = watch('end_z');
+  const startX = useWatch({ control, name: 'start_x' });
+  const startY = useWatch({ control, name: 'start_y' });
+  const startZ = useWatch({ control, name: 'start_z' });
+  const endX = useWatch({ control, name: 'end_x' });
+  const endY = useWatch({ control, name: 'end_y' });
+  const endZ = useWatch({ control, name: 'end_z' });
 
   // Live 3D preview
   const previewGeometry = useRodPreview({
@@ -94,8 +93,8 @@ export const RodDialog: React.FC<RodDialogProps> = ({ open, onClose, onGenerate,
     end_x: endX,
     end_y: endY,
     end_z: endZ,
-    radius: watch('radius'),
-    segments: watch('segments'),
+    radius: useWatch({ control, name: 'radius' }),
+    segments: useWatch({ control, name: 'segments' }),
   });
 
   // Calculate rod length from expression values
