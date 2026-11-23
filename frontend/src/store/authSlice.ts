@@ -8,6 +8,7 @@ import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit'
 import type { User, AuthTokens } from '@/types/models'
 import { getAuthService, type LoginCredentials, type RegisterData } from '@/services/auth'
 import { clearStoredSession } from '@/services/auth/session'
+import { errorMessage } from '@/utils/errors'
 
 interface AuthState {
   isAuthenticated: boolean
@@ -73,8 +74,8 @@ export const loginAsync = createAsyncThunk<
           token_type: 'Bearer',
         }
       }
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Login failed')
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Login failed'))
     }
   }
 )
@@ -101,8 +102,8 @@ export const registerAsync = createAsyncThunk<
           token_type: 'Bearer',
         }
       }
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Registration failed')
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Registration failed'))
     }
   }
 )
@@ -129,8 +130,8 @@ export const getCurrentUserAsync = createAsyncThunk<
       const authService = getAuthService()
       const user = await authService.getCurrentUser()
       return user
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to get current user')
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Failed to get current user'))
     }
   }
 )
@@ -149,8 +150,8 @@ export const refreshTokenAsync = createAsyncThunk<
       const authService = getAuthService()
       const tokens = await authService.refreshToken()
       return tokens
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Token refresh failed')
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Token refresh failed'))
     }
   }
 )
@@ -172,8 +173,8 @@ export const validateSession = createAsyncThunk<
       const authService = getAuthService()
       const tokens = await authService.refreshToken()
       return tokens
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Session validation failed')
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Session validation failed'))
     }
   }
 )
