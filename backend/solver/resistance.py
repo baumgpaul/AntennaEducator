@@ -7,9 +7,9 @@ The resistance accounts for resistive losses in the conductors.
 For DC or low-frequency analysis:
     R_dc = ρ × L / A = ρ × L / (π × r²)
 
-For high-frequency analysis (when skin effect is significant):
-    R_ac = ρ × L / (2π × r × δ)
-    where δ = skin depth = √(ρ / (π × μ₀ × f))
+With skin effect (exact Bessel solution for a round wire):
+    R_ac = R_dc × Re{(ka/2) J0(ka)/J1(ka)},  k = (1 - j)/δ
+    where δ = skin depth = √(ρ / (π × μ × f)); R_ac → ρ × L / (2π × r × δ) for δ ≪ r
 
 References:
     - Ruehli, A.E., "Equivalent Circuit Models for Three-Dimensional Multiconductor Systems"
@@ -20,6 +20,7 @@ Author: PEEC Solver Development
 from typing import List
 
 import numpy as np
+from scipy.special import jve
 
 from backend.common.constants import MU_0
 from backend.solver.geometry import EdgeGeometry
@@ -143,7 +144,8 @@ def compute_ac_resistance(
     For low frequencies where skin depth δ >> radius:
         R_ac ≈ R_dc
 
-    This function uses a smooth transition between DC and high-frequency regimes.
+    Exact for a round wire at every frequency (Bessel solution of the current
+    distribution), continuous between the two limits.
 
     Args:
         length: Segment length [m], must be positive
@@ -163,7 +165,7 @@ def compute_ac_resistance(
         >>> R_ac = compute_ac_resistance(1.0, 0.001, 1e6)
         >>> R_dc = compute_dc_resistance(1.0, 0.001)
         >>> print(f"R_ac/R_dc = {R_ac/R_dc:.2f}")
-        R_ac/R_dc = 15.34
+        R_ac/R_dc = 7.92
     """
     if length <= 0:
         raise ValueError(f"Length must be positive, got {length}")
@@ -180,47 +182,16 @@ def compute_ac_resistance(
     if frequency == 0:
         return compute_dc_resistance(length, radius, resistivity)
 
-    # Compute skin depth
+    # Exact internal impedance of a round wire (Bessel solution):
+    #   Z' = k ρ / (2π a) · J0(ka) / J1(ka),  k = (1 - j)/δ
+    # R_ac/R_dc = Re{(ka/2) J0(ka)/J1(ka)} → 1 + x⁴/48 for x = a/δ ≪ 1 and
+    # x/2 + 1/4 + 3/(32x) for x ≫ 1. jve (exponentially scaled) keeps the ratio
+    # finite for thick wires at high frequency; the scaling cancels in the ratio.
+    # (Replaces a piecewise fit that dropped to R_dc/2 at a/δ = 1.)
     delta = compute_skin_depth(frequency, resistivity, permeability)
-
-    # Ratio of skin depth to radius
-    delta_r_ratio = delta / radius
-
-    # For large skin depth (low frequency), use DC resistance
-    if delta_r_ratio > 10:
-        return compute_dc_resistance(length, radius, resistivity)
-
-    # For small skin depth (high frequency), use simplified AC formula
-    # R_ac = ρ × L / (2π × r × δ) for δ << r
-    if delta_r_ratio < 0.1:
-        R_ac = resistivity * length / (2 * PI * radius * delta)
-        return float(R_ac)
-
-    # Transition region: use more accurate formula
-    # For intermediate frequencies, we use an approximation based on
-    # the exact Bessel function solution for circular conductors
-
-    # DC resistance
-    R_dc = compute_dc_resistance(length, radius, resistivity)
-
-    # High-frequency asymptotic limit
-    resistivity * length / (2 * PI * radius * delta)
-
-    # Ratio R_ac / R_dc, using approximation for intermediate frequencies
-    # Based on: R_ac/R_dc ≈ (r/δ) × ber'(r/δ) / [ber(r/δ)]
-    # For simplicity, use empirical fit that matches exact solution
-    x = radius / delta  # Inverse of delta_r_ratio
-
-    if x < 1:
-        # Low frequency approximation: R_ac/R_dc ≈ 1 + x²/4
-        ratio = 1.0 + x**2 / 4.0
-    else:
-        # High frequency approximation: R_ac/R_dc ≈ x/2
-        ratio = x / 2.0
-
-    R_ac = R_dc * ratio
-
-    return float(R_ac)
+    ka = (1 - 1j) * radius / delta
+    ratio = float(np.real(0.5 * ka * jve(0, ka) / jve(1, ka)))
+    return compute_dc_resistance(length, radius, resistivity) * ratio
 
 
 def assemble_resistance_matrix(
