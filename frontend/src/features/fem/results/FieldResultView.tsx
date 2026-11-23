@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import FieldViewer from '@/features/fieldview/FieldViewer';
-import { boundsOf, fromTriangles2D } from '@/features/fieldview/fieldMesh';
+import { fromTriangles2D } from '@/features/fieldview/fieldMesh';
 import type { SolveResult } from '../api';
 import type { FemView } from '../model';
 
@@ -32,17 +32,13 @@ function FieldResultView({
       view.quantity === 'E' ? 'V/m' : 'C/m²',
     );
   }, [result, view.quantity]);
-  const arrowSpacing = useMemo(() => {
-    const b = boundsOf(mesh);
-    return Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1]) / 18;
-  }, [mesh]);
 
   return (
     <FieldViewer
       mesh={mesh}
       colorMap={view.colorMap}
       contours={view.contours ? 12 : 0}
-      arrowSpacing={view.arrows ? arrowSpacing : 0}
+      arrows={view.arrows}
       overlayLines={probeLines.map((l) => ({ from: [l.start[0], l.start[1], 0], to: [l.end[0], l.end[1], 0] }))}
       height="100%"
       flat

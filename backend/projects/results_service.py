@@ -20,6 +20,9 @@ S3_RESULT_KEYS = {
     "parameter_study": ResultType.PARAMETER_STUDY,  # parameterStudy, radiationPatterns, etc.
 }
 
+# Stored together as solver results: PEEC solver output, and FEM Studio's mesh + solution
+SOLVER_RESULT_FIELDS = ("results", "frequencySweep", "multiAntennaResults", "femResult")
+
 
 class ResultsService:
     """Service for managing simulation results in S3."""
@@ -68,7 +71,7 @@ class ResultsService:
             )
             result_keys["solver_results"] = key
             # Remove from slim results
-            for field in ["results", "frequencySweep", "multiAntennaResults"]:
+            for field in SOLVER_RESULT_FIELDS:
                 slim_results.pop(field, None)
 
         # Extract and store radiation pattern
@@ -210,7 +213,7 @@ class ResultsService:
     def _extract_solver_data(self, simulation_results: Dict[str, Any]) -> Dict[str, Any]:
         """Extract solver-related fields from simulation_results."""
         solver_data = {}
-        for field in ["results", "frequencySweep", "multiAntennaResults"]:
+        for field in SOLVER_RESULT_FIELDS:
             if field in simulation_results and simulation_results[field] is not None:
                 solver_data[field] = simulation_results[field]
         return solver_data

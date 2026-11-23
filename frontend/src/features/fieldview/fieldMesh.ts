@@ -176,21 +176,66 @@ function barycentric(m: FieldMesh, a: number, b: number, c: number, q: [number, 
   return [1 - wb - wc, wb, wc];
 }
 
-/** Arrows on a coarse sample of triangles: one per grid cell of the given size. */
-export function arrowSample(m: FieldMesh, cell: number): { centre: [number, number, number]; vector: [number, number, number] }[] {
+export interface Arrow {
+  centre: [number, number, number];
+  direction: [number, number, number];
+  length: number;
+  /** grid spacing the arrows were sampled on (the longest arrow) */
+  spacing: number;
+}
+
+/**
+ * Field arrows that show where the field is and how strong:
+ * - sampled on a grid over the region where |v| is at least 10 % of a robust
+ *   maximum (the 95th percentile), `perSide` arrows across it, so a small
+ *   strong region (a capacitor gap) is not covered by 1–2 arrows;
+ * - length ∝ |v|, full grid spacing at that robust maximum and above (a
+ *   singular corner does not shrink every other arrow);
+ * - arrows under 5 % are left out: no clutter of near-zero stray field.
+ */
+export function arrowLayout(m: FieldMesh, perSide = 20): Arrow[] {
   const vec = m.cellVectors;
   if (!vec) return [];
+  const n = m.triangles.length / 3;
+  const mags = Array.from({ length: n }, (_, e) => Math.hypot(vec[3 * e], vec[3 * e + 1], vec[3 * e + 2]));
+  const sorted = mags.filter(Number.isFinite).sort((a, b) => a - b);
+  const scale = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(0.95 * sorted.length))] : 0;
+  if (!(scale > 0)) return [];
+
+  const centreOf = (e: number): [number, number, number] => {
+    const c: [number, number, number] = [0, 0, 0];
+    for (let k = 0; k < 3; k++) for (let d = 0; d < 3; d++) c[d] += m.positions[3 * m.triangles[3 * e + k] + d] / 3;
+    return c;
+  };
+  const lo = [Infinity, Infinity, Infinity];
+  const hi = [-Infinity, -Infinity, -Infinity];
+  for (let e = 0; e < n; e++) {
+    if (!(mags[e] >= 0.1 * scale)) continue;
+    const c = centreOf(e);
+    for (let d = 0; d < 3; d++) {
+      lo[d] = Math.min(lo[d], c[d]);
+      hi[d] = Math.max(hi[d], c[d]);
+    }
+  }
+  const extent = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
+  const b = boundsOf(m);
+  const spacing = (extent > 0 ? extent : Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2])) / perSide;
+
   const taken = new Set<string>();
-  const out: { centre: [number, number, number]; vector: [number, number, number] }[] = [];
-  const t = m.triangles;
-  const p = m.positions;
-  for (let e = 0; e < t.length / 3; e++) {
-    const centre: [number, number, number] = [0, 0, 0];
-    for (let k = 0; k < 3; k++) for (let d = 0; d < 3; d++) centre[d] += p[3 * t[3 * e + k] + d] / 3;
-    const key = centre.map((x) => Math.floor(x / cell)).join(',');
+  const out: Arrow[] = [];
+  for (let e = 0; e < n; e++) {
+    const mag = mags[e];
+    if (!(mag >= 0.05 * scale)) continue;
+    const centre = centreOf(e);
+    const key = centre.map((x) => Math.floor(x / spacing)).join(',');
     if (taken.has(key)) continue;
     taken.add(key);
-    out.push({ centre, vector: [vec[3 * e], vec[3 * e + 1], vec[3 * e + 2]] });
+    out.push({
+      centre,
+      direction: [vec[3 * e] / mag, vec[3 * e + 1] / mag, vec[3 * e + 2] / mag],
+      length: spacing * 0.9 * Math.min(1, mag / scale),
+      spacing,
+    });
   }
   return out;
 }
