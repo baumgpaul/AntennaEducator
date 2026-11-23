@@ -75,6 +75,9 @@ jobs:
       - name: Ruff (linting)
         run: ruff check backend/ tests/
 
+      - name: mypy (types)
+        run: mypy backend
+
       - name: Unit tests
         run: pytest tests/unit/ -x -q --tb=short --junitxml=junit-backend.xml
 

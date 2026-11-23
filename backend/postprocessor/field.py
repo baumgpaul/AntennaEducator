@@ -788,7 +788,8 @@ def compute_directivity_from_pattern(
     directivity_max, max_direction = compute_directivity(U, theta_angles, phi_angles)
 
     # Find indices of maximum
-    max_idx = np.unravel_index(np.argmax(U), U.shape)
+    i_max, j_max = np.unravel_index(np.argmax(U), U.shape)
+    max_idx = (int(i_max), int(j_max))
 
     # Compute total radiated power
     P_rad = compute_total_radiated_power(U, theta_angles, phi_angles)
@@ -803,6 +804,6 @@ def compute_directivity_from_pattern(
     directivity_pattern = 4 * np.pi * U / P_rad
 
     # Convert to dBi
-    directivity_dBi = 10 * np.log10(directivity_max)
+    directivity_dBi = float(10 * np.log10(directivity_max))
 
     return directivity_max, directivity_dBi, directivity_pattern, max_idx

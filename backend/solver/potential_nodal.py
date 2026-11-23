@@ -338,7 +338,7 @@ def cell_self_coefficient(cell: List[CellPiece], gp: np.ndarray, gw: np.ndarray)
     """
     n = len(cell)
     M = np.zeros((n, n))
-    lengths = [np.linalg.norm(p1 - p0) for p0, p1, _ in cell]
+    lengths = [float(np.linalg.norm(p1 - p0)) for p0, p1, _ in cell]
     for p in range(n):
         M[p, p] = _half_self(lengths[p], cell[p][2])
         for q in range(p + 1, n):
@@ -355,8 +355,11 @@ def cell_mutual_coefficient(
     """Mutual potential coefficient (times 4πε0) of two cells with uniform charge:
     Gauss points on ``cell_a``, exact along ``cell_b``; reduced kernel with the mean
     squared radius of both cells (as ``compute_nodal_potential_coefficient``)."""
-    a2 = 0.5 * (np.mean([r**2 for _, _, r in cell_a]) + np.mean([r**2 for _, _, r in cell_b]))
-    total = sum(_piece_integral(pa, pb, gp, gw, a2) for pa in cell_a for pb in cell_b)
+    a2 = 0.5 * float(np.mean([r**2 for _, _, r in cell_a]) + np.mean([r**2 for _, _, r in cell_b]))
+    total = 0.0
+    for pa in cell_a:
+        for pb in cell_b:
+            total += _piece_integral(pa, pb, gp, gw, a2)
     return total / (_cell_length(cell_a) * _cell_length(cell_b))
 
 
@@ -374,8 +377,8 @@ def assemble_nodal_potential_matrix(
     edge_list: List[List[int]],
     radii: np.ndarray,
     n_nodes: int,
-    gauss_points: np.ndarray = None,
-    gauss_weights: np.ndarray = None,
+    gauss_points: Optional[np.ndarray] = None,
+    gauss_weights: Optional[np.ndarray] = None,
     n_gauss: int = 10,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
