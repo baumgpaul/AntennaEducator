@@ -58,7 +58,7 @@ function StudyResultView({
   const [plotBox, plotSize] = useSize<HTMLDivElement>();
   useEffect(() => () => abort.current?.abort(), []);
 
-  let total = 0;
+  let total: number;
   try {
     total = studyModels(view, model).length;
   } catch {

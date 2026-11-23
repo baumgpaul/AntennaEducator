@@ -14,8 +14,8 @@ interface AxisLabelsProps {
 function calculateLabelPositions(size: number) {
   // Determine appropriate step size and unit
   let step: number;
-  let unit = 'm';
-  let formatDecimals = 0;
+  let unit: string;
+  let formatDecimals: number;
 
   if (size < 0.01) {
     // Very small (< 10mm) - use mm with 1mm steps

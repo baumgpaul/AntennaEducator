@@ -160,6 +160,8 @@ export async function exportToPDF(options: ExportToPDFOptions): Promise<void> {
 
   } catch (error) {
     console.error('PDF export failed:', error);
-    throw new Error(`Failed to export PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(`Failed to export PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+      cause: error,
+    });
   }
 }

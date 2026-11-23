@@ -347,7 +347,7 @@ function renderAntennaSummary(doc: jsPDF, opts: PDFReportOptions) {
     y += 4;
     y = drawHeading(doc, 'Variable Definitions', y);
     const varSection = buildVariableRows(opts.variables);
-    y = drawTable(doc, varSection, y);
+    drawTable(doc, varSection, y);
   }
 
   drawFooter(doc, opts.projectName);
