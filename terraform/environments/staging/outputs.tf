@@ -171,8 +171,3 @@ output "github_actions_role_arn" {
   description = "IAM role ARN for GitHub Actions (set as AWS_DEPLOY_ROLE_ARN secret)"
   value       = module.cicd.github_actions_role_arn
 }
-
-output "artifacts_bucket" {
-  description = "S3 bucket for pipeline artifacts (set as AWS_ARTIFACTS_BUCKET secret)"
-  value       = module.cicd.artifacts_bucket
-}

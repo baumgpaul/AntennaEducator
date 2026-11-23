@@ -43,7 +43,7 @@ variable "cloudfront_distribution_id" {
 # ── Tags ───────────────────────────────────────────────────────────────
 
 variable "frontend_build_env" {
-  description = "VITE_* variables injected into the CodeBuild deploy stage for the frontend build"
+  description = "VITE_* variables for the frontend build (read by the deploy job from SSM)"
   type        = map(string)
   default     = {}
 }
