@@ -239,7 +239,8 @@ function PostprocessingTab({
       firstResult?.input_impedance ??
       null;
     if (firstZ == null) return undefined;
-    let r = 0, x = 0;
+    let r: number;
+    let x = 0;
     if (typeof firstZ === 'object' && 'real' in firstZ) {
       r = firstZ.real; x = firstZ.imag;
     } else if (typeof firstZ === 'number') {
@@ -420,7 +421,7 @@ function PostprocessingTab({
     // Use a real timeout so Three.js has time to produce a new frame
     await new Promise<void>(resolve => setTimeout(resolve, 1000));
 
-    let result: string | null = null;
+    let result: string | null;
     try {
       result = await captureView(threeDView.id);
     } catch {
@@ -873,7 +874,8 @@ function PostprocessingTab({
 
           const compact = colorbarItems.length > 1;
           const bars = colorbarItems.map((colorItem) => {
-            let min = 0, max = 1, label = 'Value', unit = '';
+            let min: number, max: number;
+            let label = 'Value', unit = '';
 
             if (colorItem.valueRangeMode === 'manual') {
               min = colorItem.valueRangeMin ?? 0;

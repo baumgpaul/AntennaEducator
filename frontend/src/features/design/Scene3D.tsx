@@ -3,7 +3,7 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, PerspectiveCamera, OrthographicCamera, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { Box } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { ScaleIndicator, AxisLabels } from '@/components/visualization';
+import { AxisLabels } from '@/components/visualization';
 import type { AntennaElement, Mesh } from '@/types/models';
 import { useAppSelector } from '@/store/hooks';
 import { selectGroundPlane } from '@/store/designSlice';
@@ -226,7 +226,6 @@ const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
   const gridSize = Math.max(bounds.size * 2, 2); // At least 2x antenna size, minimum 2m
   // const gridDivisions = Math.ceil(gridSize / 0.5) * 2; // Divisions every 0.5m (unused)
   const axesSize = bounds.size * 1.5;
-  const scaleIndicatorSize = Math.max(bounds.size * 0.3, 0.5); // 30% of antenna size, min 0.5m
 
   return (
     <Box sx={{ width: '100%', height: '100%', position: 'relative', bgcolor: isDark ? '#1a1a1a' : '#f5f5f5' }}>
@@ -299,14 +298,6 @@ const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(
             labelColor="white"
           />
         </GizmoHelper>
-
-        {/* Scale indicator - DISABLED in favor of dynamic axis labels */}
-        {false && (
-          <ScaleIndicator
-            size={scaleIndicatorSize}
-            position={[bounds.min.x - gridSize * 0.1, bounds.min.y - gridSize * 0.1, 0]}
-          />
-        )}
 
         {/* Axis labels with dimensions - auto-scaled */}
         {showAxisLabels && <AxisLabels size={axesSize} />}

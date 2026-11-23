@@ -45,10 +45,10 @@ export class LocalAuthService implements IAuthService {
       // Handle specific error cases
       if (error.response?.status === 403) {
         // Backend distinguishes "pending approval" from "locked"
-        throw new Error(error.response?.data?.detail || 'Access denied.')
+        throw new Error(error.response?.data?.detail || 'Access denied.', { cause: caught })
       }
       if (error.response?.status === 401) {
-        throw new Error('Incorrect email or password')
+        throw new Error('Incorrect email or password', { cause: caught })
       }
       throw error
     }
@@ -77,7 +77,7 @@ export class LocalAuthService implements IAuthService {
       const error = caught as { response?: { status?: number; data?: { detail?: string } } }
       // Handle specific error cases
       if (error.response?.status === 400) {
-        throw new Error(error.response?.data?.detail || 'Email already registered')
+        throw new Error(error.response?.data?.detail || 'Email already registered', { cause: caught })
       }
       throw error
     }

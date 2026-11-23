@@ -59,10 +59,10 @@ export const login = async (credentials: LoginRequest): Promise<LoginResponse> =
   } catch (error: unknown) {
     const axiosErr = error as { response?: { status?: number; data?: { detail?: string } } }
     if (axiosErr.response?.status === 403) {
-      throw new Error('Account pending admin approval. Please wait for approval.')
+      throw new Error('Account pending admin approval. Please wait for approval.', { cause: error })
     }
     if (axiosErr.response?.status === 401) {
-      throw new Error('Incorrect email or password')
+      throw new Error('Incorrect email or password', { cause: error })
     }
     throw error
   }
@@ -81,7 +81,7 @@ export const register = async (data: RegisterRequest): Promise<RegisterResponse>
   } catch (error: unknown) {
     const axiosErr = error as { response?: { status?: number; data?: { detail?: string } } }
     if (axiosErr.response?.status === 400) {
-      throw new Error(axiosErr.response?.data?.detail || 'Email already registered')
+      throw new Error(axiosErr.response?.data?.detail || 'Email already registered', { cause: error })
     }
     throw error
   }
