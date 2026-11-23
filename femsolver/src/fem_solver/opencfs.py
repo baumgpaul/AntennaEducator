@@ -148,8 +148,7 @@ def export(
     blocks = []
     for name, m in materials.items():
         e = EPSILON_0 * m.relative_permittivity
-        blocks.append(
-            f"""  <material name={q(name)}>
+        blocks.append(f"""  <material name={q(name)}>
     <electric>
       <permittivity>
         <linear>
@@ -163,8 +162,7 @@ def export(
         </linear>
       </permittivity>
     </electric>
-  </material>"""
-        )
+  </material>""")
     mat = (
         '<?xml version="1.0"?>\n<cfsMaterialDataBase xmlns="http://www.cfs++.org/material">\n'
         + "\n".join(blocks)

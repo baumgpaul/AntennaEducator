@@ -14,7 +14,7 @@ from backend.common.constants import Z_0
 try:
     _trapezoid = np.trapezoid  # NumPy >= 2.0
 except AttributeError:
-    _trapezoid = np.trapz  # NumPy < 2.0
+    _trapezoid = getattr(np, "trapz")  # NumPy < 2.0 (gone from the 2.x stubs)
 
 
 def compute_radiation_intensity(E_theta: np.ndarray, E_phi: np.ndarray) -> np.ndarray:

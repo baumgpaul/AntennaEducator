@@ -55,8 +55,8 @@ class DynamoDBProjectRepository(ProjectRepository):
             "DYNAMODB_TABLE_NAME", "antenna-simulator-staging"
         )
         self._dynamodb_resource = dynamodb_resource
-        self._table = None
-        self._dynamodb = None
+        self._table: Any = None
+        self._dynamodb: Any = None
 
     # ── lazy table access ─────────────────────────────────────────────────
 

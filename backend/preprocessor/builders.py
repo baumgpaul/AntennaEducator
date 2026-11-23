@@ -569,7 +569,7 @@ def loop_to_mesh(element: AntennaElement) -> Mesh:
     if element.sources:
         source_pairs = set()
         for src in element.sources:
-            if src.node_end is not None:
+            if src.node_start is not None and src.node_end is not None:
                 source_pairs.add((src.node_start, src.node_end))
                 source_pairs.add((src.node_end, src.node_start))
         edges = [e for e in edges if (e[0], e[1]) not in source_pairs]
@@ -1055,6 +1055,8 @@ def custom_to_mesh(element: AntennaElement) -> Mesh:
         edge_lookup[(edge_pair[0], edge_pair[1])] = idx
         edge_lookup[(edge_pair[1], edge_pair[0])] = idx
     for src in element.sources:
+        if src.node_start is None or src.node_end is None:
+            continue
         key = (src.node_start, src.node_end)
         if key in edge_lookup:
             source_edges.append(edge_lookup[key])

@@ -28,23 +28,25 @@ repos:
       - id: gitleaks
 
   # ── Python — Black formatter ─────────────────────────────────────────
+  # Versions = the pins in pyproject.toml [dev] (CI and the venv use those):
+  # bump both together, or local hook, venv and CI format differently (#82).
   - repo: https://github.com/psf/black
-    rev: 24.4.2
+    rev: 26.3.1
     hooks:
       - id: black
         language_version: python3
 
   # ── Python — isort import sorter ─────────────────────────────────────
   - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
+    rev: 7.0.0
     hooks:
       - id: isort
 
   # ── Python — Ruff linter ─────────────────────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.8
+    rev: v0.15.0
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
 
   # ── Local hooks — tests (enforced locally before every commit) ───────
