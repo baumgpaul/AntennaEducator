@@ -19,6 +19,7 @@ import { parseDecimalNumber } from '@/utils/numberParser';
 import { formatValue } from '@/utils/expressionEvaluator';
 import type { AntennaElement, Source, ComplexNumber, DipoleConfig, LoopConfig, RodConfig } from '@/types/models';
 import type { ChipProps } from '@mui/material';
+import { PanelHeader } from '@/features/workflow/Workspace';
 
 /** Geometry fields of dipole/loop/rod configs (flat, or nested under .parameters). */
 type GeomFields = Partial<DipoleConfig & LoopConfig & RodConfig>;
@@ -366,24 +367,10 @@ function PropertiesPanel({
       key={antennaElement?.id || selectedElement?.id || 'no-selection'}
       sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}
     >
-      {/* Header */}
-      <Box
-        sx={{
-          p: 2,
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, color: 'text.primary' }}>
-          Properties
-        </Typography>
-        <Typography variant="caption" sx={{
-          color: "text.secondary"
-        }}>
-          {antennaElement ? antennaElement.name : selectedElement ? 'Element properties' : 'No element selected'}
-        </Typography>
-      </Box>
+      <PanelHeader
+        title="Properties"
+        subtitle={antennaElement ? antennaElement.name : selectedElement ? 'Element properties' : 'No element selected'}
+      />
 
       {/* Content */}
       <Box sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: 'background.paper' }}>

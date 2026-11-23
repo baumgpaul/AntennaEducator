@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
-import { Hint, PanelSection, Ribbon, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
+import { CollapsibleSection, Hint, Ribbon, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import type { BoundaryCondition } from '../model';
 import type { FemStudio } from '../useFemStudio';
 import MeshView from '../views/MeshView';
@@ -51,7 +51,7 @@ function PhysicsTab({ studio }: { studio: FemStudio }) {
       }
       left={
         <>
-          <PanelSection title="Boundary conditions">
+          <CollapsibleSection title="Boundary conditions">
             <Stack spacing={1}>
               {progress.boundaries.map((b) => {
                 const bc = conditionOf(b);
@@ -110,8 +110,8 @@ function PhysicsTab({ studio }: { studio: FemStudio }) {
               })}
               <Hint>Hover a boundary to see where it is (red).</Hint>
             </Stack>
-          </PanelSection>
-          <PanelSection title="Volume charge ρ [C/m³]">
+          </CollapsibleSection>
+          <CollapsibleSection title="Volume charge ρ [C/m³]">
             <Stack spacing={1}>
               {progress.domains.map((d) => {
                 const src = sourceOf(d);
@@ -141,7 +141,7 @@ function PhysicsTab({ studio }: { studio: FemStudio }) {
               })}
               <Hint>Optional: free charge inside a domain.</Hint>
             </Stack>
-          </PanelSection>
+          </CollapsibleSection>
         </>
       }
       notes={!!notes?.length && <StepNotes notes={notes} />}

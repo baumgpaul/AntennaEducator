@@ -23,7 +23,7 @@ import {
   Delete,
   PanoramaFishEye,
 } from '@mui/icons-material';
-import { Hint, PanelSection, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
+import { CollapsibleSection, Hint, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import type { Expr } from '../expressions';
 import { EMPTY_MODEL, TEMPLATES, type Shape } from '../model';
 import type { FemStudio } from '../useFemStudio';
@@ -145,7 +145,7 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
               <Hint>{TEMPLATES.find((t) => t.id === model.template)?.description}</Hint>
             </Box>
           )}
-          <PanelSection
+          <CollapsibleSection
             title="Parameters"
             action={
               <Tooltip title="Add a parameter">
@@ -203,8 +203,8 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
               ))}
               <Hint>Use them in any dimension, e.g. 2*d.</Hint>
             </Stack>
-          </PanelSection>
-          <PanelSection title="Shapes">
+          </CollapsibleSection>
+          <CollapsibleSection title="Shapes">
             <Stack spacing={1}>
               {model.shapes.map((s, i) => (
                 <Paper
@@ -316,9 +316,9 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
               ))}
               <Hint>Later shapes win where shapes overlap. Add shapes in the ribbon above.</Hint>
             </Stack>
-          </PanelSection>
+          </CollapsibleSection>
           {meshed && studio.mesh && (
-            <PanelSection title="Domains & boundaries">
+            <CollapsibleSection title="Domains & boundaries">
               <Stack spacing={1}>
                 <Stack
                   direction="row"
@@ -355,7 +355,7 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
                 ))}
                 <Hint>Domains take a material, boundaries a condition.</Hint>
               </Stack>
-            </PanelSection>
+            </CollapsibleSection>
           )}
         </>
       }
