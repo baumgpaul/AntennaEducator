@@ -463,6 +463,8 @@ function TreeViewPanel({
           }}
         >
           <AccordionSummary
+            // contains IconButtons: a <button> summary (MUI 7+) would nest buttons
+            component="div"
             expandIcon={<ExpandMore />}
             onClick={(e) => {
               // Only select if not clicking on expand icon or action buttons
@@ -949,6 +951,8 @@ function TreeViewPanel({
                     }}
                   >
                     <AccordionSummary
+                      // contains IconButtons: a <button> summary (MUI 7+) would nest buttons
+                      component="div"
                       expandIcon={<ExpandMore />}
                       onClick={() => onViewSelect?.(view.id)}
                       sx={{
