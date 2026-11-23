@@ -200,3 +200,66 @@ def test_multi_antenna_driven_plus_parasite():
     assert z_multi == pytest.approx(z_gap, rel=1e-6)
     i = res["antenna_solutions"][0]["voltage_source_currents"]
     assert len(i) == 2 and complex(i[0]) == pytest.approx(-complex(i[1]), rel=1e-12)
+
+
+# ── above a ground plane ──────────────────────────────────────────────────────
+
+
+def _dipole_over_ground(axis, h, L=0.48, gap=0.005, n=12, mirror=False):
+    t1 = np.linspace(-(L - gap) / 2, -gap / 2, n + 1)
+    t2 = np.linspace(gap / 2, (L - gap) / 2, n + 1)
+    t = np.r_[t1, t2]
+    if axis == "x":
+        pts = np.column_stack([t, 0 * t, np.full_like(t, h)])
+    else:
+        pts = np.column_stack([0 * t, 0 * t, h + t])
+    if mirror:
+        pts = pts * np.array([1, 1, -1])
+    edges = [[i + 1, i + 2] for i in range(n)] + [[n + 2 + i, n + 3 + i] for i in range(n)]
+    return pts, edges, n + 1, n + 2
+
+
+def _z(nodes, edges, sources, ground):
+    cfg = SolverConfiguration(include_skin_effect=False, resistivity=1e-20, ground_plane=ground)
+    r = solve_peec_frequency_sweep(
+        np.asarray(nodes), edges, np.full(len(edges), A), np.array([300e6]), sources, config=cfg
+    )
+    return r.frequency_solutions[0].input_impedance
+
+
+@pytest.mark.parametrize("axis, h", [("z", 0.4), ("z", 0.3), ("x", 0.25), ("x", 0.1)])
+def test_dipole_above_ground_matches_its_explicit_image(axis, h):
+    """Image theory, built by hand: free-space dipole + mirrored dipole with the image
+    current (z -> -z reverses the mirrored edges' direction, so the image source is -1).
+    The stored balanced pair over the plane used to be off by 19-23 % for a vertical
+    dipole (current into the plane); a horizontal one was unaffected (symmetric feed)."""
+    pts, edges, lo, up = _dipole_over_ground(axis, h)
+    z_plane = _z(pts, edges, [VoltageSource(0, lo, 0.5), VoltageSource(0, up, -0.5)], True)
+    ipts, iedges, ilo, iup = _dipole_over_ground(axis, h, mirror=True)
+    off = len(pts)
+    both = np.vstack([pts, ipts])
+    both_edges = edges + [[a + off, b + off] for a, b in iedges]
+    z_img = _z(
+        both,
+        both_edges,
+        [VoltageSource(up, lo, 1.0), VoltageSource(iup + off, ilo + off, -1.0)],
+        False,
+    )
+    assert z_plane == pytest.approx(z_img, rel=1e-9)
+
+
+def test_feed_nodes_on_the_plane_keep_their_grounded_sources():
+    """Two rods standing on the plane, fed +V / -V against it (one antenna): the plane
+    is node 0 there, so these are two real monopole feeds, not one gap."""
+    vs = [VoltageSource(0, 1, 1.0), VoltageSource(0, 12, -1.0)]
+    sources, mapping = gap_feed_sources(vs, exclude_nodes={1, 12})
+    assert len(sources) == 2 and mapping == [(0, 1.0), (1, 1.0)]
+
+
+def test_monopole_on_the_plane_is_unchanged():
+    """Course case: a rod on the plane with one grounded source."""
+    z = np.linspace(0, 0.25, 13)
+    nodes = np.column_stack([0 * z, 0 * z, z])
+    edges = [[i + 1, i + 2] for i in range(12)]
+    zin = _z(nodes, edges, [VoltageSource(0, 1, 1.0)], True)
+    assert 25 < zin.real < 60  # ~ half of a dipole's resistance near resonance

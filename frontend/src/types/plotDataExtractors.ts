@@ -12,7 +12,7 @@ import type {
   DistributionPlotQuantity,
   FarfieldPlotQuantity,
 } from './plotDefinitions';
-import type { FrequencySweepResult } from './api';
+import type { FrequencySweepResult, MultiAntennaSolutionResponse } from './api';
 import type { ParameterStudyResult } from './parameterStudy';
 import { parseComplex } from '@/utils/complexNumber';
 
@@ -141,7 +141,7 @@ export function extractPortTraceData(
   if (parameterStudy && parameterStudy.results.length > 0) {
     const varName = parameterStudy.config.sweepVariables[0]?.variableName;
     return parameterStudy.results.map((pr) => {
-      const sol = (pr.solverResponse as any)?.antenna_solutions?.[antennaIndex];
+      const sol = (pr.solverResponse as MultiAntennaSolutionResponse | undefined)?.antenna_solutions?.[antennaIndex];
       const z = parseComplex(sol?.input_impedance);
       const xVal = varName ? (pr.point.values[varName] ?? 0) : 0;
       return { x: xVal, y: portQuantityFromImpedance(z, q.quantity, z0) };
@@ -195,9 +195,27 @@ function cumulativeDistances(points: number[][]): number[] {
  * @param frequencyKey - Frequency Hz or sweep point index to look up
  * @returns Array of {x, y} points (x = distance along line)
  */
+/** One field region at one frequency (solver state fieldData[fieldId][freq]). */
+export interface FieldFrequencyData {
+  points?: number[][];
+  E_mag?: number[];
+  H_mag?: number[];
+  S_mag?: number[];
+  E_vectors?: Array<{ x: ComplexLike; y: ComplexLike; z: ComplexLike }>;
+  H_vectors?: Array<{ x: ComplexLike; y: ComplexLike; z: ComplexLike }>;
+}
+
+/** The far-field pattern fields the line plots read. */
+export interface FarfieldPatternData {
+  theta_angles?: number[];
+  pattern_db?: number[];
+  E_theta_mag?: number[];
+  E_phi_mag?: number[];
+}
+
 export function extractFieldTraceData(
   trace: PlotTrace,
-  fieldData: Record<string, Record<number, any>> | null,
+  fieldData: Record<string, Record<number, FieldFrequencyData>> | null,
   frequencyKey: number,
 ): DataPoint[] {
   if (!fieldData) return [];
@@ -220,7 +238,7 @@ export function extractFieldTraceData(
 }
 
 function getFieldQuantityValues(
-  freqData: any,
+  freqData: FieldFrequencyData,
   quantity: FieldPlotQuantity['quantity'],
   numPoints: number,
 ): number[] {
@@ -308,7 +326,9 @@ export function extractDistributionTraceData(
   // Fall back to single-frequency result
   if (!antenna && singleResult) {
     antenna = singleResult.antenna_solutions?.[antennaIndex]
-      ?? (singleResult.branch_currents ? singleResult as any : undefined);
+      ?? (singleResult.branch_currents
+        ? (singleResult as { branch_currents: unknown[]; node_voltages: unknown[] })
+        : undefined);
   }
 
   if (!antenna) return [];
@@ -353,7 +373,7 @@ export function extractDistributionTraceData(
  */
 export function extractFarfieldTraceData(
   trace: PlotTrace,
-  radiationPatterns: Record<number, any> | null,
+  radiationPatterns: Record<number, FarfieldPatternData> | null,
   frequencyKey: number,
 ): DataPoint[] {
   if (!radiationPatterns) return [];

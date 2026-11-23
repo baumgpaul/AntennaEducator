@@ -110,7 +110,8 @@ function UnifiedLinePlot({
   }, [traces, traceData, hasData]);
 
   // ── Zoom event handlers ────────────────────────────────────────────────────
-  const handleMouseDown = (e: any) => {
+  type ChartMouseState = { activeLabel?: string | number | null } | null | undefined;
+  const handleMouseDown = (e: ChartMouseState) => {
     if (e?.activeLabel !== undefined && e?.activeLabel !== null) {
       isDragging.current = true;
       setRefAreaLeft(Number(e.activeLabel));
@@ -118,7 +119,7 @@ function UnifiedLinePlot({
     }
   };
 
-  const handleMouseMove = (e: any) => {
+  const handleMouseMove = (e: ChartMouseState) => {
     if (e?.activeLabel !== undefined && e?.activeLabel !== null) {
       lastMouseX.current = Number(e.activeLabel);
     }

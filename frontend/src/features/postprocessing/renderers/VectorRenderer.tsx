@@ -5,6 +5,7 @@ import { ArrowHelper } from 'three';
 import { createColorArray, arrayMin, arrayMax } from '../../../utils/colorMaps';
 import { computeInstantaneousVectors } from '../../../utils/timeAnimation';
 import * as THREE from 'three';
+import type { ColorMapType } from '@/utils/colorMaps';
 
 /** Dispose an ArrowHelper's internal GPU resources (geometries + materials). */
 function disposeArrowHelper(obj: THREE.Object3D) {
@@ -230,7 +231,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   // Create colors from display magnitudes
   const colors = useMemo(() => {
     if (!displayMagnitudes) return new Float32Array(0);
-    return createColorArray(displayMagnitudes, colorMap as any, min, max);
+    return createColorArray(displayMagnitudes, colorMap as ColorMapType, min, max);
   }, [displayMagnitudes, colorMap, min, max]);
 
   // Create arrow helpers

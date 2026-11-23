@@ -146,7 +146,7 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   };
 
   // Item property handlers (to be implemented with item editors)
-  const handleItemPropertyChange = (property: keyof import('../../types/postprocessing').ViewItem, value: any) => {
+  const handleItemPropertyChange = (property: keyof import('../../types/postprocessing').ViewItem, value: import('../../types/postprocessing').ViewItem[keyof import('../../types/postprocessing').ViewItem]) => {
     if (selectedItem) {
       dispatch(updateItemProperty({
         viewId: selectedView.id,

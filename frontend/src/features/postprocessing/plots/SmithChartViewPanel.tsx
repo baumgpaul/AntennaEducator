@@ -8,6 +8,7 @@ import type { SmithDataSource } from '@/types/plotDefinitions';
 import type { FrequencySweepResult } from '@/types/api';
 import type { ParameterStudyResult } from '@/types/parameterStudy';
 import { parseComplex } from '@/utils/complexNumber';
+import type { MultiAntennaSolutionResponse } from '@/types/api';
 
 // ============================================================================
 // Helpers
@@ -36,7 +37,7 @@ function extractFromParamStudy(
 ): SmithChartPoint[] {
   const varName = study.config.sweepVariables[0]?.variableName ?? '';
   return study.results.map((pr) => {
-    const sol = (pr.solverResponse as any)?.antenna_solutions?.[antennaIndex];
+    const sol = (pr.solverResponse as MultiAntennaSolutionResponse | undefined)?.antenna_solutions?.[antennaIndex];
     const z = parseComplex(sol?.input_impedance);
     const xVal = varName ? (pr.point.values[varName] ?? 0) : 0;
     return {

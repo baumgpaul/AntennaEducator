@@ -29,6 +29,7 @@ import type { TableColumn } from '@/types/plotDefinitions';
 import type { FrequencySweepResult } from '@/types/api';
 import type { ParameterStudyResult } from '@/types/parameterStudy';
 import { parseComplex } from '@/utils/complexNumber';
+import type { MultiAntennaSolutionResponse } from '@/types/api';
 
 // ============================================================================
 // Complex helpers (mirrored from plotDataExtractors to avoid circular deps)
@@ -154,7 +155,7 @@ function extractRows(
 ): RowData[] {
   if (parameterStudy && parameterStudy.results.length > 0) {
     return parameterStudy.results.map((pr) => {
-      const sol = (pr.solverResponse as any)?.antenna_solutions?.[antennaIndex];
+      const sol = (pr.solverResponse as MultiAntennaSolutionResponse | undefined)?.antenna_solutions?.[antennaIndex];
       const z = parseComplex(sol?.input_impedance);
       // Include ALL sweep variable values
       const sweepValues: Record<string, number> = {};
@@ -234,7 +235,7 @@ export const PortQuantityTable: React.FC<PortQuantityTableProps> = ({
   const antennaCount = useMemo(() => {
     const firstResult =
       frequencySweep?.results?.[0] ??
-      (parameterStudy?.results?.[0]?.solverResponse as any) ??
+      (parameterStudy?.results?.[0]?.solverResponse as MultiAntennaSolutionResponse | undefined) ??
       null;
     return (firstResult?.antenna_solutions?.length as number | undefined) ?? 1;
   }, [frequencySweep, parameterStudy]);

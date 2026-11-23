@@ -9,6 +9,7 @@ import {
   AuthenticationDetails,
   CognitoUserAttribute,
   CognitoRefreshToken,
+  type CognitoUserSession,
 } from 'amazon-cognito-identity-js'
 import type { IAuthService, LoginCredentials, RegisterData, AuthResponse, AuthTokens } from './types'
 import type { User } from '@/types/models'
@@ -186,7 +187,7 @@ export class CognitoAuthService implements IAuthService {
         return
       }
 
-      cognitoUser.getSession((err: Error | null, session: any) => {
+      cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
         if (err) {
           reject(err)
           return
@@ -241,7 +242,7 @@ export class CognitoAuthService implements IAuthService {
         return
       }
 
-      cognitoUser.getSession((err: Error | null, session: any) => {
+      cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
         if (err) {
           reject(err)
           return
