@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, LinearProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
+import { errorMessage } from '@/utils/errors';
 import { PlayArrow as PlayArrowIcon, Tune as TuneIcon, AddCircleOutline as AddCircleOutlineIcon, GridOn as GridOnIcon, Calculate as CalculateIcon, CheckCircle as CheckCircleIcon, Stop as StopIcon, ChevronLeft, ChevronRight } from '@mui/icons-material';
 import TreeViewPanel from './TreeViewPanel';
 import Scene3D from './Scene3D';
@@ -138,8 +139,8 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
       setSnackbarMessage(`Parameter study complete! ${totalPts} points solved.`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
-    } catch (error: any) {
-      setSnackbarMessage(error || 'Parameter study failed');
+    } catch (error) {
+      setSnackbarMessage(errorMessage(error, 'Parameter study failed'));
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     }
@@ -187,8 +188,8 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         setSnackbarMessage('Postprocessing complete!');
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
-      } catch (error: any) {
-        const msg = typeof error === 'string' ? error : error?.message || 'Postprocessing failed';
+      } catch (error) {
+        const msg = errorMessage(error, 'Postprocessing failed');
         const is502 = msg.includes('502') || msg.includes('Bad Gateway');
         const displayMsg = is502
           ? 'Postprocessing timed out (502). Reduce observation points or mesh density.'
@@ -220,8 +221,8 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
       setSnackbarMessage(`Single frequency solve complete at ${frequency} ${unit}`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
-    } catch (error: any) {
-      setSnackbarMessage(error || 'Solve failed');
+    } catch (error) {
+      setSnackbarMessage(errorMessage(error, 'Solve failed'));
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     }

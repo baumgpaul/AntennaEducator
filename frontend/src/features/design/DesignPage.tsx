@@ -4,7 +4,7 @@ import { Lock as LockIcon, ArrowBack as BackIcon } from '@mui/icons-material';
 import { debounce } from 'lodash';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { parseApiError } from '@/utils/errors';
+import { errorMessage, parseApiError } from '@/utils/errors';
 import {
   generateDipole,
   generateLoop,
@@ -35,7 +35,8 @@ import { updateProject, fetchProject } from '@/store/projectsSlice';
 import { addNotification, showSuccess } from '@/store/uiSlice';
 import { selectRequestedFields, selectDirectivityRequested, selectSolverState, setFieldDefinitions, loadSolverState, resetSolver } from '@/store/solverSlice';
 import { loadViewConfigurations, clearViewConfigurations } from '@/store/postprocessingSlice';
-import type { Source } from '@/types/models';
+import type { CustomConfig, LumpedElement, Port, Source } from '@/types/models';
+import type { LumpedElementFormInput, SourceFormInput } from '@/api/preprocessor';
 import { validateGeometry } from '@/utils/multiAntennaBuilder';
 import DesignCanvas from './DesignCanvas';
 import TreeViewPanel from './TreeViewPanel';
@@ -289,7 +290,7 @@ function DesignPage() {
 
   // Auto-save function with retry logic (debounced)
   const saveProjectDebounced = useRef(
-    debounce(async (projectElements: typeof elements, fields: any[], views: any[], solverData: any, projectVariables: VariableDefinition[], retryCount = 0) => {
+    debounce(async (projectElements: typeof elements, fields: typeof requestedFields, views: typeof viewConfigurations, solverData: ReturnType<typeof getPersistableSolverState>, projectVariables: VariableDefinition[], retryCount = 0) => {
       if (!projectId) {
         return;
       }
@@ -492,8 +493,9 @@ function DesignPage() {
 
       // Extract individual position/orientation/normal values from config arrays
       // so the comparison works for these decomposed expression keys too.
-      const pos = (params as any).center_position || el.position || [0, 0, 0];
-      const ori = (params as any).orientation || (params as any).normal_vector || [0, 0, 1];
+      const vectors = params as unknown as Record<string, number[] | undefined>;
+      const pos = vectors.center_position || el.position || [0, 0, 0];
+      const ori = vectors.orientation || vectors.normal_vector || [0, 0, 1];
       const extendedParams: Record<string, number> = {
         ...params,
         positionX: pos[0], positionY: pos[1], positionZ: pos[2],
@@ -564,7 +566,7 @@ function DesignPage() {
     }
   };
 
-  const handleDipoleGenerate = async (data: any) => {
+  const handleDipoleGenerate = async (data: Parameters<typeof generateDipole>[0]) => {
     try {
       await dispatch(generateDipole(data)).unwrap();
       dispatch(addNotification({
@@ -573,10 +575,10 @@ function DesignPage() {
         severity: 'success',
         duration: 5000,
       }));
-    } catch (error: any) {
+    } catch (error) {
       dispatch(addNotification({
         id: Date.now(),
-        message: error || 'Failed to generate dipole antenna',
+        message: errorMessage(error, 'Failed to generate dipole antenna'),
         severity: 'error',
         duration: 5000,
       }));
@@ -584,7 +586,7 @@ function DesignPage() {
     }
   };
 
-  const handleLoopGenerate = async (data: any) => {
+  const handleLoopGenerate = async (data: Parameters<typeof generateLoop>[0]) => {
     try {
       await dispatch(generateLoop(data)).unwrap();
       dispatch(addNotification({
@@ -593,10 +595,10 @@ function DesignPage() {
         severity: 'success',
         duration: 5000,
       }));
-    } catch (error: any) {
+    } catch (error) {
       dispatch(addNotification({
         id: Date.now(),
-        message: error || 'Failed to generate loop antenna',
+        message: errorMessage(error, 'Failed to generate loop antenna'),
         severity: 'error',
         duration: 5000,
       }));
@@ -604,7 +606,7 @@ function DesignPage() {
     }
   };
 
-  const handleRodGenerate = async (data: any) => {
+  const handleRodGenerate = async (data: Parameters<typeof generateRod>[0]) => {
     try {
       await dispatch(generateRod(data)).unwrap();
       dispatch(addNotification({
@@ -613,10 +615,10 @@ function DesignPage() {
         severity: 'success',
         duration: 5000,
       }));
-    } catch (error: any) {
+    } catch (error) {
       dispatch(addNotification({
         id: Date.now(),
-        message: error || 'Failed to generate rod',
+        message: errorMessage(error, 'Failed to generate rod'),
         severity: 'error',
         duration: 5000,
       }));
@@ -624,7 +626,7 @@ function DesignPage() {
     }
   };
 
-  const handleCustomGenerate = async (data: any) => {
+  const handleCustomGenerate = async (data: Parameters<typeof generateCustom>[0]) => {
     try {
       // If editing, remove the old element first
       if (editingCustomElement) {
@@ -638,10 +640,10 @@ function DesignPage() {
         severity: 'success',
         duration: 5000,
       }));
-    } catch (error: any) {
+    } catch (error) {
       dispatch(addNotification({
         id: Date.now(),
-        message: error || 'Failed to generate custom antenna',
+        message: errorMessage(error, 'Failed to generate custom antenna'),
         severity: 'error',
         duration: 5000,
       }));
@@ -656,7 +658,7 @@ function DesignPage() {
     setCustomDialogOpen(true);
   };
 
-  const handleAddLumpedElement = async (data: any) => {
+  const handleAddLumpedElement = async (data: LumpedElementFormInput) => {
     try {
       const element = await addLumpedElementToMesh(data);
 
@@ -677,10 +679,10 @@ function DesignPage() {
         severity: 'success',
         duration: 5000,
       }));
-    } catch (error: any) {
+    } catch (error) {
       dispatch(addNotification({
         id: Date.now(),
-        message: error || 'Failed to add lumped element',
+        message: errorMessage(error, 'Failed to add lumped element'),
         severity: 'error',
         duration: 5000,
       }));
@@ -688,7 +690,7 @@ function DesignPage() {
     }
   };
 
-  const handleAddSource = async (data: any) => {
+  const handleAddSource = async (data: SourceFormInput) => {
     try {
       const source = await addSourceToMesh(data);
 
@@ -709,10 +711,10 @@ function DesignPage() {
         severity: 'success',
         duration: 5000,
       }));
-    } catch (error: any) {
+    } catch (error) {
       dispatch(addNotification({
         id: Date.now(),
-        message: error || 'Failed to add source',
+        message: errorMessage(error, 'Failed to add source'),
         severity: 'error',
         duration: 5000,
       }));
@@ -722,9 +724,9 @@ function DesignPage() {
 
   // Circuit editor handler — batch-replace sources + lumped elements + ports + appended nodes
   const handleCircuitApply = (data: {
-    sources: any[];
-    lumped_elements: any[];
-    ports: any[];
+    sources: Source[];
+    lumped_elements: LumpedElement[];
+    ports: Port[];
     appended_nodes: Array<{ index: number; label: string }>;
   }) => {
     const elementId = selectedElementId;
@@ -749,11 +751,11 @@ function DesignPage() {
   // Get terminal node indices for the selected element
   const getTerminalNodeIndices = (element: typeof elements[number]): number[] => {
     if (element.type === 'custom') {
-      const cfg = element.config as any;
+      const cfg = element.config as { nodes?: Array<{ id: number; nodeType?: string; type?: string }> };
       if (cfg?.nodes) {
         return cfg.nodes
-          .filter((n: any) => n.nodeType === 'terminal' || n.type === 'terminal')
-          .map((n: any) => n.id);
+          .filter((n) => n.nodeType === 'terminal' || n.type === 'terminal')
+          .map((n) => n.id);
       }
     }
     // For built-in types: use source nodes as terminals (the feed gap nodes)
@@ -831,11 +833,11 @@ function DesignPage() {
         }));
         // Trigger auto-save after re-mesh
         setTriggerSave(prev => prev + 1);
-      } catch (error: any) {
+      } catch (error) {
         console.error('Re-mesh failed:', error);
         dispatch(addNotification({
           id: Date.now(),
-          message: `Failed to update orientation: ${error}`,
+          message: `Failed to update orientation: ${errorMessage(error, 'unknown error')}`,
           severity: 'error',
           duration: 5000,
         }));
@@ -1214,22 +1216,29 @@ function DesignPage() {
           if (!editingCustomElement) return undefined;
           const el = elements.find((e) => e.id === editingCustomElement);
           if (!el || el.type !== 'custom') return undefined;
-          const cfg = (el.config as any)?.parameters || el.config as any;
-          const meshNodes = el.mesh?.nodes ?? [];
-          const meshEdges = el.mesh?.edges ?? [];
-          const sourceIds = (el.sources ?? []).flatMap((s: any) =>
-            [s.node_start, s.node_end].filter((id: number) => id != null && id > 0)
+          // Stored config: flat or {parameters}; older projects may use index/position/start/end
+          type LooseNode = { id?: number; index?: number; x?: number; y?: number; z?: number; position?: number[] };
+          type LooseEdge = { node_start?: number; node_end?: number; start?: number; end?: number; radius?: number };
+          const stored = el.config as Partial<CustomConfig> & { parameters?: Partial<CustomConfig> };
+          const cfg = (stored.parameters ?? stored) as { nodes?: LooseNode[]; edges?: LooseEdge[] };
+          // Fallback: the mesh ([x, y, z] nodes, 1-based [start, end] edges)
+          const meshNodes: LooseNode[] = (el.mesh?.nodes ?? []).map((p, i) => ({ id: i + 1, x: p[0], y: p[1], z: p[2] }));
+          const meshEdges: LooseEdge[] = (el.mesh?.edges ?? []).map((e, i) => ({
+            node_start: e[0], node_end: e[1], radius: el.mesh?.radii?.[i],
+          }));
+          const sourceIds = (el.sources ?? []).flatMap((s) =>
+            [s.node_start, s.node_end].filter((id): id is number => id != null && id > 0)
           );
           return {
             elementId: el.id,
             name: el.name,
-            nodes: (cfg.nodes ?? meshNodes).map((n: any) => ({
+            nodes: (cfg.nodes ?? meshNodes).map((n) => ({
               id: n.id ?? n.index,
               x: n.x ?? n.position?.[0] ?? 0,
               y: n.y ?? n.position?.[1] ?? 0,
               z: n.z ?? n.position?.[2] ?? 0,
             })),
-            edges: (cfg.edges ?? meshEdges).map((e: any) => ({
+            edges: (cfg.edges ?? meshEdges).map((e) => ({
               node_start: e.node_start ?? e.start,
               node_end: e.node_end ?? e.end,
               radius: e.radius,

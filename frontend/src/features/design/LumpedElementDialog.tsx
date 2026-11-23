@@ -18,6 +18,7 @@ import {
   Paper,
 } from '@mui/material';
 import { Controller, useForm } from 'react-hook-form';
+import type { LumpedElementFormInput } from '@/api/preprocessor';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AntennaElement } from '@/types/models';
@@ -75,10 +76,14 @@ const createLumpedElementSchema = (limitFor: (antennaId: string) => number) => {
 
 type LumpedElementFormData = z.infer<ReturnType<typeof createLumpedElementSchema>>;
 
+/** Value fields of the three variants (the form's error object is a union of them) */
+type ValueErrors = Partial<Record<'resistance' | 'inductance' | 'capacitance', { message?: string }>>;
+
 interface LumpedElementDialogProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (data: LumpedElementFormData) => Promise<void>;
+  /** Capacitors are passed with capacitance_inv (1/C) for the backend */
+  onAdd: (data: LumpedElementFormInput) => Promise<void>;
   loading?: boolean;
   maxNodeIndex?: number;
   elements: AntennaElement[];
@@ -156,7 +161,7 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
       const submitData = data.element_type === 'C'
         ? { ...data, capacitance_inv: 1 / data.capacitance }
         : data;
-      await onAdd(submitData as any);
+      await onAdd(submitData);
       reset();
       onClose();
     } catch (error) {
@@ -242,11 +247,11 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
 
                     // Construct type-safe form data based on element type
                     if (value === 'R') {
-                      reset({ ...baseData, element_type: 'R', resistance: 50 } as any);
+                      reset({ ...baseData, element_type: 'R' as const, resistance: 50 });
                     } else if (value === 'L') {
-                      reset({ ...baseData, element_type: 'L', inductance: 1e-9 } as any);
+                      reset({ ...baseData, element_type: 'L' as const, inductance: 1e-9 });
                     } else if (value === 'C') {
-                      reset({ ...baseData, element_type: 'C', capacitance: 1e-12 } as any);
+                      reset({ ...baseData, element_type: 'C' as const, capacitance: 1e-12 });
                     }
                   }}
                   disabled={loading || adding}
@@ -273,8 +278,8 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                       label="Resistance (Ω)"
                       type="number"
                       fullWidth
-                      error={!!(errors as any).resistance}
-                      helperText={(errors as any).resistance?.message}
+                      error={!!(errors as ValueErrors).resistance}
+                      helperText={(errors as ValueErrors).resistance?.message}
                       inputProps={{ step: 0.1 }}
                       onChange={(e) => field.onChange(parseFloat(e.target.value))}
                     />
@@ -294,8 +299,8 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                       label="Inductance (H)"
                       type="number"
                       fullWidth
-                      error={!!(errors as any).inductance}
-                      helperText={(errors as any).inductance?.message || 'Use scientific notation (e.g., 1e-9)'}
+                      error={!!(errors as ValueErrors).inductance}
+                      helperText={(errors as ValueErrors).inductance?.message || 'Use scientific notation (e.g., 1e-9)'}
                       inputProps={{ step: 1e-10 }}
                       onChange={(e) => field.onChange(parseFloat(e.target.value))}
                     />
@@ -315,8 +320,8 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
                       label="Capacitance (F)"
                       type="number"
                       fullWidth
-                      error={!!(errors as any).capacitance}
-                      helperText={(errors as any).capacitance?.message || 'Use scientific notation (e.g., 1e-12 for 1 pF)'}
+                      error={!!(errors as ValueErrors).capacitance}
+                      helperText={(errors as ValueErrors).capacitance?.message || 'Use scientific notation (e.g., 1e-12 for 1 pF)'}
                       inputProps={{ step: 1e-13 }}
                       onChange={(e) => field.onChange(parseFloat(e.target.value))}
                     />
