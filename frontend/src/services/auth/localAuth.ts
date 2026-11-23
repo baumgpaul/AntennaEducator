@@ -40,7 +40,8 @@ export class LocalAuthService implements IAuthService {
           refreshToken: undefined,
         },
       }
-    } catch (error: any) {
+    } catch (caught) {
+      const error = caught as { response?: { status?: number; data?: { detail?: string } } }
       // Handle specific error cases
       if (error.response?.status === 403) {
         // Backend distinguishes "pending approval" from "locked"
@@ -72,7 +73,8 @@ export class LocalAuthService implements IAuthService {
           refreshToken: undefined,
         },
       }
-    } catch (error: any) {
+    } catch (caught) {
+      const error = caught as { response?: { status?: number; data?: { detail?: string } } }
       // Handle specific error cases
       if (error.response?.status === 400) {
         throw new Error(error.response?.data?.detail || 'Email already registered')

@@ -3,6 +3,7 @@ import { ViewItem } from '../../../types/postprocessing';
 import { useAppSelector } from '../../../store/hooks';
 import * as THREE from 'three';
 import { createColorArray } from '../../../utils/colorMaps';
+import type { ColorMapType } from '@/utils/colorMaps';
 
 interface DirectivityRendererProps {
   item: ViewItem;
@@ -66,7 +67,7 @@ export const DirectivityRenderer: React.FC<DirectivityRendererProps> = ({
   // Create colors for each point
   const colors = useMemo(() => {
     if (processedDirectivity.length === 0) return new Float32Array(0);
-    return createColorArray(processedDirectivity, colorMap as any, min, max);
+    return createColorArray(processedDirectivity, colorMap as ColorMapType, min, max);
   }, [processedDirectivity, colorMap, min, max]);
 
   // Create sphere geometry with vertices matching theta/phi sampling

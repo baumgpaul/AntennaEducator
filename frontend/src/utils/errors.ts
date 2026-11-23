@@ -187,7 +187,7 @@ const getDetailMessage = (error: ApiError): string | undefined => {
     }
     // Handle validation errors array
     if (Array.isArray(error.details)) {
-      return error.details.map((e: any) => e.msg || e.message).join(', ')
+      return error.details.map((e: { msg?: string; message?: string }) => e.msg || e.message).join(', ')
     }
   }
   return undefined

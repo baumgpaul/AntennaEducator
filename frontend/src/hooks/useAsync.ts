@@ -4,7 +4,7 @@ import { isRetryableError } from '@/utils/errors';
 /**
  * Hook for managing async operations with loading, error, and retry states
  */
-export function useAsync<T, Args extends any[]>(
+export function useAsync<T, Args extends unknown[]>(
   asyncFunction: (...args: Args) => Promise<T>
 ) {
   const [loading, setLoading] = useState(false);
