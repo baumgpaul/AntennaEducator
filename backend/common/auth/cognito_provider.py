@@ -308,7 +308,8 @@ class CognitoAuthProvider(AuthProvider):
         our register endpoint), so the profile starts pending with 0 tokens.
         """
         logger.info("Lazy-init: creating DynamoDB profile for %s", user_id)
-        now = datetime.now(timezone.utc).isoformat()
+        created = datetime.now(timezone.utc)
+        now = created.isoformat()
         email = email_hint or "unknown"
         username = email.split("@")[0] if email != "unknown" else f"user_{user_id[:8]}"
 
@@ -336,6 +337,6 @@ class CognitoAuthProvider(AuthProvider):
             role=UserRole.USER,
             is_locked=False,
             is_approved=False,
-            created_at=now,
+            created_at=created,
             simulation_tokens=0,
         )

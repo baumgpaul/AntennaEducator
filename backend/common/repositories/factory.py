@@ -5,11 +5,13 @@ Currently only DynamoDB is implemented (both AWS and DynamoDB-Local).
 """
 
 import os
+from typing import TYPE_CHECKING
 
-from backend.common.repositories.base import ProjectRepository
+if TYPE_CHECKING:  # the only implementation; callers use its .table (retention, admin)
+    from backend.common.repositories.dynamodb_repository import DynamoDBProjectRepository
 
 
-def get_project_repository() -> ProjectRepository:
+def get_project_repository() -> "DynamoDBProjectRepository":
     """Return the appropriate ``ProjectRepository`` implementation.
 
     Environment variables:

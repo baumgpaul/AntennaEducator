@@ -14,6 +14,7 @@ argument says otherwise. Run independent parts in parallel; report pass/fail wit
 black --check backend/ tests/
 isort --check-only backend/ tests/
 ruff check backend/ tests/
+mypy backend
 pytest tests/unit/ -x -q --tb=short
 pytest tests/integration/ -q --tb=short   # in-process; can be slow locally (firewall), CI is the reference
 ```

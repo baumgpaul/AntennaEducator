@@ -130,14 +130,14 @@ def _safe_eval_node(node: ast.AST, variables: dict[str, float], expression: str)
 
     # Unary operation: -x, +x
     if isinstance(node, ast.UnaryOp):
-        op_type = type(node.op)
-        if op_type not in _UNARY_OPS:
+        unary_type = type(node.op)
+        if unary_type not in _UNARY_OPS:
             raise ExpressionError(
                 expression,
-                f"Unsupported unary operator: {op_type.__name__}",
+                f"Unsupported unary operator: {unary_type.__name__}",
             )
         operand = _safe_eval_node(node.operand, variables, expression)
-        return _UNARY_OPS[op_type](operand)
+        return _UNARY_OPS[unary_type](operand)
 
     # Function call: sin(x), sqrt(x), etc.
     if isinstance(node, ast.Call):

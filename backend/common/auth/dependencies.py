@@ -87,6 +87,7 @@ async def _resolve_user(token: str) -> UserIdentity:
     # 2. Check profile cache, else 3. enrich with profile data (role, lock, approval …)
     now = time.monotonic()
     cached = _profile_cache.get(token_data.user_id)
+    user: Optional[UserIdentity]
     if cached is not None and (now - cached[1]) < _PROFILE_CACHE_TTL:
         user = cached[0]
     else:
