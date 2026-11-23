@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -72,11 +72,12 @@ export function FrequencyInputDialog({
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // Sync frequency when dialog re-opens with a new initial value
-  useEffect(() => {
-    if (open && initialFrequency !== undefined) {
-      setFrequency(initialFrequency);
-    }
-  }, [open, initialFrequency]);
+  const resetFor = open && initialFrequency !== undefined ? initialFrequency : null;
+  const [syncedFor, setSyncedFor] = useState<number | null>(null);
+  if (resetFor !== syncedFor) {
+    setSyncedFor(resetFor);
+    if (resetFor !== null) setFrequency(resetFor);
+  }
 
   const handleFrequencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);

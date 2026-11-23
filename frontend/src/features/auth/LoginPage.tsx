@@ -19,7 +19,8 @@ function LoginPage() {
   const dispatch = useAppDispatch();
   const { loading, error, isAuthenticated } = useAppSelector((state) => state.auth);
   const [rememberMe, setRememberMe] = useState(false);
-  const [sessionExpired, setSessionExpired] = useState(false);
+  // Redirected here after a session expiry? (the effect below clears the flag)
+  const [sessionExpired, setSessionExpired] = useState(() => localStorage.getItem('logout_reason') !== null);
 
   // Get the page user was trying to access before being redirected to login
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
@@ -45,7 +46,6 @@ function LoginPage() {
 
     if (logoutReason) {
       console.log('[Auth] Redirected to login, reason:', logoutReason);
-      setSessionExpired(true);
 
       // Clear after reading
       localStorage.removeItem('last_auth_error');

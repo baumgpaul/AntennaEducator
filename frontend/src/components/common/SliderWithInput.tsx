@@ -7,7 +7,7 @@
  * - Values are clamped to [min, max] on blur
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Box, Slider, TextField, Typography } from '@mui/material';
 import { parseDecimalNumber, isValidNumericInput } from '../../utils/numberParser';
 
@@ -55,9 +55,11 @@ const SliderWithInput: React.FC<SliderWithInputProps> = ({
   const [textValue, setTextValue] = useState(String(value));
 
   // Sync text with external value
-  useEffect(() => {
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (value !== syncedValue) {
+    setSyncedValue(value);
     setTextValue(formatInputValue(value));
-  }, [value]);
+  }
 
   const handleSliderChange = useCallback((_: Event, newValue: number | number[]) => {
     onChange(newValue as number);

@@ -139,8 +139,12 @@ export interface Template {
   title: string;
   description: string;
   model: FemModel;
-  /** Textbook reference value to compare with (per metre of depth for 2D plane) */
-  analytic?: { label: string; quantity: 'capacitance'; value: (p: Record<string, number>, m: FemModel) => number };
+  /**
+   * Textbook reference value to compare with (per metre of depth for 2D plane).
+   * `exact`: the limit FEM converges to (coax); otherwise a simpler model
+   * (plates without fringing), shown for comparison but not used as the error reference.
+   */
+  analytic?: { label: string; quantity: 'capacitance'; exact: boolean; value: (p: Record<string, number>, m: FemModel) => number };
   /** Textbook V and |E| at a point (line probes), or null where it does not apply */
   fieldAt?: { label: string; value: (x: number, y: number, p: Record<string, number>) => { V: number; E: number } | null };
 }
@@ -192,6 +196,7 @@ export const TEMPLATES: Template[] = [
     analytic: {
       label: 'Parallel plates without fringing, εA/d',
       quantity: 'capacitance',
+      exact: false,
       value: (p, m) => (EPSILON_0 * (m.materials.dielectric?.relative_permittivity ?? 1) * p.w * m.depth) / p.d,
     },
   },
@@ -232,6 +237,7 @@ export const TEMPLATES: Template[] = [
     analytic: {
       label: 'Coax 2πε/ln(b/a)',
       quantity: 'capacitance',
+      exact: true,
       value: (p, m) =>
         (2 * Math.PI * EPSILON_0 * (m.materials.dielectric?.relative_permittivity ?? 1) * m.depth) /
         Math.log(p.b / p.a),

@@ -17,7 +17,7 @@ import {
   Typography,
   Paper,
 } from '@mui/material';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import type { LumpedElementFormInput } from '@/api/preprocessor';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -109,7 +109,6 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
     handleSubmit,
     formState: { errors },
     reset,
-    watch,
   } = useForm<LumpedElementFormData>({
     resolver: zodResolver(lumpedElementSchema),
     defaultValues: {
@@ -121,8 +120,8 @@ export const LumpedElementDialog: React.FC<LumpedElementDialogProps> = ({
     },
   });
 
-  const elementType = watch('element_type');
-  const selectedAntennaId = watch('antennaId');
+  const elementType = useWatch({ control, name: 'element_type' });
+  const selectedAntennaId = useWatch({ control, name: 'antennaId' });
   const selectedAntenna = elements.find(el => el.id === selectedAntennaId);
 
   // Reset form fields when element type changes

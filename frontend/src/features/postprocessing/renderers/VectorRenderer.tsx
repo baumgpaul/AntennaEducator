@@ -127,10 +127,12 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   const isPoynting = fieldType === 'poynting';
 
   // Compute Poynting vectors if needed
+  const eVectors = dataForFrequency?.E_vectors;
+  const hVectors = dataForFrequency?.H_vectors;
   const poyntingVectors = useMemo(() => {
-    if (!isPoynting || !dataForFrequency?.E_vectors || !dataForFrequency?.H_vectors) return null;
-    return computePoyntingVectors(dataForFrequency.E_vectors, dataForFrequency.H_vectors);
-  }, [isPoynting, dataForFrequency?.E_vectors, dataForFrequency?.H_vectors]);
+    if (!isPoynting || !eVectors || !hVectors) return null;
+    return computePoyntingVectors(eVectors, hVectors);
+  }, [isPoynting, eVectors, hVectors]);
 
   // Determine which vectors to use (E, H, or computed Poynting)
   const complexVectors = dataForFrequency

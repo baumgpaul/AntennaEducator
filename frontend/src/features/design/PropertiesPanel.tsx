@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Typography,
@@ -171,11 +171,12 @@ function PropertiesPanel({
   // Sync local orientation when the element or its orientation changes
   const elementId = antennaElement?.id;
   const [ox, oy, oz] = elementOrientation;
-  useEffect(() => {
-    if (elementId) {
-      setLocalOrientation([ox, oy, oz]);
-    }
-  }, [elementId, ox, oy, oz]);
+  const orientationKey = elementId ? `${elementId}|${ox}|${oy}|${oz}` : null;
+  const [syncedOrientationKey, setSyncedOrientationKey] = useState(orientationKey);
+  if (orientationKey !== syncedOrientationKey) {
+    setSyncedOrientationKey(orientationKey);
+    if (orientationKey) setLocalOrientation([ox, oy, oz]);
+  }
 
   const handlePresetChange = (_: React.MouseEvent<HTMLElement>, value: string | null) => {
     if (!antennaElement || !onOrientationChange) return;
@@ -223,15 +224,19 @@ function PropertiesPanel({
   const [localPhase, setLocalPhase] = useState(initPhase);
 
   // Sync local source state when element changes
-  useEffect(() => {
-    if (antennaElement?.sources?.[0]) {
-      const src = antennaElement.sources[0];
+  const sourceElementId = antennaElement?.id;
+  const elementSources = antennaElement?.sources;
+  const [syncedSources, setSyncedSources] = useState({ id: sourceElementId, sources: elementSources });
+  if (syncedSources.id !== sourceElementId || syncedSources.sources !== elementSources) {
+    setSyncedSources({ id: sourceElementId, sources: elementSources });
+    if (elementSources?.[0]) {
+      const src = elementSources[0];
       const { magnitude, phaseDeg } = extractSourceAmplitudePhase(src);
       setLocalSourceType(src.type || 'voltage');
       setLocalAmplitude(magnitude);
       setLocalPhase(phaseDeg);
     }
-  }, [antennaElement?.id, antennaElement?.sources]);
+  }
 
   const emitSourceChange = (type: 'voltage' | 'current', amplitude: number, phaseDeg: number) => {
     if (!antennaElement || !onSourceChange || !primarySource) return;

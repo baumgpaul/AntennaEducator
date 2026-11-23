@@ -48,7 +48,7 @@ import StarterKit from '@tiptap/starter-kit';
 import ImageExtension from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Markdown } from 'tiptap-markdown';
-import { debounce } from 'lodash';
+import { debounce, type DebouncedFunc } from 'lodash';
 
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
@@ -269,7 +269,7 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
       // Only set dirty / trigger save when content actually changed
       if (md !== contentRef.current) {
         dispatch(setContent(md));
-        debouncedSave(md);
+        debouncedSaveRef.current?.(md);
       }
     },
   });
@@ -333,25 +333,24 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
 
   // ── Auto-save ────────────────────────────────────────────────────────────
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedSave = useCallback(
-    debounce((md: string) => {
+  // One debounced save per project. Closing the panel (or switching project)
+  // writes a pending save instead of dropping it.
+  const debouncedSaveRef = useRef<DebouncedFunc<(md: string) => void> | null>(null);
+  useEffect(() => {
+    const save = debounce((md: string) => {
       if (projectId) {
         // Convert any presigned S3 URLs back to stable doc-image:// references
         // before persisting, so stored content never contains expiring URLs.
         const stableMd = stabilizeDocImageUrls(md);
         dispatch(saveDocumentation({ projectId, content: stableMd }));
       }
-    }, AUTO_SAVE_DELAY_MS),
-    [dispatch, projectId]
-  );
-
-  // Cleanup debounce on unmount
-  useEffect(() => {
+    }, AUTO_SAVE_DELAY_MS);
+    debouncedSaveRef.current = save;
     return () => {
-      debouncedSave.cancel();
+      save.flush();
+      if (debouncedSaveRef.current === save) debouncedSaveRef.current = null;
     };
-  }, [debouncedSave]);
+  }, [dispatch, projectId]);
 
   // ── Load documentation on mount / project change ─────────────────────────
 
@@ -505,12 +504,12 @@ export default function DocumentationPanel({ projectId }: DocumentationPanelProp
 
   const handleManualSave = useCallback(() => {
     if (projectId && editor) {
-      debouncedSave.cancel();
+      debouncedSaveRef.current?.cancel();
       const md = getMarkdownFromEditor(editor);
       const stableMd = stabilizeDocImageUrls(md);
       dispatch(saveDocumentation({ projectId, content: stableMd }));
     }
-  }, [projectId, editor, debouncedSave, dispatch]);
+  }, [projectId, editor, dispatch]);
 
   // ── Keyboard shortcut: Ctrl+S to save ────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -28,6 +28,7 @@ import { ViewInAr, PanoramaFishEye, Timeline } from '@mui/icons-material';
 import { getEllipseAxesFromPreset } from '@/types/fieldDefinitions';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
 import { FALLBACK_FIELD_DEFAULTS, type FieldRegionDefaults } from './defaultFieldRegion';
+import { uniqueId } from '@/utils/ids';
 
 const steps = ['Region Type', 'Shape', 'Parameters', 'Field Type'];
 
@@ -86,38 +87,38 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
   const nameCounterRef = useRef(1);
   const [fieldName, setFieldName] = useState('E-field 2D plane 1');
 
-  const generateDefaultName = () => {
-    const typeLabel = regionType;
-    const shapeLabel = shape;
-    const selectedLabel = fieldType === 'E' ? 'E-field' : fieldType === 'H' ? 'H-field' : 'Poynting';
-    return `${selectedLabel} ${typeLabel} ${shapeLabel} ${nameCounterRef.current}`;
+  const defaultNameFor = (rt: typeof regionType, sh: typeof shape, ft: typeof fieldType) => {
+    const selectedLabel = ft === 'E' ? 'E-field' : ft === 'H' ? 'H-field' : 'Poynting';
+    return `${selectedLabel} ${rt} ${sh} ${nameCounterRef.current}`;
+  };
+  const generateDefaultName = () => defaultNameFor(regionType, shape, fieldType);
+
+  // Region type, shape and field type refresh the default name; a new region type
+  // also selects its first shape.
+  const chooseRegionType = (rt: typeof regionType) => {
+    const sh = rt === '1D' ? 'line' : rt === '2D' ? 'plane' : 'sphere';
+    setRegionType(rt);
+    setShape(sh);
+    setFieldName(defaultNameFor(rt, sh, fieldType));
+  };
+  const chooseShape = (sh: typeof shape) => {
+    setShape(sh);
+    setFieldName(defaultNameFor(regionType, sh, fieldType));
+  };
+  const chooseFieldType = (ft: typeof fieldType) => {
+    setFieldType(ft);
+    setFieldName(defaultNameFor(regionType, shape, ft));
   };
 
-  // Reset shape when region type changes
-  useEffect(() => {
-    if (regionType === '1D') {
-      setShape('line');
-    } else if (regionType === '2D') {
-      setShape('plane');
-    } else {
-      setShape('sphere');
-    }
-  }, [regionType]);
-
-  // Refresh default name when key attributes change
-  useEffect(() => {
-    setFieldName(generateDefaultName());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regionType, shape, fieldType]);
-
-  // Sync ellipse axes when preset changes
-  useEffect(() => {
-    if (normalPreset !== 'Custom') {
-      const axes = getEllipseAxesFromPreset(normalPreset);
+  // An axis-aligned preset also sets the ellipse axes
+  const choosePreset = (preset: typeof normalPreset) => {
+    setNormalPreset(preset);
+    if (preset !== 'Custom') {
+      const axes = getEllipseAxesFromPreset(preset);
       setCustomAxis1({ x: axes.axis1[0], y: axes.axis1[1], z: axes.axis1[2] });
       setCustomAxis2({ x: axes.axis2[0], y: axes.axis2[1], z: axes.axis2[2] });
     }
-  }, [normalPreset]);
+  };
 
   const handleNext = () => {
     setActiveStep((prevStep) => prevStep + 1);
@@ -129,7 +130,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
 
   const handleCreate = () => {
     const fieldDefinition: Record<string, unknown> = {
-      id: `field-${Date.now()}`,
+      id: uniqueId('field'),
       name: fieldName.trim() || generateDefaultName(),
       type: regionType,
       shape,
@@ -208,16 +209,18 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
     setPlaneDims({ width: size, height: size });
     setRadiusA(size / 2);
     setRadiusB(size / 2);
-    setNormalPreset(d.preset);
+    choosePreset(d.preset);
     setSphereRadius(size / 2);
     setCuboidDims({ Lx: size, Ly: size, Lz: size });
   };
 
   // Each time the dialog opens, start from the current antenna/frequency defaults
-  useEffect(() => {
+  // (adjusted during render, so the first frame already shows them)
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) applyGeometryDefaults(defaults);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }
 
   const handleReset = () => {
     setActiveStep(0);
@@ -256,7 +259,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             <Grid size={4}>
               <Card variant="outlined" sx={{ bgcolor: regionType === '1D' ? 'action.selected' : 'background.paper' }}>
                 <CardActionArea onClick={() => {
-                  setRegionType('1D');
+                  chooseRegionType('1D');
                   setTimeout(() => handleNext(), 100);
                 }}>
                   <CardContent sx={{ textAlign: 'center', py: 4 }}>
@@ -274,7 +277,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             <Grid size={4}>
               <Card variant="outlined" sx={{ bgcolor: regionType === '2D' ? 'action.selected' : 'background.paper' }}>
                 <CardActionArea onClick={() => {
-                  setRegionType('2D');
+                  chooseRegionType('2D');
                   setTimeout(() => handleNext(), 100);
                 }}>
                   <CardContent sx={{ textAlign: 'center', py: 4 }}>
@@ -292,7 +295,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
             <Grid size={4}>
               <Card variant="outlined" sx={{ bgcolor: regionType === '3D' ? 'action.selected' : 'background.paper' }}>
                 <CardActionArea onClick={() => {
-                  setRegionType('3D');
+                  chooseRegionType('3D');
                   setTimeout(() => handleNext(), 100);
                 }}>
                   <CardContent sx={{ textAlign: 'center', py: 4 }}>
@@ -322,7 +325,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                 name="field-shape"
                 value={shape}
                 label="Shape"
-                onChange={(e) => setShape(e.target.value as typeof shape)}
+                onChange={(e) => chooseShape(e.target.value as typeof shape)}
               >
                 {/* 1D options */}
                 <MenuItem
@@ -467,7 +470,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                   <FormControl fullWidth sx={{ mt: 1 }}>
                     <InputLabel>Orientation</InputLabel>
                     <Select value={normalPreset} label="Orientation"
-                      onChange={(e) => setNormalPreset(e.target.value as typeof normalPreset)}>
+                      onChange={(e) => choosePreset(e.target.value as typeof normalPreset)}>
                       <MenuItem value="XY">XY Plane</MenuItem>
                       <MenuItem value="YZ">YZ Plane</MenuItem>
                       <MenuItem value="XZ">XZ Plane</MenuItem>
@@ -633,7 +636,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     <Select
                       value={normalPreset}
                       label="Orientation"
-                      onChange={(e) => setNormalPreset(e.target.value as typeof normalPreset)}
+                      onChange={(e) => choosePreset(e.target.value as typeof normalPreset)}
                     >
                       <MenuItem value="XY">XY Plane</MenuItem>
                       <MenuItem value="YZ">YZ Plane</MenuItem>
@@ -714,7 +717,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
                     <Select
                       value={normalPreset}
                       label="Orientation"
-                      onChange={(e) => setNormalPreset(e.target.value as typeof normalPreset)}
+                      onChange={(e) => choosePreset(e.target.value as typeof normalPreset)}
                     >
                       <MenuItem value="XY">XY Plane</MenuItem>
                       <MenuItem value="YZ">YZ Plane</MenuItem>
@@ -975,7 +978,7 @@ export function AddFieldDialog({ open, onClose, onCreate, defaults = FALLBACK_FI
               <FormLabel component="legend">Select Field Type</FormLabel>
               <RadioGroup
                 value={fieldType}
-                onChange={(e) => setFieldType(e.target.value as 'E' | 'H' | 'poynting')}
+                onChange={(e) => chooseFieldType(e.target.value as 'E' | 'H' | 'poynting')}
               >
                 <FormControlLabel
                   value="E"

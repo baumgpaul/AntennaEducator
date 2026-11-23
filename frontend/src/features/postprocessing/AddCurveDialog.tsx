@@ -34,6 +34,7 @@ import type { PlotTrace, PlotQuantity, LineStyle, FieldPlotQuantity } from '@/ty
 import { TRACE_COLORS } from '@/types/plotDefinitions';
 import type { ParameterStudyResult } from '@/types/parameterStudy';
 import type { FieldDefinition } from '@/types/fieldDefinitions';
+import { uniqueId } from '@/utils/ids';
 
 // ============================================================================
 // Quantity catalog
@@ -233,7 +234,7 @@ export default function AddCurveDialog({
     if (m === 'single') {
       const colorIdx = existingTraceCount % TRACE_COLORS.length;
       const trace: PlotTrace = {
-        id: `trace_${Date.now()}`,
+        id: uniqueId('trace'),
         quantity: q.quantity,
         label: q.label,
         color: TRACE_COLORS[colorIdx],
@@ -250,7 +251,7 @@ export default function AddCurveDialog({
         const varLabel = overlayVar?.variableName ?? '?';
         const valStr = formatValue(val);
         return {
-          id: `trace_${Date.now()}_${i}`,
+          id: uniqueId('trace'),
           quantity: q.quantity,
           label: `${q.label} (${varLabel}=${valStr})`,
           color: TRACE_COLORS[colorIdx],

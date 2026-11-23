@@ -8,7 +8,7 @@
  * - When switching to manual, defaults to auto-computed range
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Box,
   TextField,
@@ -67,13 +67,16 @@ const ValueRangeInput: React.FC<ValueRangeInputProps> = ({
   const [maxText, setMaxText] = useState(String(max));
 
   // Sync local text when external values change (e.g. on undo, or mode switch defaults)
-  useEffect(() => {
+  const [syncedMin, setSyncedMin] = useState(min);
+  if (min !== syncedMin) {
+    setSyncedMin(min);
     setMinText(formatForDisplay(min));
-  }, [min]);
-
-  useEffect(() => {
+  }
+  const [syncedMax, setSyncedMax] = useState(max);
+  if (max !== syncedMax) {
+    setSyncedMax(max);
     setMaxText(formatForDisplay(max));
-  }, [max]);
+  }
 
   const handleModeChange = useCallback((_: React.MouseEvent, value: string | null) => {
     if (!value) return;

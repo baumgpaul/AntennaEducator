@@ -6,6 +6,7 @@ import {
   analyticValue,
   convergence,
   convergenceFactors,
+  exactValue,
   logSlope,
   runStudy,
   scaleMesh,
@@ -143,18 +144,47 @@ describe('convergence order', () => {
     expect(c.orderH).toBeCloseTo(2, 6);
   });
 
-  it('without a textbook value the finest mesh is the reference (and has no error itself)', () => {
+  it('without an exact value: extrapolated from the three finest meshes (Richardson), order recovered', () => {
+    // C(h) = C∞ (1 + 0.3 h^1.4): a slower order, as at sharp electrode corners
+    const cInf = 2e-10;
+    const points = convergenceFactors(5).map((h) => ({ x: h, nodes: Math.round(400 / h ** 2), value: cInf * (1 + 0.3 * h ** 1.4) }));
+    const c = convergence(points, null);
+    expect(c.against).toBe('extrapolated');
+    expect(c.reference! / cInf).toBeCloseTo(1, 10);
+    expect(c.order).toBeCloseTo(1.4, 8);
+    expect(c.errors[4]).toBeCloseTo(0.3 * 0.5 ** 1.4, 8); // the finest mesh has an error too
+    expect(c.orderH).toBeCloseTo(1.4, 1);
+  });
+
+  it('the plate capacitor case: εA/d is not the limit, so it is no reference for the error', () => {
+    // FEM converges to a value 8 % above εA/d (fringing); errors against εA/d would stall at 8 %
+    const textbook = 1e-10;
+    const cInf = 1.08 * textbook;
+    const points = convergenceFactors(5).map((h) => ({ x: h, nodes: Math.round(400 / h ** 2), value: cInf * (1 + 0.05 * h ** 2) }));
+    const c = convergence(points, null);
+    expect(c.against).toBe('extrapolated');
+    expect(c.orderH).toBeCloseTo(2, 1);
+    expect(c.reference! / textbook - 1).toBeCloseTo(0.08, 8);
+  });
+
+  it('falls back to the finest mesh when the three finest do not converge monotonically', () => {
     const points = [
       { x: 2, nodes: 100, value: 1.04 },
+      { x: 1.41421, nodes: 200, value: 1.0 },
       { x: 1, nodes: 400, value: 1.01 },
-      { x: 0.5, nodes: 1600, value: 1.0 },
-      { x: 0.25, error: 'too fine' },
+      { x: 0.707107, nodes: 800, value: 1.0 },
+      { x: 0.5, error: 'too fine' },
     ];
     const c = convergence(points, null);
     expect(c.against).toBe('finest');
-    expect(c.errors[2]).toBeNull();
     expect(c.errors[3]).toBeNull();
+    expect(c.errors[4]).toBeNull();
     expect(c.errors[0]).toBeCloseTo(0.04, 12);
-    expect(c.orderH).toBeCloseTo(2, 6);
+  });
+
+  it('only an exact formula is used as the reference: coax yes, plate capacitor (no fringing) no', () => {
+    expect(exactValue(coax, 'capacitance')).toBeCloseTo(analyticValue(coax, 'capacitance')!, 25);
+    expect(exactValue(plate, 'capacitance')).toBeNull();
+    expect(analyticValue(plate, 'capacitance')).not.toBeNull();
   });
 });

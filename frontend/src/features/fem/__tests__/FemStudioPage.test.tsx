@@ -18,6 +18,7 @@ vi.mock('@/features/design/DocumentationPanel', () => ({ default: () => <div>Pro
 
 import FemStudioPage from '../FemStudioPage';
 import { TEMPLATES } from '../model';
+import { meshKey, shapesKey } from '../studioState';
 
 function render(ui: React.ReactElement, path = '/fem') {
   const store = configureStore({ reducer: { auth: authReducer, documentation: documentationReducer } });
@@ -67,13 +68,13 @@ describe('FemStudioPage', () => {
     expect(screen.getByText('Learn: Geometry')).toBeInTheDocument();
   });
 
-  it('template → find domains → the Materials tab opens with the domain', async () => {
+  it('choosing a template finds its domains right away → the Materials tab opens with the domain', async () => {
     render(<FemStudioPage />);
     fireEvent.mouseDown(screen.getByLabelText('Start from'));
     fireEvent.click(within(screen.getByRole('listbox')).getByText('Coaxial cable'));
     expect(screen.getByText(/2πε\/ln\(b\/a\)/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Find domains & boundaries/ }));
+    // no click on "Find domains & boundaries" needed
     await waitFor(() => expect(screen.getByText('Domains:')).toBeInTheDocument());
     expect(meshModel).toHaveBeenCalledTimes(1);
     expect(meshModel.mock.calls[0][0].shapes.map((s: { name: string }) => s.name)).toEqual(['dielectric', 'inner']);
@@ -98,11 +99,44 @@ describe('FemStudioPage', () => {
 
     fireEvent.change(screen.getAllByLabelText('Value')[0], { target: { value: '0.0006' } });
     expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
-    await waitFor(() => expect(updateProject).toHaveBeenCalled(), { timeout: 3000 });
-    const [id, body] = updateProject.mock.calls.at(-1)!;
+    const modelSave = () => updateProject.mock.calls.find(([, b]) => b.design_state);
+    await waitFor(() => expect(modelSave()).toBeDefined(), { timeout: 3000 });
+    const [id, body] = modelSave()!;
     expect(id).toBe('p1');
     expect(body.design_state.parameters.a).toBe(0.0006);
     expect(body.design_state.name).toBe('My coax');
     await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument());
+  });
+
+  it('a project without a saved mesh finds its domains on open and saves them with the project', async () => {
+    const coax = TEMPLATES.find((t) => t.id === 'coax')!.model;
+    getProject.mockResolvedValue({ id: 'p2', name: 'New coax', kind: 'fem', design_state: coax });
+    updateProject.mockReset().mockResolvedValue({});
+    render(<FemStudioPage />, '/project/p2/fem');
+
+    await waitFor(() => expect(meshModel).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(updateProject).toHaveBeenCalled());
+    const [id, body] = updateProject.mock.calls.at(-1)!;
+    expect(id).toBe('p2');
+    expect(body).not.toHaveProperty('design_state');
+    expect(body.simulation_results.femResult.mesh).toMatchObject({ key: meshKey(coax), shapesKey: shapesKey(coax) });
+    expect(body.simulation_results.femResult.mesh.data.domain_names).toEqual(['dielectric']);
+    fireEvent.click(screen.getByRole('tab', { name: /Materials/ }));
+    expect(screen.getByText('Material of each domain')).toBeInTheDocument();
+  });
+
+  it('opens a project with its saved mesh: no locked steps and no new mesh', async () => {
+    const coax = TEMPLATES.find((t) => t.id === 'coax')!.model;
+    const femResult = { version: 1, mesh: { key: meshKey(coax), shapesKey: shapesKey(coax), warnings: [], data: COAX_MESH } };
+    getProject.mockResolvedValue({ id: 'p3', name: 'Saved coax', kind: 'fem', design_state: coax, simulation_results: { femResult } });
+    updateProject.mockReset().mockResolvedValue({});
+    render(<FemStudioPage />, '/project/p3/fem');
+
+    await waitFor(() => expect(screen.getByText('Domains:')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('tab', { name: /Materials/ }));
+    expect(screen.getByText('Material of each domain')).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(meshModel).not.toHaveBeenCalled();
+    expect(updateProject).not.toHaveBeenCalled(); // restoring is not a change
   });
 });

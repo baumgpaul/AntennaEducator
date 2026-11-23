@@ -14,7 +14,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import ExpressionField from '@/components/ExpressionField';
@@ -79,7 +79,6 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
     control,
     handleSubmit,
     reset,
-    watch,
     formState: { errors },
   } = useForm<LoopFormData>({
     resolver: zodResolver(loopSchema),
@@ -105,22 +104,22 @@ export const LoopDialog: React.FC<LoopDialogProps> = ({ open, onClose, onGenerat
     },
   });
 
-  const sourceType = watch('sourceType');
+  const sourceType = useWatch({ control, name: 'sourceType' });
 
   // Live 3D preview
   const previewGeometry = useLoopPreview({
-    radius: watch('radius'),
-    wireRadius: watch('wireRadius'),
-    segments: watch('segments'),
+    radius: useWatch({ control, name: 'radius' }),
+    wireRadius: useWatch({ control, name: 'wireRadius' }),
+    segments: useWatch({ control, name: 'segments' }),
     position: {
-      x: watch('position.x'),
-      y: watch('position.y'),
-      z: watch('position.z'),
+      x: useWatch({ control, name: 'position.x' }),
+      y: useWatch({ control, name: 'position.y' }),
+      z: useWatch({ control, name: 'position.z' }),
     },
     orientation: {
-      rotX: watch('orientation.rotX'),
-      rotY: watch('orientation.rotY'),
-      rotZ: watch('orientation.rotZ'),
+      rotX: useWatch({ control, name: 'orientation.rotX' }),
+      rotY: useWatch({ control, name: 'orientation.rotY' }),
+      rotZ: useWatch({ control, name: 'orientation.rotZ' }),
     },
   });
 

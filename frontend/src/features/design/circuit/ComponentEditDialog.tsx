@@ -5,7 +5,7 @@
  * phase (for sources), connection nodes, and optional label.
  * Supports variable expressions in value/phase fields.
  */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -72,10 +72,22 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
     return { ...BUILTIN_CONSTANTS, ...userVars };
   }, [variables]);
 
-  // Reset when opening or when editComponent changes
-  useEffect(() => {
-    if (!open) return;
-
+  // Reset when opening or when editComponent / nodes change (adjusted during render)
+  const [syncedFor, setSyncedFor] = useState<{
+    open: boolean;
+    editComponent: CircuitComponent | null | undefined;
+    nodes: CircuitNode[];
+  } | null>(null);
+  if (
+    !syncedFor ||
+    syncedFor.open !== open ||
+    syncedFor.editComponent !== editComponent ||
+    syncedFor.nodes !== nodes
+  ) {
+    setSyncedFor({ open, editComponent, nodes });
+    if (open) resetForm();
+  }
+  function resetForm() {
     if (editComponent) {
       setType(editComponent.type);
       setValueStr(editComponent.valueExpression || String(editComponent.value));
@@ -98,17 +110,18 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
       setLabel('');
     }
     setError(null);
-  }, [open, editComponent, nodes]);
+  }
 
-  // Update default value when type changes (only for new components)
-  useEffect(() => {
+  // A new component takes the default value of the chosen type
+  const chooseType = (next: CircuitComponentType) => {
+    setType(next);
     if (!editComponent) {
-      setValueStr(String(COMPONENT_DEFAULTS[type].value));
-      if (type !== 'voltage_source' && type !== 'current_source') {
+      setValueStr(String(COMPONENT_DEFAULTS[next].value));
+      if (next !== 'voltage_source' && next !== 'current_source') {
         setPhaseStr('0');
       }
     }
-  }, [type, editComponent]);
+  };
 
   const handleSave = () => {
     setError(null);
@@ -192,7 +205,7 @@ export const ComponentEditDialog: React.FC<ComponentEditDialogProps> = ({
               <Select
                 value={type}
                 label="Type"
-                onChange={(e) => setType(e.target.value as CircuitComponentType)}
+                onChange={(e) => chooseType(e.target.value as CircuitComponentType)}
               >
                 {(Object.keys(COMPONENT_TYPE_LABELS) as CircuitComponentType[]).map((t) => (
                   <MenuItem key={t} value={t}>

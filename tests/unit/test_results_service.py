@@ -64,6 +64,28 @@ class TestResultsService:
         assert "result_keys" in slim
 
     @pytest.mark.asyncio
+    async def test_fem_result_goes_to_s3_and_comes_back(self, service, mock_storage):
+        """FEM Studio's mesh + solution (simulation_results.femResult) is too large for DynamoDB."""
+        mock_storage.store_result.return_value = "results/proj-1/solver_results.json"
+        fem = {
+            "version": 1,
+            "mesh": {"key": "k", "shapesKey": "s", "warnings": []},
+            "result": {"key": "r"},
+        }
+
+        slim, keys = await service.extract_and_store("proj-1", {"femResult": fem})
+
+        assert "femResult" not in slim
+        assert keys == {"solver_results": "results/proj-1/solver_results.json"}
+        stored = mock_storage.store_result.call_args_list[0][0]
+        assert stored[1] == ResultType.SOLVER_RESULTS
+        assert stored[2] == {"femResult": fem}
+
+        mock_storage.get_result.return_value = stored[2]
+        hydrated = await service.hydrate_results("proj-1", slim)
+        assert hydrated["femResult"] == fem
+
+    @pytest.mark.asyncio
     async def test_extract_and_store_radiation_pattern(self, service, mock_storage):
         """Test extracting radiation pattern to S3."""
         mock_storage.store_result.return_value = "results/proj-1/radiation_pattern.json"
