@@ -38,7 +38,11 @@ from backend.solver.ground_plane import (
     lift_feed_nodes,
 )
 from backend.solver.inductance import assemble_inductance_matrix
-from backend.solver.potential_nodal import assemble_nodal_potential_matrix_with_cap_elem
+from backend.solver.potential_nodal import (
+    assemble_nodal_potential_matrix_with_cap_elem,
+    build_cell_pieces,
+    junction_nodes,
+)
 from backend.solver.resistance import assemble_resistance_matrix
 from backend.solver.system import (
     CurrentSource,
@@ -451,7 +455,12 @@ def solve_peec_frequency_sweep(
     use_images = config.ground_plane and n_physical_edges > 0
     if use_images:
         L_img, dist_L_img, L_first_order_img = image_inductance(edge_geom_list, physical_radii)
-        P_img, dist_P_img = image_potential(cap_elem, radii_cap)
+        P_img, dist_P_img = image_potential(
+            cap_elem,
+            radii_cap,
+            pieces=build_cell_pieces(edge_geom_list, physical_edge_list, physical_radii, n_nodes),
+            junctions=junction_nodes(physical_edge_list, n_nodes),
+        )
 
     # Step 4: Solve at each frequency
     frequency_solutions = []

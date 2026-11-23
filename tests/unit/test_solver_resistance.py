@@ -220,6 +220,66 @@ class TestACResistance:
             compute_ac_resistance(1.0, 0.001, 1e6, permeability=-MU_0)
 
 
+class TestExactSkinEffect:
+    """R_ac/R_dc of a round wire = Re{(ka/2) J0(ka)/J1(ka)}, k = (1-j)/delta (exact Bessel solution).
+
+    The previous piecewise fit jumped from 1.25 to 0.5 at a/delta = 1 (R_ac < R_dc) and was
+    10-50 % off between a/delta 0.3 and 10.
+    """
+
+    @staticmethod
+    def ratio(x, radius=1e-4):
+        """R_ac/R_dc at a/delta = x (copper)."""
+        delta = radius / x
+        f = COPPER_RESISTIVITY / (np.pi * MU_0 * delta**2)
+        return compute_ac_resistance(1.0, radius, f) / compute_dc_resistance(1.0, radius)
+
+    @pytest.mark.parametrize("x", [0.05, 0.1, 0.3, 0.5])
+    def test_low_frequency_series(self, x):
+        """R_ac/R_dc = 1 + x^4/48 - x^8/2880 + ... for a/delta = x << 1."""
+        assert self.ratio(x) == pytest.approx(1 + x**4 / 48 - x**8 / 2880, rel=1e-6)
+
+    @pytest.mark.parametrize("x", [20.0, 50.0, 200.0, 1000.0])
+    def test_high_frequency_asymptote(self, x):
+        """R_ac/R_dc = x/2 + 1/4 + 3/(32 x) + O(x^-2) for a/delta = x >> 1."""
+        assert self.ratio(x) == pytest.approx(x / 2 + 0.25 + 3 / (32 * x), rel=1e-5)
+
+    @pytest.mark.parametrize("x", [0.7, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0])
+    def test_transition_matches_the_kelvin_function_form(self, x):
+        """Independent classical form with Kelvin functions, q = sqrt(2) a/delta:
+        R_ac/R_dc = (q/2) (ber q bei'q - bei q ber'q) / (ber'q^2 + bei'q^2)."""
+        from scipy.special import bei, beip, ber, berp
+
+        q = np.sqrt(2) * x
+        ref = (q / 2) * (ber(q) * beip(q) - bei(q) * berp(q)) / (berp(q) ** 2 + beip(q) ** 2)
+        assert self.ratio(x) == pytest.approx(ref, rel=1e-10)
+
+    def test_old_jump_at_one_skin_depth_is_gone(self):
+        """The fit gave 1.245 just below and 0.500 at a/delta = 1; exact: 1.0205 on both sides."""
+        assert self.ratio(0.999) == pytest.approx(self.ratio(1.0), rel=1e-3)
+        assert self.ratio(1.0) == pytest.approx(1.0205, abs=1e-4)
+
+    def test_continuous_and_monotone_over_the_whole_range(self):
+        xs = np.logspace(-2, 3, 400)
+        r = np.array([self.ratio(x) for x in xs])
+        assert np.all(r >= 1.0 - 1e-12)  # never below DC
+        assert np.all(np.diff(r) > -1e-12)  # monotone
+        assert np.max(np.abs(np.diff(r)) / r[:-1]) < 0.05  # no jumps
+
+    def test_thick_wire_at_vhf_unchanged_in_practice(self):
+        """1 mm copper at 300 MHz (a/delta = 263): within 0.2 % of the high-frequency formula."""
+        length, radius, f = 1.0, 1e-3, 300e6
+        delta = np.sqrt(COPPER_RESISTIVITY / (np.pi * MU_0 * f))
+        hf = COPPER_RESISTIVITY * length / (2 * np.pi * radius * delta)
+        assert compute_ac_resistance(length, radius, f) == pytest.approx(hf, rel=2e-3)
+
+    def test_relative_permeability_thins_the_skin(self):
+        """Magnetic wire (mu_r = 100): delta shrinks by 10, R_ac grows ~10x at high frequency."""
+        r1 = compute_ac_resistance(1.0, 1e-3, 100e6, permeability=MU_0)
+        r100 = compute_ac_resistance(1.0, 1e-3, 100e6, permeability=100 * MU_0)
+        assert r100 / r1 == pytest.approx(10.0, rel=0.01)
+
+
 class TestResistanceMatrixAssembly:
     """Test resistance matrix assembly."""
 
