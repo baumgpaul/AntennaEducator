@@ -5,39 +5,31 @@ import { useSize } from '@/features/workflow/useSize';
 import UnifiedLinePlot from '@/features/postprocessing/plots/UnifiedLinePlot';
 import type { PlotTrace } from '@/types/plotDefinitions';
 import type { SolveResult } from '../api';
-import { evaluateParameters } from '../expressions';
-import { sampleLine } from '../lineProbe';
-import { TEMPLATES, type FemModel, type FemView } from '../model';
-import { lineEnds } from './views';
+import type { FemModel, FemView } from '../model';
+import { lineProbeData } from './exports';
 
 type LineView = Extract<FemView, { type: 'line' }>;
 
 /** V or |E| along a line (the antenna plots' line plot), with the textbook curve where one exists. */
 function LineResultView({ view, result, model }: { view: LineView; result: SolveResult; model: FemModel }) {
-  const ends = lineEnds(view, model);
   const [plotBox, plotSize] = useSize<HTMLDivElement>();
+  // the same samples as the CSV export
+  const probe = useMemo(() => lineProbeData(view, result, model), [view, result, model]);
   const data = useMemo(() => {
-    if ('error' in ends) return null;
-    const samples = sampleLine(result, ends.start, ends.end, view.quantity);
-    const fem = samples.filter((s) => s.value != null).map((s) => ({ x: s.s * 1e3, y: s.value! }));
-    const template = TEMPLATES.find((t) => t.id === model.template);
-    let analytic: { x: number; y: number }[] = [];
-    if (template?.fieldAt) {
-      const p = evaluateParameters(model.parameters);
-      analytic = samples.flatMap((s) => {
-        const v = template.fieldAt!.value(s.x, s.y, p);
-        return v ? [{ x: s.s * 1e3, y: view.quantity === 'potential' ? v.V : v.E }] : [];
-      });
-    }
-    return { fem, analytic, label: template?.fieldAt?.label, samples: samples.length };
-    // ends is derived from view + model
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result, view, model.parameters, model.template]);
+    if ('error' in probe) return null;
+    const mm = (s: { s: number }) => s.s * 1e3;
+    return {
+      fem: probe.samples.flatMap((s) => (s.fem != null ? [{ x: mm(s), y: s.fem }] : [])),
+      analytic: probe.samples.flatMap((s) => (s.analytic != null ? [{ x: mm(s), y: s.analytic }] : [])),
+      label: probe.label,
+      samples: probe.samples.length,
+    };
+  }, [probe]);
 
-  if ('error' in ends) {
+  if ('error' in probe) {
     return (
       <Alert severity="warning" sx={{ m: 2 }}>
-        Line end points: {ends.error}
+        Line end points: {probe.error}
       </Alert>
     );
   }
