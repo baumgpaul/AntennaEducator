@@ -43,7 +43,7 @@ from backend.solver.potential_nodal import (
     build_cell_pieces,
     junction_nodes,
 )
-from backend.solver.resistance import assemble_resistance_matrix
+from backend.solver.resistance import assemble_resistance_matrix, compute_internal_impedance
 from backend.solver.system import (
     CurrentSource,
     Load,
@@ -523,6 +523,19 @@ def solve_peec_frequency_sweep(
             for i, idx_i in enumerate(physical_edge_indices):
                 for j, idx_j in enumerate(physical_edge_indices):
                     R[idx_i, idx_j] = R_physical[i, j]
+
+            # Internal inductance (field inside the wire), with the skin-effect model:
+            # Im of the exact internal impedance / ω. Not retarded, no image part.
+            if config.include_skin_effect and freq > 0:
+                for i, idx_i in enumerate(physical_edge_indices):
+                    z_int = compute_internal_impedance(
+                        edge_geom_list[i].length,
+                        physical_radii[i],
+                        freq,
+                        config.resistivity,
+                        MU_0 * config.permeability,
+                    )
+                    L_full[idx_i, idx_i] += z_int.imag / omega
 
         # Assemble impedance matrix Z(ω)
         # Pass node-based P matrix with retardation for A'PA coupling term

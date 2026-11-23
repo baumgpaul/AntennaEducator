@@ -483,3 +483,69 @@ class TestIntegration:
         assert np.isclose(
             R_aluminum[0, 0] / R_copper[0, 0], ALUMINUM_RESISTIVITY / COPPER_RESISTIVITY
         )
+
+
+class TestInternalInductance:
+    """Internal impedance Z' = (k rho / 2 pi a) J0(ka)/J1(ka): Re = AC resistance,
+    Im = omega * internal inductance (the field inside the wire)."""
+
+    @staticmethod
+    def z_int(x, radius=1e-4, length=1.0):
+        """Internal impedance at a/delta = x (copper) and the frequency used."""
+        from backend.solver.resistance import compute_internal_impedance
+
+        delta = radius / x
+        f = COPPER_RESISTIVITY / (np.pi * MU_0 * delta**2)
+        return compute_internal_impedance(length, radius, f), f
+
+    def test_real_part_is_the_ac_resistance(self):
+        for x in (0.3, 1.0, 5.0, 50.0):
+            z, f = self.z_int(x)
+            assert z.real == pytest.approx(compute_ac_resistance(1.0, 1e-4, f), rel=1e-12)
+
+    @pytest.mark.parametrize("x", [0.01, 0.05, 0.1])
+    def test_low_frequency_internal_inductance_is_mu_over_8_pi(self, x):
+        """Uniform current: L_int' = mu / (8 pi) = 0.05 uH/m, independent of the radius."""
+        z, f = self.z_int(x)
+        l_int = z.imag / (2 * np.pi * f)
+        assert l_int == pytest.approx(MU_0 / (8 * np.pi), rel=1e-3)
+
+    @pytest.mark.parametrize("x", [50.0, 200.0, 1000.0])
+    def test_high_frequency_reactance_approaches_the_resistance(self, x):
+        """Skin-effect limit: Z' -> (1 + j) rho / (2 pi a delta), i.e. X = R - R_dc/4 + ..."""
+        z, _ = self.z_int(x)
+        r_dc = compute_dc_resistance(1.0, 1e-4)
+        assert z.imag / r_dc == pytest.approx(x / 2 - 3 / (32 * x), rel=1e-4)
+
+    def test_dc_has_no_reactance(self):
+        from backend.solver.resistance import compute_internal_impedance
+
+        assert compute_internal_impedance(1.0, 1e-3, 0.0) == pytest.approx(
+            complex(compute_dc_resistance(1.0, 1e-3), 0)
+        )
+
+    def test_small_loop_impedance_grows_by_the_internal_impedance(self):
+        """Electrically small loop: uniform current, so turning on wire losses adds
+        Z_int' x circumference to the input impedance (R and X)."""
+        from backend.solver.resistance import compute_internal_impedance
+        from backend.solver.solver import SolverConfiguration, solve_peec_frequency_sweep
+        from backend.solver.system import VoltageSource
+
+        n, r_loop, a, f = 24, 0.02, 1e-4, 20e6  # 4 cm loop, 0.2 mm wire, a/delta ~ 7
+        phi = np.linspace(0.05, 2 * np.pi - 0.05, n + 1)
+        nodes = np.column_stack([r_loop * np.cos(phi), r_loop * np.sin(phi), 0 * phi])
+        edges = [[i + 1, i + 2] for i in range(n)]
+        vs = [VoltageSource(n + 1, 1, 1.0)]
+        radii = np.full(n, a)
+
+        def zin(skin):
+            cfg = SolverConfiguration(include_skin_effect=skin)
+            res = solve_peec_frequency_sweep(nodes, edges, radii, np.array([f]), vs, config=cfg)
+            return res.frequency_solutions[0].input_impedance
+
+        lengths = np.linalg.norm(np.diff(nodes, axis=0), axis=1)
+        z_wire = sum(compute_internal_impedance(L, a, f) for L in lengths)
+        r_dc = sum(compute_dc_resistance(L, a) for L in lengths)
+        dz = zin(True) - zin(False)  # without skin effect: DC resistance, no internal L
+        assert dz.real == pytest.approx(z_wire.real - r_dc, rel=0.02)
+        assert dz.imag == pytest.approx(z_wire.imag, rel=0.02)
