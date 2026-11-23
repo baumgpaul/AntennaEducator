@@ -24,6 +24,10 @@ from backend.common.constants import C_0, EPSILON_0, MU_0
 
 logger = logging.getLogger(__name__)
 
+# compute_far_field evaluates E at this distance [m] (E ∝ 1/r there). Absolute
+# quantities need it: U = r² |E|² / (2 η₀)  (compute_radiation_intensity(distance=...)).
+FAR_FIELD_DISTANCE = 1000.0
+
 # ---------------------------------------------------------------------------
 # Scalar (single-point) helpers — kept for backward compatibility / unit tests
 # ---------------------------------------------------------------------------
@@ -650,8 +654,8 @@ def compute_far_field(
     sin_p = np.sin(PHI)
     cos_p = np.cos(PHI)
 
-    # Observation-point Cartesian coordinates (far-field distance cancels)
-    r_far = 1000.0
+    # Observation points at FAR_FIELD_DISTANCE (cancels in directivity, not in power)
+    r_far = FAR_FIELD_DISTANCE
     obs_xyz = np.stack(
         [r_far * sin_t * cos_p, r_far * sin_t * sin_p, r_far * cos_t], axis=-1
     )  # (n_theta, n_phi, 3)
@@ -782,7 +786,7 @@ def compute_directivity_from_pattern(
 
     # Compute radiation intensity: U = r² * S_avg
     # For far-field: U = r²/(2η₀) * (|E_θ|² + |E_φ|²)
-    U = compute_radiation_intensity(E_theta, E_phi)
+    U = compute_radiation_intensity(E_theta, E_phi, distance=FAR_FIELD_DISTANCE)
 
     # Compute directivity
     directivity_max, max_direction = compute_directivity(U, theta_angles, phi_angles)

@@ -211,6 +211,8 @@ export const computeFarField = async (request: {
   directivity: number
   gain: number
   efficiency: number
+  /** Radiated power P_rad [W] (far field integrated over the sphere) */
+  radiated_power?: number
   beamwidth_theta?: number
   beamwidth_phi?: number
   max_direction: [number, number]

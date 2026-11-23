@@ -12,10 +12,11 @@ from datetime import datetime, timezone
 import numpy as np
 
 from .config import settings
-from .field import compute_directivity_from_pattern, compute_far_field
+from .field import FAR_FIELD_DISTANCE, compute_directivity_from_pattern, compute_far_field
 from .field import compute_near_field as compute_near_field_impl
 from .ground_plane import add_images, lower_hemisphere
 from .models import FarFieldRequest, FieldRequest, RadiationPatternResponse
+from .pattern import compute_radiation_intensity, compute_total_radiated_power
 
 logger = logging.getLogger(__name__)
 
@@ -238,6 +239,10 @@ def far_field_result(request: FarFieldRequest) -> RadiationPatternResponse:
         E_theta, E_phi, theta_angles, phi_angles
     )
 
+    # Absolute radiated power (needs the evaluation distance; directivity does not)
+    U_abs = compute_radiation_intensity(E_theta, E_phi, distance=FAR_FIELD_DISTANCE)
+    radiated_power = float(compute_total_radiated_power(U_abs, theta_angles, phi_angles))
+
     E_theta_mag = np.abs(E_theta).flatten().tolist()
     E_phi_mag = np.abs(E_phi).flatten().tolist()
     E_total_mag = np.sqrt(np.abs(E_theta) ** 2 + np.abs(E_phi) ** 2).flatten().tolist()
@@ -263,6 +268,7 @@ def far_field_result(request: FarFieldRequest) -> RadiationPatternResponse:
         directivity=float(directivity_dBi),
         gain=float(directivity_dBi),  # Assume 100% efficiency for now
         efficiency=1.0,
+        radiated_power=radiated_power,
         beamwidth_theta=None,
         beamwidth_phi=None,
         max_direction=[float(max_theta_deg), float(max_phi_deg)],
