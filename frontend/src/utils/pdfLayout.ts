@@ -1,5 +1,5 @@
 /**
- * PDF page layout shared by the reports (antenna designer, FEM Studio):
+ * PDF page layout shared by the reports of both workflows:
  * A4 portrait in mm, headings, tables with wrapping and page breaks, footer.
  */
 
