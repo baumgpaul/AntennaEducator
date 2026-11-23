@@ -1,14 +1,6 @@
 import { useState } from 'react';
-import {
-  Box,
-  Paper,
-  ButtonGroup,
-  Button,
-  Divider,
-  Tooltip,
-  Snackbar,
-  Alert,
-} from '@mui/material';
+import { Button, Tooltip, Snackbar, Alert } from '@mui/material';
+import { Ribbon, RibbonButtons, RibbonGroup } from '@/features/workflow/Workspace';
 import { Add as AddIcon } from '@mui/icons-material';
 import AddCurveDialog from '../postprocessing/AddCurveDialog';
 import type { AddCurveResult } from '../postprocessing/AddCurveDialog';
@@ -362,19 +354,15 @@ function RibbonMenu({
   };
 
   return (
-    <Paper elevation={0} sx={{ borderRadius: 0, borderBottom: '1px solid', borderColor: 'divider' }}>
-      <Box sx={{ p: 1.5, minHeight: 80, bgcolor: 'background.paper' }}>
-        <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+    <>
+      <Ribbon>
 
           {/* DESIGNER TAB RIBBON */}
           {currentTab === 'designer' && (
             <>
               {/* Components Section */}
-              <Box>
-                <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                  Components
-                </Box>
-                <ButtonGroup variant="outlined" size="small">
+              <RibbonGroup label="Components">
+                <RibbonButtons>
                   <Tooltip title="Create dipole antenna">
                     <Button
                       startIcon={<CableOutlined />}
@@ -407,17 +395,13 @@ function RibbonMenu({
                       Custom
                     </Button>
                   </Tooltip>
-                </ButtonGroup>
-              </Box>
+                </RibbonButtons>
+              </RibbonGroup>
 
-              <Divider orientation="vertical" flexItem />
 
               {/* Edit Circuitry Section */}
-              <Box>
-                <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                  Edit Circuitry
-                </Box>
-                <ButtonGroup variant="outlined" size="small">
+              <RibbonGroup label="Edit Circuitry">
+                <RibbonButtons>
                   <Tooltip title={selectedElementId ? "Open circuit editor (sources + loads)" : "Select an antenna element first"}>
                     <span>
                     <Button
@@ -429,17 +413,13 @@ function RibbonMenu({
                     </Button>
                     </span>
                   </Tooltip>
-                </ButtonGroup>
-              </Box>
+                </RibbonButtons>
+              </RibbonGroup>
 
-              <Divider orientation="vertical" flexItem />
 
               {/* Edit Geometry Section */}
-              <Box>
-                <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                  Edit Geometry
-                </Box>
-                <ButtonGroup variant="outlined" size="small">
+              <RibbonGroup label="Edit Geometry">
+                <RibbonButtons>
                   <Tooltip title="Validate geometry before simulation">
                     <Button
                       startIcon={<CheckCircle />}
@@ -464,18 +444,14 @@ function RibbonMenu({
                       Ground plane
                     </Button>
                   </Tooltip>
-                </ButtonGroup>
-              </Box>
+                </RibbonButtons>
+              </RibbonGroup>
 
               {/* Submit to Course (only when project comes from a course) */}
               {showSubmit && (
                 <>
-                  <Divider orientation="vertical" flexItem />
-                  <Box>
-                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                      Course
-                    </Box>
-                    <ButtonGroup variant="outlined" size="small">
+                  <RibbonGroup label="Course">
+                    <RibbonButtons>
                       <Tooltip title="Submit this project to your course for review">
                         <Button
                           startIcon={<Send />}
@@ -485,8 +461,8 @@ function RibbonMenu({
                           Submit
                         </Button>
                       </Tooltip>
-                    </ButtonGroup>
-                  </Box>
+                    </RibbonButtons>
+                  </RibbonGroup>
                 </>
               )}
             </>
@@ -496,11 +472,8 @@ function RibbonMenu({
           {currentTab === 'postprocessing' && (
             <>
               {/* View Configuration Section */}
-              <Box>
-                <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                  View Configuration
-                </Box>
-                <ButtonGroup variant="outlined" size="small">
+              <RibbonGroup label="View Configuration">
+                <RibbonButtons>
                   <Tooltip title="Create new result view (3D or Line)">
                     <Button
                       startIcon={<Add />}
@@ -509,20 +482,16 @@ function RibbonMenu({
                       Add View
                     </Button>
                   </Tooltip>
-                </ButtonGroup>
-              </Box>
+                </RibbonButtons>
+              </RibbonGroup>
 
-              <Divider orientation="vertical" flexItem />
 
               {/* 3D-only sections */}
               {selectedViewData?.viewType === '3D' && (
                 <>
                   {/* Antenna Structure Section (3D only) */}
-                  <Box>
-                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                      Antenna Structure
-                    </Box>
-                    <ButtonGroup variant="outlined" size="small">
+                  <RibbonGroup label="Antenna Structure">
+                    <RibbonButtons>
                       <Tooltip title="Add full antenna system to view">
                         <Button
                           startIcon={<AccountTree />}
@@ -541,17 +510,13 @@ function RibbonMenu({
                           Element
                         </Button>
                       </Tooltip>
-                    </ButtonGroup>
-                  </Box>
+                    </RibbonButtons>
+                  </RibbonGroup>
 
-                  <Divider orientation="vertical" flexItem />
 
                   {/* Distribution Section (3D only) */}
-                  <Box>
-                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                      Distribution
-                    </Box>
-                    <ButtonGroup variant="outlined" size="small">
+                  <RibbonGroup label="Distribution">
+                    <RibbonButtons>
                       <Tooltip title="Add current distribution visualization">
                         <Button
                           startIcon={<ElectricalServices />}
@@ -570,17 +535,13 @@ function RibbonMenu({
                           Potential
                         </Button>
                       </Tooltip>
-                    </ButtonGroup>
-                  </Box>
+                    </RibbonButtons>
+                  </RibbonGroup>
 
-                  <Divider orientation="vertical" flexItem />
 
                   {/* Field Result Section (3D only) */}
-                  <Box>
-                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                      Field Result
-                    </Box>
-                    <ButtonGroup variant="outlined" size="small">
+                  <RibbonGroup label="Field Result">
+                    <RibbonButtons>
                       <Tooltip title="Add field visualization (magnitude or vector)">
                         <Button
                           startIcon={<Sensors />}
@@ -599,21 +560,17 @@ function RibbonMenu({
                           Directivity
                         </Button>
                       </Tooltip>
-                    </ButtonGroup>
-                  </Box>
+                    </RibbonButtons>
+                  </RibbonGroup>
 
-                  <Divider orientation="vertical" flexItem />
                 </>
               )}
 
               {/* Add Curve Section (Line view only) */}
               {selectedViewData?.viewType === 'Line' && (
                 <>
-                  <Box>
-                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                      Curves
-                    </Box>
-                    <ButtonGroup variant="outlined" size="small">
+                  <RibbonGroup label="Curves">
+                    <RibbonButtons>
                       <Tooltip title="Add a curve to this line plot (impedance, VSWR, current, voltage, ...)">
                         <Button
                           startIcon={<AddIcon />}
@@ -623,21 +580,17 @@ function RibbonMenu({
                           Add Curve
                         </Button>
                       </Tooltip>
-                    </ButtonGroup>
-                  </Box>
+                    </RibbonButtons>
+                  </RibbonGroup>
 
-                  <Divider orientation="vertical" flexItem />
                 </>
               )}
 
               {/* Smith Chart Section (Smith view only) */}
               {selectedViewData?.viewType === 'Smith' && (
                 <>
-                  <Box>
-                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                      Smith Chart
-                    </Box>
-                    <ButtonGroup variant="outlined" size="small">
+                  <RibbonGroup label="Smith Chart">
+                    <RibbonButtons>
                       <Tooltip title="Add impedance locus on Smith chart">
                         <Button
                           startIcon={<Radar />}
@@ -647,10 +600,9 @@ function RibbonMenu({
                           Impedance Locus
                         </Button>
                       </Tooltip>
-                    </ButtonGroup>
-                  </Box>
+                    </RibbonButtons>
+                  </RibbonGroup>
 
-                  <Divider orientation="vertical" flexItem />
                 </>
               )}
 
@@ -659,11 +611,8 @@ function RibbonMenu({
                 const hasAnyPolarItem = selectedViewData.items.some(i => i.type === 'polar-plot');
                 return (
                 <>
-                  <Box>
-                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                      Radiation Pattern
-                    </Box>
-                    <ButtonGroup variant="outlined" size="small">
+                  <RibbonGroup label="Radiation Pattern">
+                    <RibbonButtons>
                       <Tooltip title={hasAnyPolarItem ? 'A radiation pattern item already exists in this view' : 'Add radiation pattern polar cut'}>
                         <span>
                         <Button
@@ -688,10 +637,9 @@ function RibbonMenu({
                           </span>
                         </Tooltip>
                       )}
-                    </ButtonGroup>
-                  </Box>
+                    </RibbonButtons>
+                  </RibbonGroup>
 
-                  <Divider orientation="vertical" flexItem />
                 </>
                 );
               })()}
@@ -699,11 +647,8 @@ function RibbonMenu({
               {/* Table Section (Table view only) */}
               {selectedViewData?.viewType === 'Table' && (
                 <>
-                  <Box>
-                    <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                      Tables
-                    </Box>
-                    <ButtonGroup variant="outlined" size="small">
+                  <RibbonGroup label="Tables">
+                    <RibbonButtons>
                       <Tooltip title={selectedViewData?.items.some((i) => i.type === 'port-table') ? 'Port quantities already added' : 'Add port impedance/VSWR/Return Loss table'}>
                         <span>
                           <Button
@@ -715,19 +660,15 @@ function RibbonMenu({
                           </Button>
                         </span>
                       </Tooltip>
-                    </ButtonGroup>
-                  </Box>
+                    </RibbonButtons>
+                  </RibbonGroup>
 
-                  <Divider orientation="vertical" flexItem />
                 </>
               )}
 
               {/* Export Section */}
-              <Box>
-                <Box sx={{ mb: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                  Export
-                </Box>
-                <ButtonGroup variant="outlined" size="small">
+              <RibbonGroup label="Export">
+                <RibbonButtons>
                   <Tooltip title="Export view to PDF report">
                     <Button
                       startIcon={<PictureAsPdf />}
@@ -760,12 +701,11 @@ function RibbonMenu({
                       ParaView
                     </Button>
                   </Tooltip>
-                </ButtonGroup>
-              </Box>
+                </RibbonButtons>
+              </RibbonGroup>
             </>
           )}
-        </Box>
-      </Box>
+      </Ribbon>
 
       {/* SNACKBAR FOR NOTIFICATIONS */}
       <Snackbar
@@ -794,7 +734,7 @@ function RibbonMenu({
         hasDistributionData={hasDistributionData}
         hasFarfieldData={hasFarfieldData}
       />
-    </Paper>
+    </>
   );
 }
 

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   Box,
   Button,
-  ButtonGroup,
   IconButton,
   List,
   ListItemButton,
@@ -14,7 +13,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { Add, Delete, Edit } from '@mui/icons-material';
-import { PanelSection, Ribbon, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
+import { PanelSection, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import type { ReactElement } from 'react';
 
 export interface ViewType<T extends string = string> {
@@ -77,13 +76,13 @@ function ResultsWorkspace<T extends string, V extends WorkspaceView<T>>({
       ribbon={
         <Ribbon>
           <RibbonGroup label="Add view">
-            <ButtonGroup size="small" variant="outlined">
+            <RibbonButtons>
               {viewTypes.map((vt) => (
                 <Button key={vt.type} startIcon={vt.icon} onClick={() => onAdd(vt.type)}>
                   {vt.label}
                 </Button>
               ))}
-            </ButtonGroup>
+            </RibbonButtons>
           </RibbonGroup>
           {actions}
         </Ribbon>

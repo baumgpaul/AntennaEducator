@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Box, Button, IconButton, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { Close, GridOn } from '@mui/icons-material';
-import { Hint, PanelSection, Ribbon, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
+import { Hint, PanelSection, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import type { FemStudio } from '../useFemStudio';
 import MeshView from '../views/MeshView';
 import { colormap } from '../views/geometryDraw';
@@ -21,15 +21,15 @@ function MeshTab({ studio }: { studio: FemStudio }) {
       ribbon={
         <Ribbon>
           <RibbonGroup label="Mesh">
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<GridOn />}
-              onClick={studio.runMesh}
-              disabled={busy !== null || !progress.done.has('physics') || progress.attention.has('mesh')}
-            >
-              {busy === 'mesh' ? 'Meshing…' : current ? 'Mesh is up to date' : 'Generate mesh'}
-            </Button>
+            <RibbonButtons>
+              <Button
+                startIcon={<GridOn />}
+                onClick={studio.runMesh}
+                disabled={busy !== null || !progress.done.has('physics') || progress.attention.has('mesh')}
+              >
+                {busy === 'mesh' ? 'Meshing…' : current ? 'Mesh is up to date' : 'Generate mesh'}
+              </Button>
+            </RibbonButtons>
           </RibbonGroup>
           <RibbonGroup label="Colour by">
             <ToggleButtonGroup size="small" exclusive value={colorBy} onChange={(_, v) => v && setColorBy(v)}>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Box, Button, Stack, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material';
 import { PlayArrow } from '@mui/icons-material';
-import { Hint, PanelSection, Ribbon, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
+import { Hint, PanelSection, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import type { FemStudio } from '../useFemStudio';
 import MeshView from '../views/MeshView';
 import { elementInfo } from '../p1';
@@ -22,15 +22,15 @@ function SolveTab({ studio }: { studio: FemStudio }) {
       ribbon={
         <Ribbon>
           <RibbonGroup label="Solve">
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<PlayArrow />}
-              onClick={runSolve}
-              disabled={busy !== null || !progress.done.has('physics')}
-            >
-              {busy === 'solve' ? 'Solving…' : current ? 'Solved — solve again' : 'Assemble and solve K·u = f'}
-            </Button>
+            <RibbonButtons>
+              <Button
+                startIcon={<PlayArrow />}
+                onClick={runSolve}
+                disabled={busy !== null || !progress.done.has('physics')}
+              >
+                {busy === 'solve' ? 'Solving…' : current ? 'Solved — solve again' : 'Assemble and solve K·u = f'}
+              </Button>
+            </RibbonButtons>
           </RibbonGroup>
           {result && (
             <RibbonGroup label="Inside the system">
