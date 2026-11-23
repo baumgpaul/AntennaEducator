@@ -1,9 +1,6 @@
 # ─── Deploy directly from GitHub Actions (default, $0) ────────────────
 # GitHub-hosted runners are free for public repositories, so the deploy job
 # builds images and the frontend itself (.github/workflows/aws-build-and-merge.yml).
-# CodeBuild stays provisioned (idle projects cost nothing) as a fallback:
-# set the repository variable DEPLOY_RUNNER=codebuild to use it (BUILD_GENERAL1_MEDIUM,
-# ~$0.01/min, ~$0.15–0.30 per deploy).
 
 # Everything the deploy job needs besides credentials, in one place.
 # SSM standard parameters are free.

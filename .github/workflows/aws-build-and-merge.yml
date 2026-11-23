@@ -12,21 +12,17 @@
 #   at the approval gate: GitHub's concurrency cancel skips waiting runs, and a
 #   waiting run holding a workflow-level group blocked the next deploy forever.
 #
-# Where the build runs (repository variable DEPLOY_RUNNER):
-#   github    (default) standard GitHub-hosted runner — free and unmetered for
-#             public repositories. Larger runners are paid even for public
-#             repos: keep runs-on: ubuntu-latest. Docker layers go to the Actions
-#             cache with mode=min; the 10 GB per-repo cache is free and evicts
-#             old entries (billed only if the limit is raised above 10 GB).
-#   codebuild CodeBuild deploy project (BUILD_GENERAL1_MEDIUM, ~$0.01/min,
-#             ~$0.15–0.30 per deploy) — fallback, always rebuilds everything.
+# The build runs on a standard GitHub-hosted runner — free and unmetered for
+# public repositories. Larger runners are paid even for public repos: keep
+# runs-on: ubuntu-latest. Docker layers go to the Actions cache with mode=min;
+# the 10 GB per-repo cache is free and evicts old entries (billed only if the
+# limit is raised above 10 GB).
 # Lint and tests run in pr-checks.yml (free; Backend/Frontend/Secret scan are
 # required for merging); the deploy job additionally runs the backend unit
-# tests before shipping. The old CodeBuild test stage duplicated them (paid).
+# tests before shipping.
 #
 # Setup (one-time):
-#   Secrets: AWS_DEPLOY_ROLE_ARN (terraform output github_actions_role_arn),
-#            AWS_ARTIFACTS_BUCKET (only for DEPLOY_RUNNER=codebuild)
+#   Secret:  AWS_DEPLOY_ROLE_ARN (terraform output github_actions_role_arn)
 #   Label:   "deploy-to-staging"
 #
 # Manual trigger (workflow_dispatch) deploys current main, everything by default.
@@ -69,18 +65,17 @@ jobs:
             gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/force-cancel" || true
           done
 
-  # ── GitHub-hosted build (default, $0) ──────────────────────────────
+  # ── Build and deploy on the GitHub-hosted runner ($0) ──────────────
   aws-build-deploy:
     name: AWS Build & Deploy to Staging
     concurrency:   # job-level: the approval job must not hold the group
       group: aws-deploy-${{ github.event.pull_request.number || github.sha }}
       cancel-in-progress: true
     if: >-
-      vars.DEPLOY_RUNNER != 'codebuild' && (
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.base.ref == 'main' &&
        (github.event.action == 'labeled' && github.event.label.name == 'deploy-to-staging' ||
-        github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'deploy-to-staging'))))
+        github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'deploy-to-staging')))
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
@@ -213,7 +208,7 @@ jobs:
           FRONTEND: ${{ steps.targets.outputs.frontend }}
         run: |
           gh pr comment ${{ github.event.pull_request.number }} --body \
-            "✅ **Deployed to staging** (GitHub runner): services \`${SERVICES:-none}\`, frontend \`${FRONTEND}\`
+            "✅ **Deployed to staging**: services \`${SERVICES:-none}\`, frontend \`${FRONTEND}\`
 
           https://antennaeducator.nyakyagyawa.com"
 
@@ -227,88 +222,11 @@ jobs:
 
           Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details. Remove and re-add the \`deploy-to-staging\` label to retry."
 
-  # ── CodeBuild fallback (DEPLOY_RUNNER=codebuild, paid) ─────────────
-  codebuild-deploy:
-    name: AWS Build & Deploy to Staging (CodeBuild)
-    concurrency:   # job-level: the approval job must not hold the group
-      group: aws-deploy-${{ github.event.pull_request.number || github.sha }}
-      cancel-in-progress: true
-    if: >-
-      vars.DEPLOY_RUNNER == 'codebuild' && (
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.base.ref == 'main' &&
-       (github.event.action == 'labeled' && github.event.label.name == 'deploy-to-staging' ||
-        github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'deploy-to-staging'))))
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      id-token: write
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Upload source to S3
-        env:
-          BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
-          BUILD_KEY: ${{ github.event.pull_request.number || github.sha }}
-        run: |
-          zip -qr /tmp/source.zip . -x '.git/*'
-          aws s3 cp /tmp/source.zip "s3://${BUCKET}/github-actions/${BUILD_KEY}/source.zip"
-
-      - name: Run CodeBuild deploy
-        timeout-minutes: 40
-        env:
-          BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
-          BUILD_KEY: ${{ github.event.pull_request.number || github.sha }}
-        run: |
-          BUILD_ID=$(aws codebuild start-build \
-            --project-name "antenna-simulator-deploy-${ENVIRONMENT}" \
-            --source-type-override S3 \
-            --source-location-override "${BUCKET}/github-actions/${BUILD_KEY}/source.zip" \
-            --buildspec-override buildspec-deploy.yml \
-            --query 'build.id' --output text)
-          echo "::notice::CodeBuild Deploy started: $BUILD_ID"
-          while true; do
-            STATUS=$(aws codebuild batch-get-builds --ids "$BUILD_ID" --query 'builds[0].buildStatus' --output text)
-            case "$STATUS" in
-              SUCCEEDED) echo "✅ Deploy build passed"; exit 0 ;;
-              IN_PROGRESS) sleep 15 ;;
-              *)
-                LOG_URL=$(aws codebuild batch-get-builds --ids "$BUILD_ID" --query 'builds[0].logs.deepLink' --output text)
-                echo "::error::Deploy build ${STATUS}. Logs: ${LOG_URL}"; exit 1 ;;
-            esac
-          done
-
-      - name: Comment — result
-        if: always() && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RESULT: ${{ job.status }}
-        run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body \
-            "AWS Build & Deploy (CodeBuild): **${RESULT}** — [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-
-      - name: Clean up S3 source
-        if: always()
-        env:
-          BUCKET: ${{ secrets.AWS_ARTIFACTS_BUCKET }}
-          BUILD_KEY: ${{ github.event.pull_request.number || github.sha }}
-        run: aws s3 rm "s3://${BUCKET}/github-actions/${BUILD_KEY}/" --recursive || true
-
   # ── Manual approval gate — test staging before merge ──────────────
   verify-staging:
     name: Verify Staging
-    needs: [aws-build-deploy, codebuild-deploy]
-    if: >-
-      always() && github.event_name == 'pull_request' &&
-      (needs.aws-build-deploy.result == 'success' || needs.codebuild-deploy.result == 'success')
+    needs: aws-build-deploy
+    if: github.event_name == 'pull_request' && needs.aws-build-deploy.result == 'success'
     runs-on: ubuntu-latest
     environment: staging          # Requires approval in GitHub Environment settings
     steps:
