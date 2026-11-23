@@ -114,9 +114,8 @@ Components organized by feature under `frontend/src/features/`: `auth/`, `design
 # Rebuild & deploy ALL Lambda services (builds Docker images, pushes to ECR, updates Lambdas)
 .\dev_tools\rebuild_lambda_images.ps1                    # Uses -Profile antenna-staging
 
-# Deploy frontend to S3 + invalidate CloudFront
-.\deploy-frontend.ps1                                    # Builds frontend, syncs to S3
-.\deploy-frontend.ps1 -SkipBuild                         # Skip build, just sync
+# Deploy frontend to S3 + invalidate CloudFront (type check + build)
+.\scripts\deploy.ps1 -SkipBackend
 
 # Deploy only projects/auth service
 .\deploy-auth-to-aws.ps1
@@ -152,7 +151,7 @@ pytest --cov=backend               # With coverage
 cd frontend && npm test            # Vitest with jsdom
 
 # Dev tools — ad-hoc testing scripts
-.\dev_tools\check_services.ps1     # Verify all services are running
+.\dev_tools\check_services.ps1     # /health of all 6 services (-NoFem without FEM)
 .\dev_tools\test_dipole_api.ps1    # Quick API smoke test
 ```
 

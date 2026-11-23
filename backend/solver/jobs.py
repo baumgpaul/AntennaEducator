@@ -227,6 +227,8 @@ async def run_job(job_id: str, user_id: str, store: Optional[JobStore] = None) -
         kind_name = job.get("Kind", "solve")  # jobs queued before kinds were solves
         kind = job_kind(kind_name)
         started = time.perf_counter()
+        if payload is None:  # expired or deleted request object
+            raise ValueError("The job's request data is missing")
         result = kind.run(kind.parse(payload))
         seconds = time.perf_counter() - started
         await store.storage.store_result(_storage_key(job_id), ResultType.SOLVER_RESULTS, result)

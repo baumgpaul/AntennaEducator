@@ -1165,21 +1165,17 @@ def distribute_solution(solution: FrequencyPoint, merged_system: MergedAntennaSy
         # Extract voltage source currents
         start_voltage_0 = i_voltage_start + offset["start_voltage"] - 1
         end_voltage_0 = start_voltage_0 + offset["n_voltage"]
-        voltage_source_currents = (
-            X_I[start_voltage_0:end_voltage_0] if offset["n_voltage"] > 0 else []
-        )
+        voltage_source_currents = X_I[start_voltage_0:end_voltage_0]  # empty if none
 
         # Extract current source currents
         start_current_0 = i_current_start + offset["start_current"] - 1
         end_current_0 = start_current_0 + offset["n_current"]
-        current_source_currents = (
-            X_I[start_current_0:end_current_0] if offset["n_current"] > 0 else []
-        )
+        current_source_currents = X_I[start_current_0:end_current_0]
 
         # Extract load currents
         start_load_0 = i_load_start + offset["start_load"] - 1
         end_load_0 = start_load_0 + offset["n_load"]
-        load_currents = X_I[start_load_0:end_load_0] if offset["n_load"] > 0 else []
+        load_currents = X_I[start_load_0:end_load_0]
 
         # Extract node voltages
         start_point_0 = offset["start_point"] - 1
@@ -1189,7 +1185,9 @@ def distribute_solution(solution: FrequencyPoint, merged_system: MergedAntennaSy
         # Extract appended voltages
         start_appended_0 = i_appended_start + offset["start_appended"] - 1
         end_appended_0 = start_appended_0 + offset["n_appended"]
-        appended_voltages = X_V[start_appended_0:end_appended_0] if offset["n_appended"] > 0 else []
+        appended_voltages = (
+            X_V[start_appended_0:end_appended_0] if offset["n_appended"] > 0 else X_V[:0]
+        )
 
         # Compute input impedance from first voltage source (if exists),
         # or from first current source (differential port voltage) otherwise.

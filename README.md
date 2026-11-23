@@ -97,12 +97,11 @@ The **half-wave dipole gold-standard test** validates the PEEC solver against an
 
 ## Deploying to AWS
 
-```bash
-# Build Lambda images, push to ECR, update functions
-.\dev_tools\rebuild_lambda_images.ps1
+Staging deploys run in GitHub Actions: add the label `deploy-to-staging` to a pull request (see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)). By hand:
 
-# Deploy frontend to S3 + invalidate CloudFront
-.\deploy-frontend.ps1
+```bash
+# Build Lambda images and the frontend (with type check), deploy both
+.\scripts\deploy.ps1                 # -SkipBackend / -SkipFrontend / -DryRun
 
 # Smoke-test all endpoints
 python dev_tools/test_aws_pipeline.py

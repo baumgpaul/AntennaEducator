@@ -1,13 +1,12 @@
 """Configuration settings for the Preprocessor service."""
 
-from pydantic import ConfigDict
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application settings for the Preprocessor service."""
 
-    model_config = ConfigDict(env_prefix="PREPROCESSOR_", case_sensitive=False)
+    model_config = SettingsConfigDict(env_prefix="PREPROCESSOR_", case_sensitive=False)
 
     # Service configuration
     service_name: str = "preprocessor"

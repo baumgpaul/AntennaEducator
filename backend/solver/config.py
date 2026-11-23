@@ -2,14 +2,13 @@
 
 from typing import List
 
-from pydantic import ConfigDict
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Solver service configuration."""
 
-    model_config = ConfigDict(env_prefix="SOLVER_", case_sensitive=False)
+    model_config = SettingsConfigDict(env_prefix="SOLVER_", case_sensitive=False)
 
     # Service identification
     service_name: str = "solver"
