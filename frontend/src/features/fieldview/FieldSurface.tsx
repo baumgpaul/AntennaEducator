@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useThree, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { createColorArray, type ColorMapType } from '@/utils/colorMaps';
-import { arrowSample, contourLevels, contourSegments, probeValue, unshare, type FieldMesh } from './fieldMesh';
+import { arrowLayout, contourLevels, contourSegments, probeValue, unshare, type FieldMesh } from './fieldMesh';
 
 export interface FieldSurfaceProps {
   mesh: FieldMesh;
@@ -12,8 +12,8 @@ export interface FieldSurfaceProps {
   opacity?: number;
   /** Number of contour lines of the node values (0: none) */
   contours?: number;
-  /** Arrows of the cell vectors, one per square of this size [m] (0: none) */
-  arrowSpacing?: number;
+  /** Arrows of the cell vectors where the field is, length ∝ strength (see arrowLayout) */
+  arrows?: boolean;
   showEdges?: boolean;
   /** Shaded by the scene's lights (depth cue for spheres, boxes) instead of flat colours */
   lit?: boolean;
@@ -29,7 +29,7 @@ function FieldSurface({
   range,
   opacity = 1,
   contours = 0,
-  arrowSpacing = 0,
+  arrows: showArrows = false,
   showEdges,
   lit,
   probeLabel,
@@ -67,8 +67,7 @@ function FieldSurface({
     return g;
   }, [mesh, contours, range.min, range.max]);
 
-  const arrows = useMemo(() => (arrowSpacing > 0 ? arrowSample(mesh, arrowSpacing) : []), [mesh, arrowSpacing]);
-  const maxArrow = useMemo(() => Math.max(1e-300, ...arrows.map((a) => Math.hypot(...a.vector))), [arrows]);
+  const arrows = useMemo(() => (showArrows ? arrowLayout(mesh) : []), [mesh, showArrows]);
 
   // Triangle index of a hit: flat geometry has 3 vertices per triangle in order
   const handleMove = (e: ThreeEvent<PointerEvent>) => {
@@ -113,15 +112,14 @@ function FieldSurface({
         </lineSegments>
       )}
       {arrows.map((a, i) => {
-        const len = Math.hypot(...a.vector);
-        if (len < 1e-3 * maxArrow) return null;
-        const dir = new THREE.Vector3(...a.vector).normalize();
-        // length ~ log of magnitude, so weak fields stay visible
-        const size = arrowSpacing * 0.8 * (0.35 + (0.65 * Math.log1p((9 * len) / maxArrow)) / Math.log(10));
+        const dir = new THREE.Vector3(...a.direction);
+        const size = a.length;
+        // heads sized by the grid, so short (weak) arrows still read as arrows
+        const head = Math.min(size * 0.6, a.spacing * 0.3);
         return (
           <arrowHelper
             key={i}
-            args={[dir, new THREE.Vector3(a.centre[0] - (dir.x * size) / 2, a.centre[1] - (dir.y * size) / 2, a.centre[2] + 2e-6), size, 0xffffff, size * 0.35, size * 0.22]}
+            args={[dir, new THREE.Vector3(a.centre[0] - (dir.x * size) / 2, a.centre[1] - (dir.y * size) / 2, a.centre[2] + 2e-6), size, 0xffffff, head, head * 0.6]}
           />
         );
       })}

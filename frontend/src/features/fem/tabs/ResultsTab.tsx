@@ -84,7 +84,7 @@ function ResultsTab({ studio }: { studio: FemStudio }) {
       }
       actions={
         <RibbonGroup label="Export">
-          <Tooltip title="simulation.xml, mat.xml and model.msh — put them in one folder; simulation.xml is the input file">
+          <Tooltip title="One zip with simulation.xml, mat.xml and model.msh — unpack it into a folder; simulation.xml is the input file">
             <span>
               <Button variant="outlined" size="small" startIcon={<Download />} onClick={exportFiles} disabled={busy !== null}>
                 {busy === 'export' ? 'Exporting…' : 'openCFS files'}
