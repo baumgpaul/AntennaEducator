@@ -122,13 +122,17 @@ if (-not $SkipFrontend) {
             npm ci --prefer-offline
             if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
 
+            # vite build does not type-check: fail here, like CI, not in the browser (#83)
+            npm run typecheck
+            if ($LASTEXITCODE -ne 0) { throw "TypeScript check failed" }
+
             npx vite build --mode $Environment
             if ($LASTEXITCODE -ne 0) { throw "vite build failed" }
         } finally {
             Pop-Location
         }
     } else {
-        Write-Host "  [DRY RUN] Would run: npm ci && vite build --mode $Environment" -ForegroundColor Yellow
+        Write-Host "  [DRY RUN] Would run: npm ci && npm run typecheck && vite build --mode $Environment" -ForegroundColor Yellow
     }
 
     # Resolve CloudFront distribution ID

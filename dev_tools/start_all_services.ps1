@@ -1,72 +1,85 @@
-# Start All Backend Services for Development
-# This script starts preprocessor, solver, and postprocessor services
+# Start the backend services on the host (without Docker for the services).
+#
+#   .\dev_tools\start_all_services.ps1                     # all services
+#   .\dev_tools\start_all_services.ps1 -Services solver,fem
+#
+# The usual way is `docker compose up -d --build` (see the /run-local skill). This
+# script is for debugging a service with --reload on the host. It still needs
+# DynamoDB Local and MinIO:   docker compose up -d dynamodb-local minio
+#
+# Most services do not read .env themselves: its variables are put into each
+# service's process environment here. Host-run services reach DynamoDB Local on
+# host port 8888, not on the Docker-internal name used in .env for containers.
 
-Write-Host "`n=== Starting PEEC Antenna Simulator Backend Services ===" -ForegroundColor Cyan
-Write-Host "Press Ctrl+C to stop all services`n" -ForegroundColor Yellow
+param([string[]]$Services = @("preprocessor", "solver", "postprocessor", "projects", "auth", "fem"))
 
-# Navigate to project root
-Set-Location $PSScriptRoot\..
+$ports = [ordered]@{
+    preprocessor  = 8001
+    solver        = 8002
+    postprocessor = 8003
+    projects      = 8010
+    auth          = 8011
+    fem           = 8020
+}
 
-# Check if virtual environment exists
-if (-not (Test-Path ".venv\Scripts\python.exe")) {
-    Write-Host "ERROR: Virtual environment not found!" -ForegroundColor Red
-    Write-Host "Please run: python -m venv .venv" -ForegroundColor Yellow
+$root = Resolve-Path "$PSScriptRoot\.."
+$python = Join-Path $root ".venv\Scripts\python.exe"
+if (-not (Test-Path $python)) {
+    Write-Host "ERROR: .venv not found. Run .\scripts\setup-dev.ps1 first." -ForegroundColor Red
+    exit 1
+}
+$unknown = $Services | Where-Object { -not $ports.Contains($_) }
+if ($unknown) {
+    Write-Host "ERROR: unknown service(s): $($unknown -join ', '). Known: $($ports.Keys -join ', ')" -ForegroundColor Red
     exit 1
 }
 
-# Start services in background jobs
-Write-Host "[1/3] Starting Preprocessor Service (port 8001)..." -ForegroundColor Green
-$preprocessor = Start-Job -ScriptBlock {
-    Set-Location $using:PWD
-    & .\.venv\Scripts\python.exe -m uvicorn backend.preprocessor.main:app --port 8001 --reload
+# .env -> environment of every service process
+$envVars = @{}
+$envFile = Join-Path $root ".env"
+if (Test-Path $envFile) {
+    foreach ($line in Get-Content $envFile) {
+        if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
+            $envVars[$Matches[1]] = $Matches[2].Trim().Trim('"').Trim("'")
+        }
+    }
+} else {
+    Write-Host "Note: no .env found, services use their defaults." -ForegroundColor Yellow
+}
+if ($envVars["DYNAMODB_ENDPOINT_URL"] -match "dynamodb-local") {
+    $envVars["DYNAMODB_ENDPOINT_URL"] = "http://localhost:8888"
 }
 
-Start-Sleep -Seconds 2
+Write-Host "`n=== Starting backend services on the host ===" -ForegroundColor Cyan
+Write-Host "Press Ctrl+C to stop all services`n" -ForegroundColor Yellow
 
-Write-Host "[2/3] Starting Solver Service (port 8002)..." -ForegroundColor Green
-$solver = Start-Job -ScriptBlock {
-    Set-Location $using:PWD
-    & .\.venv\Scripts\python.exe -m uvicorn backend.solver.main:app --port 8002 --reload
+$jobs = @()
+foreach ($name in $Services) {
+    $port = $ports[$name]
+    Write-Host ("  {0,-14} http://localhost:{1}/health" -f $name, $port) -ForegroundColor Green
+    $jobs += Start-Job -Name $name -ScriptBlock {
+        param($root, $python, $name, $port, $vars)
+        Set-Location $root
+        foreach ($k in $vars.Keys) { Set-Item -Path "env:$k" -Value $vars[$k] }
+        & $python -m uvicorn "backend.$name.main:app" --port $port --reload 2>&1
+    } -ArgumentList $root, $python, $name, $port, $envVars
 }
 
-Start-Sleep -Seconds 2
-
-Write-Host "[3/3] Starting Postprocessor Service (port 8003)..." -ForegroundColor Green
-$postprocessor = Start-Job -ScriptBlock {
-    Set-Location $using:PWD
-    & .\.venv\Scripts\python.exe -m uvicorn backend.postprocessor.main:app --port 8003 --reload
-}
-
-Start-Sleep -Seconds 3
-
-Write-Host "`n✅ All services started!" -ForegroundColor Green
-Write-Host "`nService URLs:" -ForegroundColor Cyan
-Write-Host "  • Preprocessor: http://localhost:8001/api/docs" -ForegroundColor White
-Write-Host "  • Solver:       http://localhost:8002/api/docs" -ForegroundColor White
-Write-Host "  • Postprocessor: http://localhost:8003/api/docs" -ForegroundColor White
-
-Write-Host "`nMonitoring service logs (Ctrl+C to stop)...`n" -ForegroundColor Yellow
-
-# Monitor jobs and display output
+Write-Host "`nCheck with .\dev_tools\check_services.ps1. Logs follow:`n" -ForegroundColor Cyan
 try {
     while ($true) {
-        foreach ($job in @($preprocessor, $solver, $postprocessor)) {
-            $output = Receive-Job -Job $job
-            if ($output) {
-                Write-Host $output
-            }
+        foreach ($job in $jobs) {
+            Receive-Job -Job $job | ForEach-Object { Write-Host "[$($job.Name)] $_" }
         }
-        Start-Sleep -Milliseconds 500
-
-        # Check if any job has failed
-        if ($preprocessor.State -eq 'Failed' -or $solver.State -eq 'Failed' -or $postprocessor.State -eq 'Failed') {
-            Write-Host "`nERROR: One or more services have failed!" -ForegroundColor Red
+        $failed = $jobs | Where-Object { $_.State -in "Failed", "Completed" }
+        if ($failed) {
+            Write-Host "`nStopped unexpectedly: $($failed.Name -join ', ')" -ForegroundColor Red
             break
         }
+        Start-Sleep -Milliseconds 500
     }
 } finally {
     Write-Host "`nStopping all services..." -ForegroundColor Yellow
-    Stop-Job -Job $preprocessor, $solver, $postprocessor
-    Remove-Job -Job $preprocessor, $solver, $postprocessor
+    $jobs | Stop-Job -PassThru | Remove-Job
     Write-Host "Services stopped." -ForegroundColor Green
 }
