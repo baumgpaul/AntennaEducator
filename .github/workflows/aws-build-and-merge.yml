@@ -109,7 +109,7 @@ jobs:
       - uses: actions/setup-python@v7
         if: steps.targets.outputs.services != ''
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           cache: pip
 
       - name: Backend unit tests (what is shipped)
