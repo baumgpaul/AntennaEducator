@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Box, IconButton, Tooltip } from '@mui/material';
-import { ChevronLeft, ChevronRight } from '@mui/icons-material';
+import { useState } from 'react';
+import { Box } from '@mui/material';
 import { useAppSelector } from '@/store/hooks';
+import { WorkspacePanel } from '@/features/workflow/Workspace';
+import { useResizableWidth } from '@/features/workflow/useResizableWidth';
 import Scene3D, { type Scene3DHandle, type ViewPreset } from './Scene3D';
 import WireGeometry from './WireGeometry';
 import ColorLegend from './ColorLegend';
@@ -78,55 +79,9 @@ function DesignCanvas({
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [selectedElement, setSelectedElement] = useState<number | null>(null);
 
-  // Resizable panel widths with localStorage persistence
-  const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
-    const saved = localStorage.getItem('design-left-panel-width');
-    return saved ? Math.min(500, Math.max(200, parseInt(saved))) : 280;
-  });
-  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
-    const saved = localStorage.getItem('design-right-panel-width');
-    return saved ? Math.min(500, Math.max(250, parseInt(saved))) : 320;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('design-left-panel-width', String(leftPanelWidth));
-  }, [leftPanelWidth]);
-
-  useEffect(() => {
-    localStorage.setItem('design-right-panel-width', String(rightPanelWidth));
-  }, [rightPanelWidth]);
-
-  const handleResizeMouseDown = useCallback(
-    (side: 'left' | 'right') => (e: React.MouseEvent) => {
-      e.preventDefault();
-      const startX = e.clientX;
-      const startWidth = side === 'left' ? leftPanelWidth : rightPanelWidth;
-
-      const handleMouseMove = (ev: MouseEvent) => {
-        const delta = side === 'left' ? ev.clientX - startX : startX - ev.clientX;
-        const min = side === 'left' ? 200 : 250;
-        const newWidth = Math.min(500, Math.max(min, startWidth + delta));
-        if (side === 'left') {
-          setLeftPanelWidth(newWidth);
-        } else {
-          setRightPanelWidth(newWidth);
-        }
-      };
-
-      const handleMouseUp = () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      };
-
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    },
-    [leftPanelWidth, rightPanelWidth],
-  );
+  // Resizable panel widths, kept in the browser
+  const left = useResizableWidth('design-left-panel-width', 280, 200);
+  const right = useResizableWidth('design-right-panel-width', 320, 250);
 
   // Get visualization mode from Redux store
   const visualizationMode = useAppSelector((state) => state.ui.visualization.mode);
@@ -139,8 +94,6 @@ function DesignCanvas({
     if (autoOpenFor) setRightPanelOpen(true);
   }
 
-  // Effective right panel visibility: hidden when doc panel occupies the space
-  const showRightPanel = rightPanelOpen && !hideRightPanel;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
@@ -181,86 +134,16 @@ function DesignCanvas({
           padding: 0,
         }}>
         {/* Left Panel (Tree View) */}
-        {leftPanelOpen && (
-          <div style={{
-            width: `${leftPanelWidth}px`,
-            flexShrink: 0,
-            position: 'relative',
-            overflow: 'auto',
-            backgroundColor: 'var(--mui-palette-background-paper, #fff)',
-            borderRight: '1px solid rgba(0, 0, 0, 0.12)',
-            margin: 0,
-            padding: 0,
-          }}>
-            {leftPanel}
-
-            {/* Left Panel Toggle */}
-            <div style={{
-              position: 'absolute',
-              right: '-20px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              zIndex: 20,
-            }}>
-              <Tooltip title="Hide Tree View" placement="right">
-                <IconButton
-                  size="medium"
-                  onClick={() => setLeftPanelOpen(false)}
-                  sx={{
-                    bgcolor: 'background.paper',
-                    boxShadow: 2,
-                    '&:hover': { bgcolor: 'action.hover' },
-                  }}
-                >
-                  <ChevronLeft fontSize="large" />
-                </IconButton>
-              </Tooltip>
-            </div>
-          </div>
-        )}
-
-        {/* Left Panel Toggle when closed */}
-        {!leftPanelOpen && (
-          <div style={{
-            position: 'absolute',
-            left: 0,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 20,
-          }}>
-            <Tooltip title="Show Tree View" placement="right">
-              <IconButton
-                size="medium"
-                onClick={() => setLeftPanelOpen(true)}
-                sx={{
-                  bgcolor: 'background.paper',
-                  boxShadow: 2,
-                  '&:hover': { bgcolor: 'action.hover' },
-                }}
-              >
-                <ChevronRight fontSize="large" />
-              </IconButton>
-            </Tooltip>
-          </div>
-        )}
-
-        {/* Left Resize Handle */}
-        {leftPanelOpen && (
-          <div
-            onMouseDown={handleResizeMouseDown('left')}
-            style={{
-              width: '4px',
-              cursor: 'col-resize',
-              backgroundColor: 'transparent',
-              flexShrink: 0,
-              position: 'relative',
-              zIndex: 15,
-              transition: 'background-color 0.15s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(25, 118, 210, 0.3)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-          />
-        )}
+        <WorkspacePanel
+          side="left"
+          width={left.width}
+          open={leftPanelOpen}
+          onToggle={() => setLeftPanelOpen((o) => !o)}
+          label="Tree View"
+          resize={{ min: left.min, max: left.max, onChange: left.setWidth }}
+        >
+          {leftPanel}
+        </WorkspacePanel>
 
         {/* 3D Canvas */}
         <div style={{
@@ -337,86 +220,18 @@ function DesignCanvas({
           )}
         </div>
 
-        {/* Right Resize Handle */}
-        {showRightPanel && (
-          <div
-            onMouseDown={handleResizeMouseDown('right')}
-            style={{
-              width: '4px',
-              cursor: 'col-resize',
-              backgroundColor: 'transparent',
-              flexShrink: 0,
-              position: 'relative',
-              zIndex: 15,
-              transition: 'background-color 0.15s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(25, 118, 210, 0.3)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-          />
-        )}
-
-        {/* Right Panel (Properties) */}
-        {showRightPanel && (
-          <div style={{
-            width: `${rightPanelWidth}px`,
-            flexShrink: 0,
-            position: 'relative',
-            overflow: 'auto',
-            backgroundColor: 'var(--mui-palette-background-paper, #fff)',
-            borderLeft: '1px solid rgba(0, 0, 0, 0.12)',
-            margin: 0,
-            padding: 0,
-          }}>
+        {/* Right Panel (Properties); hidden while the documentation panel takes the space */}
+        {!hideRightPanel && (
+          <WorkspacePanel
+            side="right"
+            width={right.width}
+            open={rightPanelOpen}
+            onToggle={() => setRightPanelOpen((o) => !o)}
+            label="Properties"
+            resize={{ min: right.min, max: right.max, onChange: right.setWidth }}
+          >
             {rightPanel}
-
-            {/* Right Panel Toggle */}
-            <div style={{
-              position: 'absolute',
-              left: '-20px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              zIndex: 20,
-            }}>
-              <Tooltip title="Hide Properties" placement="left">
-                <IconButton
-                  size="medium"
-                  onClick={() => setRightPanelOpen(false)}
-                  sx={{
-                    bgcolor: 'background.paper',
-                    boxShadow: 2,
-                    '&:hover': { bgcolor: 'action.hover' },
-                  }}
-                >
-                  <ChevronRight fontSize="large" />
-                </IconButton>
-              </Tooltip>
-            </div>
-          </div>
-        )}
-
-        {/* Right Panel Toggle when closed */}
-        {!showRightPanel && !hideRightPanel && (
-          <div style={{
-            position: 'absolute',
-            right: 0,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 20,
-          }}>
-            <Tooltip title="Show Properties" placement="left">
-              <IconButton
-                size="medium"
-                onClick={() => setRightPanelOpen(true)}
-                sx={{
-                  bgcolor: 'background.paper',
-                  boxShadow: 2,
-                  '&:hover': { bgcolor: 'action.hover' },
-                }}
-              >
-                <ChevronLeft fontSize="large" />
-              </IconButton>
-            </Tooltip>
-          </div>
+          </WorkspacePanel>
         )}
         </div>
 

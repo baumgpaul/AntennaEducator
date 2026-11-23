@@ -5,10 +5,8 @@ import {
   Alert,
   AlertTitle,
   Snackbar,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
-import { ChevronLeft, ChevronRight } from '@mui/icons-material';
+import { PanelRow, WorkspacePanel } from '@/features/workflow/Workspace';
 import type { SolverWorkflowState } from '@/store/solverSlice';
 import { selectResultsStale, selectSolverResults, selectRadiationPattern, selectRadiationPatterns, selectRequestedFields, selectParameterStudy } from '@/store/solverSlice';
 import { selectIsSolved } from '@/store/designSlice';
@@ -556,18 +554,9 @@ function PostprocessingTab({
       {/* Port quantities are now rendered via Table view — no inline strip */}
 
       {/* MAIN CONTENT - 3 PANELS */}
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-        {/* LEFT PANEL - TreeView with View Configurations (280px fixed) */}
-        <Box
-          sx={{
-            width: 280,
-            height: '100%',
-            borderRight: 1,
-            borderColor: 'divider',
-            overflow: 'auto',
-            backgroundColor: 'background.paper',
-          }}
-        >
+      <PanelRow>
+        {/* LEFT PANEL - TreeView with View Configurations */}
+        <WorkspacePanel side="left" width={280}>
           {/* SweepVariableSelector — shown when parameter study results available */}
           <SweepVariableSelector />
           {/* FrequencySelector — shown above tree when sweep results available */}
@@ -589,7 +578,7 @@ function PostprocessingTab({
             onItemDelete={(viewId, itemId) => dispatch(removeItemFromView({ viewId, itemId }))}
             onItemVisibilityToggle={(viewId, itemId) => dispatch(toggleItemVisibility({ viewId, itemId }))}
           />
-        </Box>
+        </WorkspacePanel>
 
       {/* MIDDLE PANEL - 3D Visualization OR Line View + Parameter Study (flex, remaining space) */}
       <Box
@@ -966,71 +955,11 @@ function PostprocessingTab({
       {/* Parameter Study results are now rendered via Smith/Line/Table views — no auto split panel */}
       </Box>
 
-      {/* RIGHT PANEL - Properties Panel (320px, collapsible) */}
-      {rightPanelOpen && (
-        <Box
-          sx={{
-            width: 320,
-            height: '100%',
-            borderLeft: 1,
-            borderColor: 'divider',
-            overflow: 'hidden',
-            backgroundColor: 'background.paper',
-            position: 'relative',
-            flexShrink: 0,
-          }}
-        >
-          <PostprocessingPropertiesPanel />
-          {/* Close toggle */}
-          <div style={{
-            position: 'absolute',
-            left: '-20px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 20,
-          }}>
-            <Tooltip title="Hide Properties" placement="left">
-              <IconButton
-                size="medium"
-                onClick={() => setRightPanelOpen(false)}
-                sx={{
-                  bgcolor: 'background.paper',
-                  boxShadow: 2,
-                  '&:hover': { bgcolor: 'action.hover' },
-                }}
-              >
-                <ChevronRight fontSize="large" />
-              </IconButton>
-            </Tooltip>
-          </div>
-        </Box>
-      )}
-
-      {/* Open toggle when panel is closed */}
-      {!rightPanelOpen && (
-        <div style={{
-          position: 'absolute',
-          right: 0,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          zIndex: 20,
-        }}>
-          <Tooltip title="Show Properties" placement="left">
-            <IconButton
-              size="medium"
-              onClick={() => setRightPanelOpen(true)}
-              sx={{
-                bgcolor: 'background.paper',
-                boxShadow: 2,
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <ChevronLeft fontSize="large" />
-            </IconButton>
-          </Tooltip>
-        </div>
-      )}
-      </Box>
+      {/* RIGHT PANEL - Properties (collapsible; the panel scrolls itself) */}
+      <WorkspacePanel side="right" width={320} open={rightPanelOpen} onToggle={() => setRightPanelOpen((o) => !o)} overflow="hidden">
+        <PostprocessingPropertiesPanel />
+      </WorkspacePanel>
+      </PanelRow>
     </Box>
   );
 }

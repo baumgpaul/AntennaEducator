@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box, Paper, Button, ButtonGroup, Typography, Divider, Chip, CircularProgress, LinearProgress, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
+import { Box, Button, Chip, CircularProgress, LinearProgress, Snackbar, Alert, IconButton } from '@mui/material';
 import { errorMessage } from '@/utils/errors';
-import { PlayArrow as PlayArrowIcon, Tune as TuneIcon, AddCircleOutlined as AddCircleOutlineIcon, GridOn as GridOnIcon, Calculate as CalculateIcon, CheckCircle as CheckCircleIcon, Stop as StopIcon, ChevronLeft, ChevronRight } from '@mui/icons-material';
+import { PlayArrow as PlayArrowIcon, Tune as TuneIcon, AddCircleOutlined as AddCircleOutlineIcon, GridOn as GridOnIcon, Calculate as CalculateIcon, CheckCircle as CheckCircleIcon, Stop as StopIcon } from '@mui/icons-material';
+import { PanelRow, Ribbon, RibbonButtons, RibbonGroup, WorkspacePanel } from '@/features/workflow/Workspace';
 import TreeViewPanel from './TreeViewPanel';
 import Scene3D from './Scene3D';
 import WireGeometry from './WireGeometry';
@@ -271,113 +272,95 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
       }}
     >
       {/* SOLVER RIBBON MENU */}
-      <Paper
-        elevation={1}
-        sx={{
-          p: 1.5,
-          borderRadius: 0,
-          borderBottom: 1,
-          borderColor: 'divider',
-          display: 'flex',
-          gap: 2,
-          alignItems: 'flex-start',
-          flexShrink: 0,
-        }}
-      >
-        {/* Group 1: Solve Control */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Typography
-              variant="caption"
-              sx={{
-                color: "text.secondary",
-                fontWeight: 600
-              }}>
+      <Ribbon>
+        <RibbonGroup
+          label={
+            <>
               Solve Control
-            </Typography>
-            {/* Determine display state for Solve Control */}
-            {(() => {
-              const hasResults = !!(results || (solveMode === 'sweep' && parameterStudy));
-              const isSolving = simulationStatus === 'running' || sweepInProgress;
-              const isError = simulationStatus === 'failed';
-              // In sweep mode, the nominal-restore remesh briefly sets isSolved=false;
-              // only use resultsStale (explicit design changes) to determine outdated.
-              const isOutdated = solveMode === 'sweep'
-                ? resultsStale
-                : resultsStale || (!isSolved && hasResults);
+              {/* Determine display state for Solve Control */}
+              {(() => {
+                const hasResults = !!(results || (solveMode === 'sweep' && parameterStudy));
+                const isSolving = simulationStatus === 'running' || sweepInProgress;
+                const isError = simulationStatus === 'failed';
+                // In sweep mode, the nominal-restore remesh briefly sets isSolved=false;
+                // only use resultsStale (explicit design changes) to determine outdated.
+                const isOutdated = solveMode === 'sweep'
+                  ? resultsStale
+                  : resultsStale || (!isSolved && hasResults);
 
-              // Solving: show 'Unsolved' label with loading animation
-              if (isSolving) {
-                return (
-                  <>
+                // Solving: show 'Unsolved' label with loading animation
+                if (isSolving) {
+                  return (
+                    <>
+                      <Chip
+                        icon={<CircularProgress size={12} variant={solverProgress > 0 ? 'determinate' : 'indeterminate'} value={solverProgress} />}
+                        label="Unsolved"
+                        size="small"
+                        sx={{ height: 20, fontSize: '0.65rem', color: 'info.main' }}
+                      />
+                      <Chip
+                        label={sweepProgress ? `Solving point ${sweepProgress.current}/${sweepProgress.total}` : `Solving ${solverProgress}%`}
+                        size="small"
+                        sx={{ height: 20, fontSize: '0.65rem' }}
+                      />
+                    </>
+                  );
+                }
+
+                // Error
+                if (isError && simulationError) {
+                  return (
                     <Chip
-                      icon={<CircularProgress size={12} variant={solverProgress > 0 ? 'determinate' : 'indeterminate'} value={solverProgress} />}
-                      label="Unsolved"
+                      label="Error"
                       size="small"
-                      sx={{ height: 20, fontSize: '0.65rem', color: 'info.main' }}
-                    />
-                    <Chip
-                      label={sweepProgress ? `Solving point ${sweepProgress.current}/${sweepProgress.total}` : `Solving ${solverProgress}%`}
-                      size="small"
+                      color="error"
                       sx={{ height: 20, fontSize: '0.65rem' }}
+                      title={simulationError}
                     />
-                  </>
-                );
-              }
+                  );
+                }
 
-              // Error
-              if (isError && simulationError) {
+                // Solved
+                if (hasResults && (solverWorkflowState === 'solved' || solverWorkflowState === 'postprocessing-ready')) {
+                  const label = solveMode === 'sweep'
+                    ? `Solved (Sweep) — ${parameterStudy?.results?.length ?? 0} points`
+                    : `Solved @ ${(typeof currentFrequency === 'number' && currentFrequency > 0 ? currentFrequency : 0).toFixed(1)} MHz`;
+                  return (
+                    <>
+                      <Chip
+                        icon={<CheckCircleIcon />}
+                        label={label}
+                        size="small"
+                        sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
+                      />
+                      {isOutdated && (
+                        <Chip
+                          label="Solution Outdated"
+                          size="small"
+                          color="warning"
+                          sx={{ height: 20, fontSize: '0.65rem' }}
+                          title="Design changed after solving. Re-run solver to update results."
+                        />
+                      )}
+                    </>
+                  );
+                }
+
+                // Default: no solution
                 return (
                   <Chip
-                    label="Error"
+                    label="Unsolved"
                     size="small"
-                    color="error"
+                    color="info"
                     sx={{ height: 20, fontSize: '0.65rem' }}
-                    title={simulationError}
+                    title="No solver results available. Run the solver to compute results."
                   />
                 );
-              }
-
-              // Solved
-              if (hasResults && (solverWorkflowState === 'solved' || solverWorkflowState === 'postprocessing-ready')) {
-                const label = solveMode === 'sweep'
-                  ? `Solved (Sweep) — ${parameterStudy?.results?.length ?? 0} points`
-                  : `Solved @ ${(typeof currentFrequency === 'number' && currentFrequency > 0 ? currentFrequency : 0).toFixed(1)} MHz`;
-                return (
-                  <>
-                    <Chip
-                      icon={<CheckCircleIcon />}
-                      label={label}
-                      size="small"
-                      sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
-                    />
-                    {isOutdated && (
-                      <Chip
-                        label="Solution Outdated"
-                        size="small"
-                        color="warning"
-                        sx={{ height: 20, fontSize: '0.65rem' }}
-                        title="Design changed after solving. Re-run solver to update results."
-                      />
-                    )}
-                  </>
-                );
-              }
-
-              // Default: no solution
-              return (
-                <Chip
-                  label="Unsolved"
-                  size="small"
-                  color="info"
-                  sx={{ height: 20, fontSize: '0.65rem' }}
-                  title="No solver results available. Run the solver to compute results."
-                />
-              );
-            })()}
-
-          </Box>
-          <ButtonGroup size="small" variant="outlined">
+              })()}
+            </>
+          }
+        >
+          <RibbonButtons>
             <Button
               startIcon={simulationStatus === 'running' || simulationStatus === 'preparing' ? <CircularProgress size={16} /> : <PlayArrowIcon />}
               onClick={handleSolveSingle}
@@ -392,23 +375,10 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             >
               Parameter Sweep
             </Button>
-          </ButtonGroup>
-        </Box>
-
-        <Divider orientation="vertical" flexItem />
-
-        {/* Group 2: Request Quantity */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              color: "text.secondary",
-              fontWeight: 600,
-              mb: 0.5
-            }}>
-            Request Quantity
-          </Typography>
-          <ButtonGroup size="small" variant="outlined">
+          </RibbonButtons>
+        </RibbonGroup>
+        <RibbonGroup label="Request Quantity">
+          <RibbonButtons>
             <Button
               startIcon={<AddCircleOutlineIcon />}
               onClick={handleAddDirectivity}
@@ -432,70 +402,61 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
             >
               {portQuantitiesRequested ? 'Port Quantities Requested' : 'Request Port Quantities'}
             </Button>
-          </ButtonGroup>
-        </Box>
-
-        <Divider orientation="vertical" flexItem />
-
-        {/* Group 3: Postprocessing */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Typography
-              variant="caption"
-              sx={{
-                color: "text.secondary",
-                fontWeight: 600
-              }}>
+          </RibbonButtons>
+        </RibbonGroup>
+        <RibbonGroup
+          label={
+            <>
               Postprocessing
-            </Typography>
-            {postprocessingStatus === 'completed' && fieldResults && (() => {
-              const anyFieldOutdated = Object.values(fieldResults).some(r => r && !r.computed);
-              // In sweep mode, navigating sweep points remeshes (setting isSolved=false)
-              // which is purely visual — don't treat it as outdated.
-              const isOutdated = solveMode === 'sweep'
-                ? (resultsStale || anyFieldOutdated)
-                : (!isSolved || anyFieldOutdated);
-              return (
-                <>
-                  {isOutdated ? (
-                    <Chip
-                      label="Outdated"
-                      size="small"
-                      color="warning"
-                      sx={{ height: 20, fontSize: '0.65rem' }}
-                      title={anyFieldOutdated && isSolved
-                        ? 'Field definitions changed after postprocessing. Re-run postprocessing to update.'
-                        : 'Design changed after postprocessing. Re-run solver and postprocessing.'}
-                    />
-                  ) : (
-                    <Chip
-                      icon={<CheckCircleIcon />}
-                      label="Ready"
-                      size="small"
-                      sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
-                    />
-                  )}
-                </>
-              );
-            })()}
-            {postprocessingStatus === 'running' && (
-              <Chip
-                icon={<CircularProgress size={12} />}
-                label={postprocessingProgress ? `${postprocessingProgress.completed}/${postprocessingProgress.total} fields` : 'Computing...'}
-                size="small"
-                sx={{ height: 20, fontSize: '0.65rem', color: 'info.main' }}
-              />
-            )}
-            {postprocessingStatus === 'failed' && (
-              <Chip
-                label="Error"
-                size="small"
-                color="error"
-                sx={{ height: 20, fontSize: '0.65rem' }}
-              />
-            )}
-          </Box>
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
+              {postprocessingStatus === 'completed' && fieldResults && (() => {
+                const anyFieldOutdated = Object.values(fieldResults).some(r => r && !r.computed);
+                // In sweep mode, navigating sweep points remeshes (setting isSolved=false)
+                // which is purely visual — don't treat it as outdated.
+                const isOutdated = solveMode === 'sweep'
+                  ? (resultsStale || anyFieldOutdated)
+                  : (!isSolved || anyFieldOutdated);
+                return (
+                  <>
+                    {isOutdated ? (
+                      <Chip
+                        label="Outdated"
+                        size="small"
+                        color="warning"
+                        sx={{ height: 20, fontSize: '0.65rem' }}
+                        title={anyFieldOutdated && isSolved
+                          ? 'Field definitions changed after postprocessing. Re-run postprocessing to update.'
+                          : 'Design changed after postprocessing. Re-run solver and postprocessing.'}
+                      />
+                    ) : (
+                      <Chip
+                        icon={<CheckCircleIcon />}
+                        label="Ready"
+                        size="small"
+                        sx={{ height: 20, fontSize: '0.65rem', color: 'success.light', bgcolor: 'success.dark' }}
+                      />
+                    )}
+                  </>
+                );
+              })()}
+              {postprocessingStatus === 'running' && (
+                <Chip
+                  icon={<CircularProgress size={12} />}
+                  label={postprocessingProgress ? `${postprocessingProgress.completed}/${postprocessingProgress.total} fields` : 'Computing...'}
+                  size="small"
+                  sx={{ height: 20, fontSize: '0.65rem', color: 'info.main' }}
+                />
+              )}
+              {postprocessingStatus === 'failed' && (
+                <Chip
+                  label="Error"
+                  size="small"
+                  color="error"
+                  sx={{ height: 20, fontSize: '0.65rem' }}
+                />
+              )}
+            </>
+          }
+        >
             <Button
               size="small"
               variant="outlined"
@@ -518,9 +479,8 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
                 <StopIcon fontSize="small" />
               </IconButton>
             )}
-          </Box>
-        </Box>
-      </Paper>
+        </RibbonGroup>
+      </Ribbon>
 
       {/* Parameter sweep progress */}
       {sweepInProgress && sweepProgress && (
@@ -542,25 +502,9 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
       )}
 
       {/* 3-PANEL LAYOUT */}
-      <Box
-        sx={{
-          display: 'flex',
-          flex: 1,
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
-      {/* LEFT PANEL - Tree View (280px fixed) */}
-      <Box
-        sx={{
-          width: 280,
-          height: '100%',
-          borderRight: 1,
-          borderColor: 'divider',
-          overflow: 'auto',
-          backgroundColor: 'background.paper',
-        }}
-      >
+      <PanelRow>
+      {/* LEFT PANEL - Tree View */}
+      <WorkspacePanel side="left" width={280}>
         <TreeViewPanel
           elements={elements}
           selectedElementId={selectedElementId}
@@ -584,7 +528,7 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
           portQuantitiesRequested={portQuantitiesRequested}
           isSolved={isSolved}
         />
-      </Box>
+      </WorkspacePanel>
 
       {/* MIDDLE PANEL - 3D Visualization (flex, remaining space) */}
       <Box
@@ -624,75 +568,15 @@ export function SolverTab({ elements, selectedElementId, onElementSelect, onElem
         </Box>
       </Box>
 
-      {/* RIGHT PANEL - Properties Panel (300px, collapsible) */}
-      {rightPanelOpen && (
-        <Box
-          sx={{
-            width: 300,
-            height: '100%',
-            borderLeft: 1,
-            borderColor: 'divider',
-            overflow: 'auto',
-            backgroundColor: 'background.paper',
-            position: 'relative',
-            flexShrink: 0,
-          }}
-        >
+      {/* RIGHT PANEL - Properties (collapsible) */}
+      <WorkspacePanel side="right" width={300} open={rightPanelOpen} onToggle={() => setRightPanelOpen((o) => !o)}>
           <SolverPropertiesPanel
             selectedFieldId={selectedFieldId}
             fieldRegionsVisible={fieldRegionsVisible}
             onFieldRegionsVisibleChange={handleFieldRegionsVisibleChange}
           />
-          {/* Close toggle */}
-          <div style={{
-            position: 'absolute',
-            left: '-20px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 20,
-          }}>
-            <Tooltip title="Hide Properties" placement="left">
-              <IconButton
-                size="medium"
-                onClick={() => setRightPanelOpen(false)}
-                sx={{
-                  bgcolor: 'background.paper',
-                  boxShadow: 2,
-                  '&:hover': { bgcolor: 'action.hover' },
-                }}
-              >
-                <ChevronRight fontSize="large" />
-              </IconButton>
-            </Tooltip>
-          </div>
-        </Box>
-      )}
-
-      {/* Open toggle when panel is closed */}
-      {!rightPanelOpen && (
-        <div style={{
-          position: 'absolute',
-          right: 0,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          zIndex: 20,
-        }}>
-          <Tooltip title="Show Properties" placement="left">
-            <IconButton
-              size="medium"
-              onClick={() => setRightPanelOpen(true)}
-              sx={{
-                bgcolor: 'background.paper',
-                boxShadow: 2,
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <ChevronLeft fontSize="large" />
-            </IconButton>
-          </Tooltip>
-        </div>
-      )}
-      </Box>
+      </WorkspacePanel>
+      </PanelRow>
 
       {/* DIALOGS */}
       <FrequencyInputDialog

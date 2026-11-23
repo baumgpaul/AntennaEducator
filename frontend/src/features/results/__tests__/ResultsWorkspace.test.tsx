@@ -36,9 +36,9 @@ describe('ResultsWorkspace', () => {
     setup('2');
     expect(screen.getByText('showing Second')).toBeInTheDocument();
     expect(screen.queryByText('props of Second')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Show the properties'));
+    fireEvent.click(screen.getByLabelText('Show View properties'));
     expect(screen.getByText('props of Second')).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Hide the properties'));
+    fireEvent.click(screen.getByLabelText('Hide View properties'));
     expect(screen.queryByText('props of Second')).not.toBeInTheDocument();
   });
 

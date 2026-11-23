@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   Box,
   Button,
-  ButtonGroup,
   Checkbox,
   Chip,
   FormControlLabel,
@@ -24,7 +23,7 @@ import {
   Delete,
   PanoramaFishEye,
 } from '@mui/icons-material';
-import { Hint, PanelSection, Ribbon, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
+import { Hint, PanelSection, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import type { Expr } from '../expressions';
 import { EMPTY_MODEL, TEMPLATES, type Shape } from '../model';
 import type { FemStudio } from '../useFemStudio';
@@ -110,7 +109,7 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
             </TextField>
           </RibbonGroup>
           <RibbonGroup label="Add shape">
-            <ButtonGroup variant="outlined" size="small">
+            <RibbonButtons>
               <Button startIcon={<CropSquare />} onClick={() => add('rectangle')}>
                 Rectangle
               </Button>
@@ -120,22 +119,22 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
               <Button startIcon={<ChangeHistory />} onClick={() => add('polygon')}>
                 Polygon
               </Button>
-            </ButtonGroup>
+            </RibbonButtons>
           </RibbonGroup>
           <RibbonGroup label="Domains & boundaries">
-            <Tooltip title="The mesher splits the shapes into domains and names their boundaries — materials and conditions attach to these.">
-              <span>
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<AccountTree />}
-                  onClick={runMesh}
-                  disabled={busy !== null || !!drawn.error || model.shapes.length === 0}
-                >
-                  {busy === 'mesh' ? 'Meshing…' : 'Find domains & boundaries'}
-                </Button>
-              </span>
-            </Tooltip>
+            <RibbonButtons>
+              <Tooltip title="The mesher splits the shapes into domains and names their boundaries — materials and conditions attach to these.">
+                <span>
+                  <Button
+                    startIcon={<AccountTree />}
+                    onClick={runMesh}
+                    disabled={busy !== null || !!drawn.error || model.shapes.length === 0}
+                  >
+                    {busy === 'mesh' ? 'Meshing…' : 'Find domains & boundaries'}
+                  </Button>
+                </span>
+              </Tooltip>
+            </RibbonButtons>
           </RibbonGroup>
         </Ribbon>
       }
