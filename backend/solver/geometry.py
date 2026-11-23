@@ -1,6 +1,6 @@
 """Geometric utility functions for PEEC solver calculations."""
 
-from typing import List
+from typing import List, Union
 
 import numpy as np
 
@@ -16,7 +16,7 @@ def compute_distance(point1: np.ndarray, point2: np.ndarray) -> float:
     Returns:
         Distance in meters
     """
-    return np.linalg.norm(point2 - point1)
+    return float(np.linalg.norm(point2 - point1))
 
 
 def compute_edge_midpoint(node1: np.ndarray, node2: np.ndarray) -> np.ndarray:
@@ -112,7 +112,9 @@ class EdgeGeometry:
         return f"EdgeGeometry(length={self.length:.4f}m, midpoint={self.midpoint})"
 
 
-def build_edge_geometries(nodes: List[List[float]], edges: List[List[int]]) -> List[EdgeGeometry]:
+def build_edge_geometries(
+    nodes: Union[np.ndarray, List[List[float]]], edges: List[List[int]]
+) -> List[EdgeGeometry]:
     """
     Build EdgeGeometry objects for all edges in a mesh.
 

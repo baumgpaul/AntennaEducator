@@ -344,3 +344,13 @@ def test_queued_job_needs_its_estimate_in_the_balance(store):
         resp = _post(store, "/api/jobs/solve", DIPOLE)  # USER has 100 tokens
     assert resp.status_code == 402
     store.sqs.send_message.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_job_with_missing_request_data_fails_clearly(store):
+    """The request object expired or was deleted: the job fails with a readable error."""
+    job_id = await store.submit("u1", DIPOLE)
+    store.storage.objects.clear()
+    await run_job(job_id, "u1", store=store)
+    item = store.get("u1", job_id)
+    assert item["Status"] == FAILED and "request data is missing" in item["Error"]

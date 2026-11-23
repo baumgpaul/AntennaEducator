@@ -47,6 +47,8 @@ dev = [
     "ruff==0.15.0",
     "isort==7.0.0",
     "matplotlib>=3.8",  # plots in tests/integration/test_halfwave_dipole_complete.py
+    "mypy==1.19.1",  # CI type check: mypy backend (#82)
+    "types-requests==2.33.0.20261030",
 ]
 
 aws = [
@@ -93,8 +95,10 @@ line_length = 100
 multi_line_output = 3
 
 [tool.mypy]
+plugins = ["pydantic.mypy"]  # Field defaults, default_factory, BaseSettings
 python_version = "3.11"
-warn_return_any = true
+warn_return_any = false  # numpy/boto3 return Any everywhere: noise, not findings
+ignore_missing_imports = true  # boto3, scipy, gmsh etc. ship no stubs
 warn_unused_configs = true
 disallow_untyped_defs = false
 disallow_incomplete_defs = false

@@ -66,7 +66,7 @@ gitleaks runs in pre-commit and CI ("Secret scan" is required on `main`).
 
 ```powershell
 .\scripts\setup-dev.ps1                         # fresh clone → ready (idempotent)
-black --check backend/ tests/; isort --check-only backend/ tests/; ruff check backend/ tests/
+black --check backend/ tests/; isort --check-only backend/ tests/; ruff check backend/ tests/; mypy backend
 pytest tests/unit/ -x -q                        # backend unit tests (seconds)
 pytest -q mesher/tests femsolver/tests tests/fem # FEM
 npm --prefix frontend run lint; npm --prefix frontend run typecheck

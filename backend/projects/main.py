@@ -29,6 +29,7 @@ from backend.common.auth import (
     invalidate_profile_cache,
 )
 from backend.common.repositories.base import ProjectRepository
+from backend.common.repositories.dynamodb_repository import DynamoDBProjectRepository
 from backend.common.repositories.factory import get_project_repository
 from backend.common.repositories.folder_repository import FolderRepository
 from backend.common.utils.error_handler import install_error_handlers
@@ -89,7 +90,7 @@ app.include_router(submission_router)
 app.include_router(client_errors_router)
 
 
-def get_repository() -> ProjectRepository:
+def get_repository() -> DynamoDBProjectRepository:
     return get_project_repository()
 
 
@@ -175,7 +176,7 @@ app.get("/api/auth/me", response_model=backend.auth.schemas.UserResponse)(get_cu
 @app.delete("/api/auth/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_account(
     user: UserIdentity = Depends(get_current_user_allow_pending),
-    repo: ProjectRepository = Depends(get_repository),
+    repo: DynamoDBProjectRepository = Depends(get_repository),  # uses its table
     results_svc: ResultsService = Depends(get_results_service),
     doc_svc: DocumentationService = Depends(_get_doc_service),
 ):
@@ -284,7 +285,7 @@ async def list_projects(
 async def get_project(
     project_id: str,
     user: UserIdentity = Depends(get_current_user),
-    repo: ProjectRepository = Depends(get_repository),
+    repo: DynamoDBProjectRepository = Depends(get_repository),  # uses its table
     results_svc: ResultsService = Depends(get_results_service),
 ):
     project = await repo.get_project(project_id=project_id)
