@@ -161,13 +161,15 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
   const isAnimating = displayQuantity === 'instantaneous' && animationPhase !== undefined && !isPoynting;
 
   // Generate random indices for random arrow mode
+  const hasFieldData = !!dataForFrequency;
+  const fieldPoints = dataForFrequency?.points;
+  const totalPoints = fieldPoints?.length ?? 0;
   const randomIndices = useMemo(() => {
-    if (arrowDisplayMode !== 'random' || !dataForFrequency) return null;
-    const totalPoints = dataForFrequency.points.length;
+    if (arrowDisplayMode !== 'random' || !hasFieldData) return null;
     // Use seeded random for stable visualization (based on field id)
     const seed = item.fieldId ? item.fieldId.charCodeAt(0) : 42;
     return generateRandomIndices(totalPoints, randomArrowCount, seed);
-  }, [arrowDisplayMode, randomArrowCount, dataForFrequency?.points.length, item.fieldId]);
+  }, [arrowDisplayMode, randomArrowCount, hasFieldData, totalPoints, item.fieldId]);
 
   // Peak magnitudes (phase-independent) — used for color mapping and auto range
   // These represent the maximum possible magnitude at each point over all phases
@@ -236,7 +238,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
 
   // Create arrow helpers
   const arrows = useMemo(() => {
-    if (!dataForFrequency || !displayMagnitudes || !peakMagnitudes) return [];
+    if (!fieldPoints || !displayMagnitudes || !peakMagnitudes) return [];
 
     // Helper to check if index should be rendered
     const shouldRenderIndex = (index: number): boolean => {
@@ -251,7 +253,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
 
     // For Poynting: use pre-computed real vectors
     if (isPoynting && poyntingVectors) {
-      return dataForFrequency.points.map((point, index) => {
+      return fieldPoints.map((point, index) => {
         // Skip arrows based on display mode
         if (!shouldRenderIndex(index)) return null;
         if (index >= poyntingVectors.length) return null;
@@ -292,7 +294,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
 
     // For E/H fields: use complex vectors with selected complex part
     if (!complexVectors) return [];
-    return dataForFrequency.points.map((point, index) => {
+    return fieldPoints.map((point, index) => {
       // Skip arrows based on display mode
       if (!shouldRenderIndex(index)) return null;
       if (index >= complexVectors.length) return null;
@@ -343,7 +345,7 @@ export const VectorRenderer: React.FC<VectorRendererProps> = ({
         color,
       };
     }).filter(Boolean);
-  }, [dataForFrequency?.points, complexVectors, displayMagnitudes, peakMagnitudes, poyntingVectors, colors, arrowSize, arrowDensity, arrowDisplayMode, arrowScalingMode, randomIndices, min, max, vectorComplexPart, isPoynting, isAnimating, instantaneousVectors]);
+  }, [fieldPoints, complexVectors, displayMagnitudes, peakMagnitudes, poyntingVectors, colors, arrowSize, arrowDensity, arrowDisplayMode, arrowScalingMode, randomIndices, min, max, vectorComplexPart, isPoynting, isAnimating, instantaneousVectors]);
 
   // Check if we have valid data to render
   const hasData = isPoynting

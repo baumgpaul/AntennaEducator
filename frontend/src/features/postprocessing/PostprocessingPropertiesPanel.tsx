@@ -86,17 +86,21 @@ const PostprocessingPropertiesPanel: React.FC = () => {
   const [itemLabel, setItemLabel] = React.useState('');
 
   // Update local state when selection changes
+  const viewId = selectedView?.id;
+  const viewNameProp = selectedView?.name;
   React.useEffect(() => {
-    if (selectedView) {
-      setViewName(selectedView.name);
+    if (viewId !== undefined && viewNameProp !== undefined) {
+      setViewName(viewNameProp);
     }
-  }, [selectedView?.id, selectedView?.name]);
+  }, [viewId, viewNameProp]);
 
+  const itemId = selectedItem?.id;
+  const itemLabelProp = selectedItem?.label;
   React.useEffect(() => {
-    if (selectedItem) {
-      setItemLabel(selectedItem.label);
+    if (itemId !== undefined && itemLabelProp !== undefined) {
+      setItemLabel(itemLabelProp);
     }
-  }, [selectedItem?.id, selectedItem?.label]);
+  }, [itemId, itemLabelProp]);
 
   // Empty state: No view selected
   if (!selectedView) {
