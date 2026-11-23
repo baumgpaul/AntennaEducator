@@ -20,6 +20,7 @@ from botocore.exceptions import ClientError
 
 from backend.common.auth.identity import TokenData, TokenResponse, UserIdentity, UserRole
 from backend.common.auth.provider import AuthProvider
+from backend.common.auth.token_costs import TOKEN_SCHEME
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +190,7 @@ class CognitoAuthProvider(AuthProvider):
                 "Role": UserRole.USER.value,
                 "CreatedAt": now,
                 "SimulationTokens": 0,
+                "TokenScheme": TOKEN_SCHEME,
             }
         )
 
@@ -323,6 +325,7 @@ class CognitoAuthProvider(AuthProvider):
             "Role": UserRole.USER.value,
             "CreatedAt": now,
             "SimulationTokens": 0,
+            "TokenScheme": TOKEN_SCHEME,
         }
         self._table.put_item(Item=item)
 

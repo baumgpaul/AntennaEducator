@@ -26,7 +26,7 @@ def _paying_user() -> UserIdentity:
 @pytest.fixture
 def repo():
     with patch("backend.common.repositories.user_repository.UserRepository") as cls:
-        cls.return_value.deduct_user_tokens.return_value = 499
+        cls.return_value.charge_user_tokens.return_value = (1, 499)
         yield cls.return_value
 
 
@@ -52,12 +52,14 @@ class TestDependencyCharging:
     def test_successful_request_is_charged(self, preprocessor, repo):
         resp = preprocessor.post("/api/antenna/dipole", json={"length": 1.0})
         assert resp.status_code == 200
-        repo.deduct_user_tokens.assert_called_once_with("payer-1", 1)
+        repo.charge_user_tokens.assert_called_once()
+        user_id, cost = repo.charge_user_tokens.call_args.args
+        assert user_id == "payer-1" and cost >= 1  # metered: at least 1 token
 
     def test_validation_error_is_not_charged(self, preprocessor, repo):
         resp = preprocessor.post("/api/antenna/dipole", json={"length": "not-a-number"})
         assert resp.status_code == 422
-        repo.deduct_user_tokens.assert_not_called()
+        repo.charge_user_tokens.assert_not_called()
 
     def test_rejected_request_is_not_charged(self, solver, repo):
         # Passes schema validation, rejected by the endpoint (no sources).
@@ -71,7 +73,7 @@ class TestDependencyCharging:
             },
         )
         assert resp.status_code == 400
-        repo.deduct_user_tokens.assert_not_called()
+        repo.charge_user_tokens.assert_not_called()
 
     def test_insufficient_balance_is_402_and_not_charged(self, preprocessor, repo):
         broke = UserIdentity(id="broke-1", email="b@example.com", username="b", role=UserRole.USER)
@@ -80,7 +82,7 @@ class TestDependencyCharging:
         app.dependency_overrides[get_current_user] = lambda: broke
         resp = preprocessor.post("/api/antenna/dipole", json={"length": 1.0})
         assert resp.status_code == 402
-        repo.deduct_user_tokens.assert_not_called()
+        repo.charge_user_tokens.assert_not_called()
 
 
 class TestSweepCharging:
@@ -95,7 +97,7 @@ class TestSweepCharging:
             },
         )
         assert resp.status_code == 400
-        repo.deduct_user_tokens.assert_not_called()
+        repo.charge_user_tokens.assert_not_called()
 
     def test_successful_sweep_is_charged_and_logged(self, solver, repo):
         with patch("backend.common.auth.token_dependency._log_usage") as log:
@@ -110,6 +112,6 @@ class TestSweepCharging:
                 },
             )
         assert resp.status_code == 200, resp.text
-        repo.deduct_user_tokens.assert_called_once()
+        repo.charge_user_tokens.assert_called_once()
         log.assert_called_once()
         assert log.call_args.kwargs["endpoint"] == "solve/sweep"

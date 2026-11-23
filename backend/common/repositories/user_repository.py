@@ -3,13 +3,17 @@
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Dict, Iterator, List, Optional
+from typing import Dict, Iterator, List, Optional, Tuple
 
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from backend.common.auth.token_costs import DEFAULT_STARTER_TOKENS
+from backend.common.auth.token_costs import (
+    DEFAULT_STARTER_TOKENS,
+    TOKEN_SCHEME,
+    convert_legacy_balance,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +153,7 @@ class UserRepository:
             "Role": role or ("admin" if is_admin else "user"),
             "CreatedAt": now,
             "SimulationTokens": DEFAULT_STARTER_TOKENS if is_approved else 0,
+            "TokenScheme": TOKEN_SCHEME,
         }
 
         if cognito_sub:
@@ -282,8 +287,13 @@ class UserRepository:
         expression = "SET IsApproved = :approved"
         values: Dict = {":approved": is_approved}
         if is_approved and not user["is_approved"]:
-            expression += ", SimulationTokens = :tokens"
-            values[":tokens"] = max(user["simulation_tokens"], DEFAULT_STARTER_TOKENS)
+            # Granted in today's units and stamped, so the scheme conversion skips it
+            old = user["simulation_tokens"]
+            if user.get("token_scheme") != TOKEN_SCHEME:
+                old = convert_legacy_balance(old)
+            expression += ", SimulationTokens = :tokens, TokenScheme = :scheme"
+            values[":tokens"] = max(old, DEFAULT_STARTER_TOKENS)
+            values[":scheme"] = TOKEN_SCHEME
         try:
             self.table.update_item(
                 Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
@@ -349,43 +359,98 @@ class UserRepository:
         try:
             self.table.update_item(
                 Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
-                UpdateExpression="SET SimulationTokens = :tokens",
-                ExpressionAttributeValues={":tokens": tokens},
+                # Set by an admin in today's units: never converted again
+                UpdateExpression="SET SimulationTokens = :tokens, TokenScheme = :scheme",
+                ExpressionAttributeValues={":tokens": tokens, ":scheme": TOKEN_SCHEME},
             )
             logger.info("Set user %s tokens to %d", user_id, tokens)
         except ClientError as e:
             logger.error("Error setting tokens for user %s: %s", user_id, e)
             raise RuntimeError(f"Failed to set tokens: {e}")
 
-    def deduct_user_tokens(self, user_id: str, cost: int) -> int:
-        """Atomically deduct tokens. Returns remaining balance.
+    def charge_user_tokens(self, user_id: str, cost: int) -> Tuple[int, int]:
+        """Charge ``cost`` tokens for finished compute, never below 0.
 
-        Uses a DynamoDB conditional update to prevent overdraw.
+        The compute already happened, so a balance that no longer covers it is
+        emptied instead of failing the request. Both steps are conditional
+        updates, safe against concurrent charges.
 
-        Raises:
-            ValueError: If user has insufficient tokens.
+        Returns:
+            (tokens actually charged, remaining balance)
         """
-        try:
-            response = self.table.update_item(
-                Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
-                UpdateExpression="SET SimulationTokens = SimulationTokens - :cost",
-                ConditionExpression="SimulationTokens >= :cost",
-                ExpressionAttributeValues={":cost": cost},
-                ReturnValues="ALL_NEW",
-            )
-            remaining = int(response["Attributes"]["SimulationTokens"])
-            logger.info(
-                "Deducted %d tokens from user %s (remaining: %d)",
-                cost,
-                user_id,
-                remaining,
-            )
-            return remaining
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                raise ValueError(f"Insufficient simulation tokens (need {cost})")
-            logger.error("Error deducting tokens for user %s: %s", user_id, e)
-            raise RuntimeError(f"Failed to deduct tokens: {e}")
+        key = {"PK": f"USER#{user_id}", "SK": "METADATA"}
+        for _ in range(3):
+            try:
+                response = self.table.update_item(
+                    Key=key,
+                    UpdateExpression="SET SimulationTokens = SimulationTokens - :cost",
+                    ConditionExpression="SimulationTokens >= :cost",
+                    ExpressionAttributeValues={":cost": cost},
+                    ReturnValues="ALL_NEW",
+                )
+                remaining = int(response["Attributes"]["SimulationTokens"])
+                logger.info("Charged %d tokens to user %s (remaining %d)", cost, user_id, remaining)
+                return cost, remaining
+            except ClientError as e:
+                if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                    logger.error("Error charging tokens for user %s: %s", user_id, e)
+                    raise RuntimeError(f"Failed to charge tokens: {e}")
+            # Balance below cost: take what is left
+            item = self.table.get_item(Key=key).get("Item") or {}
+            balance = int(item.get("SimulationTokens", 0))
+            if balance <= 0:
+                return 0, balance
+            try:
+                self.table.update_item(
+                    Key=key,
+                    UpdateExpression="SET SimulationTokens = :zero",
+                    ConditionExpression="SimulationTokens = :balance",
+                    ExpressionAttributeValues={":zero": 0, ":balance": balance},
+                )
+                logger.info("Charged remaining %d of %d tokens to user %s", balance, cost, user_id)
+                return balance, 0
+            except ClientError as e:
+                if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                    raise RuntimeError(f"Failed to charge tokens: {e}")
+                # balance changed concurrently: try again
+        logger.warning("Could not charge %d tokens to user %s (contention)", cost, user_id)
+        return 0, 0
+
+    def convert_token_balances(self) -> Dict[str, int]:
+        """One-time move of every account to the metered token scheme (idempotent).
+
+        Approved accounts get ``convert_legacy_balance`` of their old balance; pending
+        accounts keep 0 (approval grants the starter tokens). Every account is
+        stamped ``TokenScheme``; a balance that changes meanwhile is retried on the
+        next run.
+        """
+        counts = {"converted": 0, "stamped": 0, "skipped": 0}
+        for item in self._scan_users(
+            FilterExpression="begins_with(PK, :prefix) AND SK = :sk",
+            ExpressionAttributeValues={":prefix": "USER#", ":sk": "METADATA"},
+        ):
+            if item.get("TokenScheme") == TOKEN_SCHEME:
+                continue
+            old = int(item.get("SimulationTokens", 0))
+            approved = bool(item.get("IsApproved", True))  # accounts from before approval existed
+            new = convert_legacy_balance(old) if approved else old
+            try:
+                self.table.update_item(
+                    Key={"PK": item["PK"], "SK": "METADATA"},
+                    UpdateExpression="SET SimulationTokens = :new, TokenScheme = :scheme",
+                    ConditionExpression=(
+                        "(attribute_not_exists(TokenScheme) OR TokenScheme <> :scheme) AND "
+                        "(attribute_not_exists(SimulationTokens) OR SimulationTokens = :old)"
+                    ),
+                    ExpressionAttributeValues={":new": new, ":scheme": TOKEN_SCHEME, ":old": old},
+                )
+                counts["converted" if approved else "stamped"] += 1
+            except ClientError as e:
+                if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                    raise
+                counts["skipped"] += 1
+        logger.info("Token scheme %s: %s", TOKEN_SCHEME, counts)
+        return counts
 
     def refund_user_tokens(self, user_id: str, amount: int) -> None:
         """Give tokens back (e.g. an async solve job that failed)."""
@@ -491,5 +556,6 @@ class UserRepository:
             "role": item.get("Role", "admin" if item.get("IsAdmin", False) else "user"),
             "created_at": item.get("CreatedAt"),
             "simulation_tokens": int(item.get("SimulationTokens", 0)),
+            "token_scheme": item.get("TokenScheme"),
             "flatrate_until": item.get("FlatrateUntil"),
         }

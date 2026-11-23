@@ -25,6 +25,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar, toggleTheme } from '@/store/uiSlice';
 import { logoutAsync, getCurrentUserAsync } from '@/store/authSlice';
 import DeleteAccountDialog from '@/features/auth/DeleteAccountDialog';
+import { formatTokens, tokenTooltip } from '@/utils/tokens';
 
 /**
  * Header component with navigation, theme toggle, and user menu
@@ -126,12 +127,12 @@ function Header() {
               title={
                 hasActiveFlatrate
                   ? `Flatrate active until ${new Date(user.flatrate_until!).toLocaleDateString()}`
-                  : `${user.simulation_tokens ?? 0} simulation tokens remaining`
+                  : tokenTooltip(user.simulation_tokens ?? 0)
               }
             >
               <Chip
                 icon={hasActiveFlatrate ? <AllInclusive /> : <TokenIcon />}
-                label={hasActiveFlatrate ? 'Flatrate' : String(user.simulation_tokens ?? 0)}
+                label={hasActiveFlatrate ? 'Flatrate' : formatTokens(user.simulation_tokens ?? 0)}
                 size="small"
                 color={hasActiveFlatrate ? 'success' : (user.simulation_tokens ?? 0) > 0 ? 'default' : 'error'}
                 variant="outlined"

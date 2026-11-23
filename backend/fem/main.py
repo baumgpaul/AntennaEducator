@@ -26,6 +26,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.common.auth.dependencies import get_current_user
 from backend.common.auth.identity import UserIdentity
+from backend.common.auth.token_dependency import TokenCheckResult, require_simulation_tokens
 from backend.common.utils.error_handler import install_error_handlers
 from backend.common.utils.logging_config import configure_logging
 
@@ -151,7 +152,11 @@ def _issues(problem: Electrostatics, mesh: Mesh) -> list[dict]:
 
 
 @app.post(f"{API}/mesh")
-def mesh_endpoint(request: MeshRequest, user: UserIdentity = Depends(preview_user)):
+def mesh_endpoint(
+    request: MeshRequest,
+    user: UserIdentity = Depends(preview_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("fem/mesh")),
+):
     t0 = time.perf_counter()
     result = _mesh(request.geometry)
     return {
@@ -185,7 +190,11 @@ def _solve(request: ModelRequest):
 
 
 @app.post(f"{API}/solve/summary")
-def solve_summary_endpoint(request: ModelRequest, user: UserIdentity = Depends(preview_user)):
+def solve_summary_endpoint(
+    request: ModelRequest,
+    user: UserIdentity = Depends(preview_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("fem/solve-summary")),
+):
     """Only the numbers of a solve (no mesh or fields): one point of a study."""
     t0 = time.perf_counter()
     result, r = _solve(request)
@@ -204,7 +213,11 @@ def solve_summary_endpoint(request: ModelRequest, user: UserIdentity = Depends(p
 
 
 @app.post(f"{API}/solve")
-def solve_endpoint(request: ModelRequest, user: UserIdentity = Depends(preview_user)):
+def solve_endpoint(
+    request: ModelRequest,
+    user: UserIdentity = Depends(preview_user),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("fem/solve")),
+):
     result, r = _solve(request)
     mesh = result.mesh
     k = r.stiffness.tocoo()

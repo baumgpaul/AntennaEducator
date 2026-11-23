@@ -172,3 +172,35 @@ def test_scheduled_event_runs_retention_not_http():
     ):
         assert lambda_handler.handler({"source": "aws.events"}, None) == {"ok": 1}
     http.assert_not_called()
+
+
+def test_scheduled_run_converts_token_balances_first():
+    from backend.projects import lambda_handler
+
+    with (
+        patch("backend.common.repositories.user_repository.UserRepository") as repo,
+        patch("backend.projects.retention.run_retention", AsyncMock(return_value={"ok": 1})) as ret,
+        patch("backend.common.auth.create_auth_provider"),
+        patch("backend.common.repositories.factory.get_project_repository"),
+        patch("backend.projects.results_service.get_results_service"),
+        patch("backend.projects.documentation_service.get_documentation_service"),
+    ):
+        assert lambda_handler.handler({"source": "aws.events"}, None) == {"ok": 1}
+    repo.return_value.convert_token_balances.assert_called_once()
+    ret.assert_awaited_once()
+
+
+def test_failed_token_conversion_does_not_block_retention():
+    from backend.projects import lambda_handler
+
+    with (
+        patch("backend.common.repositories.user_repository.UserRepository") as repo,
+        patch("backend.projects.retention.run_retention", AsyncMock(return_value={"ok": 1})) as ret,
+        patch("backend.common.auth.create_auth_provider"),
+        patch("backend.common.repositories.factory.get_project_repository"),
+        patch("backend.projects.results_service.get_results_service"),
+        patch("backend.projects.documentation_service.get_documentation_service"),
+    ):
+        repo.return_value.convert_token_balances.side_effect = RuntimeError("throttled")
+        assert lambda_handler.handler({"source": "aws.events"}, None) == {"ok": 1}
+    ret.assert_awaited_once()
