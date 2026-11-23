@@ -17,7 +17,7 @@ import numpy as np
 from .gauss_quadrature import get_gauss_points
 from .geometry import EdgeGeometry
 from .inductance import compute_mutual_inductance_1d
-from .potential_nodal import compute_nodal_potential_coefficient
+from .potential_nodal import cell_mutual_coefficient, compute_nodal_potential_coefficient
 
 MIRROR = np.array([1.0, 1.0, -1.0])
 _EPS_0 = 8.8541878176e-12  # as in potential_nodal
@@ -92,20 +92,35 @@ def image_inductance(
 
 
 def image_potential(
-    cap_elem: np.ndarray, radii_cap: np.ndarray, n_gauss: int = 10
+    cap_elem: np.ndarray,
+    radii_cap: np.ndarray,
+    n_gauss: int = 10,
+    pieces=None,
+    junctions=(),
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Potential coefficient of each nodal charge cell with each mirrored cell."""
+    """Potential coefficient of each nodal charge cell with each mirrored cell.
+
+    `pieces`/`junctions` (from `build_cell_pieces`/`junction_nodes`): pairs with a
+    junction node use its complete cell (the 3-point cell cannot describe it).
+    """
     points, weights = get_gauss_points(n_gauss)
     n = cap_elem.shape[2]
     mirrored = cap_elem * MIRROR[np.newaxis, :, np.newaxis]
     P_img = np.zeros((n, n))
     dist = np.zeros((n, n))
     scale = 1.0 / (4 * np.pi * _EPS_0)
+    junction_set = set(junctions) if pieces is not None else set()
     for i in range(n):
         for j in range(n):
-            a_ij = np.sqrt(0.25 * np.sum(radii_cap[i] ** 2 + radii_cap[j] ** 2))
-            P_img[i, j] = scale * compute_nodal_potential_coefficient(
-                mirrored[:, :, j], cap_elem[:, :, i], points, weights, radius=a_ij
-            )
+            if i in junction_set or j in junction_set:
+                mirrored_j = [(p0 * MIRROR, p1 * MIRROR, r) for p0, p1, r in pieces[j]]
+                P_img[i, j] = scale * cell_mutual_coefficient(
+                    mirrored_j, pieces[i], points, weights
+                )
+            else:
+                a_ij = np.sqrt(0.25 * np.sum(radii_cap[i] ** 2 + radii_cap[j] ** 2))
+                P_img[i, j] = scale * compute_nodal_potential_coefficient(
+                    mirrored[:, :, j], cap_elem[:, :, i], points, weights, radius=a_ij
+                )
             dist[i, j] = np.linalg.norm(cap_elem[1, :, i] - mirrored[1, :, j])
     return P_img, dist

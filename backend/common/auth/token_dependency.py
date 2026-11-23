@@ -1,4 +1,4 @@
-"""FastAPI dependency for simulation token enforcement.
+"""FastAPI dependency for metered simulation tokens.
 
 Usage in a compute endpoint::
 
@@ -8,26 +8,29 @@ Usage in a compute endpoint::
     async def solve_single(
         request: SolveRequest,
         user: UserIdentity = Depends(get_current_user),
-        _tokens: TokenCheckResult = Depends(require_simulation_tokens(5)),
+        _tokens: TokenCheckResult = Depends(require_simulation_tokens("solve/single")),
     ):
         ...
 
 The dependency:
-1. Checks if the user has an active flatrate → skip deduction.
-2. Checks if cost is 0 → skip deduction.
-3. Otherwise verifies ``user.simulation_tokens >= cost``.
-4. Raises HTTP 402 if insufficient.
+1. Flatrate users are never charged (usage is still logged).
+2. Otherwise the balance must cover ``MIN_TOKENS`` (or a given estimate) → else 402.
+3. The endpoint runs; its duration is measured.
+4. Only if it succeeded: charge ``metered_cost(duration)`` (1 token per GB-s of this
+   Lambda's memory), emptying the balance at most — the compute is already done.
 
-Tokens are only **charged after the endpoint succeeds** (it is a ``yield``
-dependency): requests that fail validation (422), are rejected (4xx) or
-crash (5xx) cost nothing. Endpoints whose cost depends on the request body
-call ``charge_simulation_tokens()`` themselves after computing.
+Requests that fail validation (422), are rejected (4xx) or crash (5xx) cost nothing.
+Endpoints that charge themselves (sweep) call ``check_simulation_tokens`` and
+``charge_simulation_tokens`` directly.
 """
 
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Optional
 
 from backend.common.auth.identity import UserIdentity
+from backend.common.auth.token_costs import MIN_TOKENS, metered_cost
 
 
 class InsufficientTokensError(Exception):
@@ -41,17 +44,16 @@ class InsufficientTokensError(Exception):
 
 @dataclass(frozen=True)
 class TokenCheckResult:
-    """Outcome of a token balance check."""
+    """Outcome of a token balance check; ``started`` times the request."""
 
     should_deduct: bool
     cost: int
     reason: str = ""
+    started: float = field(default_factory=lambda: time.perf_counter())
 
 
 def _check_token_balance(user: UserIdentity, cost: int) -> TokenCheckResult:
-    """Pure-logic check: can this user afford ``cost`` tokens?
-
-    Returns a ``TokenCheckResult`` indicating whether deduction is needed.
+    """Pure-logic check: may this user start a request needing ``cost`` tokens?
 
     Raises:
         InsufficientTokensError: if user has no flatrate and balance < cost.
@@ -115,57 +117,75 @@ def _insufficient(required: int, balance: int):
     )
 
 
-def check_simulation_tokens(user: UserIdentity, cost: int) -> TokenCheckResult:
-    """Balance check without charging. Raises HTTP 402 if insufficient."""
+def check_simulation_tokens(user: UserIdentity, cost: int = MIN_TOKENS) -> TokenCheckResult:
+    """Balance check without charging (starts the clock). Raises HTTP 402 if insufficient."""
     try:
         return _check_token_balance(user, cost)
     except InsufficientTokensError as exc:
         raise _insufficient(exc.required, exc.balance)
 
 
-def charge_simulation_tokens(
-    user: UserIdentity, check: TokenCheckResult, endpoint: str = ""
-) -> None:
-    """Deduct (or, for flatrate users, just log) tokens for a completed request.
-
-    Call only after the computation succeeded.
-    """
-    if check.should_deduct:
-        from backend.common.repositories.user_repository import UserRepository
-
-        try:
-            remaining = UserRepository().deduct_user_tokens(user.id, check.cost)
-        except ValueError:
-            # Balance changed concurrently between check and charge.
-            raise _insufficient(check.cost, user.simulation_tokens)
+def charge_metered(
+    user_id: str,
+    seconds: float,
+    endpoint: str = "",
+    flatrate: bool = False,
+    balance_hint: int = 0,
+    memory_mb: Optional[int] = None,
+) -> int:
+    """Charge (or for flatrate users only log) ``seconds`` of compute. Returns tokens charged."""
+    cost = metered_cost(seconds, memory_mb)
+    if flatrate:
         _log_usage(
-            user_id=user.id,
+            user_id=user_id,
             service="compute",
             endpoint=endpoint,
-            cost=check.cost,
-            balance_after=remaining,
-            was_flatrate=False,
-        )
-    elif check.cost > 0:
-        # Flatrate user — log but no deduction
-        _log_usage(
-            user_id=user.id,
-            service="compute",
-            endpoint=endpoint,
-            cost=check.cost,
-            balance_after=user.simulation_tokens,
+            cost=cost,
+            balance_after=balance_hint,
             was_flatrate=True,
         )
+        return 0
+    from backend.common.repositories.user_repository import UserRepository
+
+    charged, remaining = UserRepository().charge_user_tokens(user_id, cost)
+    _log_usage(
+        user_id=user_id,
+        service="compute",
+        endpoint=endpoint,
+        cost=charged,
+        balance_after=remaining,
+        was_flatrate=False,
+    )
+    return charged
 
 
-def require_simulation_tokens(cost: int):
-    """FastAPI dependency factory: enforce token balance for an endpoint.
+def charge_simulation_tokens(
+    user: UserIdentity,
+    check: TokenCheckResult,
+    endpoint: str = "",
+    seconds: Optional[float] = None,
+) -> int:
+    """Charge a completed request by its measured duration (default: since the check).
 
-    The balance is checked before the endpoint runs; tokens are charged only
-    if the endpoint returns successfully.
+    Call only after the computation succeeded. Returns tokens charged.
+    """
+    if check.cost == 0:
+        return 0
+    elapsed = seconds if seconds is not None else time.perf_counter() - check.started
+    return charge_metered(
+        user.id,
+        elapsed,
+        endpoint=endpoint,
+        flatrate=not check.should_deduct,
+        balance_hint=user.simulation_tokens,
+    )
 
-    Args:
-        cost: Number of tokens this endpoint consumes.
+
+def require_simulation_tokens(endpoint: str = "", estimate: int = MIN_TOKENS):
+    """FastAPI dependency factory: metered tokens for an endpoint.
+
+    The balance must cover ``estimate`` tokens before the endpoint runs; after it
+    returned successfully, its measured duration is charged.
 
     Returns:
         A FastAPI-compatible async (yield) dependency.
@@ -177,9 +197,9 @@ def require_simulation_tokens(cost: int):
     async def _dependency(
         user: UserIdentity = Depends(get_current_user),
     ):
-        result = check_simulation_tokens(user, cost)
+        result = check_simulation_tokens(user, estimate)
         yield result
         # Only reached when the endpoint returned without raising.
-        charge_simulation_tokens(user, result)
+        charge_simulation_tokens(user, result, endpoint=endpoint)
 
     return _dependency

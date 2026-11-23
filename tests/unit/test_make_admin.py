@@ -41,3 +41,19 @@ def test_finds_user_on_a_later_scan_page():
 def test_unknown_email_raises():
     with pytest.raises(LookupError, match="No user"):
         make_admin(_table([]), "nobody@example.com")
+
+
+def test_bootstrap_before_the_token_conversion_is_not_converted_twice():
+    """Old-scheme balance is converted here and stamped, so the daily conversion skips it."""
+    table = _table([{"PK": "USER#u3", "UserId": "u3", "SimulationTokens": 2000}])
+    make_admin(table, "boss@example.com")
+    values = table.update_item.call_args.kwargs["ExpressionAttributeValues"]
+    assert values[":tokens"] == 120_000 and values[":scheme"] == "gbs-v1"
+
+
+def test_bootstrap_keeps_a_converted_balance():
+    table = _table(
+        [{"PK": "USER#u4", "UserId": "u4", "SimulationTokens": 50_000, "TokenScheme": "gbs-v1"}]
+    )
+    make_admin(table, "boss@example.com")
+    assert table.update_item.call_args.kwargs["ExpressionAttributeValues"][":tokens"] == 50_000

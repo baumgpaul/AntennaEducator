@@ -82,73 +82,69 @@ class TestUserIdentityTokenFields:
         assert admin.simulation_tokens == 999
 
 
-# ─── Phase 2: Token cost calculation ─────────────────────────────────────────
+# ─── Phase 2: Metered token costs (1 token = 1 GB-s of Lambda compute) ───────
 
 
-class TestTokenCosts:
-    """Token cost lookup and calculation."""
+class TestMeteredCosts:
+    """Tokens follow the real compute bill: duration × configured memory."""
 
-    def test_import(self):
-        pass
+    def test_one_token_per_gb_second(self):
+        from backend.common.auth.token_costs import metered_cost
 
-    def test_preprocessor_mesh_costs_1(self):
-        from backend.common.auth.token_costs import get_endpoint_cost
+        # 2 GB solver Lambda for 2.0 s = 4 GB-s = 4 tokens (≈ $0.00007)
+        assert metered_cost(2.0, memory_mb=2048) == 4
 
-        assert get_endpoint_cost("preprocessor", "mesh") == 1
+    def test_rounds_up_and_charges_at_least_one(self):
+        from backend.common.auth.token_costs import metered_cost
 
-    def test_solver_single_costs_5(self):
-        from backend.common.auth.token_costs import get_endpoint_cost
+        assert metered_cost(0.01, memory_mb=512) == 1  # 0.005 GB-s
+        assert metered_cost(0.0, memory_mb=512) == 1
+        assert metered_cost(1.01, memory_mb=1024) == 2
 
-        assert get_endpoint_cost("solver", "single") == 5
+    def test_negative_or_nan_duration_charges_the_minimum(self):
+        from backend.common.auth.token_costs import metered_cost
 
-    def test_solver_multi_costs_5(self):
-        from backend.common.auth.token_costs import get_endpoint_cost
+        assert metered_cost(-3.0, memory_mb=2048) == 1
+        assert metered_cost(float("nan"), memory_mb=2048) == 1
 
-        assert get_endpoint_cost("solver", "multi") == 5
+    def test_memory_from_the_lambda_environment(self, monkeypatch):
+        from backend.common.auth.token_costs import lambda_memory_mb, metered_cost
 
-    def test_postprocessor_far_field_costs_3(self):
-        from backend.common.auth.token_costs import get_endpoint_cost
+        monkeypatch.setenv("AWS_LAMBDA_FUNCTION_MEMORY_SIZE", "512")
+        assert lambda_memory_mb() == 512
+        assert metered_cost(10.0) == 5
 
-        assert get_endpoint_cost("postprocessor", "far_field") == 3
+    def test_memory_fallback_outside_lambda(self, monkeypatch):
+        from backend.common.auth.token_costs import FALLBACK_MEMORY_MB, lambda_memory_mb
 
-    def test_postprocessor_near_field_costs_3(self):
-        from backend.common.auth.token_costs import get_endpoint_cost
+        monkeypatch.delenv("AWS_LAMBDA_FUNCTION_MEMORY_SIZE", raising=False)
+        assert lambda_memory_mb() == FALLBACK_MEMORY_MB
+        monkeypatch.setenv("AWS_LAMBDA_FUNCTION_MEMORY_SIZE", "not-a-number")
+        assert lambda_memory_mb() == FALLBACK_MEMORY_MB
 
-        assert get_endpoint_cost("postprocessor", "near_field") == 3
+    def test_starter_tokens_are_worth_about_50_cents(self):
+        from backend.common.auth.token_costs import (
+            DEFAULT_STARTER_TOKENS,
+            LAMBDA_USD_PER_GB_SECOND,
+            TOKENS_PER_GB_SECOND,
+        )
 
-    def test_postprocessor_export_costs_0(self):
-        from backend.common.auth.token_costs import get_endpoint_cost
+        usd = DEFAULT_STARTER_TOKENS / TOKENS_PER_GB_SECOND * LAMBDA_USD_PER_GB_SECOND
+        assert 0.45 <= usd <= 0.55
 
-        assert get_endpoint_cost("postprocessor", "export") == 0
+    def test_longest_async_job_costs_a_few_cents(self):
+        from backend.common.auth.token_costs import LAMBDA_USD_PER_GB_SECOND, metered_cost
 
-    def test_unknown_endpoint_costs_0(self):
-        from backend.common.auth.token_costs import get_endpoint_cost
+        tokens = metered_cost(900.0, memory_mb=2048)  # 15 min Lambda maximum
+        assert tokens == 1800
+        assert tokens * LAMBDA_USD_PER_GB_SECOND < 0.05
 
-        assert get_endpoint_cost("unknown", "unknown") == 0
+    def test_legacy_balances_convert_to_the_new_scale(self):
+        from backend.common.auth.token_costs import DEFAULT_STARTER_TOKENS, convert_legacy_balance
 
-    def test_sweep_cost_scales_with_frequencies(self):
-        from backend.common.auth.token_costs import calculate_sweep_cost
-
-        assert calculate_sweep_cost(num_frequencies=1) == 5
-        assert calculate_sweep_cost(num_frequencies=10) == 50
-        assert calculate_sweep_cost(num_frequencies=20) == 100
-
-    def test_sweep_cost_has_cap(self):
-        """Sweep cost capped at 250 tokens to not punish exploration."""
-        from backend.common.auth.token_costs import calculate_sweep_cost
-
-        assert calculate_sweep_cost(num_frequencies=100) == 250
-
-    def test_all_costs_dict_exposed(self):
-        from backend.common.auth.token_costs import ENDPOINT_COSTS
-
-        assert isinstance(ENDPOINT_COSTS, dict)
-        assert len(ENDPOINT_COSTS) > 0
-
-    def test_default_starter_tokens_constant(self):
-        from backend.common.auth.token_costs import DEFAULT_STARTER_TOKENS
-
-        assert DEFAULT_STARTER_TOKENS == 500
+        assert convert_legacy_balance(500) == DEFAULT_STARTER_TOKENS  # old starter
+        assert convert_legacy_balance(0) == DEFAULT_STARTER_TOKENS  # everyone gets the free amount
+        assert convert_legacy_balance(2000) == 120_000  # admin top-ups keep their value
 
 
 # ─── Phase 3: Token dependency ────────────────────────────────────────────────
@@ -228,3 +224,59 @@ class TestRequireSimulationTokens:
         )
         result = _check_token_balance(user, cost=5)
         assert result.should_deduct is True
+
+
+class TestMeteredCharging:
+    """charge_simulation_tokens bills the measured duration, flatrate only logs."""
+
+    def _user(self, **kw):
+        return UserIdentity(id="u1", email="a@b.com", username="alice", **kw)
+
+    def test_charges_duration_times_memory(self, monkeypatch):
+        from unittest.mock import patch
+
+        from backend.common.auth.token_dependency import TokenCheckResult, charge_simulation_tokens
+
+        monkeypatch.setenv("AWS_LAMBDA_FUNCTION_MEMORY_SIZE", "2048")
+        check = TokenCheckResult(should_deduct=True, cost=1)
+        with (
+            patch("backend.common.repositories.user_repository.UserRepository") as repo,
+            patch("backend.common.auth.token_dependency._log_usage") as log,
+        ):
+            repo.return_value.charge_user_tokens.return_value = (6, 994)
+            charged = charge_simulation_tokens(self._user(simulation_tokens=1000), check, "x", 3.0)
+        repo.return_value.charge_user_tokens.assert_called_once_with("u1", 6)  # 3 s × 2 GB
+        assert charged == 6
+        assert log.call_args.kwargs["cost"] == 6 and log.call_args.kwargs["balance_after"] == 994
+
+    def test_measures_from_the_balance_check(self, monkeypatch):
+        from unittest.mock import patch
+
+        from backend.common.auth.token_dependency import TokenCheckResult, charge_simulation_tokens
+
+        monkeypatch.setenv("AWS_LAMBDA_FUNCTION_MEMORY_SIZE", "1024")
+        with patch(
+            "backend.common.auth.token_dependency.time.perf_counter", side_effect=[10.0, 14.5]
+        ):
+            check = TokenCheckResult(should_deduct=True, cost=1)
+            with (
+                patch("backend.common.repositories.user_repository.UserRepository") as repo,
+                patch("backend.common.auth.token_dependency._log_usage"),
+            ):
+                repo.return_value.charge_user_tokens.return_value = (5, 95)
+                charge_simulation_tokens(self._user(simulation_tokens=100), check)
+        repo.return_value.charge_user_tokens.assert_called_once_with("u1", 5)  # 4.5 GB-s → 5
+
+    def test_flatrate_is_logged_not_charged(self):
+        from unittest.mock import patch
+
+        from backend.common.auth.token_dependency import TokenCheckResult, charge_simulation_tokens
+
+        check = TokenCheckResult(should_deduct=False, cost=1, reason="flatrate active")
+        with (
+            patch("backend.common.repositories.user_repository.UserRepository") as repo,
+            patch("backend.common.auth.token_dependency._log_usage") as log,
+        ):
+            assert charge_simulation_tokens(self._user(), check, "x", 2.0) == 0
+        repo.return_value.charge_user_tokens.assert_not_called()
+        assert log.call_args.kwargs["was_flatrate"] is True

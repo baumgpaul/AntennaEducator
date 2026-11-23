@@ -124,8 +124,8 @@ def build_capacitive_elements(
             radii_cap[node_idx, :] = [radii[edge_idx1], radii[edge_idx2]]
 
         else:
-            # Node with >2 edges - use average of all connected edges
-            # This can happen in complex meshes (junctions, etc.)
+            # Junction (> 2 edges): placeholder only (centre point = node, used for distances).
+            # Its potential coefficients use the complete cell from build_cell_pieces.
             node_pos = np.zeros(3)
 
             # Get node position from first edge
@@ -266,6 +266,107 @@ def compute_nodal_potential_coefficient(
     )
 
     return P_coeff
+
+
+CellPiece = Tuple[np.ndarray, np.ndarray, float]  # (start, end, wire radius)
+
+
+def build_cell_pieces(
+    edges: List[EdgeGeometry], edge_list: List[List[int]], radii: np.ndarray, n_nodes: int
+) -> List[List[CellPiece]]:
+    """Straight pieces forming the charge cell of every node.
+
+    The cell of a node consists of the halves of all its edges that touch it:
+    one piece at a wire end, two along a wire (the same as the 3-point cell),
+    k at a junction of k edges. Collapsing a junction into one 3-point cell
+    (average of the edge midpoints) gave a cell of length 0 for a symmetric
+    star and a capacitance that diverged under refinement.
+    """
+    cap_elem, radii_cap = build_capacitive_elements(edges, edge_list, radii, n_nodes)
+    pieces: List[List[CellPiece]] = []
+    for k in range(n_nodes):
+        node_num = k + 1
+        connected = [i for i, (a, b) in enumerate(edge_list) if node_num in (a, b)]
+        if len(connected) > 2:
+            cell = []
+            for i in connected:
+                e = edges[i]
+                node = e.node1 if edge_list[i][0] == node_num else e.node2
+                cell.append((0.5 * (e.node1 + e.node2), node, float(radii[i])))
+            pieces.append(cell)
+        else:
+            x1, x2, x3 = cap_elem[0, :, k], cap_elem[1, :, k], cap_elem[2, :, k]
+            pieces.append([(x1, x2, float(radii_cap[k, 0])), (x2, x3, float(radii_cap[k, 1]))])
+    return pieces
+
+
+def _piece_integral(
+    pa: CellPiece, pb: CellPiece, gp: np.ndarray, gw: np.ndarray, a2: float, split: int = 1
+) -> float:
+    """∫_a ∫_b 1/R with R² = d² + a2: Gauss points on piece a (in ``split`` parts),
+    exact line integral along piece b (the kernel of ``compute_nodal_potential_coefficient``)."""
+    a0, a1, _ = pa
+    b0, b1, _ = pb
+    lb = np.linalg.norm(b1 - b0)
+    total = 0.0
+    for s in range(split):
+        s0 = a0 + (a1 - a0) * s / split
+        s1 = a0 + (a1 - a0) * (s + 1) / split
+        g = 0.5 * (s0 + s1) + np.outer(0.5 * gp, s1 - s0)
+        ri = np.sqrt(np.sum((g - b0) ** 2, axis=1) + a2)
+        rf = np.sqrt(np.sum((g - b1) ** 2, axis=1) + a2)
+        e = lb / (ri + rf)
+        total += 0.5 * np.linalg.norm(s1 - s0) * np.dot(gw, np.log((1 + e) / (1 - e)))
+    return total
+
+
+def _cell_length(cell: List[CellPiece]) -> float:
+    return float(sum(np.linalg.norm(p1 - p0) for p0, p1, _ in cell))
+
+
+def _half_self(length: float, radius: float) -> float:
+    """Self coefficient of one straight piece (uniform charge), times 4πε0."""
+    q = length / radius
+    return (2 / length) * (np.log(q + np.sqrt(1 + q**2)) - np.sqrt(1 + 1 / q**2) + 1 / q)
+
+
+def cell_self_coefficient(cell: List[CellPiece], gp: np.ndarray, gw: np.ndarray) -> float:
+    """Self potential coefficient (times 4πε0) of a cell: its pieces in parallel.
+
+    Pieces share the node potential, so P_cell = 1 / Σ(M⁻¹) with M the piece
+    coefficient matrix; for two pieces this is the classic 2×2 inversion.
+    """
+    n = len(cell)
+    M = np.zeros((n, n))
+    lengths = [np.linalg.norm(p1 - p0) for p0, p1, _ in cell]
+    for p in range(n):
+        M[p, p] = _half_self(lengths[p], cell[p][2])
+        for q in range(p + 1, n):
+            a2 = 0.5 * (cell[p][2] ** 2 + cell[q][2] ** 2)
+            M[p, q] = M[q, p] = _piece_integral(cell[p], cell[q], gp, gw, a2, split=2) / (
+                lengths[p] * lengths[q]
+            )
+    return 1.0 / np.sum(np.linalg.inv(M))
+
+
+def cell_mutual_coefficient(
+    cell_a: List[CellPiece], cell_b: List[CellPiece], gp: np.ndarray, gw: np.ndarray
+) -> float:
+    """Mutual potential coefficient (times 4πε0) of two cells with uniform charge:
+    Gauss points on ``cell_a``, exact along ``cell_b``; reduced kernel with the mean
+    squared radius of both cells (as ``compute_nodal_potential_coefficient``)."""
+    a2 = 0.5 * (np.mean([r**2 for _, _, r in cell_a]) + np.mean([r**2 for _, _, r in cell_b]))
+    total = sum(_piece_integral(pa, pb, gp, gw, a2) for pa in cell_a for pb in cell_b)
+    return total / (_cell_length(cell_a) * _cell_length(cell_b))
+
+
+def junction_nodes(edge_list: List[List[int]], n_nodes: int) -> List[int]:
+    """0-based indices of nodes with more than two edges."""
+    count = np.zeros(n_nodes + 1, dtype=int)
+    for a, b in edge_list:
+        count[a] += 1
+        count[b] += 1
+    return [k - 1 for k in range(1, n_nodes + 1) if count[k] > 2]
 
 
 def assemble_nodal_potential_matrix(
@@ -420,8 +521,15 @@ def assemble_nodal_potential_matrix_with_cap_elem(
     pi = np.pi
     eps_0 = 8.8541878176e-12  # F/m
 
+    # Junctions (> 2 edges) get complete cells below; their 3-point cell is degenerate
+    junctions = junction_nodes(edge_list, n_nodes)
+    is_junction = np.zeros(n_nodes, dtype=bool)
+    is_junction[junctions] = True
+
     # Compute diagonal elements (self potential coefficients)
     for i in range(n_nodes):
+        if is_junction[i]:
+            continue
         X = cap_elem[:, :, i]  # 3 points for node i
 
         # Sub-segment lengths
@@ -473,6 +581,13 @@ def assemble_nodal_potential_matrix_with_cap_elem(
         for j in range(i + 1, n_nodes):
             X_j = cap_elem[:, :, j]  # 3-point structure for node j
 
+            # Distance: sqrt(sum((x2_i - x2_j).^2))
+            dist_ij = np.linalg.norm(X_i[1, :] - X_j[1, :])
+            dist_P[i, j] = dist_ij
+            dist_P[j, i] = dist_ij
+            if is_junction[i] or is_junction[j]:
+                continue  # set below with the complete cells
+
             # calcCoefficient uses the 3-point structures directly
             # RMS radius of both nodes keeps P symmetric
             a_ij = np.sqrt(0.25 * np.sum(radii_cap[i] ** 2 + radii_cap[j] ** 2))
@@ -482,9 +597,18 @@ def assemble_nodal_potential_matrix_with_cap_elem(
             P[i, j] = (1 / (4 * pi * eps_0)) * P_mutual
             P[j, i] = P[i, j]
 
-            # Distance: sqrt(sum((x2_i - x2_j).^2))
-            dist_ij = np.linalg.norm(X_i[1, :] - X_j[1, :])
-            dist_P[i, j] = dist_ij
-            dist_P[j, i] = dist_ij
+    # Junction rows with the complete cell of all adjacent half-edges
+    if junctions:
+        pieces = build_cell_pieces(edges, edge_list, radii, n_nodes)
+        scale = 1 / (4 * pi * eps_0)
+        for i in junctions:
+            P[i, i] = scale * cell_self_coefficient(pieces[i], gauss_points, gauss_weights)
+            for j in range(n_nodes):
+                if j == i:
+                    continue
+                lo, hi = min(i, j), max(i, j)  # Gauss points on the higher node, as above
+                P[i, j] = P[j, i] = scale * cell_mutual_coefficient(
+                    pieces[hi], pieces[lo], gauss_points, gauss_weights
+                )
 
     return P, dist_P, cap_elem, radii_cap

@@ -8,7 +8,7 @@ from backend.common.auth.dependencies import (
 from backend.common.auth.factory import create_auth_provider
 from backend.common.auth.identity import UserIdentity, UserRole
 from backend.common.auth.provider import AuthProvider
-from backend.common.auth.token_costs import DEFAULT_STARTER_TOKENS, ENDPOINT_COSTS
+from backend.common.auth.token_costs import DEFAULT_STARTER_TOKENS, metered_cost
 from backend.common.auth.token_dependency import require_simulation_tokens
 
 __all__ = [
@@ -20,6 +20,6 @@ __all__ = [
     "get_current_user_allow_pending",
     "invalidate_profile_cache",
     "require_simulation_tokens",
-    "ENDPOINT_COSTS",
+    "metered_cost",
     "DEFAULT_STARTER_TOKENS",
 ]

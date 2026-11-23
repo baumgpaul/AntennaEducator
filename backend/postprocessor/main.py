@@ -84,7 +84,7 @@ async def health_check():
 async def compute_near_field(
     request: FieldRequest,
     user: UserIdentity = Depends(get_current_user),
-    _tokens: TokenCheckResult = Depends(require_simulation_tokens(3)),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("fields/near")),
 ):
     """Compute electric and magnetic fields at specified observation points."""
     t_start = time.perf_counter()
@@ -106,7 +106,7 @@ async def compute_near_field(
 async def compute_far_field_endpoint(
     request: FarFieldRequest,
     user: UserIdentity = Depends(get_current_user),
-    _tokens: TokenCheckResult = Depends(require_simulation_tokens(3)),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("fields/far")),
 ):
     """Compute far-field radiation pattern over angular grid."""
     try:
@@ -315,7 +315,7 @@ def _compute_port_quantities(
 async def compute_port_quantities(
     request: PortQuantitiesRequest,
     user: UserIdentity = Depends(get_current_user),
-    _tokens: TokenCheckResult = Depends(require_simulation_tokens(1)),
+    _tokens: TokenCheckResult = Depends(require_simulation_tokens("port-quantities")),
 ):
     """Compute input impedance, reflection coefficient, VSWR, and other quantities
     for each defined port using solver results."""
