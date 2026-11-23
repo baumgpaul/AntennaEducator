@@ -10,8 +10,6 @@ export interface MeshViewProps {
   triangleValues?: number[];
   /** Per-node values for contour lines (e.g. the potential) */
   contours?: { values: number[]; levels: number };
-  /** Per-triangle vectors (e.g. E) drawn as arrows on a coarse sample */
-  arrows?: number[];
   showEdges?: boolean;
   highlightBoundaries?: string[];
   selectedTriangle?: number | null;
@@ -25,7 +23,6 @@ function MeshView({
   mesh,
   triangleValues,
   contours,
-  arrows,
   showEdges = true,
   highlightBoundaries = [],
   selectedTriangle,
@@ -120,7 +117,6 @@ function MeshView({
     }
 
     if (contours) drawContours(ctx, mesh, contours.values, contours.levels, X, Y);
-    if (arrows) drawArrows(ctx, mesh, arrows, X, Y, s, bounds);
 
     // highlighted boundaries
     for (const name of highlightBoundaries) {
@@ -146,7 +142,7 @@ function MeshView({
       ctx.lineWidth = 2.5;
       ctx.stroke();
     }
-  }, [mesh, triangleValues, range, contours, arrows, showEdges, highlightBoundaries, selectedTriangle, height, bounds, size]);
+  }, [mesh, triangleValues, range, contours, showEdges, highlightBoundaries, selectedTriangle, height, bounds, size]);
 
   const onClick = (ev: React.MouseEvent<HTMLCanvasElement>) => {
     if (!onPickTriangle) return;
@@ -232,52 +228,5 @@ function drawContours(
   }
 }
 
-/** E-field arrows on a sample of triangles (direction; length ∝ log of magnitude). */
-function drawArrows(
-  ctx: CanvasRenderingContext2D,
-  mesh: MeshData,
-  vectors: number[],
-  X: (i: number) => number,
-  Y: (i: number) => number,
-  scale: number,
-  bounds: { xmin: number; xmax: number; ymin: number; ymax: number },
-) {
-  const t = mesh.triangles;
-  const n = t.length / 3;
-  const cell = Math.max(bounds.xmax - bounds.xmin, bounds.ymax - bounds.ymin) / 18;
-  const taken = new Set<string>();
-  let max = 0;
-  for (let e = 0; e < n; e++) max = Math.max(max, Math.hypot(vectors[2 * e], vectors[2 * e + 1]));
-  if (!(max > 0)) return;
-  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-  ctx.fillStyle = 'rgba(255,255,255,0.9)';
-  ctx.lineWidth = 1.2;
-  for (let e = 0; e < n; e++) {
-    const ids = [t[3 * e], t[3 * e + 1], t[3 * e + 2]];
-    const cx = ids.reduce((s, i) => s + mesh.nodes[2 * i], 0) / 3;
-    const cy = ids.reduce((s, i) => s + mesh.nodes[2 * i + 1], 0) / 3;
-    const key = `${Math.floor(cx / cell)},${Math.floor(cy / cell)}`;
-    if (taken.has(key)) continue;
-    taken.add(key);
-    const ex = vectors[2 * e], ey = vectors[2 * e + 1];
-    const mag = Math.hypot(ex, ey);
-    if (mag < 1e-3 * max) continue;
-    const len = cell * scale * 0.8 * (0.35 + 0.65 * Math.log1p((9 * mag) / max) / Math.log(10));
-    const px = ids.reduce((s, i) => s + X(i), 0) / 3;
-    const py = ids.reduce((s, i) => s + Y(i), 0) / 3;
-    const dx = (ex / mag) * len, dy = (-ey / mag) * len; // canvas y is down
-    ctx.beginPath();
-    ctx.moveTo(px - dx / 2, py - dy / 2);
-    ctx.lineTo(px + dx / 2, py + dy / 2);
-    ctx.stroke();
-    const ang = Math.atan2(dy, dx);
-    ctx.beginPath();
-    ctx.moveTo(px + dx / 2, py + dy / 2);
-    ctx.lineTo(px + dx / 2 - 5 * Math.cos(ang - 0.45), py + dy / 2 - 5 * Math.sin(ang - 0.45));
-    ctx.lineTo(px + dx / 2 - 5 * Math.cos(ang + 0.45), py + dy / 2 - 5 * Math.sin(ang + 0.45));
-    ctx.closePath();
-    ctx.fill();
-  }
-}
 
 export default MeshView;

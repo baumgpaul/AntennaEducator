@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  arrowSample,
+  arrowLayout,
   boundsOf,
   contourLevels,
   contourSegments,
@@ -54,12 +54,62 @@ describe('fieldMesh', () => {
     expect(valueRange([])).toEqual({ min: 0, max: 1 });
   });
 
-  it('arrows: one per grid cell, at triangle centres', () => {
-    const m = fromTriangles2D(NODES, TRIS, { cellVectors2D: [1, 0, 0, 1] }, 'E', 'V/m');
-    expect(arrowSample(m, 10)).toHaveLength(1); // both centres in one big cell
-    const fine = arrowSample(m, 0.25);
-    expect(fine).toHaveLength(2);
-    expect(fine[0].centre[0]).toBeCloseTo(2 / 3);
+  describe('arrow layout', () => {
+    /** n×n squares on [-1, 1]², two triangles each, cell vector from the centre */
+    function grid(n: number, field: (x: number, y: number) => [number, number]) {
+      const nodes: number[] = [];
+      for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) nodes.push(-1 + (2 * i) / n, -1 + (2 * j) / n);
+      const tris: number[] = [];
+      const vec: number[] = [];
+      const id = (i: number, j: number) => j * (n + 1) + i;
+      for (let j = 0; j < n; j++)
+        for (let i = 0; i < n; i++) {
+          for (const t of [
+            [id(i, j), id(i + 1, j), id(i + 1, j + 1)],
+            [id(i, j), id(i + 1, j + 1), id(i, j + 1)],
+          ]) {
+            tris.push(...t);
+            const cx = t.reduce((s, k) => s + nodes[2 * k], 0) / 3;
+            const cy = t.reduce((s, k) => s + nodes[2 * k + 1], 0) / 3;
+            vec.push(...field(cx, cy));
+          }
+        }
+      return fromTriangles2D(nodes, tris, { cellVectors2D: vec }, 'E', 'V/m');
+    }
+    // a plate capacitor in miniature: strong field in a thin gap, a weak stray field around it
+    const capacitor = (x: number, y: number): [number, number] => (Math.abs(x) < 0.5 && Math.abs(y) < 0.1 ? [0, -100] : [0, -1]);
+
+    it('samples where the field is: the gap gets arrows, the weak surroundings none', () => {
+      const arrows = arrowLayout(grid(80, capacitor));
+      expect(arrows.length).toBeGreaterThan(20);
+      expect(arrows.every((a) => Math.abs(a.centre[0]) < 0.5 && Math.abs(a.centre[1]) < 0.1)).toBe(true);
+      // the old fixed grid (1/18 of the domain) put at most 2 rows into a gap 1/10 of the domain high
+      const rows = new Set(arrows.map((a) => a.centre[1].toFixed(3)));
+      expect(rows.size).toBeGreaterThanOrEqual(3);
+    });
+
+    it('arrow length is proportional to the field strength', () => {
+      const m = grid(20, (x) => (x < 0 ? [1, 0] : [0.5, 0]));
+      const arrows = arrowLayout(m);
+      const left = arrows.find((a) => a.centre[0] < -0.2)!;
+      const right = arrows.find((a) => a.centre[0] > 0.2)!;
+      expect(left.length / right.length).toBeCloseTo(2, 6);
+      expect(left.direction).toEqual([1, 0, 0]);
+      expect(left.length).toBeLessThanOrEqual(left.spacing);
+    });
+
+    it('a singular corner does not shrink all other arrows: lengths are capped, not normalised to it', () => {
+      const m = grid(20, (x, y) => (x > 0.9 && y > 0.9 ? [1e4, 0] : [1, 0]));
+      const arrows = arrowLayout(m);
+      const normal = arrows.find((a) => a.centre[0] < 0)!;
+      const hot = arrows.reduce((a, b) => (b.length > a.length ? b : a));
+      expect(normal.length).toBeCloseTo(hot.length, 6); // both at the full length
+    });
+
+    it('no vectors or a zero field: no arrows', () => {
+      expect(arrowLayout(fromTriangles2D(NODES, TRIS, { node: NODE_V }, 'V', 'V'))).toEqual([]);
+      expect(arrowLayout(grid(4, () => [0, 0]))).toEqual([]);
+    });
   });
 
   it('flat shading gives every triangle its own vertices', () => {

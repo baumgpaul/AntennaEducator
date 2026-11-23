@@ -18,11 +18,16 @@ import { Hint } from '@/features/workflow/Workspace';
 import { useSize } from '@/features/workflow/useSize';
 import type { PlotTrace } from '@/types/plotDefinitions';
 import { femError, solveSummary } from '../api';
-import type { FemModel, StudyPoint } from '../model';
+import { TEMPLATES, type FemModel, type StudyPoint } from '../model';
 import { si } from '../views/geometryDraw';
-import { analyticValue, convergence, runStudy, studyKey, studyModels, type StudyView } from './studies';
+import { analyticValue, convergence, exactValue, runStudy, studyKey, studyModels, type StudyView } from './studies';
 
 const UNIT = { capacitance: 'F', energy: 'J' } as const;
+const AGAINST = {
+  analytic: 'the exact value',
+  extrapolated: 'the value extrapolated from the three finest meshes',
+  finest: 'the finest mesh',
+} as const;
 const SYMBOL = { capacitance: 'C', energy: 'W' } as const;
 const PREFIXES = ['f', 'p', 'n', 'µ', 'm', ''];
 
@@ -95,12 +100,14 @@ function StudyResultView({
   const plot = useMemo(() => {
     const good = points.filter((p) => p.value != null);
     if (view.type === 'convergence') {
-      const reference = view.run?.reference?.[0] ?? analyticValue(model, view.quantity);
-      const c = convergence(points, reference);
+      // only an exact formula is a reference for the error; a simplified one (εA/d) is compared separately
+      const exact = exactValue(model, view.quantity);
+      const c = convergence(points, exact);
+      const textbook = exact == null ? (view.run?.reference?.[0] ?? analyticValue(model, view.quantity)) : null;
       const data = points.flatMap((p, i) => (p.nodes != null && c.errors[i] != null && c.errors[i]! > 0 ? [{ x: p.nodes, y: 100 * c.errors[i]! }] : []));
       // the P1 theory line, through the coarsest measured point: error ∝ h² ∝ 1/N
       const theory = data.length ? data.map((d) => ({ x: d.x, y: (data[0].y * data[0].x) / d.x })) : [];
-      return { kind: 'convergence' as const, c, data, theory };
+      return { kind: 'convergence' as const, c, data, theory, textbook };
     }
     const { factor, unit: shown } = readable(good.map((p) => p.value!), unit);
     const ref = view.run?.reference;
@@ -137,11 +144,18 @@ function StudyResultView({
         )}
         {!running && plot.kind === 'convergence' && plot.c.orderH != null && (
           <Typography variant="body2">
-            Measured: error ∝ h<sup>{plot.c.orderH.toFixed(2)}</sup> (against the{' '}
-            {plot.c.against === 'analytic' ? 'textbook value' : 'finest mesh'}) — P1 theory: h<sup>2</sup>
+            Measured: error ∝ h<sup>{plot.c.orderH.toFixed(2)}</sup> (against {AGAINST[plot.c.against]}) — P1 theory: h
+            <sup>2</sup>
           </Typography>
         )}
       </Stack>
+      {!running && plot.kind === 'convergence' && plot.textbook != null && plot.c.reference != null && (
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          {TEMPLATES.find((t) => t.id === model.template)?.analytic?.label ?? 'Textbook'}: {si(plot.textbook, unit)} · converged FEM:{' '}
+          {si(plot.c.reference, unit)} — the formula misses {(100 * (plot.c.reference / plot.textbook - 1)).toFixed(1)} % (what
+          it leaves out, e.g. fringing at the plate edges)
+        </Typography>
+      )}
       {failed && <Alert severity="warning">{failed}</Alert>}
       {stale && <Alert severity="info">The model changed since this study ran: run it again.</Alert>}
 
@@ -257,7 +271,7 @@ export function StudyHint({ view }: { view: StudyView }) {
   return (
     <Hint>
       {view.type === 'convergence'
-        ? 'Each mesh has elements √2 times smaller than the one before (twice the nodes). For P1 elements the energy — and so C = 2W/ΔV² — converges like h²: the error halves with every step. Against the finest mesh instead of a textbook value, the last errors look too small.'
+        ? 'Each mesh has elements √2 times smaller than the one before (twice the nodes). For P1 elements the energy — and so C = 2W/ΔV² — converges like h²: the error halves with every step. The error is measured against an exact formula where there is one (coax), otherwise against the value extrapolated from the three finest meshes (Richardson). Sharp electrode corners make the field singular there and slow the convergence below h².'
         : 'Each point is a full solve with this parameter value; mesh sizes that depend on it change with it. The textbook curve, where the template has one, shows what the simple formula misses (e.g. fringing at the plate edges).'}
     </Hint>
   );
