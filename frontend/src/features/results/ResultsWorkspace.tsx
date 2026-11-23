@@ -15,11 +15,12 @@ import {
 } from '@mui/material';
 import { Add, Delete, Edit } from '@mui/icons-material';
 import { PanelSection, Ribbon, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
+import type { ReactElement } from 'react';
 
 export interface ViewType<T extends string = string> {
   type: T;
   label: string;
-  icon: JSX.Element;
+  icon: ReactElement;
 }
 
 export interface WorkspaceView<T extends string = string> {
