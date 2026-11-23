@@ -266,7 +266,9 @@ def far_field_result(request: FarFieldRequest) -> RadiationPatternResponse:
         E_total_mag=E_total_mag,
         pattern_db=pattern_db,
         directivity=float(directivity_dBi),
-        gain=float(directivity_dBi),  # Assume 100% efficiency for now
+        # Placeholders: this service has no input power. The frontend replaces them with
+        # the solve's radiation_efficiency (1 - losses / input) and D + 10 log10(eta).
+        gain=float(directivity_dBi),
         efficiency=1.0,
         radiated_power=radiated_power,
         beamwidth_theta=None,
