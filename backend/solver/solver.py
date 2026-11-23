@@ -120,6 +120,65 @@ def _balanced_voltage_partner(voltage_sources) -> Optional[int]:
     return None
 
 
+def gap_feed_sources(
+    voltage_sources: List[VoltageSource], groups: Optional[List[int]] = None
+) -> Tuple[List[VoltageSource], List[Tuple[int, float]]]:
+    """Replace balanced grounded pairs by one source across the gap.
+
+    A pair is two sources from ground (node 0) to two different nodes with
+    opposite values, in the same group (antenna). It becomes one source from the
+    (-) node to the (+) node with the difference as value (the port voltage) and
+    the series elements of both added (they are in series through ground).
+
+    Returns the sources to solve with and, per original source, (index of the
+    solve source, sign of its current): the pair's sources carry +I and -I.
+    """
+    groups = groups if groups is not None else [0] * len(voltage_sources)
+
+    def grounded(vs):
+        return vs.node_start == 0 and vs.node_end > 0
+
+    partner = {}
+    for k, vs in enumerate(voltage_sources):
+        if k in partner or not grounded(vs):
+            continue
+        for m in range(k + 1, len(voltage_sources)):
+            w = voltage_sources[m]
+            if (
+                m not in partner
+                and groups[m] == groups[k]
+                and grounded(w)
+                and w.node_end != vs.node_end
+                and abs(w.value + vs.value) <= 1e-9 * max(abs(vs.value), 1e-30)
+            ):
+                partner[k], partner[m] = m, k
+                break
+
+    solve_sources: List[VoltageSource] = []
+    mapping: List[Tuple[int, float]] = [(0, 1.0)] * len(voltage_sources)
+    for k, vs in enumerate(voltage_sources):
+        if k in partner and partner[k] < k:
+            continue  # second source of a pair: merged into the first
+        if k in partner:
+            w = voltage_sources[partner[k]]
+            mapping[k] = (len(solve_sources), 1.0)
+            mapping[partner[k]] = (len(solve_sources), -1.0)
+            solve_sources.append(
+                VoltageSource(
+                    node_start=w.node_end,
+                    node_end=vs.node_end,
+                    value=vs.value - w.value,
+                    R=vs.R + w.R,
+                    L=vs.L + w.L,
+                    C_inv=vs.C_inv + w.C_inv,
+                )
+            )
+        else:
+            mapping[k] = (len(solve_sources), 1.0)
+            solve_sources.append(vs)
+    return solve_sources, mapping
+
+
 def _balanced_current_partner(current_sources) -> Optional[int]:
     """Index of the single-terminal source injecting -I next to ``current_sources[0]``."""
     if len(current_sources) < 2 or current_sources[0].node_end is not None:
@@ -241,6 +300,7 @@ def solve_peec_frequency_sweep(
     loads: Optional[List[Load]] = None,
     config: Optional[SolverConfiguration] = None,
     reference_impedance: float = 50.0,
+    source_groups: Optional[List[int]] = None,
 ) -> SolverResult:
     """
     Solve PEEC system across a frequency sweep.
@@ -258,6 +318,8 @@ def solve_peec_frequency_sweep(
         loads: Optional list of loads
         config: Optional solver configuration
         reference_impedance: Reference impedance for VSWR calculation [Ω]
+        source_groups: Antenna index per voltage source; balanced pairs are only
+            formed within one antenna (default: all sources belong to one)
 
     Returns:
         SolverResult containing complete frequency sweep results
@@ -350,11 +412,22 @@ def solve_peec_frequency_sweep(
         np.zeros((3, 3, n_nodes))
         np.zeros((n_nodes, 2))
 
-    A = build_incidence_matrix(edges, max_node, voltage_sources=voltage_sources, loads=loads)
+    # Balanced feeds (+V/-V from ground) are solved as one source across the gap:
+    # two branches to infinity let a common-mode current flow whenever the
+    # surroundings are not symmetric. Results are reported per original source.
+    if config.ground_plane:  # node 0 is the plane there: grounded sources are real feeds
+        solve_sources, source_map = list(voltage_sources), [
+            (k, 1.0) for k in range(len(voltage_sources))
+        ]
+    else:
+        solve_sources, source_map = gap_feed_sources(voltage_sources, source_groups)
 
-    A_app, n_appended = build_appended_incidence_matrix(voltage_sources, loads, n_edges)
+    A = build_incidence_matrix(edges, max_node, voltage_sources=solve_sources, loads=loads)
 
-    n_branches = A.shape[1]
+    A_app, n_appended = build_appended_incidence_matrix(solve_sources, loads, n_edges)
+
+    n_solve_branches = A.shape[1]
+    n_branches = n_edges + len(voltage_sources) + len(loads)  # reported layout
 
     # Prepare current source vector (frequency-independent positions)
     I_source = np.zeros(max_node, dtype=complex)
@@ -447,7 +520,7 @@ def solve_peec_frequency_sweep(
         # Assemble impedance matrix Z(ω)
         # Pass node-based P matrix with retardation for A'PA coupling term
         Z = assemble_impedance_matrix(
-            R, L_full, P_nodal_retarded, A, omega, voltage_sources=voltage_sources, loads=loads
+            R, L_full, P_nodal_retarded, A, omega, voltage_sources=solve_sources, loads=loads
         )
 
         # Assemble system matrix (only use A_app, per PEEC formulation)
@@ -455,21 +528,20 @@ def solve_peec_frequency_sweep(
 
         # Assemble source vector with capacitive coupling (use retarded P)
         source_vector = assemble_source_vector(
-            voltage_sources, current_sources, A, P_nodal_retarded, omega, n_edges, n_appended
+            solve_sources, current_sources, A, P_nodal_retarded, omega, n_edges, n_appended
         )
 
         # Solve system
-        I, V_app = solve_peec_system(system_matrix, source_vector, n_branches)
-
-        # Debug logging for voltage source currents
-        if len(voltage_sources) > 0:
-            vsrc_branch_idx = n_edges
-            if vsrc_branch_idx < len(I):
-                vsrc_current = I[vsrc_branch_idx]
-                logger.debug(f"First voltage source current: {vsrc_current} A")
+        I_solved, V_app = solve_peec_system(system_matrix, source_vector, n_solve_branches)
 
         # Compute node voltages (per PEEC: V = (1/jω)*(P*I_source + P*A*I))
-        V = compute_node_voltages(I, I_source, A, P_nodal_retarded, omega)
+        V = compute_node_voltages(I_solved, I_source, A, P_nodal_retarded, omega)
+
+        # Branch currents in the reported layout: one entry per original voltage
+        # source (a gap source's current as +I / -I for the two sources it replaced)
+        n_solve_vs = len(solve_sources)
+        I_vs = np.array([sign * I_solved[n_edges + k] for k, sign in source_map], dtype=complex)
+        I = np.concatenate([I_solved[:n_edges], I_vs, I_solved[n_edges + n_solve_vs :]])
 
         # Compute input impedance/admittance
         if len(voltage_sources) > 0:
@@ -523,9 +595,8 @@ def solve_peec_frequency_sweep(
 
         # Compute power dissipated in resistances
         # Peak phasors, like input_power below: P = 1/2 Re(I^H R I) (issue #72)
-        R_full = np.zeros_like(Z)
-        R_full[:n_edges, :n_edges] = R
-        power_dissipated = 0.5 * np.real(np.conj(I) @ R_full @ I)
+        I_edges = I[:n_edges]
+        power_dissipated = 0.5 * np.real(np.conj(I_edges) @ R @ I_edges)
 
         # Compute port parameters relative to reference impedance
         Z0 = reference_impedance
@@ -626,6 +697,7 @@ def solve_single_frequency(
     current_sources: Optional[List[CurrentSource]] = None,
     loads: Optional[List[Load]] = None,
     config: Optional[SolverConfiguration] = None,
+    source_groups: Optional[List[int]] = None,
 ) -> FrequencyPoint:
     """
     Solve PEEC system at a single frequency.
@@ -646,7 +718,15 @@ def solve_single_frequency(
         FrequencyPoint solution at specified frequency
     """
     result = solve_peec_frequency_sweep(
-        nodes, edges, radii, np.array([frequency]), voltage_sources, current_sources, loads, config
+        nodes,
+        edges,
+        radii,
+        np.array([frequency]),
+        voltage_sources,
+        current_sources,
+        loads,
+        config,
+        source_groups=source_groups,
     )
 
     return result.frequency_solutions[0]
@@ -1224,6 +1304,10 @@ def solve_multi_antenna(
         current_sources=merged.current_sources,
         loads=merged.loads,
         config=config,
+        # balanced feeds are paired within one antenna only
+        source_groups=[
+            a for a, off in enumerate(merged.antenna_offsets) for _ in range(off["n_voltage"])
+        ],
     )
 
     # Distribute solution back to individual antennas
