@@ -85,6 +85,9 @@ class RadiationPatternResponse(BaseModel):
     directivity: float = Field(..., description="Directivity [dBi]")
     gain: float = Field(..., description="Gain [dBi]")
     efficiency: float = Field(..., description="Radiation efficiency")
+    radiated_power: Optional[float] = Field(
+        None, description="Radiated power P_rad [W] (far field integrated over the sphere)"
+    )
     beamwidth_theta: Optional[float] = Field(None, description="3dB beamwidth in theta [deg]")
     beamwidth_phi: Optional[float] = Field(None, description="3dB beamwidth in phi [deg]")
     max_direction: List[float] = Field(..., description="[theta, phi] of maximum [deg]")

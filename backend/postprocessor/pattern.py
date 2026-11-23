@@ -17,7 +17,9 @@ except AttributeError:
     _trapezoid = getattr(np, "trapz")  # NumPy < 2.0 (gone from the 2.x stubs)
 
 
-def compute_radiation_intensity(E_theta: np.ndarray, E_phi: np.ndarray) -> np.ndarray:
+def compute_radiation_intensity(
+    E_theta: np.ndarray, E_phi: np.ndarray, distance: float = 1.0
+) -> np.ndarray:
     """
     Compute radiation intensity U(θ,φ) = r²S_avg where S_avg is Poynting vector.
 
@@ -27,12 +29,16 @@ def compute_radiation_intensity(E_theta: np.ndarray, E_phi: np.ndarray) -> np.nd
     Args:
         E_theta: E_θ component [V/m], shape (..., n_theta, n_phi)
         E_phi: E_φ component [V/m], shape (..., n_theta, n_phi)
+        distance: r at which the fields were evaluated [m]. compute_far_field uses
+            FAR_FIELD_DISTANCE; the default 1.0 means fields normalised to r = 1 m.
+            Without it, absolute powers from compute_far_field are 1/r² too small
+            (directivity is unaffected: the factor cancels).
 
     Returns:
         Radiation intensity [W/sr], same shape as inputs
     """
     E_magnitude_sq = np.abs(E_theta) ** 2 + np.abs(E_phi) ** 2
-    U = E_magnitude_sq / (2 * Z_0)
+    U = distance**2 * E_magnitude_sq / (2 * Z_0)
 
     return U
 
