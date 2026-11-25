@@ -8,8 +8,8 @@
 import { evaluate, type Expr } from '../expressions';
 import type { FemModel, Point2, Step, StepKind } from '../model';
 import { takenNames, uniqueName } from './edit';
-import type { Geo, Pt, Sequence } from './sequence';
-import { STEPS } from './steps';
+import { fillArea, runSequence, type Geo, type Pt, type Sequence } from './sequence';
+import { inputsOf, STEPS } from './steps';
 
 /** What the mouse does on the canvas */
 export type Tool = 'select' | 'pick-edge' | Extract<StepKind, DrawKind>;
@@ -38,7 +38,7 @@ export const TOOL_HINT: Record<Tool, string> = {
   arc: 'Click the centre, the start, then the end',
   point: 'Click where the point goes',
   polygon: 'Click the corners; double-click or Enter to finish',
-  polyline: 'Click the points; double-click or Enter to finish',
+  polyline: 'Click the points; double-click or Enter to finish. Ending on its start makes a polygon; ending on other lines or on corners of a shape closes a surface',
   spline: 'Click the points; double-click or Enter to finish',
 };
 
@@ -110,6 +110,11 @@ export function snapTargets(model: FemModel, seq: Sequence, exclude: string[] = 
 
 // ── Drawing ───────────────────────────────────────────────────────────────────
 
+/** Points a shape needs: below this a drawing is only previewed as a path */
+const POINTS_NEEDED: Record<DrawKind, number> = {
+  rectangle: 2, circle: 2, ellipse: 2, sector: 3, arc: 3, point: 1, polygon: 3, polyline: 2, spline: 2,
+};
+
 const angleOf = (c: Pt, p: Pt) => (Math.atan2(p[1] - c[1], p[0] - c[0]) * 180) / Math.PI;
 const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
@@ -118,6 +123,7 @@ const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]);
  * already snapped), or null when it would be degenerate.
  */
 export function drawnStep(kind: DrawKind, points: Pt[], name: string, step?: number): Step | null {
+  if (points.length < POINTS_NEEDED[kind]) return null; // still drawing: no shape yet
   const t = (v: number) => tidy(v, step ? step / 100 : undefined);
   const [a, b, c] = points;
   switch (kind) {
@@ -148,6 +154,10 @@ export function drawnStep(kind: DrawKind, points: Pt[], name: string, step?: num
     case 'polyline':
     case 'spline': {
       const pts = points.filter((p, i) => i === 0 || dist(p, points[i - 1]) > 0);
+      // a line that ends where it started is a polygon
+      if (kind === 'polyline' && pts.length >= 4 && dist(pts[0], pts[pts.length - 1]) === 0) {
+        return { kind: 'polygon', name, points: pts.slice(0, -1).map(([x, y]) => [t(x), t(y)] as Point2) };
+      }
       if (pts.length < (kind === 'polygon' ? 3 : 2)) return null;
       return { kind, name, points: pts.map(([x, y]) => [t(x), t(y)] as Point2) };
     }
@@ -344,4 +354,86 @@ export function nearestEdgePoint(seq: Sequence, p: Pt, tolerance: number): Pt | 
   };
   seq.objects.forEach((o) => walk(o.geo));
   return best.at === p ? null : best.at;
+}
+
+// ── Closing regions ───────────────────────────────────────────────────────────
+
+const loopArea = (pts: Pt[]) => fillArea({ op: 'fill', loops: [pts] });
+
+/**
+ * A newly drawn open curve that closes a region becomes a surface's edge:
+ *
+ * - with existing curves whose ends it meets, forming one closed loop → a
+ *   surface bounded by all of them;
+ * - with both ends on corners of a straight-edged surface (polygon,
+ *   rectangle) → a surface bounded by the curve and that surface's edge
+ *   between the two corners, on the side away from it (the region around
+ *   or next to the shape; the shape keeps its area).
+ *
+ * Returns the model with the surface added (and the surface's name), or null.
+ */
+export function closeRegion(model: FemModel, curveName: string): { model: FemModel; surface: string } | null {
+  const seq = runSequence(model);
+  const curve = seq.created[curveName];
+  if (!curve || curve.geo.op !== 'lines' || curve.geo.paths.length !== 1) return null;
+  const path = curve.geo.paths[0];
+  const start = path[0], end = path[path.length - 1];
+  const span = Math.max(seq.bounds.xmax - seq.bounds.xmin, seq.bounds.ymax - seq.bounds.ymin, 1e-30);
+  const same = (a: Pt, b: Pt) => dist(a, b) <= 1e-9 * span;
+  if (same(start, end)) return null;
+  const surface = uniqueName('surf', takenNames(model));
+
+  // 1. a loop of curves
+  const curves = seq.objects.filter((o) => o.dim === 1 && o.name !== curveName && o.geo.op === 'lines' && o.geo.paths.length === 1);
+  const ends = (o: (typeof curves)[number]) => {
+    const l = (o.geo as Extract<Geo, { op: 'lines' }>).paths[0];
+    return [l[0], l[l.length - 1]] as const;
+  };
+  const used: string[] = [];
+  let at = end;
+  for (let k = 0; k < curves.length; k++) {
+    const next = curves.filter((c) => !used.includes(c.name) && ends(c).some((p) => same(p, at)));
+    if (next.length !== 1) break;
+    const [a, b] = ends(next[0]);
+    used.push(next[0].name);
+    at = same(a, at) ? b : a;
+    if (same(at, start)) {
+      // right after the steps that make or change these curves: surfaces drawn
+      // later (e.g. a shape inside the loop) still win where they overlap
+      const touches = (st: Step) => used.includes(st.name) || inputsOf(st).some((n) => used.includes(n));
+      const last = model.steps.reduce((m, st, i) => (touches(st) ? i : m), -1);
+      const drawn = model.steps.find((st) => st.name === curveName)!;
+      const steps = model.steps.filter((st) => st.name !== curveName);
+      const pos = Math.min(last + 1, steps.length);
+      steps.splice(pos, 0, drawn, { kind: 'surface', name: surface, curves: [curveName, ...used] });
+      return { model: { ...model, steps }, surface };
+    }
+  }
+
+  // 2. both ends on corners of a straight-edged surface
+  for (const o of seq.objects) {
+    if (o.dim !== 2 || o.geo.op !== 'fill' || o.geo.loops.length !== 1 || o.geo.loops[0].length > 24) continue;
+    const loop = o.geo.loops[0];
+    const n = loop.length;
+    const i = loop.findIndex((p) => same(p, start)), j = loop.findIndex((p) => same(p, end));
+    if (i < 0 || j < 0 || i === j) continue;
+    // the corners between the end and the start, either way round the shape
+    const walk = (dir: 1 | -1) => {
+      const out: Pt[] = [];
+      for (let k = (j + dir + n) % n; k !== i; k = (k + dir + n) % n) out.push(loop[k]);
+      return out;
+    };
+    const candidates = [walk(1), walk(-1)].map((between) => ({ between, area: loopArea([...path, ...between]) }));
+    // the two differ by the shape itself: the smaller one lies beside it
+    const { between } = candidates[0].area <= candidates[1].area ? candidates[0] : candidates[1];
+    const edge = uniqueName('edge', [...takenNames(model), surface]);
+    const edgePoints = [end, ...between, start].map(([x, y]) => [tidy(x), tidy(y)] as Point2);
+    const steps: Step[] = [
+      ...model.steps,
+      { kind: 'polyline', name: edge, points: edgePoints },
+      { kind: 'surface', name: surface, curves: [curveName, edge] },
+    ];
+    return { model: { ...model, steps }, surface };
+  }
+  return null;
 }
