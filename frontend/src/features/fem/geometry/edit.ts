@@ -89,7 +89,8 @@ export function setControl(m: FemModel, target: string, change: Partial<MeshCont
     !next ||
     ((next.size === undefined || next.size === null || next.size === '') &&
       (next.divisions === undefined || next.divisions === null || next.divisions === '') &&
-      !next.structured);
+      !next.structured &&
+      !next.boundary_layer);
   const others = m.mesh.controls.filter((c) => c.target !== target);
   const controls = empty ? others : old ? m.mesh.controls.map((c) => (c.target === target ? next! : c)) : [...others, next!];
   return { ...m, mesh: { ...m.mesh, controls } };

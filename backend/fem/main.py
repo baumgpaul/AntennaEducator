@@ -109,12 +109,19 @@ def _mesh_json(mesh: Mesh) -> dict:
     """Compact flat arrays (like the near-field response)."""
     return {
         "nodes": mesh.nodes.ravel().round(12).tolist(),
-        "triangles": mesh.triangles.ravel().tolist(),
+        # corners only (what the views draw); a 2nd-order mesh's midpoints are in nodes
+        "triangles": mesh.triangles[:, :3].ravel().tolist(),
         "triangle_domain": mesh.triangle_domain.tolist(),
+        "quads": mesh.quads[:, :4].ravel().tolist(),
+        "quad_domain": mesh.quad_domain.tolist(),
+        "order": mesh.order,
         "domain_names": mesh.domain_names,
         "edges": mesh.edges.ravel().tolist(),
         "boundaries": {name: ix.tolist() for name, ix in mesh.boundaries.items()},
+        # per element, triangles then quads
         "quality": mesh.quality().round(4).tolist(),
+        "min_angle": mesh.angles()[0].round(2).tolist(),
+        "aspect": np.minimum(mesh.aspect_ratio(), 1e6).round(3).tolist(),
         "stats": mesh.stats(),
     }
 

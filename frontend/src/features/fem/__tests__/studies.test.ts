@@ -45,6 +45,11 @@ describe('mesh refinement', () => {
     const divided: FemModel = { ...plate, mesh: { ...plate.mesh, controls: [{ target: 'top', divisions: 10 }] } };
     expect(evaluate(scaleMesh(divided, 0.5).mesh.controls[0].divisions!, p)).toBe(20);
     expect(evaluate(scaleMesh(divided, 100).mesh.controls[0].divisions!, p)).toBe(1);
+    // boundary layers get thinner with the mesh
+    const layered: FemModel = { ...plate, mesh: { ...plate.mesh, controls: [{ target: 'top', boundary_layer: { first: 0.001, layers: 4 } }] } };
+    const bl = scaleMesh(layered, 0.5).mesh.controls[0].boundary_layer!;
+    expect(evaluate(bl.first, p)).toBeCloseTo(0.0005, 15);
+    expect(bl.layers).toBe(4);
     expect(fine.mesh.elements_per_circle).toBe(2 * plate.mesh.elements_per_circle);
     expect(scaleMesh(coax, 1).mesh.elements_per_circle).toBe(coax.mesh.elements_per_circle);
     expect(scaleMesh({ ...coax, mesh: { ...coax.mesh, elements_per_circle: 4 } }, 4).mesh.elements_per_circle).toBe(4);

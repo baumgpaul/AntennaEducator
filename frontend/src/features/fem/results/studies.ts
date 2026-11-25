@@ -36,6 +36,7 @@ export function scaleMesh(model: FemModel, f: number): FemModel {
         ...c,
         ...(set(c.size) ? { size: scaleExpr(c.size, f) } : {}),
         ...(set(c.divisions) ? { divisions: `max(1, (${c.divisions})/${tidy(f)})` } : {}),
+        ...(c.boundary_layer ? { boundary_layer: { ...c.boundary_layer, first: scaleExpr(c.boundary_layer.first, f) } } : {}),
       })),
       elements_per_circle: Math.max(4, Math.round(model.mesh.elements_per_circle / f)),
     },
