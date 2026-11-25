@@ -5,7 +5,6 @@ Only maintainers and admins may use it while FEM is a preview, matching the
 frontend gate (frontend/src/config/features.ts).
 """
 
-import math
 import os
 import threading
 import time
@@ -16,9 +15,8 @@ from fastapi.exception_handlers import http_exception_handler, request_validatio
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fem_mesher import Geometry2D, Mesh, mesh_geometry
-from fem_mesher.expressions import ExpressionError, evaluate, evaluate_parameters
-from fem_mesher.geometry import Circle, Polygon, Rectangle
+from fem_mesher import Geometry, Mesh, mesh_geometry
+from fem_mesher.expressions import ExpressionError
 from fem_solver import EPSILON_0, Electrostatics, SetupError, check, solve
 from fem_solver.opencfs import export
 from pydantic import BaseModel, ConfigDict
@@ -34,9 +32,9 @@ logger = configure_logging("fem")
 
 API = "/api/fem"
 # Keeps a request well inside the Lambda limits (time, 6 MB response) — and
-# classroom models are far smaller. Estimated from area / element size.
+# classroom models are far smaller. The mesher estimates the count before meshing.
 MAX_TRIANGLES = 60_000
-MAX_SHAPES = 200
+MAX_STEPS = 200
 # Gmsh keeps global state and is not thread-safe (FastAPI runs these endpoints
 # in a thread pool; Lambda itself handles one request at a time)
 _GMSH = threading.Lock()
@@ -85,7 +83,7 @@ def preview_user(user: UserIdentity = Depends(get_current_user)) -> UserIdentity
 
 class MeshRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    geometry: Geometry2D
+    geometry: Geometry  # version 1 (shapes) is upgraded on load
 
 
 class ModelRequest(MeshRequest):
@@ -97,38 +95,12 @@ async def health():
     return {"status": "healthy", "service": "fem"}
 
 
-def _estimated_triangles(geometry: Geometry2D) -> float:
-    """Upper estimate from the shapes' total area and the smallest element size."""
-    values = evaluate_parameters(geometry.parameters)
-    ev = lambda e: evaluate(e, values)  # noqa: E731
-    area = 0.0
-    for s in geometry.shapes:
-        if isinstance(s, Rectangle):
-            area += abs(ev(s.width) * ev(s.height))
-        elif isinstance(s, Circle):
-            area += math.pi * ev(s.r) ** 2
-        elif isinstance(s, Polygon):
-            pts = np.array([[ev(x), ev(y)] for x, y in s.points])
-            area += 0.5 * abs(
-                np.dot(pts[:, 0], np.roll(pts[:, 1], -1))
-                - np.dot(pts[:, 1], np.roll(pts[:, 0], -1))
-            )
-    sizes = [ev(geometry.mesh.size)] + [ev(v) for v in geometry.mesh.domain_sizes.values()]
-    h = max(min(sizes), 1e-300)
-    return area / (0.433 * h * h)  # equilateral triangle of side h
-
-
-def _mesh(geometry: Geometry2D):
-    if len(geometry.shapes) > MAX_SHAPES:
-        raise HTTPException(status_code=422, detail=f"At most {MAX_SHAPES} shapes")
+def _mesh(geometry: Geometry, msh_path=None):
+    if len(geometry.steps) > MAX_STEPS:
+        raise HTTPException(status_code=422, detail=f"At most {MAX_STEPS} geometry steps")
     try:
-        if _estimated_triangles(geometry) > MAX_TRIANGLES:
-            raise HTTPException(
-                status_code=422,
-                detail=f"The mesh would exceed {MAX_TRIANGLES:,} triangles: increase the element size",
-            )
         with _GMSH:
-            return mesh_geometry(geometry)
+            return mesh_geometry(geometry, msh_path=msh_path, max_elements=MAX_TRIANGLES)
     except (ValueError, ExpressionError) as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
@@ -269,11 +241,7 @@ def export_endpoint(request: ModelRequest, user: UserIdentity = Depends(preview_
 
     with tempfile.TemporaryDirectory() as tmp:
         msh = Path(tmp) / "model.msh"
-        try:
-            with _GMSH:
-                result = mesh_geometry(request.geometry, msh_path=msh)
-        except (ValueError, ExpressionError) as e:
-            raise HTTPException(status_code=422, detail=str(e)) from e
+        result = _mesh(request.geometry, msh_path=msh)
         files = export(
             request.problem,
             result.mesh.domain_names,
