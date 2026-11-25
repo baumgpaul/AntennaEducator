@@ -16,6 +16,7 @@ import {
   directStep,
   dragHandle,
   drawnStep,
+  closeRegion,
   GESTURE,
   handlesOf,
   isDraw,
@@ -163,8 +164,15 @@ function GeometryCanvas({ seq, holes, fill, selected = [], onSelect, fitKey, edi
       const step = drawnStep(tool, pts, newName(editor.model, tool), snapStep ?? undefined);
       setClicks([]);
       if (!step) return;
-      editor.update((m) => ({ ...m, steps: [...m.steps, step] }), { gesture: `draw-${++gestureCount}` });
+      const drawn = { ...editor.model, steps: [...editor.model.steps, step] };
+      editor.update(() => drawn, { gesture: `draw-${++gestureCount}` });
       onSelect?.(step.name, false);
+      // a curve that closes a region: the region becomes a surface (its own undo step)
+      const closed = step.kind === 'polyline' || step.kind === 'arc' || step.kind === 'spline' ? closeRegion(drawn, step.name) : null;
+      if (closed) {
+        editor.update(() => closed.model, { gesture: `close-${++gestureCount}` });
+        onSelect?.(closed.surface, false);
+      }
       editor.onToolDone();
     },
     [editor, tool, snapStep, onSelect],
