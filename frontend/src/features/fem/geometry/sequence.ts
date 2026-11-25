@@ -16,7 +16,7 @@ export type Geo =
   | { op: 'fill'; loops: Pt[][] } // a surface: closed loops, even-odd (outer + holes)
   | { op: 'lines'; paths: Pt[][] } // curves
   | { op: 'dots'; pts: Pt[] } // points
-  | { op: 'group'; items: Geo[] } // union, arrays
+  | { op: 'group'; items: Geo[]; inner?: boolean } // union (inner: edges between the parts kept), arrays
   | { op: 'cut'; a: Geo; b: Geo } // a without the surface of b
   | { op: 'common'; a: Geo; b: Geo }; // a inside the surface of b
 
@@ -107,7 +107,7 @@ export function mapGeo(g: Geo, f: (p: Pt) => Pt): Geo {
     case 'dots':
       return { op: 'dots', pts: g.pts.map(f) };
     case 'group':
-      return { op: 'group', items: g.items.map((i) => mapGeo(i, f)) };
+      return { op: 'group', items: g.items.map((i) => mapGeo(i, f)), inner: g.inner };
     default:
       return { op: g.op, a: mapGeo(g.a, f), b: mapGeo(g.b, f) };
   }
@@ -290,6 +290,8 @@ export function runSequence(model: FemModel): Sequence {
   // tree: the node holding each live object, and transforms waiting for their object's consumer
   const holder = new Map<string, TreeNode>();
   const pendingTransforms = new Map<string, TreeNode[]>();
+  // objects inside an object (consumed into it): they follow its transforms, so the tree highlights them in place
+  const members = new Map<string, string[]>();
   const top: TreeNode[] = [];
 
   model.steps.forEach((step, index) => {
@@ -329,7 +331,9 @@ export function runSequence(model: FemModel): Sequence {
         const dims = dimOf(step.objects);
         if (new Set(dims).size !== 1 || dims[0] === 0) throw new StepError('objects must all be surfaces or all curves');
         let geo: Geo;
-        if (step.kind === 'union') geo = geoOf(step.objects);
+        if (step.kind === 'union') {
+          geo = step.interior ? { op: 'group', items: step.objects.map((n) => live.get(n)!.geo), inner: true } : geoOf(step.objects);
+        }
         else if (step.kind === 'intersection') {
           geo = step.objects.slice(1).reduce<Geo>((a, n) => ({ op: 'common', a, b: live.get(n)!.geo }), live.get(step.objects[0])!.geo);
         } else {
@@ -338,6 +342,8 @@ export function runSequence(model: FemModel): Sequence {
           geo = { op: 'cut', a: geoOf(step.objects), b: geoOf(step.tools) };
         }
         result = { name: step.name, dim: dims[0], geo };
+      } else if (step.kind === 'delete') {
+        if (step.objects.length === 0) throw new StepError('choose the objects');
       } else if (step.kind === 'array' || step.kind === 'polar_array') {
         if (step.objects.length === 0) throw new StepError('choose the objects');
         const dims = dimOf(step.objects);
@@ -383,6 +389,9 @@ export function runSequence(model: FemModel): Sequence {
             const o = live.get(n)!;
             live.set(n, { ...o, geo: mapGeo(o.geo, f) });
             created[n] = live.get(n)!;
+            for (const m of members.get(n) ?? []) {
+              if (created[m]) created[m] = { ...created[m], geo: mapGeo(created[m].geo, f) };
+            }
           }
         }
       }
@@ -413,6 +422,7 @@ export function runSequence(model: FemModel): Sequence {
         live.set(result.name, result);
         created[result.name] = result;
         holder.set(result.name, node);
+        if (consumes(step)) members.set(result.name, inputs.flatMap((n) => [n, ...(members.get(n) ?? [])]));
       }
     } catch (e) {
       if (!(e instanceof StepError || e instanceof ExpressionError)) throw e;
@@ -420,6 +430,17 @@ export function runSequence(model: FemModel): Sequence {
     }
     top.push(node);
   });
+
+  // a transform of one remaining object is listed under it
+  for (const node of [...top]) {
+    if (node.role !== 'transform' || node.step.kind === 'delete') continue;
+    const owners = new Set(inputsOf(node.step).map((n) => holder.get(n)));
+    const [owner] = owners;
+    if (owners.size === 1 && owner && owner !== node) {
+      owner.children.push(node);
+      top.splice(top.indexOf(node), 1);
+    }
+  }
 
   // roles of what is left
   const holes = new Set(model.holes);
@@ -456,7 +477,10 @@ export function runSequence(model: FemModel): Sequence {
     if (!possible.has(c.target) && !(b !== undefined && domains.includes(a) && domains.includes(b))) {
       meshErrors.push(`Mesh control "${c.target}": not a domain, boundary, curve or point of the model`);
     }
-    if (isUnset(c.size) && isUnset(c.divisions) && !c.structured) meshErrors.push(`Mesh control "${c.target}": set a size, divisions or structured`);
+    if (isUnset(c.size) && isUnset(c.divisions) && !c.structured && !c.boundary_layer) {
+      meshErrors.push(`Mesh control "${c.target}": set a size, divisions, structured or a boundary layer`);
+    }
+    if (c.boundary_layer && domains.includes(c.target)) meshErrors.push(`Mesh control "${c.target}": boundary layers grow from a boundary or curve`);
     if (c.structured && !domains.includes(c.target)) meshErrors.push(`Mesh control "${c.target}": only a domain can be structured`);
     if (targets.has(c.target)) meshErrors.push(`One mesh control per target: "${c.target}"`);
     targets.add(c.target);

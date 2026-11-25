@@ -26,7 +26,7 @@ export type Step =
   | { kind: 'spline'; name: string; points: Point2[] }
   | { kind: 'point'; name: string; x: Expr; y: Expr }
   | { kind: 'surface'; name: string; curves: string[] }
-  | { kind: 'union'; name: string; objects: string[]; keep?: boolean }
+  | { kind: 'union'; name: string; objects: string[]; keep?: boolean; interior?: boolean }
   | { kind: 'intersection'; name: string; objects: string[]; keep?: boolean }
   | { kind: 'difference'; name: string; objects: string[]; tools: string[]; keep?: boolean }
   | { kind: 'move'; name: string; objects: string[]; dx: Expr; dy: Expr; keep?: boolean }
@@ -34,7 +34,8 @@ export type Step =
   | { kind: 'scale'; name: string; objects: string[]; cx: Expr; cy: Expr; factor: Expr; factor_y?: Expr | null; keep?: boolean }
   | { kind: 'mirror'; name: string; objects: string[]; x: Expr; y: Expr; angle: Expr; keep?: boolean }
   | { kind: 'array'; name: string; objects: string[]; count: number; dx: Expr; dy: Expr }
-  | { kind: 'polar_array'; name: string; objects: string[]; count: number; cx: Expr; cy: Expr; angle: Expr };
+  | { kind: 'polar_array'; name: string; objects: string[]; count: number; cx: Expr; cy: Expr; angle: Expr }
+  | { kind: 'delete'; name: string; objects: string[] };
 
 export type StepKind = Step['kind'];
 
@@ -45,12 +46,20 @@ export type Selection =
   | { kind: 'boundary_of'; name: string; domains: string[] };
 
 /** Local discretisation of a domain, boundary, curve or point */
+export interface BoundaryLayer {
+  first: Expr;
+  growth?: Expr;
+  layers?: number;
+}
+
 export interface MeshControl {
   target: string;
   size?: Expr | null;
   divisions?: Expr | null;
   grading?: Expr;
   structured?: boolean;
+  /** Rows of thin elements along a boundary or curve */
+  boundary_layer?: BoundaryLayer | null;
 }
 
 export type MeshAlgorithm = 'frontal-delaunay' | 'delaunay' | 'meshadapt';
@@ -59,7 +68,10 @@ export interface MeshSettings {
   size: Expr;
   min_size?: Expr | null;
   algorithm?: MeshAlgorithm;
-  order: 1;
+  /** 2: elements with edge midpoints (export only: the built-in solver is P1) */
+  order: 1 | 2;
+  /** quad: quadrilaterals (export only) */
+  element?: 'triangle' | 'quad';
   elements_per_circle: number;
   smoothing?: number;
   controls: MeshControl[];
@@ -346,6 +358,13 @@ export function problemOf(m: FemModel) {
 
 /** Stable key of a part of the model: results are "current" while it is unchanged. */
 export const keyOf = (value: unknown) => JSON.stringify(value);
+
+/** Why the built-in P1 solver cannot use this mesh (it can still be exported to openCFS), or null. */
+export function exportOnly(m: FemModel): string | null {
+  if (m.mesh.element === 'quad') return 'Quadrilateral elements';
+  if (m.mesh.order === 2) return 'Second-order elements';
+  return null;
+}
 
 export function isDirichlet(bc: BoundaryCondition) {
   return bc.type === 'ground' || bc.type === 'potential';

@@ -8,7 +8,7 @@ import type { PDFTableSection } from '@/utils/pdfDataBuilders';
 import type { SolveResult } from '../api';
 import { evaluate, evaluateParameters, type Expr } from '../expressions';
 import { sampleLine } from '../lineProbe';
-import { EPSILON_0, TEMPLATES, type FemModel, type FemView } from '../model';
+import { EPSILON_0, TEMPLATES, exportOnly, type FemModel, type FemView } from '../model';
 import { STEPS, describeStep } from '../geometry/steps';
 import { si } from '../views/geometryDraw';
 import { analyticValue, convergence, exactValue, type StudyView } from './studies';
@@ -183,6 +183,12 @@ export function modelTables(model: FemModel, result?: SolveResult): PDFTableSect
       ? [{ cells: ['min element size', `${exprText(model.mesh.min_size)} = ${value(model.mesh.min_size)} m`] }]
       : []),
     { cells: ['algorithm', model.mesh.algorithm ?? 'frontal-delaunay'] },
+    {
+      cells: [
+        'element type',
+        `${model.mesh.element === 'quad' ? 'quadrilaterals' : 'triangles'}, order ${model.mesh.order}${exportOnly(model) ? ' (export only)' : ''}`,
+      ],
+    },
     ...model.mesh.controls.map((c) => ({
       cells: [
         `at ${c.target}`,
@@ -190,12 +196,14 @@ export function modelTables(model: FemModel, result?: SolveResult): PDFTableSect
           c.size != null && c.size !== '' ? `size ${exprText(c.size)} = ${value(c.size)} m` : '',
           c.divisions != null && c.divisions !== '' ? `${value(c.divisions)} divisions${c.grading != null && c.grading !== 1 ? `, grading ${exprText(c.grading)}` : ''}` : '',
           c.structured ? 'structured' : '',
+          c.boundary_layer
+            ? `${c.boundary_layer.layers ?? 5} layers from ${exprText(c.boundary_layer.first)} m, growth ${exprText(c.boundary_layer.growth ?? 1.2)}`
+            : '',
         ]
           .filter(Boolean)
           .join(', '),
       ],
     })),
-    { cells: ['elements', 'P1 (linear triangles)'] },
     { cells: ['depth (2D plane)', `${model.depth} m`] },
   ];
   if (result) {

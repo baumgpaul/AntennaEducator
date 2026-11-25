@@ -4,7 +4,7 @@
  * edit makes the results that depend on it out of date — and the tab shows it.
  */
 import type { Issue, MeshData, SolveResult } from './api';
-import { geometryOf, isDirichlet, keyOf, problemOf, type FemModel } from './model';
+import { exportOnly, geometryOf, isDirichlet, keyOf, problemOf, type FemModel } from './model';
 import type { FemStepId } from './workflow';
 import { runSequence } from './geometry/sequence';
 import { evaluateParameters, expressionErrors } from './expressions';
@@ -98,6 +98,10 @@ export function progress(state: StudioState): Progress {
   }
 
   if (done.has('physics') && !attention.has('mesh') && mesh && mesh.key === meshKey(model)) done.add('mesh');
+  const onlyExport = exportOnly(model);
+  if (done.has('mesh') && onlyExport) {
+    note('solve', `${onlyExport}: the built-in P1 solver needs linear triangles. Export the model to openCFS to solve it, or switch the mesh back.`);
+  }
   if (done.has('mesh') && result && result.key === solveKey(model)) {
     done.add('solve');
     done.add('results');

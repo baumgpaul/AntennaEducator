@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Box, Button, Stack, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material';
 import { PlayArrow } from '@mui/icons-material';
 import { CollapsibleSection, Hint, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
+import { exportOnly } from '../model';
 import type { FemStudio } from '../useFemStudio';
 import MeshView from '../views/MeshView';
 import { elementInfo } from '../p1';
@@ -26,7 +27,7 @@ function SolveTab({ studio }: { studio: FemStudio }) {
               <Button
                 startIcon={<PlayArrow />}
                 onClick={runSolve}
-                disabled={busy !== null || !progress.done.has('physics')}
+                disabled={busy !== null || !progress.done.has('physics') || !!exportOnly(studio.model)}
               >
                 {busy === 'solve' ? 'Solving…' : current ? 'Solved — solve again' : 'Assemble and solve K·u = f'}
               </Button>
@@ -83,7 +84,7 @@ function SolveTab({ studio }: { studio: FemStudio }) {
         )
       }
       rightTitle="Sparsity of K and the element matrix"
-      notes={!!error && <StepNotes error={error} />}
+      notes={(!!progress.notes.solve?.length || !!error) && <StepNotes notes={progress.notes.solve} error={error} />}
     >
       {result ? (
         <MeshView mesh={result.mesh} selectedTriangle={picked} onPickTriangle={setPicked} height="fill" />

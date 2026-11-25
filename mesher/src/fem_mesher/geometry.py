@@ -9,7 +9,8 @@ object from numbers/parameter expressions or from earlier objects:
 - booleans (union, difference, intersection) consume their inputs unless ``keep``;
 - transforms (move, rotate, scale, mirror) change objects in place, or with
   ``keep`` add the transformed copies as a new object named after the step;
-- arrays (linear, polar) replace their inputs by one object holding all copies.
+- arrays (linear, polar) replace their inputs by one object holding all copies;
+- ``delete`` removes objects (e.g. an input a boolean kept).
 
 When the sequence has run, every remaining object is fragmented together:
 
@@ -146,6 +147,11 @@ class Union(_Model):
     name: str
     objects: list[str] = Field(min_length=2)
     keep: bool = Field(False, description="Keep the inputs")
+    interior: bool = Field(
+        False,
+        description="Keep the edges between the inputs: one object of several pieces "
+        "(the edges can be named, e.g. for a condition on them)",
+    )
 
 
 class Difference(_Model):
@@ -201,6 +207,14 @@ class Mirror(_Transform):
     angle: Angle = 90
 
 
+class Delete(_Model):
+    """Remove objects from the model (e.g. an input kept by a boolean)."""
+
+    kind: Literal["delete"] = "delete"
+    name: str
+    objects: list[str] = Field(min_length=1)
+
+
 MAX_ARRAY = 200
 
 
@@ -250,7 +264,8 @@ Step = Annotated[
     | Scale
     | Mirror
     | LinearArray
-    | PolarArray,
+    | PolarArray
+    | Delete,
     Field(discriminator="kind"),
 ]
 
@@ -291,6 +306,16 @@ Selection = Annotated[
 # ── Mesh ──────────────────────────────────────────────────────────────────────
 
 MAX_DIVISIONS = 10_000
+MAX_LAYERS = 50
+
+
+class BoundaryLayer(_Model):
+    """Thin layers of elements along a boundary or curve: ``layers`` rows, the
+    first ``first`` thick, each ``growth`` times thicker than the one before."""
+
+    first: Expr = Field(description="Thickness of the first layer [m]")
+    growth: Expr = 1.2
+    layers: int = Field(5, ge=1, le=MAX_LAYERS)
 
 
 class MeshControl(_Model):
@@ -301,7 +326,9 @@ class MeshControl(_Model):
     - ``divisions``: number of elements along each curve of a boundary/domain
       (split curves share it in proportion to their length);
     - ``grading``: last/first element length along each curve with divisions;
-    - ``structured``: mapped mesh in a domain with 3 or 4 sides.
+    - ``structured``: mapped mesh in a domain with 3 or 4 sides;
+    - ``boundary_layer``: thin layers along a boundary or curve (e.g. where a
+      field changes fast next to an electrode).
     """
 
     target: str
@@ -309,6 +336,7 @@ class MeshControl(_Model):
     divisions: Expr | None = None
     grading: Expr = 1
     structured: bool = False
+    boundary_layer: BoundaryLayer | None = None
 
 
 ALGORITHMS = {"frontal-delaunay": 6, "delaunay": 5, "meshadapt": 1}
@@ -318,7 +346,10 @@ class MeshSettings(_Model):
     size: Expr = Field(description="Maximum element size [m]")
     min_size: Expr | None = Field(None, description="Minimum element size [m]")
     algorithm: Literal["frontal-delaunay", "delaunay", "meshadapt"] = "frontal-delaunay"
-    order: Literal[1, 2] = 1
+    order: Literal[1, 2] = Field(1, description="2: elements with edge midpoints")
+    element: Literal["triangle", "quad"] = Field(
+        "triangle", description="quad: triangles recombined into quadrilaterals"
+    )
     elements_per_circle: int = Field(16, ge=4, description="Resolution of curved boundaries")
     smoothing: int = Field(1, ge=0, le=100, description="Laplacian smoothing passes")
     controls: list[MeshControl] = Field(default_factory=list)
@@ -442,6 +473,10 @@ def validate_sequence(g: Geometry) -> dict[str, int]:
                 if len(set(dims)) != 1:
                     raise ValueError(f"{what}: copied objects must have the same dimension")
                 live[s.name] = dims[0]
+        elif s.kind == "delete":
+            use(s.objects, what)
+            for n in s.objects:
+                del live[n]
         elif s.kind in ("array", "polar_array"):
             dims = use(s.objects, what)
             if len(set(dims)) != 1:
@@ -476,8 +511,14 @@ def validate_sequence(g: Geometry) -> dict[str, int]:
             raise ValueError(
                 f"Mesh control {c.target!r}: not a domain, boundary, curve or point of the model"
             )
-        if c.size is None and c.divisions is None and not c.structured:
-            raise ValueError(f"Mesh control {c.target!r}: set a size, divisions or structured")
+        if c.size is None and c.divisions is None and not c.structured and not c.boundary_layer:
+            raise ValueError(
+                f"Mesh control {c.target!r}: set a size, divisions, structured or a boundary layer"
+            )
+        if c.boundary_layer and c.target in domains:
+            raise ValueError(
+                f"Mesh control {c.target!r}: boundary layers grow from a boundary or curve"
+            )
         if c.structured and c.target not in domains:
             raise ValueError(f"Mesh control {c.target!r}: only a domain can be structured")
         if live.get(c.target) == 0 and c.divisions is not None:

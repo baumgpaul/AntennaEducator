@@ -65,6 +65,7 @@ export class Painter {
           </g>
         );
       case 'group':
+        if (g.inner) return <g key={key}>{g.items.map((item, k) => this.outline(item, stroke, `${key}${k}`))}</g>;
         // each part's outline outside the other parts: no inner edges
         return (
           <g key={key}>

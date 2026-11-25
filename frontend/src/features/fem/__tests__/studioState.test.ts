@@ -90,4 +90,22 @@ describe('FEM Studio progress', () => {
     const spatial = { ...potential, boundary_conditions: [{ ...potential.boundary_conditions[0], value: 'U*x' }, potential.boundary_conditions[1]] };
     expect(progress(meshed(spatial)).done.has('physics')).toBe(true); // x and y are allowed there
   });
+
+  it('a mesh of quads or of order 2 is for export: the Solve step says so', () => {
+    for (const change of [{ element: 'quad' as const }, { order: 2 as const }]) {
+      const model = { ...coax(), mesh: { ...coax().mesh, ...change } };
+      const p = progress(meshed(model));
+      expect(p.done.has('mesh')).toBe(true);
+      expect(p.notes.solve?.[0]).toMatch(/export/i);
+    }
+    expect(progress(meshed(coax())).notes.solve).toBeUndefined();
+  });
+
+  it('checks boundary layer settings', () => {
+    const model = coax();
+    model.mesh.controls = [{ target: 'dielectric', boundary_layer: { first: 1e-5 } }];
+    expect(progress(meshed(model)).notes.mesh?.join(' ')).toMatch(/boundary layers grow from a boundary/);
+    model.mesh.controls = [{ target: 'inner', boundary_layer: { first: 1e-5 } }];
+    expect(progress(meshed(model)).notes.mesh).toBeUndefined();
+  });
 });

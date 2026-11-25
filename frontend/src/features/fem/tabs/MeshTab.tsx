@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { Box, Button, IconButton, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { Close, GridOn } from '@mui/icons-material';
+import { useMemo, useState } from 'react';
+import { Alert, Box, Button, FormControlLabel, IconButton, MenuItem, Stack, Switch, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Close, GridOn, ZoomIn } from '@mui/icons-material';
 import { CollapsibleSection, Hint, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import type { FemStudio } from '../useFemStudio';
 import MeshView from '../views/MeshView';
 import { colormap } from '../views/geometryDraw';
 import { ExprField, StepNotes } from './common';
-import type { MeshAlgorithm } from '../model';
+import { exportOnly, type MeshAlgorithm } from '../model';
 import { setControl } from '../geometry/edit';
 import { MeshControlFields } from '../geometry/MeshControlFields';
 import type { TargetKind } from '../geometry/steps';
@@ -18,10 +18,33 @@ const ALGORITHMS: { id: MeshAlgorithm; label: string; hint: string }[] = [
   { id: 'meshadapt', label: 'MeshAdapt', hint: 'Local edge swaps and splits: robust for complicated or strongly graded geometries.' },
 ];
 
+type ColorBy = 'domain' | 'quality' | 'min_angle' | 'aspect';
+const MEASURES: { id: ColorBy; label: string }[] = [
+  { id: 'domain', label: 'Domains' },
+  { id: 'quality', label: 'Quality' },
+  { id: 'min_angle', label: 'Smallest angle' },
+  { id: 'aspect', label: 'Aspect ratio' },
+];
+/** Elements below this shape quality are flagged */
+const POOR = 0.3;
+
 function MeshTab({ studio }: { studio: FemStudio }) {
   const { model, update, progress, busy, error } = studio;
-  const [colorBy, setColorBy] = useState<'domain' | 'quality'>('domain');
+  const [colorBy, setColorBy] = useState<ColorBy>('domain');
+  const [showPoor, setShowPoor] = useState(false);
+  const [focus, setFocus] = useState<{ k: number } | null>(null);
   const mesh = studio.mesh?.data;
+  const onlyExport = exportOnly(model);
+  // poor elements, worst first
+  const poor = useMemo(() => {
+    if (!mesh) return [];
+    return mesh.quality
+      .map((q, e) => [q, e] as const)
+      .filter(([q]) => q < POOR)
+      .sort((a, b) => a[0] - b[0])
+      .map(([, e]) => e);
+  }, [mesh]);
+  const values = mesh && colorBy !== 'domain' ? (colorBy === 'quality' ? mesh.quality : colorBy === 'min_angle' ? mesh.min_angle : mesh.aspect) : undefined;
   const current = progress.done.has('mesh');
   const setMesh = (change: Partial<typeof model.mesh>) => update((m) => ({ ...m, mesh: { ...m.mesh, ...change } }));
   const notes = progress.notes.mesh;
@@ -30,7 +53,8 @@ function MeshTab({ studio }: { studio: FemStudio }) {
   const targets: { name: string; kind: TargetKind }[] = [
     ...progress.domains.map((name) => ({ name, kind: 'domain' as const })),
     ...seq.objects.filter((o) => o.dim < 2).map((o) => ({ name: o.name, kind: o.dim === 1 ? ('curve' as const) : ('point' as const) })),
-    ...progress.boundaries.filter((b) => !seq.objects.some((o) => o.name === b)).map((name) => ({ name, kind: 'boundary' as const })),
+    // boundaries, without the lines listed above (a hole's edge is a boundary named like the hole)
+    ...progress.boundaries.filter((b) => !seq.objects.some((o) => o.name === b && o.dim < 2)).map((name) => ({ name, kind: 'boundary' as const })),
   ];
   const kindOf = (name: string): TargetKind => targets.find((t) => t.name === name)?.kind ?? (seq.domains.includes(name) ? 'domain' : 'boundary');
 
@@ -51,14 +75,35 @@ function MeshTab({ studio }: { studio: FemStudio }) {
           </RibbonGroup>
           <RibbonGroup label="Colour by">
             <ToggleButtonGroup size="small" exclusive value={colorBy} onChange={(_, v) => v && setColorBy(v)}>
-              <ToggleButton value="domain">Domains</ToggleButton>
-              <ToggleButton value="quality">Element quality</ToggleButton>
+              {MEASURES.map((m) => (
+                <ToggleButton key={m.id} value={m.id} disabled={m.id !== 'domain' && m.id !== 'quality' && !mesh?.[m.id as 'min_angle' | 'aspect']}>
+                  {m.label}
+                </ToggleButton>
+              ))}
             </ToggleButtonGroup>
           </RibbonGroup>
           {mesh && (
+            <RibbonGroup label={`Poor elements (q < ${POOR})`}>
+              <FormControlLabel
+                sx={{ ml: 0 }}
+                label={poor.length.toLocaleString()}
+                control={<Switch size="small" checked={showPoor} onChange={(e) => setShowPoor(e.target.checked)} disabled={!poor.length} />}
+              />
+              <Button
+                size="small"
+                startIcon={<ZoomIn />}
+                disabled={!poor.length && !mesh.quality.length}
+                onClick={() => setFocus((f) => ({ k: f ? (f.k + 1) % Math.max(1, poor.length) : 0 }))}
+              >
+                Show worst
+              </Button>
+            </RibbonGroup>
+          )}
+          {mesh && (
             <RibbonGroup label="Size">
               <Typography variant="body2">
-                {mesh.stats.nodes.toLocaleString()} nodes (unknowns) · {mesh.stats.triangles.toLocaleString()} triangles
+                {mesh.stats.nodes.toLocaleString()} nodes{onlyExport ? '' : ' (unknowns)'} · {mesh.stats.triangles.toLocaleString()} triangles
+                {mesh.stats.quads ? ` · ${mesh.stats.quads.toLocaleString()} quadrilaterals` : ''}
                 {!current && ' · out of date: generate again'}
               </Typography>
             </RibbonGroup>
@@ -67,6 +112,26 @@ function MeshTab({ studio }: { studio: FemStudio }) {
       }
       left={
         <>
+          <CollapsibleSection title="Elements">
+            <Stack spacing={1.5}>
+              <ToggleButtonGroup size="small" exclusive fullWidth value={model.mesh.element ?? 'triangle'} onChange={(_, v) => v && setMesh({ element: v })}>
+                <ToggleButton value="triangle">Triangles</ToggleButton>
+                <ToggleButton value="quad">Quadrilaterals</ToggleButton>
+              </ToggleButtonGroup>
+              <ToggleButtonGroup size="small" exclusive fullWidth value={model.mesh.order} onChange={(_, v) => v && setMesh({ order: v })}>
+                <ToggleButton value={1}>Linear (order 1)</ToggleButton>
+                <ToggleButton value={2}>Quadratic (2)</ToggleButton>
+              </ToggleButtonGroup>
+              {onlyExport ? (
+                <Alert severity="info">
+                  {onlyExport}: <b>export only</b>. The built-in solver uses linear triangles (P1); export the model to
+                  openCFS, which solves these meshes.
+                </Alert>
+              ) : (
+                <Hint>Linear triangles: what the built-in P1 solver uses. Quadrilaterals and order 2 are for export to openCFS.</Hint>
+              )}
+            </Stack>
+          </CollapsibleSection>
           <CollapsibleSection title="Element size">
             <Stack spacing={2}>
               <ExprField label="max size [m]" value={model.mesh.size} width={248} onChange={(v) => setMesh({ size: v })} />
@@ -153,9 +218,16 @@ function MeshTab({ studio }: { studio: FemStudio }) {
           {mesh && (
             <CollapsibleSection title="Element quality">
               <QualityHistogram histogram={mesh.stats.quality.histogram} min={mesh.stats.quality.min} />
+              {mesh.stats.angles && mesh.stats.aspect && (
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  angles {mesh.stats.angles.min.toFixed(1)}° … {mesh.stats.angles.max.toFixed(1)}° · aspect ratio mean{' '}
+                  {mesh.stats.aspect.mean.toFixed(2)}, max {mesh.stats.aspect.max.toPrecision(3)}
+                </Typography>
+              )}
               <Hint>
-                The solution is linear on each triangle; its values at the {mesh.stats.nodes.toLocaleString()} nodes are the
-                unknowns. Quality q = 4√3·A/Σl² is 1 for an equilateral triangle; flat ones (q → 0) spoil the accuracy.
+                Quality: 4√3·A/Σl² for triangles (1 = equilateral), the smallest sine of the corner angles for quadrilaterals
+                (1 = rectangle). Flat elements (q → 0), very small or very large angles spoil the accuracy; long thin
+                elements are fine only where the field hardly changes along them (boundary layers).
               </Hint>
             </CollapsibleSection>
           )}
@@ -164,7 +236,13 @@ function MeshTab({ studio }: { studio: FemStudio }) {
       notes={(!!notes?.length || !!error) && <StepNotes notes={notes} error={error} />}
     >
       {mesh ? (
-        <MeshView mesh={mesh} triangleValues={colorBy === 'quality' ? mesh.quality : undefined} height="fill" />
+        <MeshView
+          mesh={mesh}
+          elementValues={values}
+          highlightElements={showPoor ? poor : undefined}
+          focusElement={focus ? (poor.length ? poor[focus.k % poor.length] : mesh.quality.indexOf(Math.min(...mesh.quality))) : null}
+          height="fill"
+        />
       ) : (
         <Typography
           sx={{

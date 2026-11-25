@@ -191,3 +191,24 @@ def test_model_check_and_export_stay_free(client, repo):
         == 200
     )
     repo.charge_user_tokens.assert_not_called()
+
+
+def test_mesh_json_of_quads_and_second_order_has_corners_and_measures(client):
+    geometry = {**GEOMETRY, "mesh": {"size": 0.004, "element": "quad", "order": 2}}
+    r = client.post("/api/fem/mesh", json={"geometry": geometry})
+    assert r.status_code == 200, r.text
+    m = r.json()["mesh"]
+    n_tri, n_quad = len(m["triangles"]) // 3, len(m["quads"]) // 4
+    assert n_quad > 0 and m["order"] == 2
+    assert len(m["triangle_domain"]) == n_tri and len(m["quad_domain"]) == n_quad
+    assert len(m["quality"]) == len(m["min_angle"]) == len(m["aspect"]) == n_tri + n_quad
+    assert max(m["quads"]) < len(m["nodes"]) // 2  # corners index the nodes (midpoints too)
+    assert m["stats"]["quads"] == n_quad
+
+
+def test_quad_meshes_are_exported_but_not_solved(client):
+    geometry = {**GEOMETRY, "mesh": {"size": 0.004, "element": "quad"}}
+    r = client.post("/api/fem/solve", json={"geometry": geometry, "problem": PROBLEM})
+    assert r.status_code == 422 and "triangles" in r.text
+    r = client.post("/api/fem/export/opencfs", json={"geometry": geometry, "problem": PROBLEM})
+    assert r.status_code == 200

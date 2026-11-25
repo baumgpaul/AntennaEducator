@@ -66,6 +66,10 @@ class ElectrostaticsResult:
 def solve(problem: Electrostatics, mesh: Mesh) -> ElectrostaticsResult:
     if mesh.order != 1:
         raise SetupError("The P1 solver needs a first-order mesh (mesh order 1)")
+    if mesh.n_quads:
+        raise SetupError(
+            "The P1 solver needs triangles: a mesh of quadrilaterals is for export (openCFS)"
+        )
     errors = [
         i for i in check(problem, mesh.domain_names, list(mesh.boundaries)) if i.severity == "error"
     ]
