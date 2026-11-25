@@ -86,13 +86,18 @@ describe('Geometry tab', () => {
     );
   };
   const tree = () => screen.getByRole('tree', { name: 'Geometry tree' });
+  /** A shape tool, then Enter: its default shape (the keyboard path) */
+  const insert = (label: string) => {
+    fireEvent.click(screen.getByRole('button', { name: label }));
+    fireEvent.keyDown(window, { key: 'Enter' });
+  };
 
   it('adds shapes, combines the selection and edits the result in its properties', () => {
     render();
     // combining needs a selection
     expect(screen.getByRole('button', { name: 'Union' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Rectangle' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Circle' }));
+    insert('Rectangle');
+    insert('Circle');
     expect(within(tree()).getAllByRole('treeitem').map((t) => t.getAttribute('aria-label'))).toEqual(['rect1', 'circle1']);
 
     // the new circle is selected: ctrl-click adds the rectangle
@@ -119,7 +124,7 @@ describe('Geometry tab', () => {
 
   it('shows what is wrong with a step in the tree', () => {
     render();
-    fireEvent.click(screen.getByRole('button', { name: 'Rectangle' }));
+    insert('Rectangle');
     fireEvent.change(screen.getByLabelText('width [m]'), { target: { value: '-1' } });
     expect(within(tree()).getByLabelText('Error in rect1')).toBeInTheDocument();
     expect(screen.getAllByText(/width must be positive/).length).toBeGreaterThan(0);

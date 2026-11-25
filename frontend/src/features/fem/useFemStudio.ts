@@ -9,6 +9,8 @@ import { zipFiles } from './zip';
 
 const STORAGE_KEY = 'fem-studio-model';
 const SAVE_DELAY_MS = 1000;
+const MERGE_MS = 700; // quick edits (typing) within this make one undo step
+const MAX_UNDO = 100;
 
 export type SaveStatus = 'loading' | 'saved' | 'saving' | 'unsaved' | 'error' | 'draft';
 
@@ -158,21 +160,70 @@ export function useFemStudio(projectId?: string) {
     );
   }, [mesh, result, projectId]);
 
-  const update = useCallback((change: (m: FemModel) => FemModel) => {
-    setState((s) => ({ ...s, model: change(s.model), issues: [] }));
+  // Undo/redo of model edits. Edits of one gesture (a drag), or quick edits
+  // without a gesture (typing), make one step.
+  const modelRef = useRef(state.model);
+  useEffect(() => {
+    modelRef.current = state.model;
+  }, [state.model]);
+  const history = useRef<{ past: FemModel[]; future: FemModel[]; last: { at: number; gesture?: string } }>({
+    past: [],
+    future: [],
+    last: { at: 0 },
+  });
+  const [steps, setSteps] = useState({ undo: 0, redo: 0 });
+  const show = useCallback((model: FemModel) => {
+    modelRef.current = model;
+    setState((s) => ({ ...s, model, issues: [] }));
     setError(null);
+    setSteps({ undo: history.current.past.length, redo: history.current.future.length });
   }, []);
+
+  const update = useCallback(
+    (change: (m: FemModel) => FemModel, options?: { gesture?: string }) => {
+      const prev = modelRef.current;
+      const next = change(prev);
+      if (next === prev) return;
+      const h = history.current;
+      const now = Date.now();
+      const gesture = options?.gesture;
+      const merge = gesture ? h.last.gesture === gesture : !h.last.gesture && now - h.last.at < MERGE_MS;
+      if (!merge) h.past = [...h.past.slice(-(MAX_UNDO - 1)), prev];
+      h.future = [];
+      h.last = { at: now, gesture };
+      show(next);
+    },
+    [show],
+  );
+  const undo = useCallback(() => {
+    const h = history.current;
+    const prev = h.past.at(-1);
+    if (!prev) return;
+    h.past = h.past.slice(0, -1);
+    h.future = [...h.future, modelRef.current];
+    h.last = { at: 0 };
+    show(prev);
+  }, [show]);
+  const redo = useCallback(() => {
+    const h = history.current;
+    const next = h.future.at(-1);
+    if (!next) return;
+    h.future = h.future.slice(0, -1);
+    h.past = [...h.past, modelRef.current];
+    h.last = { at: 0 };
+    show(next);
+  }, [show]);
 
   /** Start from another model (a template): its domains are found right away. */
   const modelName = state.model.name;
   const load = useCallback(
     (template: FemModel) => {
       const model = { ...structuredClone(template), name: modelName };
-      setState({ model, issues: [] });
-      setError(null);
+      update(() => model, { gesture: `load-${Date.now()}` }); // undoable
+      setState({ model, issues: [] }); // results of the old model go
       if (canFindDomains(model)) void meshFor(model);
     },
-    [modelName, meshFor],
+    [modelName, meshFor, update],
   );
 
   const runMesh = useCallback(() => meshFor(state.model), [meshFor, state.model]);
@@ -220,6 +271,10 @@ export function useFemStudio(projectId?: string) {
     saveStatus,
     project,
     update,
+    undo,
+    redo,
+    canUndo: steps.undo > 0,
+    canRedo: steps.redo > 0,
     load,
     runMesh,
     runSolve,

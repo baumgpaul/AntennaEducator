@@ -248,6 +248,15 @@ function primitive(step: Step, ev: (e: Expr) => number): Geo | null {
   }
 }
 
+/** The geometry of one primitive step (a drawing preview), or null. */
+export function stepGeo(step: Step, values: Record<string, number>): Geo | null {
+  try {
+    return primitive(step, (e) => evaluate(e, values));
+  } catch {
+    return null;
+  }
+}
+
 const PRIMITIVE_DIM: Partial<Record<Step['kind'], Dim>> = {
   rectangle: 2, circle: 2, ellipse: 2, sector: 2, polygon: 2, polyline: 1, arc: 1, spline: 1, point: 0,
 };
