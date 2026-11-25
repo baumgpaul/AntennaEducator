@@ -1,6 +1,7 @@
 """Geometry → Gmsh (OpenCASCADE) → Mesh, with named domains and boundaries."""
 
 import math
+from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,9 +14,11 @@ from .geometry import ALGORITHMS, MAX_DIVISIONS, RESERVED_BOUNDARY, Geometry
 from .mesh import Mesh
 from .sequence import gmsh_errors, run_sequence
 
-# Gmsh element types: 3/6-node triangles, 2/3-node lines
+# Gmsh element types: 3/6-node triangles, 4/8-node quadrangles, 2/3-node lines
 _TRIANGLE = {1: 2, 2: 9}
+_QUAD = {1: 3, 2: 16}
 _LINE = {1: 1, 2: 8}
+_ALGORITHM_QUADS = 8  # Frontal-Delaunay for quads
 _BOX_TOLERANCE = 1e-9  # relative to the model size
 _POINT_TOLERANCE = 0.02  # a point selection picks curves this close (relative to the model size)
 _EQUILATERAL = math.sqrt(3) / 4  # area of an equilateral triangle of side 1
@@ -79,12 +82,14 @@ def mesh_geometry(
         with gmsh_errors("Meshing"):
             gmsh.model.mesh.generate(2)
             if order == 2:
+                # 8-node quadrangles (serendipity), as openCFS and most codes use
+                gmsh.option.setNumber("Mesh.SecondOrderIncomplete", 1)
                 gmsh.model.mesh.setOrder(2)
 
         mesh = _extract(order, domain_names, model.domain_surfaces, model.boundary_curves)
-        if max_elements is not None and mesh.n_triangles > max_elements:
+        if max_elements is not None and mesh.n_elements > max_elements:
             raise ValueError(
-                f"The mesh has {mesh.n_triangles:,} elements (at most {max_elements:,}): "
+                f"The mesh has {mesh.n_elements:,} elements (at most {max_elements:,}): "
                 "increase the element size"
             )
         if msh_path is not None:
@@ -287,7 +292,13 @@ def _apply_mesh_settings(geometry: Geometry, ev, model: _Model) -> float:
     # (from the model extent) would silently override them
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", settings.elements_per_circle)
-    gmsh.option.setNumber("Mesh.Algorithm", ALGORITHMS[settings.algorithm])
+    quads = settings.element == "quad"
+    algorithm = ALGORITHMS[settings.algorithm]
+    if quads:
+        gmsh.option.setNumber("Mesh.RecombineAll", 1)
+        if settings.algorithm == "frontal-delaunay":
+            algorithm = _ALGORITHM_QUADS
+    gmsh.option.setNumber("Mesh.Algorithm", algorithm)
     gmsh.option.setNumber("Mesh.Smoothing", settings.smoothing)
 
     domain_size = {d: size for d in model.domain_surfaces}
@@ -335,11 +346,19 @@ def _apply_mesh_settings(geometry: Geometry, ev, model: _Model) -> float:
                 fields.append(fid)
         if c.structured:
             for s in model.domain_surfaces[t]:
-                gmsh.model.mesh.setTransfiniteAutomatic([(2, s)], recombine=False)
+                gmsh.model.mesh.setTransfiniteAutomatic([(2, s)], recombine=quads)
         if c.divisions is not None:
             if kind != "boundary":
                 raise ValueError(f"Mesh control {t!r}: divisions are set along a boundary or curve")
             extra += _divide(t, ev(c.divisions), ev(c.grading), model.boundary_curves[t], size)
+        if c.boundary_layer is not None:
+            if kind != "boundary":
+                raise ValueError(
+                    f"Mesh control {t!r}: boundary layers grow from a boundary or curve"
+                )
+            extra += _boundary_layer(
+                t, c.boundary_layer, ev, model.boundary_curves[t], size, quads, fields
+            )
     if fields:
         m = f.add("Min")
         f.setNumbers(m, "FieldsList", fields)
@@ -370,6 +389,51 @@ def _divide(target, n_expr, grading, curves, size) -> float:
     return extra
 
 
+def _boundary_layer(target, bl, ev, curves, size, quads, fields) -> float:
+    """Rows of thin elements along the curves (quadrangles split into
+    triangles unless the mesh is of quadrangles). Returns the added elements.
+
+    Gmsh ends the rows one element before an end that meets another edge
+    (e.g. a side wall): small elements around such ends (first-layer size,
+    growing over twice the layer thickness) resolve the corner columns too."""
+    first, growth = ev(bl.first), ev(bl.growth)
+    if not 0 < first < size:
+        raise ValueError(
+            f"Mesh control {target!r}: the first layer must be thinner than the element size"
+        )
+    if not 1 <= growth <= 10:
+        raise ValueError(f"Mesh control {target!r}: layer growth must be between 1 and 10")
+    n = bl.layers
+    thickness = first * n if growth == 1 else first * (growth**n - 1) / (growth - 1)
+    f = gmsh.model.mesh.field
+    fid = f.add("BoundaryLayer")
+    f.setNumbers(fid, "CurvesList", curves)
+    f.setNumber(fid, "Size", first)
+    f.setNumber(fid, "Ratio", growth)
+    f.setNumber(fid, "NbLayers", n)
+    f.setNumber(fid, "Thickness", thickness)
+    f.setNumber(fid, "Quads", 1 if quads else 0)
+    f.setAsBoundaryLayer(fid)
+
+    ends = Counter(
+        abs(p) for c in curves for _, p in gmsh.model.getBoundary([(1, c)], combined=False)
+    )
+    open_ends = [p for p, n in ends.items() if n == 1]
+    if open_ends:
+        dist = f.add("Distance")
+        f.setNumbers(dist, "PointsList", open_ends)
+        corner = f.add("Threshold")
+        f.setNumber(corner, "InField", dist)
+        f.setNumber(corner, "SizeMin", first)
+        f.setNumber(corner, "SizeMax", size)
+        f.setNumber(corner, "DistMin", 0.0)
+        f.setNumber(corner, "DistMax", 2 * thickness)
+        fields.append(corner)
+    length = sum(_curve_length(c) for c in curves)
+    # rows of 2 triangles per element along it, both sides; refined ends
+    return 2 * 2 * n * length / size + _ball_elements(first, size) * len(open_ends)
+
+
 def _band_elements(length: float, h: float, size: float) -> float:
     """Elements in the band where the size grows linearly from h (on a curve of
     this length, both sides) to ``size`` over 4·size: 2·L·∫dx/h(x)²."""
@@ -395,15 +459,19 @@ def _extract(order, domain_names, domain_surfaces, boundary_curves) -> Mesh:
     tags, coords, _ = gmsh.model.mesh.getNodes()
     xyz = coords.reshape(-1, 3)[:, :2]
     position = {int(t): i for i, t in enumerate(tags)}
-    n_tri, n_line = (3, 2) if order == 1 else (6, 3)
+    n_tri, n_quad, n_line = (3, 4, 2) if order == 1 else (6, 8, 3)
 
-    triangles, tri_domain = [], []
+    triangles, tri_domain, quadrangles, quad_domain = [], [], [], []
     for d, name in enumerate(domain_names):
         for s in domain_surfaces[name]:
             t = _elements(2, s, _TRIANGLE[order], n_tri)
             triangles.append(t)
             tri_domain.append(np.full(len(t), d))
+            q = _elements(2, s, _QUAD[order], n_quad)
+            quadrangles.append(q)
+            quad_domain.append(np.full(len(q), d))
     tri = np.vstack(triangles)
+    quad = np.vstack(quadrangles)
 
     edge_rows, curve_rows = [], {}
     for name, curves in sorted(boundary_curves.items()):
@@ -415,11 +483,12 @@ def _extract(order, domain_names, domain_surfaces, boundary_curves) -> Mesh:
     edges = np.vstack(edge_rows) if edge_rows else np.zeros((0, n_line), dtype=np.int64)
 
     # Compact 0-based numbering of the nodes that are actually used
-    used = np.unique(np.concatenate([tri.ravel(), edges.ravel()]))
+    used = np.unique(np.concatenate([tri.ravel(), quad.ravel(), edges.ravel()]))
     renumber = {int(t): i for i, t in enumerate(used)}
     to_index = np.vectorize(renumber.__getitem__, otypes=[np.int64])
     nodes = xyz[[position[int(t)] for t in used]]
-    tri = to_index(tri)
+    tri = to_index(tri) if len(tri) else tri
+    quad = to_index(quad) if len(quad) else quad
     edges = to_index(edges) if len(edges) else edges
 
     mesh = Mesh(
@@ -433,6 +502,8 @@ def _extract(order, domain_names, domain_surfaces, boundary_curves) -> Mesh:
             for name, curves in sorted(boundary_curves.items())
         },
         order=order,
+        quads=quad,
+        quad_domain=np.concatenate(quad_domain).astype(np.int64),
     )
     _orient_counter_clockwise(mesh)
     return mesh
@@ -448,8 +519,12 @@ def _elements(dim: int, tag: int, element_type: int, n_nodes: int) -> np.ndarray
 
 def _orient_counter_clockwise(mesh: Mesh) -> None:
     flip = mesh.areas() < 0
-    if not flip.any():
-        return
-    # corners 0,1,2 → 0,2,1; P2 midpoints (01, 12, 20) → (02, 21, 10) = (5, 4, 3)
-    perm = [0, 2, 1] if mesh.order == 1 else [0, 2, 1, 5, 4, 3]
-    mesh.triangles[flip] = mesh.triangles[flip][:, perm]
+    if flip.any():
+        # corners 0,1,2 → 0,2,1; P2 midpoints (01, 12, 20) → (02, 21, 10) = (5, 4, 3)
+        perm = [0, 2, 1] if mesh.order == 1 else [0, 2, 1, 5, 4, 3]
+        mesh.triangles[flip] = mesh.triangles[flip][:, perm]
+    flip = mesh.quad_areas() < 0
+    if flip.any():
+        # corners 0,1,2,3 → 0,3,2,1; midpoints (01, 12, 23, 30) → (03, 32, 21, 10) = (7, 6, 5, 4)
+        perm = [0, 3, 2, 1] if mesh.order == 1 else [0, 3, 2, 1, 7, 6, 5, 4]
+        mesh.quads[flip] = mesh.quads[flip][:, perm]

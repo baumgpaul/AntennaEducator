@@ -456,7 +456,10 @@ export function runSequence(model: FemModel): Sequence {
     if (!possible.has(c.target) && !(b !== undefined && domains.includes(a) && domains.includes(b))) {
       meshErrors.push(`Mesh control "${c.target}": not a domain, boundary, curve or point of the model`);
     }
-    if (isUnset(c.size) && isUnset(c.divisions) && !c.structured) meshErrors.push(`Mesh control "${c.target}": set a size, divisions or structured`);
+    if (isUnset(c.size) && isUnset(c.divisions) && !c.structured && !c.boundary_layer) {
+      meshErrors.push(`Mesh control "${c.target}": set a size, divisions, structured or a boundary layer`);
+    }
+    if (c.boundary_layer && domains.includes(c.target)) meshErrors.push(`Mesh control "${c.target}": boundary layers grow from a boundary or curve`);
     if (c.structured && !domains.includes(c.target)) meshErrors.push(`Mesh control "${c.target}": only a domain can be structured`);
     if (targets.has(c.target)) meshErrors.push(`One mesh control per target: "${c.target}"`);
     targets.add(c.target);

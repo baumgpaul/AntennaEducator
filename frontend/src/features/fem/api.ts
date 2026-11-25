@@ -9,15 +9,27 @@ const client = createApiClient((import.meta.env.VITE_FEM_URL as string) || 'http
 
 export interface MeshData {
   nodes: number[]; // x0, y0, x1, y1, …
-  triangles: number[]; // 3 node indices per triangle
+  triangles: number[]; // 3 corner node indices per triangle
   triangle_domain: number[];
+  /** 4 corner node indices per quadrilateral (meshes of quads; absent in older saved meshes) */
+  quads?: number[];
+  quad_domain?: number[];
+  /** 2: the nodes include edge midpoints (only the corners are drawn) */
+  order?: number;
   domain_names: string[];
   edges: number[]; // 2 node indices per boundary edge
   boundaries: Record<string, number[]>; // name -> edge indices
+  /** Per element (triangles, then quads): shape quality, smallest angle [°], aspect ratio */
   quality: number[];
+  min_angle?: number[];
+  aspect?: number[];
   stats: {
     nodes: number;
     triangles: number;
+    quads?: number;
+    elements?: number;
+    angles?: { min: number; max: number };
+    aspect?: { max: number; mean: number };
     domains: Record<string, number>;
     boundaries: Record<string, number>;
     quality: { min: number; mean: number; histogram: number[]; bin_edges: number[] };

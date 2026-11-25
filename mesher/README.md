@@ -81,15 +81,25 @@ ones. Angles are in degrees. Booleans and arrays consume their inputs (unless
 
 ### Mesh
 
-- `size` (maximum element size), `min_size`, `order` 1 or 2, `elements_per_circle`
-  (resolution of curved boundaries), `algorithm` (`frontal-delaunay`, `delaunay`,
+- `size` (maximum element size), `min_size`, `elements_per_circle` (resolution
+  of curved boundaries), `algorithm` (`frontal-delaunay`, `delaunay`,
   `meshadapt`), `smoothing` (passes).
+- `element`: `triangle` (default) or `quad` (triangles recombined into
+  quadrilaterals; a few triangles may remain), `order` 1 or 2 (edge midpoints:
+  6-node triangles, 8-node quadrangles). The FEM Studio solver is P1 and uses
+  only linear triangles; quads and order 2 are for export (openCFS solves them).
 - `controls`, one per target:
   - `size`: inside a domain; along a boundary/curve or at a point, graded back
     to `size` over 4 × `size`;
   - `divisions`: number of elements along a boundary or curve (shared by its
     curves in proportion to their length), with `grading` = last/first element;
-  - `structured`: a regular (mapped) mesh in a domain with 3 or 4 sides.
+  - `structured`: a regular (mapped) mesh in a domain with 3 or 4 sides;
+  - `boundary_layer` `{first, growth, layers}`: rows of thin elements along a
+    boundary or curve (quadrangles split into triangles unless `element` is
+    `quad`), for fields that change fast across it. Gmsh ends the rows one
+    element before an end that meets another edge, so the mesher also refines
+    around such ends. The first layer must be thinner than the elements
+    around it, otherwise the layers coarsen the mesh there.
 - `mesh_geometry(…, max_elements=N)` refuses meshes estimated to be larger,
   before meshing.
 
@@ -99,11 +109,15 @@ upgraded on load and mesh exactly as before.
 ## Output
 
 - `Mesh`: nodes, triangles (3 corners, or 3 corners + midpoints of edges 01, 12, 20),
-  domain per triangle, boundary edges and named boundaries (curve objects included);
-  counter-clockwise triangles; quality q = 4√3·A / Σl² (1 = equilateral) and statistics.
+  quads (4 corners, + midpoints of 01, 12, 23, 30), domain per element, boundary
+  edges and named boundaries (curve objects included); counter-clockwise elements.
+- Quality per element: `quality()` (triangles 4√3·A/Σl², 1 = equilateral;
+  quads the smallest sine of the corner angles, 1 = rectangle), `angles()`
+  (smallest and largest corner angle), `aspect_ratio()` (triangles R/2r, quads
+  longest/shortest edge; 1 = ideal); `stats()` summarises them.
 - `.msh`: MSH 2.2 ASCII with physical names = domain/boundary names, the format
   and version openCFS reads (its regions take the physical names).
-- `.vtu`: ParaView, with domain and quality as cell data.
+- `.vtu`: ParaView, mixed cells, with domain and the quality measures as cell data.
 
 Licence: links Gmsh (GPL); fine for the hosted service, see ROADMAP.md before
 distributing binaries.
