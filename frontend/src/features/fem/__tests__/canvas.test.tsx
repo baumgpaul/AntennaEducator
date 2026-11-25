@@ -63,6 +63,32 @@ describe('geometry canvas editing', () => {
     expect(screen.getByLabelText('Name')).toHaveValue('rect1');
   });
 
+  it('hovering with a tool armed previews nothing yet (no crash)', () => {
+    render();
+    for (const tool of ['Rectangle', 'Arc', 'Polygon']) {
+      fireEvent.click(screen.getByRole('button', { name: tool }));
+      fireEvent.pointerMove(canvas(), at(0.03, 0.005));
+      if (tool !== 'Rectangle') click([0.03, 0.005]);
+      fireEvent.pointerMove(canvas(), at(0.035, 0.008));
+      fireEvent.keyDown(window, { key: 'Escape' });
+      fireEvent.keyDown(window, { key: 'Escape' });
+    }
+    expect(saved().steps).toHaveLength(1);
+  });
+
+  it('a line drawn around the plate from corner to corner becomes the surface around it', () => {
+    render();
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }));
+    for (const p of [[0, 0], [-0.005, 0], [-0.005, 0.015], [0.025, 0.015], [0.025, 0], [0.02, 0]] as [number, number][]) click(p);
+    fireEvent.doubleClick(canvas());
+    const steps = saved().steps;
+    expect(steps.map((s) => s.kind)).toEqual(['rectangle', 'polyline', 'polyline', 'surface']);
+    expect(screen.getByLabelText('Name')).toHaveValue('surf1');
+    // Ctrl+Z takes the surface back, the line stays
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true });
+    expect(saved().steps.map((s) => s.kind)).toEqual(['rectangle', 'polyline']);
+  });
+
   it('snaps to a corner of an existing shape', () => {
     render();
     fireEvent.click(screen.getByRole('button', { name: 'Circle' }));

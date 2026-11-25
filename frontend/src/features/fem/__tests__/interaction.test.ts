@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_MODEL, TEMPLATES, type FemModel, type Step } from '../model';
-import { runSequence } from '../geometry/sequence';
+import { fillArea, runSequence } from '../geometry/sequence';
 import {
+  closeRegion,
   directStep,
   dragHandle,
   drawnStep,
@@ -129,5 +130,59 @@ describe('picking edges', () => {
     const seq = runSequence(model([rect]));
     expect(nearestEdgePoint(seq, [1, 0.02], 0.05)).toEqual([1, 0]);
     expect(nearestEdgePoint(seq, [1, 0.5], 0.05)).toBeNull();
+  });
+});
+
+describe('closing regions', () => {
+  const square: Step = { kind: 'polygon', name: 'sq', points: [[0, 0], [1, 0], [1, 1], [0, 1]] };
+  const line = (name: string, ...points: [number, number][]): Step => ({ kind: 'polyline', name, points });
+  const area = (m: FemModel, name: string) => {
+    const seq = runSequence(m);
+    expect(seq.errors).toEqual([]);
+    return fillArea(seq.created[name].geo);
+  };
+
+  it('a drawing in progress has no shape yet (no crash while hovering)', () => {
+    expect(drawnStep('rectangle', [[0, 0]], 'r')).toBeNull();
+    expect(drawnStep('arc', [[0, 0], [1, 0]], 'a')).toBeNull();
+    expect(drawnStep('polygon', [[0, 0], [1, 0]], 'p')).toBeNull();
+  });
+
+  it('a line ending where it started is a polygon', () => {
+    expect(drawnStep('polyline', [[0, 0], [1, 0], [1, 1], [0, 0]], 'l')).toEqual({ kind: 'polygon', name: 'l', points: [[0, 0], [1, 0], [1, 1]] });
+  });
+
+  it('lines that close a loop become a surface', () => {
+    let m = model([line('a', [0, 0], [2, 0]), line('b', [2, 0], [2, 1])]);
+    expect(closeRegion(m, 'b')).toBeNull(); // still open
+    m = { ...m, steps: [...m.steps, line('c', [0, 0], [2, 1])] }; // drawn backwards
+    const closed = closeRegion(m, 'c')!;
+    expect(closed.surface).toBe('surf1');
+    expect(closed.model.steps.at(-1)).toEqual({ kind: 'surface', name: 'surf1', curves: ['c', 'b', 'a'] });
+    expect(area(closed.model, 'surf1')).toBeCloseTo(1);
+  });
+
+  it('a line from corner to corner of a shape closes the region beside it', () => {
+    const bump = line('l', [0, 0], [0, -1], [1, -1], [1, 0]);
+    const closed = closeRegion(model([square, bump]), 'l')!;
+    expect(closed.model.steps.slice(2)).toEqual([
+      { kind: 'polyline', name: 'edge1', points: [[1, 0], [0, 0]] },
+      { kind: 'surface', name: 'surf1', curves: ['l', 'edge1'] },
+    ]);
+    expect(area(closed.model, 'surf1')).toBeCloseTo(1);
+  });
+
+  it('a line around a shape closes the region around it, the shape keeps its area', () => {
+    const around = line('l', [0, 0], [-1, 0], [-1, 2], [2, 2], [2, 0], [1, 0]);
+    const closed = closeRegion(model([square, around]), 'l')!;
+    expect(closed.model.steps[2]).toMatchObject({ points: [[1, 0], [1, 1], [0, 1], [0, 0]] });
+    expect(area(closed.model, 'surf1')).toBeCloseTo(3 * 2 - 1);
+    const seq = runSequence(closed.model);
+    expect(seq.domains).toEqual(['sq', 'surf1']);
+  });
+
+  it('a line that touches nothing stays a line', () => {
+    expect(closeRegion(model([square, line('l', [3, 3], [4, 4])]), 'l')).toBeNull();
+    expect(closeRegion(model([square, line('l', [0, 0], [3, 3])]), 'l')).toBeNull(); // one end only
   });
 });
