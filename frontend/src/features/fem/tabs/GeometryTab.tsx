@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
-import { Box, Button, Chip, IconButton, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
-import { AccountTree, Add, Delete } from '@mui/icons-material';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Box, Button, Chip, IconButton, MenuItem, Stack, TextField, ToggleButton, Tooltip, Typography } from '@mui/material';
+import { AccountTree, Add, Delete, GridOn, HighlightAlt, NearMe, Redo, Undo } from '@mui/icons-material';
 import { CollapsibleSection, Hint, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import { EMPTY_MODEL, TEMPLATES, type Selection, type StepKind } from '../model';
 import type { FemStudio } from '../useFemStudio';
 import GeometryCanvas from '../geometry/GeometryCanvas';
 import { ModelTree } from '../geometry/ModelTree';
 import { SelectionProperties, StepProperties } from '../geometry/StepProperties';
-import { takenNames, uniqueName } from '../geometry/edit';
+import { deleteStep, takenNames, uniqueName } from '../geometry/edit';
+import { isDraw, TOOL_HINT, type DrawKind, type Tool } from '../geometry/interaction';
+import type { Pt } from '../geometry/sequence';
 import { runSequence, type Sequence } from '../geometry/sequence';
 import { SELECTION_LABEL, STEPS, STEP_GROUPS } from '../geometry/steps';
 import { ExprField, StepNotes } from './common';
@@ -30,6 +32,9 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [fitKey, setFitKey] = useState(0);
   const [propsOpen, setPropsOpen] = useState(true);
+  const [tool, setTool] = useState<Tool>('select');
+  const [snapOn, setSnapOn] = useState(true);
+  const { undo, redo, canUndo, canRedo } = studio;
 
   const select = (name: string | null, additive: boolean) =>
     setSelected((s) => (name === null ? (additive ? s : []) : additive ? (s.includes(name) ? s.filter((n) => n !== name) : [...s, name]) : [name]));
@@ -43,9 +48,80 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
     const span = seq.objects.length ? Math.max(b.xmax - b.xmin, b.ymax - b.ymin) : 0.04;
     const at = { x: seq.objects.length ? (b.xmin + b.xmax) / 2 : 0, y: seq.objects.length ? (b.ymin + b.ymax) / 2 : 0, h: span / 4 };
     const step = info.create(name, at, info.group === 'combine' || info.group === 'transform' ? live : []);
-    update((m) => ({ ...m, steps: [...m.steps, step] }));
+    update((m) => ({ ...m, steps: [...m.steps, step] }), { gesture: `add-${name}` });
     setSelected([name]);
   };
+
+  /** A clicked edge: added to the selected named boundary (edges near points), or a new one. */
+  const pickEdge = (at: Pt) => {
+    const current = model.selections.find((s) => s.kind === 'points' && selected.length === 1 && s.name === selected[0]);
+    if (current && current.kind === 'points') {
+      update(
+        (m) => ({ ...m, selections: m.selections.map((s) => (s.name === current.name ? { ...current, points: [...current.points, at] } : s)) }),
+        { gesture: `pick-${Date.now()}` },
+      );
+      return;
+    }
+    const name = uniqueName('edge', takenNames(model));
+    update((m) => ({ ...m, selections: [...m.selections, { kind: 'points', name, points: [at] }] }), { gesture: `pick-${name}` });
+    setSelected([name]);
+  };
+
+  const deleteSelected = useCallback(() => {
+    update(
+      (m) => {
+        let next = m;
+        const indices = selected
+          .map((n) => next.steps.findIndex((s) => s.name === n))
+          .filter((i) => i >= 0)
+          .sort((a, b) => b - a);
+        for (const i of indices) next = deleteStep(next, i);
+        const sels = new Set(selected.filter((n) => m.selections.some((s) => s.name === n)));
+        if (sels.size) {
+          next = {
+            ...next,
+            selections: next.selections.filter((s) => !sels.has(s.name)),
+            mesh: { ...next.mesh, controls: next.mesh.controls.filter((c) => !sels.has(c.target)) },
+          };
+        }
+        return next;
+      },
+      { gesture: `delete-${Date.now()}` },
+    );
+    setSelected([]);
+  }, [update, selected]);
+
+  // keyboard: undo/redo, delete, duplicate, escape (the drawing keys are the canvas's)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      if (mod && key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      } else if (mod && key === 'y') {
+        e.preventDefault();
+        redo();
+      } else if (mod && key === 'd' && live.length) {
+        e.preventDefault();
+        const name = uniqueName('copy', takenNames(model));
+        const b = seq.bounds;
+        const dx = Number((0.05 * Math.max(b.xmax - b.xmin, b.ymax - b.ymin)).toPrecision(2));
+        update((m) => ({ ...m, steps: [...m.steps, { kind: 'move', name, objects: live, dx, dy: -dx, keep: true }] }), { gesture: `dup-${name}` });
+        setSelected([name]);
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selected.length && tool === 'select') {
+        e.preventDefault();
+        deleteSelected();
+      } else if (e.key === 'Escape' && tool === 'select') {
+        setSelected([]);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo, update, deleteSelected, selected, live, model, seq.bounds, tool]);
   const addSelection = (kind: Selection['kind']) => {
     const name = uniqueName('edge', takenNames(model));
     const b = seq.bounds;
@@ -70,6 +146,44 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
     <Workspace
       ribbon={
         <Ribbon>
+          <RibbonGroup label="Edit">
+            <RibbonButtons>
+              <Tooltip title={`Select and move (Esc). ${TOOL_HINT.select}`}>
+                <Button aria-label="Select" variant={tool === 'select' ? 'contained' : 'outlined'} onClick={() => setTool('select')} sx={{ minWidth: 40, px: 1 }}>
+                  <NearMe fontSize="small" />
+                </Button>
+              </Tooltip>
+              <Tooltip title={`Name edges: ${TOOL_HINT['pick-edge']}`}>
+                <Button
+                  aria-label="Name edges"
+                  variant={tool === 'pick-edge' ? 'contained' : 'outlined'}
+                  onClick={() => setTool(tool === 'pick-edge' ? 'select' : 'pick-edge')}
+                  sx={{ minWidth: 40, px: 1 }}
+                >
+                  <HighlightAlt fontSize="small" />
+                </Button>
+              </Tooltip>
+              <Tooltip title="Undo (Ctrl+Z)">
+                <span>
+                  <Button aria-label="Undo" disabled={!canUndo} onClick={undo} sx={{ minWidth: 40, px: 1 }}>
+                    <Undo fontSize="small" />
+                  </Button>
+                </span>
+              </Tooltip>
+              <Tooltip title="Redo (Ctrl+Y)">
+                <span>
+                  <Button aria-label="Redo" disabled={!canRedo} onClick={redo} sx={{ minWidth: 40, px: 1 }}>
+                    <Redo fontSize="small" />
+                  </Button>
+                </span>
+              </Tooltip>
+            </RibbonButtons>
+            <Tooltip title="Snap to corners, centres and a fine grid">
+              <ToggleButton size="small" value="snap" selected={snapOn} onChange={() => setSnapOn((x) => !x)} aria-label="Snap">
+                <GridOn fontSize="small" />
+              </ToggleButton>
+            </Tooltip>
+          </RibbonGroup>
           <RibbonGroup label="Template">
             <TextField
               select
@@ -99,10 +213,19 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
                   const info = STEPS[kind];
                   const Icon = info.icon;
                   const why = needs(kind, liveDims);
+                  const drawTool = isDraw(kind as Tool);
+                  const title = why ? `${info.label}: ${why}` : drawTool ? `${info.label}: ${TOOL_HINT[kind as DrawKind]}` : `${info.label}: ${info.help}`;
                   return (
-                    <Tooltip key={kind} title={why ? `${info.label}: ${why}` : `${info.label}: ${info.help}`}>
+                    <Tooltip key={kind} title={title}>
                       <span>
-                        <Button aria-label={info.label} disabled={!!why} onClick={() => add(kind)} sx={{ minWidth: 40, px: 1 }}>
+                        <Button
+                          aria-label={info.label}
+                          aria-pressed={drawTool ? tool === kind : undefined}
+                          variant={tool === kind ? 'contained' : 'outlined'}
+                          disabled={!!why}
+                          onClick={() => (drawTool ? setTool(tool === kind ? 'select' : (kind as DrawKind)) : add(kind))}
+                          sx={{ minWidth: 40, px: 1 }}
+                        >
                           <Icon fontSize="small" />
                         </Button>
                       </span>
@@ -271,7 +394,25 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
       onRightToggle={() => setPropsOpen((o) => !o)}
       notes={(!!notes?.length || !!error) && <StepNotes notes={notes} error={error} />}
     >
-      <GeometryCanvas seq={seq} holes={model.holes} selected={selected} onSelect={select} fitKey={fitKey} />
+      <GeometryCanvas
+        seq={seq}
+        holes={model.holes}
+        selected={selected}
+        onSelect={select}
+        fitKey={fitKey}
+        editor={{
+          model,
+          update,
+          tool,
+          onToolDone: () => setTool('select'),
+          snapOn,
+          onPickEdge: pickEdge,
+          onInsertDefault: (kind) => {
+            add(kind);
+            setTool('select');
+          },
+        }}
+      />
     </Workspace>
   );
 }
