@@ -128,7 +128,7 @@ describe('PDF report tables', () => {
     const byTitle = Object.fromEntries(tables.map((t) => [t.title, t]));
     expect(Object.keys(byTitle)).toEqual(['Parameters', 'Geometry', 'Materials', 'Boundary conditions and sources', 'Mesh']);
     expect(byTitle.Parameters.rows.find((r) => r.cells[0] === 'w')!.cells).toEqual(['w', '2', '2']);
-    expect(byTitle.Geometry.rows.find((r) => r.cells[0] === 'top')!.cells[1]).toBe('rectangle (hole)');
+    expect(byTitle.Geometry.rows.find((r) => r.cells[0] === 'top')!.cells[1]).toBe('Rectangle (hole)');
     expect(byTitle['Boundary conditions and sources'].rows[0].cells).toEqual(['top', 'potential', 'U = 1']);
     expect(byTitle.Mesh.rows.map((r) => r.cells[0])).toContain('nodes / triangles');
   });

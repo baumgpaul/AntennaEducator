@@ -23,7 +23,12 @@ describe('projects by method', () => {
 
   it('a project design_state becomes the model; anything else starts empty', () => {
     const coax = TEMPLATES[1].model;
-    expect(modelFromProject(coax, 'Mine').shapes).toEqual(coax.shapes);
+    expect(modelFromProject(coax, 'Mine').steps).toEqual(coax.steps);
+    // a project saved before geometry v2 opens upgraded
+    const { steps, mesh, ...rest } = coax;
+    const v1 = { ...rest, version: 1, shapes: steps, mesh: { ...mesh, controls: undefined, domain_sizes: {}, boundary_sizes: { inner: 0.0001 } } };
+    expect(modelFromProject(v1, 'Old').steps).toEqual(coax.steps);
+    expect(modelFromProject(v1, 'Old').mesh.controls).toEqual([{ target: 'inner', size: 0.0001 }]);
     expect(modelFromProject(coax, 'Mine').name).toBe('Mine');
     expect(modelFromProject({}, 'New')).toEqual({ ...EMPTY_MODEL, name: 'New' });
     expect(modelFromProject({ elements: [] }, 'Antenna')).toEqual({ ...EMPTY_MODEL, name: 'Antenna' });
@@ -50,7 +55,7 @@ describe('FemMethodPicker', () => {
     fireEvent.click(screen.getByLabelText(/Field problem \(FEM/));
     const choice = onChange.mock.calls[0][0];
     expect(choice.kind).toBe('fem');
-    expect(choice.design_state.shapes.map((s: { name: string }) => s.name)).toEqual(['dielectric', 'inner']);
+    expect(choice.design_state.steps.map((s: { name: string }) => s.name)).toEqual(['dielectric', 'inner']);
   });
 
   it('shows nothing to students', () => {

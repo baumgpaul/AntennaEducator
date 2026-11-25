@@ -6,25 +6,63 @@ import type { Expr } from './expressions';
 
 export const EPSILON_0 = 8.8541878128e-12;
 
-export type Shape =
-  | { kind: 'rectangle'; name: string; x: Expr; y: Expr; width: Expr; height: Expr }
-  | { kind: 'circle'; name: string; cx: Expr; cy: Expr; r: Expr }
-  | { kind: 'polygon'; name: string; points: [Expr, Expr][] };
+/** A point of a polygon/polyline/spline: x, y */
+export type Point2 = [Expr, Expr];
 
-export interface BoxSelection {
-  name: string;
-  xmin: Expr;
-  ymin: Expr;
-  xmax: Expr;
-  ymax: Expr;
+/**
+ * One step of the geometry sequence (mesher/src/fem_mesher/geometry.py).
+ * Each step creates one object named after it; booleans, arrays and
+ * "surface" consume their inputs, transforms change objects in place (or add
+ * a copy with keep).
+ */
+export type Step =
+  | { kind: 'rectangle'; name: string; x: Expr; y: Expr; width: Expr; height: Expr; rotation?: Expr; corner_radius?: Expr }
+  | { kind: 'circle'; name: string; cx: Expr; cy: Expr; r: Expr }
+  | { kind: 'ellipse'; name: string; cx: Expr; cy: Expr; rx: Expr; ry: Expr; rotation?: Expr }
+  | { kind: 'sector'; name: string; cx: Expr; cy: Expr; r: Expr; start: Expr; end: Expr; r_inner?: Expr }
+  | { kind: 'polygon'; name: string; points: Point2[] }
+  | { kind: 'polyline'; name: string; points: Point2[]; closed?: boolean }
+  | { kind: 'arc'; name: string; cx: Expr; cy: Expr; r: Expr; start: Expr; end: Expr }
+  | { kind: 'spline'; name: string; points: Point2[] }
+  | { kind: 'point'; name: string; x: Expr; y: Expr }
+  | { kind: 'surface'; name: string; curves: string[] }
+  | { kind: 'union'; name: string; objects: string[]; keep?: boolean }
+  | { kind: 'intersection'; name: string; objects: string[]; keep?: boolean }
+  | { kind: 'difference'; name: string; objects: string[]; tools: string[]; keep?: boolean }
+  | { kind: 'move'; name: string; objects: string[]; dx: Expr; dy: Expr; keep?: boolean }
+  | { kind: 'rotate'; name: string; objects: string[]; cx: Expr; cy: Expr; angle: Expr; keep?: boolean }
+  | { kind: 'scale'; name: string; objects: string[]; cx: Expr; cy: Expr; factor: Expr; factor_y?: Expr | null; keep?: boolean }
+  | { kind: 'mirror'; name: string; objects: string[]; x: Expr; y: Expr; angle: Expr; keep?: boolean }
+  | { kind: 'array'; name: string; objects: string[]; count: number; dx: Expr; dy: Expr }
+  | { kind: 'polar_array'; name: string; objects: string[]; count: number; cx: Expr; cy: Expr; angle: Expr };
+
+export type StepKind = Step['kind'];
+
+/** Named boundaries beyond the automatic ones */
+export type Selection =
+  | { kind: 'box'; name: string; xmin: Expr; ymin: Expr; xmax: Expr; ymax: Expr }
+  | { kind: 'points'; name: string; points: Point2[] }
+  | { kind: 'boundary_of'; name: string; domains: string[] };
+
+/** Local discretisation of a domain, boundary, curve or point */
+export interface MeshControl {
+  target: string;
+  size?: Expr | null;
+  divisions?: Expr | null;
+  grading?: Expr;
+  structured?: boolean;
 }
+
+export type MeshAlgorithm = 'frontal-delaunay' | 'delaunay' | 'meshadapt';
 
 export interface MeshSettings {
   size: Expr;
-  domain_sizes: Record<string, Expr>;
-  boundary_sizes: Record<string, Expr>;
+  min_size?: Expr | null;
+  algorithm?: MeshAlgorithm;
   order: 1;
   elements_per_circle: number;
+  smoothing?: number;
+  controls: MeshControl[];
 }
 
 export interface Material {
@@ -44,13 +82,13 @@ export interface ChargeDensity {
 }
 
 export interface FemModel {
-  version: 1;
+  version: 2;
   name: string;
   template?: TemplateId;
   parameters: Record<string, Expr>;
-  shapes: Shape[];
+  steps: Step[];
   holes: string[];
-  selections: BoxSelection[];
+  selections: Selection[];
   mesh: MeshSettings;
   depth: number;
   materials: Record<string, Material>; // domain -> material
@@ -149,12 +187,11 @@ export interface Template {
   fieldAt?: { label: string; value: (x: number, y: number, p: Record<string, number>) => { V: number; E: number } | null };
 }
 
-const baseMesh = (size: Expr, boundary_sizes: Record<string, Expr> = {}): MeshSettings => ({
+const baseMesh = (size: Expr, controls: MeshControl[] = []): MeshSettings => ({
   size,
-  domain_sizes: {},
-  boundary_sizes,
   order: 1,
   elements_per_circle: 48,
+  controls,
 });
 
 export const TEMPLATES: Template[] = [
@@ -164,11 +201,11 @@ export const TEMPLATES: Template[] = [
     description:
       'Two electrodes with a dielectric between them, inside an air box. The field leaks out at the plate edges ("fringing"), so C is a bit larger than εA/d.',
     model: {
-      version: 1,
+      version: 2,
       name: 'Plate capacitor',
       template: 'plate-capacitor',
       parameters: { w: 0.04, d: 0.004, t: 0.001, U: 1 },
-      shapes: [
+      steps: [
         { kind: 'rectangle', name: 'air', x: '-w', y: '-w', width: '2*w', height: '2*w' },
         { kind: 'rectangle', name: 'dielectric', x: '-w/2', y: '-d/2', width: 'w', height: 'd' },
         { kind: 'rectangle', name: 'top', x: '-w/2', y: 'd/2', width: 'w', height: 't' },
@@ -176,7 +213,10 @@ export const TEMPLATES: Template[] = [
       ],
       holes: ['top', 'bottom'],
       selections: [],
-      mesh: baseMesh('w/8', { top: 'd/6', bottom: 'd/6' }),
+      mesh: baseMesh('w/8', [
+        { target: 'top', size: 'd/6' },
+        { target: 'bottom', size: 'd/6' },
+      ]),
       depth: 1,
       materials: {
         air: { name: 'Air', relative_permittivity: 1.0006 },
@@ -206,11 +246,11 @@ export const TEMPLATES: Template[] = [
     description:
       'Inner conductor at U, outer conductor grounded, PTFE in between. The exact capacitance is 2πε/ln(b/a) per metre: compare it with FEM and refine the mesh.',
     model: {
-      version: 1,
+      version: 2,
       name: 'Coaxial cable',
       template: 'coax',
       parameters: { a: 0.0005, b: 0.0017, U: 1 },
-      shapes: [
+      steps: [
         { kind: 'circle', name: 'dielectric', cx: 0, cy: 0, r: 'b' },
         { kind: 'circle', name: 'inner', cx: 0, cy: 0, r: 'a' },
       ],
@@ -246,10 +286,10 @@ export const TEMPLATES: Template[] = [
 ];
 
 export const EMPTY_MODEL: FemModel = {
-  version: 1,
+  version: 2,
   name: 'New model',
   parameters: {},
-  shapes: [],
+  steps: [],
   holes: [],
   selections: [],
   mesh: baseMesh(0.01),
@@ -261,7 +301,36 @@ export const EMPTY_MODEL: FemModel = {
 
 /** Request bodies for the FEM service */
 export function geometryOf(m: FemModel) {
-  return { parameters: m.parameters, shapes: m.shapes, holes: m.holes, selections: m.selections, mesh: m.mesh };
+  return { version: 2, parameters: m.parameters, steps: m.steps, holes: m.holes, selections: m.selections, mesh: m.mesh };
+}
+
+/**
+ * A saved model as a version-2 model, or null if it is none. Version 1 (a
+ * flat list of shapes, sizes per domain/boundary) upgrades like the backend's
+ * upgrade_v1: shapes are primitive steps, selections boxes, sizes controls.
+ */
+export function upgradeModel(raw: unknown): FemModel | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const m = raw as Record<string, unknown>;
+  if (m.version === 2 && Array.isArray(m.steps)) return m as unknown as FemModel;
+  if (m.version !== 1 || !Array.isArray(m.shapes)) return null;
+  const { shapes, ...rest } = m as { shapes: Step[] } & Record<string, unknown>;
+  const mesh = (m.mesh ?? {}) as Record<string, unknown>;
+  const { domain_sizes = {}, boundary_sizes = {}, ...meshRest } = mesh as {
+    domain_sizes?: Record<string, Expr>;
+    boundary_sizes?: Record<string, Expr>;
+  };
+  const sizes = { ...domain_sizes, ...boundary_sizes };
+  return {
+    ...(rest as unknown as FemModel),
+    version: 2,
+    steps: shapes,
+    selections: ((m.selections ?? []) as Selection[]).map((s) => ({ ...s, kind: 'box' }) as Selection),
+    mesh: {
+      ...(meshRest as unknown as MeshSettings),
+      controls: Object.entries(sizes).map(([target, size]) => ({ target, size })),
+    },
+  };
 }
 
 export function problemOf(m: FemModel) {

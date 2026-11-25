@@ -24,14 +24,19 @@ export function convergenceFactors(steps: number): number[] {
  * (otherwise their polygon approximation would stop the convergence).
  */
 export function scaleMesh(model: FemModel, f: number): FemModel {
-  const scaleAll = (sizes: Record<string, Expr>) => Object.fromEntries(Object.entries(sizes).map(([k, v]) => [k, scaleExpr(v, f)]));
+  const set = (v: Expr | null | undefined): v is Expr => v !== undefined && v !== null && v !== '';
   return {
     ...model,
     mesh: {
       ...model.mesh,
       size: scaleExpr(model.mesh.size, f),
-      boundary_sizes: scaleAll(model.mesh.boundary_sizes),
-      domain_sizes: scaleAll(model.mesh.domain_sizes),
+      ...(set(model.mesh.min_size) ? { min_size: scaleExpr(model.mesh.min_size, f) } : {}),
+      // sizes scale with f, numbers of divisions with 1/f
+      controls: model.mesh.controls.map((c) => ({
+        ...c,
+        ...(set(c.size) ? { size: scaleExpr(c.size, f) } : {}),
+        ...(set(c.divisions) ? { divisions: `max(1, (${c.divisions})/${tidy(f)})` } : {}),
+      })),
       elements_per_circle: Math.max(4, Math.round(model.mesh.elements_per_circle / f)),
     },
   };

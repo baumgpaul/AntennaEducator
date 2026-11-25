@@ -6,15 +6,33 @@ import type { FemStudio } from '../useFemStudio';
 import MeshView from '../views/MeshView';
 import { colormap } from '../views/geometryDraw';
 import { ExprField, StepNotes } from './common';
+import type { MeshAlgorithm } from '../model';
+import { setControl } from '../geometry/edit';
+import { MeshControlFields } from '../geometry/MeshControlFields';
+import type { TargetKind } from '../geometry/steps';
+import { runSequence } from '../geometry/sequence';
+
+const ALGORITHMS: { id: MeshAlgorithm; label: string; hint: string }[] = [
+  { id: 'frontal-delaunay', label: 'Frontal-Delaunay (default)', hint: 'Grows well-shaped triangles from the boundary inwards: the best quality for most models.' },
+  { id: 'delaunay', label: 'Delaunay', hint: 'Inserts points into a Delaunay triangulation: fast and robust, slightly less regular.' },
+  { id: 'meshadapt', label: 'MeshAdapt', hint: 'Local edge swaps and splits: robust for complicated or strongly graded geometries.' },
+];
 
 function MeshTab({ studio }: { studio: FemStudio }) {
   const { model, update, progress, busy, error } = studio;
   const [colorBy, setColorBy] = useState<'domain' | 'quality'>('domain');
-  const [addBoundary, setAddBoundary] = useState('');
   const mesh = studio.mesh?.data;
   const current = progress.done.has('mesh');
   const setMesh = (change: Partial<typeof model.mesh>) => update((m) => ({ ...m, mesh: { ...m.mesh, ...change } }));
   const notes = progress.notes.mesh;
+  const seq = runSequence(model);
+  // what can be refined: domains and boundaries (known once meshed), curve and point objects
+  const targets: { name: string; kind: TargetKind }[] = [
+    ...progress.domains.map((name) => ({ name, kind: 'domain' as const })),
+    ...seq.objects.filter((o) => o.dim < 2).map((o) => ({ name: o.name, kind: o.dim === 1 ? ('curve' as const) : ('point' as const) })),
+    ...progress.boundaries.filter((b) => !seq.objects.some((o) => o.name === b)).map((name) => ({ name, kind: 'boundary' as const })),
+  ];
+  const kindOf = (name: string): TargetKind => targets.find((t) => t.name === name)?.kind ?? (seq.domains.includes(name) ? 'domain' : 'boundary');
 
   return (
     <Workspace
@@ -52,6 +70,12 @@ function MeshTab({ studio }: { studio: FemStudio }) {
           <CollapsibleSection title="Element size">
             <Stack spacing={2}>
               <ExprField label="max size [m]" value={model.mesh.size} width={248} onChange={(v) => setMesh({ size: v })} />
+              <ExprField
+                label="min size [m] (optional)"
+                value={model.mesh.min_size ?? ''}
+                width={248}
+                onChange={(v) => setMesh({ min_size: v === '' ? null : v })}
+              />
               <TextField
                 size="small"
                 type="number"
@@ -62,71 +86,68 @@ function MeshTab({ studio }: { studio: FemStudio }) {
               />
             </Stack>
           </CollapsibleSection>
-          <CollapsibleSection title="Finer along a boundary">
-            <Stack spacing={1}>
-              {Object.entries(model.mesh.boundary_sizes).map(([b, v]) => (
-                <Stack key={b} direction="row" spacing={1} sx={{
-                  alignItems: "center"
-                }}>
-                  <Typography variant="body2" sx={{ width: 80 }} noWrap title={b}>
-                    {b}
-                  </Typography>
-                  <ExprField
-                    label="size [m]"
-                    value={v}
-                    width={120}
-                    onChange={(x) => setMesh({ boundary_sizes: { ...model.mesh.boundary_sizes, [b]: x } })}
-                  />
-                  <IconButton
-                    size="small"
-                    aria-label={`Remove ${b}`}
-                    onClick={() => {
-                      const s = { ...model.mesh.boundary_sizes };
-                      delete s[b];
-                      setMesh({ boundary_sizes: s });
-                    }}
-                  >
-                    <Close fontSize="small" />
-                  </IconButton>
+          <CollapsibleSection title="Algorithm" defaultExpanded={false}>
+            <Stack spacing={2}>
+              <TextField
+                select
+                size="small"
+                label="triangulation"
+                value={model.mesh.algorithm ?? 'frontal-delaunay'}
+                sx={{ width: 248 }}
+                onChange={(e) => setMesh({ algorithm: e.target.value as MeshAlgorithm })}
+              >
+                {ALGORITHMS.map((a) => (
+                  <MenuItem key={a.id} value={a.id}>
+                    {a.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                size="small"
+                type="number"
+                label="smoothing passes"
+                value={model.mesh.smoothing ?? 1}
+                sx={{ width: 248 }}
+                onChange={(e) => setMesh({ smoothing: Math.min(100, Math.max(0, Math.round(Number(e.target.value)))) })}
+              />
+              <Hint>{ALGORITHMS.find((a) => a.id === (model.mesh.algorithm ?? 'frontal-delaunay'))?.hint}</Hint>
+            </Stack>
+          </CollapsibleSection>
+          <CollapsibleSection title="Local refinement">
+            <Stack spacing={1.5}>
+              {model.mesh.controls.map((c) => (
+                <Stack key={c.target} spacing={1}>
+                  <Stack direction="row" sx={{ alignItems: 'center' }}>
+                    <Typography variant="body2" sx={{ flex: 1, fontWeight: 600 }} noWrap title={c.target}>
+                      {c.target}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      aria-label={`Remove ${c.target}`}
+                      onClick={() => update((m) => setControl(m, c.target, null))}
+                    >
+                      <Close fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                  <MeshControlFields model={model} update={update} target={c.target} kind={kindOf(c.target)} />
                 </Stack>
               ))}
               <TextField
                 select
                 size="small"
-                label="Add a boundary"
-                value={addBoundary}
-                onChange={(e) => {
-                  setAddBoundary('');
-                  setMesh({ boundary_sizes: { ...model.mesh.boundary_sizes, [e.target.value]: model.mesh.size } });
-                }}
+                label="Refine at…"
+                value=""
+                onChange={(e) => update((m) => setControl(m, e.target.value, { size: m.mesh.size }))}
               >
-                {progress.boundaries
-                  .filter((b) => !(b in model.mesh.boundary_sizes))
-                  .map((b) => (
-                    <MenuItem key={b} value={b}>
-                      {b}
+                {targets
+                  .filter((t) => !model.mesh.controls.some((c) => c.target === t.name))
+                  .map((t) => (
+                    <MenuItem key={t.name} value={t.name}>
+                      {t.name} ({t.kind})
                     </MenuItem>
                   ))}
               </TextField>
-              <Hint>Where the field changes fast (edges, thin gaps).</Hint>
-            </Stack>
-          </CollapsibleSection>
-          <CollapsibleSection title="Finer inside a domain">
-            <Stack spacing={1.5}>
-              {progress.domains.map((d) => (
-                <ExprField
-                  key={d}
-                  label={`${d} [m]`}
-                  value={model.mesh.domain_sizes[d] ?? ''}
-                  width={248}
-                  onChange={(v) => {
-                    const s = { ...model.mesh.domain_sizes };
-                    if (v === '') delete s[d];
-                    else s[d] = v;
-                    setMesh({ domain_sizes: s });
-                  }}
-                />
-              ))}
+              <Hint>Finer where the field changes fast: edges, thin gaps, sharp corners. Each element of the geometry tree can also be set in its properties.</Hint>
             </Stack>
           </CollapsibleSection>
           {mesh && (

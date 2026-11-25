@@ -1,87 +1,70 @@
-import { useState } from 'react';
-import {
-  Box,
-  Button,
-  Checkbox,
-  Chip,
-  FormControlLabel,
-  IconButton,
-  MenuItem,
-  Paper,
-  Stack,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import {
-  AccountTree,
-  Add,
-  ArrowDownward,
-  ArrowUpward,
-  ChangeHistory,
-  CropSquare,
-  Delete,
-  PanoramaFishEye,
-} from '@mui/icons-material';
+import { useMemo, useState } from 'react';
+import { Box, Button, Chip, IconButton, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { AccountTree, Add, Delete } from '@mui/icons-material';
 import { CollapsibleSection, Hint, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
-import type { Expr } from '../expressions';
-import { EMPTY_MODEL, TEMPLATES, type Shape } from '../model';
+import { EMPTY_MODEL, TEMPLATES, type Selection, type StepKind } from '../model';
 import type { FemStudio } from '../useFemStudio';
-import GeometryView from '../views/GeometryView';
-import { evaluateShapes } from '../views/geometryDraw';
+import GeometryCanvas from '../geometry/GeometryCanvas';
+import { ModelTree } from '../geometry/ModelTree';
+import { SelectionProperties, StepProperties } from '../geometry/StepProperties';
+import { takenNames, uniqueName } from '../geometry/edit';
+import { runSequence, type Sequence } from '../geometry/sequence';
+import { SELECTION_LABEL, STEPS, STEP_GROUPS } from '../geometry/steps';
 import { ExprField, StepNotes } from './common';
 
-function uniqueName(base: string, taken: string[]) {
-  let i = 1;
-  while (taken.includes(`${base}${i}`)) i++;
-  return `${base}${i}`;
+/** Why a ribbon action cannot run on the selection (null: it can). */
+function needs(kind: StepKind, dims: number[]): string | null {
+  const info = STEPS[kind];
+  if (info.group === 'shape' || info.group === 'curve') return null;
+  if (kind === 'surface') return dims.length >= 1 && dims.every((d) => d === 1) ? null : 'Select the lines, arcs or splines around it';
+  if (info.group === 'transform') return dims.length >= 1 ? null : 'Select the objects first (tree or canvas)';
+  if (dims.length < 2) return kind === 'difference' ? 'Select the object, then ctrl-click what to subtract' : 'Select 2 or more objects (ctrl-click)';
+  if (dims.some((d) => d === 0)) return 'Points cannot be combined';
+  if (kind !== 'difference' && new Set(dims).size > 1) return 'Select only surfaces or only curves';
+  return null;
 }
 
 function GeometryTab({ studio }: { studio: FemStudio }) {
   const { model, update, load, runMesh, busy, error, progress } = studio;
-  const [selected, setSelected] = useState<string | null>(null);
-  const drawn = evaluateShapes(model);
-  const names = model.shapes.map((s) => s.name);
+  const seq: Sequence = useMemo(() => runSequence(model), [model]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [fitKey, setFitKey] = useState(0);
+  const [propsOpen, setPropsOpen] = useState(true);
 
-  const setShape = (i: number, shape: Shape) =>
-    update((m) => {
-      const old = m.shapes[i].name;
-      const shapes = m.shapes.map((s, k) => (k === i ? shape : s));
-      if (shape.name === old) return { ...m, shapes };
-      // keep the shape's role and assignments when it is renamed
-      const rename = (n: string) => (n === old ? shape.name : n);
-      const materials = Object.fromEntries(Object.entries(m.materials).map(([k, v]) => [rename(k), v]));
-      return {
-        ...m,
-        shapes,
-        holes: m.holes.map(rename),
-        materials,
-        boundary_conditions: m.boundary_conditions.map((bc) => ({ ...bc, boundary: rename(bc.boundary) })),
-        sources: m.sources.map((s) => ({ ...s, domain: rename(s.domain) })),
-      };
-    });
-  const field = (i: number, key: string) => (v: Expr) => setShape(i, { ...model.shapes[i], [key]: v } as Shape);
+  const select = (name: string | null, additive: boolean) =>
+    setSelected((s) => (name === null ? (additive ? s : []) : additive ? (s.includes(name) ? s.filter((n) => n !== name) : [...s, name]) : [name]));
+  const live = selected.filter((n) => seq.objects.some((o) => o.name === n));
+  const liveDims = live.map((n) => seq.objects.find((o) => o.name === n)!.dim);
 
-  const add = (kind: Shape['kind']) => {
-    const name = uniqueName(kind === 'rectangle' ? 'rect' : kind, names);
-    const shape: Shape =
-      kind === 'rectangle'
-        ? { kind, name, x: 0, y: 0, width: 0.01, height: 0.01 }
-        : kind === 'circle'
-          ? { kind, name, cx: 0, cy: 0, r: 0.005 }
-          : { kind, name, points: [[0, 0], [0.01, 0], [0, 0.01]] };
-    update((m) => ({ ...m, shapes: [...m.shapes, shape] }));
-    setSelected(name);
+  const add = (kind: StepKind) => {
+    const info = STEPS[kind];
+    const name = uniqueName(info.prefix, takenNames(model));
+    const b = seq.bounds;
+    const span = seq.objects.length ? Math.max(b.xmax - b.xmin, b.ymax - b.ymin) : 0.04;
+    const at = { x: seq.objects.length ? (b.xmin + b.xmax) / 2 : 0, y: seq.objects.length ? (b.ymin + b.ymax) / 2 : 0, h: span / 4 };
+    const step = info.create(name, at, info.group === 'combine' || info.group === 'transform' ? live : []);
+    update((m) => ({ ...m, steps: [...m.steps, step] }));
+    setSelected([name]);
   };
-  const move = (i: number, d: -1 | 1) =>
-    update((m) => {
-      const shapes = [...m.shapes];
-      [shapes[i], shapes[i + d]] = [shapes[i + d], shapes[i]];
-      return { ...m, shapes };
-    });
+  const addSelection = (kind: Selection['kind']) => {
+    const name = uniqueName('edge', takenNames(model));
+    const b = seq.bounds;
+    const sel: Selection =
+      kind === 'box'
+        ? { kind, name, xmin: b.xmin, ymin: b.ymin, xmax: b.xmax, ymax: b.ymin }
+        : kind === 'points'
+          ? { kind, name, points: [[b.xmin, (b.ymin + b.ymax) / 2]] }
+          : { kind, name, domains: live.filter((n) => seq.domains.includes(n)) };
+    update((m) => ({ ...m, selections: [...m.selections, sel] }));
+    setSelected([name]);
+  };
 
+  const stepIndex = selected.length === 1 ? model.steps.findIndex((s) => s.name === selected[0]) : -1;
+  const selectionIndex = selected.length === 1 ? model.selections.findIndex((s) => s.name === selected[0]) : -1;
   const meshed = progress.done.has('geometry');
   const notes = progress.notes.geometry;
+  const subtitle =
+    stepIndex >= 0 ? STEPS[model.steps[stepIndex].kind].label : selectionIndex >= 0 ? 'Named boundary' : selected.length > 1 ? `${selected.length} selected` : undefined;
 
   return (
     <Workspace
@@ -93,11 +76,12 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
               size="small"
               value=""
               label="Start from"
-              sx={{ width: 190 }}
+              sx={{ width: 170 }}
               onChange={(e) => {
                 const t = TEMPLATES.find((x) => x.id === e.target.value);
                 load(t ? t.model : EMPTY_MODEL);
-                setSelected(null);
+                setSelected([]);
+                setFitKey((k) => k + 1);
               }}
             >
               {TEMPLATES.map((t) => (
@@ -108,29 +92,32 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
               <MenuItem value="empty">Empty model</MenuItem>
             </TextField>
           </RibbonGroup>
-          <RibbonGroup label="Add shape">
-            <RibbonButtons>
-              <Button startIcon={<CropSquare />} onClick={() => add('rectangle')}>
-                Rectangle
-              </Button>
-              <Button startIcon={<PanoramaFishEye />} onClick={() => add('circle')}>
-                Circle
-              </Button>
-              <Button startIcon={<ChangeHistory />} onClick={() => add('polygon')}>
-                Polygon
-              </Button>
-            </RibbonButtons>
-          </RibbonGroup>
+          {STEP_GROUPS.map((g) => (
+            <RibbonGroup key={g.group} label={g.label}>
+              <RibbonButtons>
+                {g.kinds.map((kind) => {
+                  const info = STEPS[kind];
+                  const Icon = info.icon;
+                  const why = needs(kind, liveDims);
+                  return (
+                    <Tooltip key={kind} title={why ? `${info.label}: ${why}` : `${info.label}: ${info.help}`}>
+                      <span>
+                        <Button aria-label={info.label} disabled={!!why} onClick={() => add(kind)} sx={{ minWidth: 40, px: 1 }}>
+                          <Icon fontSize="small" />
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  );
+                })}
+              </RibbonButtons>
+            </RibbonGroup>
+          ))}
           <RibbonGroup label="Domains & boundaries">
             <RibbonButtons>
-              <Tooltip title="The mesher splits the shapes into domains and names their boundaries — materials and conditions attach to these.">
+              <Tooltip title="The mesher joins the objects into domains and names their boundaries — materials and conditions attach to these.">
                 <span>
-                  <Button
-                    startIcon={<AccountTree />}
-                    onClick={runMesh}
-                    disabled={busy !== null || !!drawn.error || model.shapes.length === 0}
-                  >
-                    {busy === 'mesh' ? 'Meshing…' : 'Find domains & boundaries'}
+                  <Button startIcon={<AccountTree />} onClick={runMesh} disabled={busy !== null || seq.errors.length > 0 || model.steps.length === 0}>
+                    {busy === 'mesh' ? 'Meshing…' : 'Find'}
                   </Button>
                 </span>
               </Tooltip>
@@ -152,9 +139,7 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
                 <IconButton
                   size="small"
                   aria-label="Add a parameter"
-                  onClick={() =>
-                    update((m) => ({ ...m, parameters: { ...m.parameters, [uniqueName('p', Object.keys(m.parameters))]: 0 } }))
-                  }
+                  onClick={() => update((m) => ({ ...m, parameters: { ...m.parameters, [uniqueName('p', Object.keys(m.parameters))]: 0 } }))}
                 >
                   <Add fontSize="small" />
                 </IconButton>
@@ -163,9 +148,7 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
           >
             <Stack spacing={1}>
               {Object.entries(model.parameters).map(([name, value], i) => (
-                <Stack key={i} direction="row" spacing={1} sx={{
-                  alignItems: "center"
-                }}>
+                <Stack key={i} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                   <TextField
                     size="small"
                     label="Name"
@@ -174,18 +157,11 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
                     onChange={(e) =>
                       update((m) => ({
                         ...m,
-                        parameters: Object.fromEntries(
-                          Object.entries(m.parameters).map(([k, v]) => [k === name ? e.target.value : k, v]),
-                        ),
+                        parameters: Object.fromEntries(Object.entries(m.parameters).map(([k, v]) => [k === name ? e.target.value : k, v])),
                       }))
                     }
                   />
-                  <ExprField
-                    label="Value"
-                    value={value}
-                    width={120}
-                    onChange={(v) => update((m) => ({ ...m, parameters: { ...m.parameters, [name]: v } }))}
-                  />
+                  <ExprField label="Value" value={value} width={120} onChange={(v) => update((m) => ({ ...m, parameters: { ...m.parameters, [name]: v } }))} />
                   <IconButton
                     size="small"
                     aria-label={`Remove ${name}`}
@@ -204,152 +180,54 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
               <Hint>Use them in any dimension, e.g. 2*d.</Hint>
             </Stack>
           </CollapsibleSection>
-          <CollapsibleSection title="Shapes">
-            <Stack spacing={1}>
-              {model.shapes.map((s, i) => (
-                <Paper
-                  key={i}
-                  variant="outlined"
-                  sx={{ p: 1, borderColor: s.name === selected ? 'error.main' : undefined }}
-                  onClick={() => setSelected(s.name)}
+          <CollapsibleSection title="Geometry tree">
+            <ModelTree tree={seq.tree} selected={selected} onSelect={(n, additive) => select(n, additive)} />
+            <Box sx={{ mt: 1 }}>
+              <Hint>Later objects win where objects overlap. Ctrl-click to select several, then combine or transform them.</Hint>
+            </Box>
+          </CollapsibleSection>
+          <CollapsibleSection title="Named boundaries" defaultExpanded={model.selections.length > 0}>
+            <Stack spacing={0.5}>
+              {model.selections.map((s) => (
+                <Box
+                  key={s.name}
+                  role="button"
+                  onClick={() => setSelected([s.name])}
+                  sx={{ px: 1, py: 0.5, borderRadius: 1, cursor: 'pointer', bgcolor: selected.includes(s.name) ? 'action.selected' : undefined, '&:hover': { bgcolor: 'action.hover' } }}
                 >
-                  <Stack spacing={1}>
-                    <Stack direction="row" spacing={0.5} sx={{
-                      alignItems: "center"
-                    }}>
-                      <TextField
-                        size="small"
-                        label={s.kind}
-                        value={s.name}
-                        sx={{ flex: 1, minWidth: 0 }}
-                        onChange={(e) => setShape(i, { ...s, name: e.target.value })}
-                      />
-                      <IconButton size="small" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}>
-                        <ArrowUpward fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        aria-label="Move down"
-                        disabled={i === model.shapes.length - 1}
-                        onClick={() => move(i, 1)}
-                      >
-                        <ArrowDownward fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        aria-label={`Delete ${s.name}`}
-                        onClick={() =>
-                          update((m) => ({
-                            ...m,
-                            shapes: m.shapes.filter((_, k) => k !== i),
-                            holes: m.holes.filter((h) => h !== s.name),
-                          }))
-                        }
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                    <Stack direction="row" spacing={1} useFlexGap sx={{
-                      flexWrap: "wrap"
-                    }}>
-                      {s.kind === 'rectangle' && (
-                        <>
-                          <ExprField label="x" value={s.x} onChange={field(i, 'x')} width={104} />
-                          <ExprField label="y" value={s.y} onChange={field(i, 'y')} width={104} />
-                          <ExprField label="width" value={s.width} onChange={field(i, 'width')} width={104} />
-                          <ExprField label="height" value={s.height} onChange={field(i, 'height')} width={104} />
-                        </>
-                      )}
-                      {s.kind === 'circle' && (
-                        <>
-                          <ExprField label="cx" value={s.cx} onChange={field(i, 'cx')} width={66} />
-                          <ExprField label="cy" value={s.cy} onChange={field(i, 'cy')} width={66} />
-                          <ExprField label="r" value={s.r} onChange={field(i, 'r')} width={66} />
-                        </>
-                      )}
-                      {s.kind === 'polygon' &&
-                        s.points.map(([x, y], k) => (
-                          <Stack key={k} direction="row" spacing={1}>
-                            <ExprField
-                              label={`x${k + 1}`}
-                              value={x}
-                              width={104}
-                              onChange={(v) => setShape(i, { ...s, points: s.points.map((p, j) => (j === k ? [v, p[1]] : p)) })}
-                            />
-                            <ExprField
-                              label={`y${k + 1}`}
-                              value={y}
-                              width={104}
-                              onChange={(v) => setShape(i, { ...s, points: s.points.map((p, j) => (j === k ? [p[0], v] : p)) })}
-                            />
-                          </Stack>
-                        ))}
-                      {s.kind === 'polygon' && (
-                        <Button
-                          size="small"
-                          onClick={() => setShape(i, { ...s, points: [...s.points, s.points[s.points.length - 1]] })}
-                        >
-                          + point
-                        </Button>
-                      )}
-                    </Stack>
-                    <Tooltip title="Hole: cut out, not meshed (e.g. the inside of an electrode)">
-                      <FormControlLabel
-                        label="hole"
-                        sx={{ ml: 0 }}
-                        control={
-                          <Checkbox
-                            size="small"
-                            checked={model.holes.includes(s.name)}
-                            onChange={(e) =>
-                              update((m) => ({
-                                ...m,
-                                holes: e.target.checked ? [...m.holes, s.name] : m.holes.filter((h) => h !== s.name),
-                              }))
-                            }
-                          />
-                        }
-                      />
-                    </Tooltip>
-                  </Stack>
-                </Paper>
+                  <Typography variant="body2">{s.name}</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    {SELECTION_LABEL[s.kind]}
+                  </Typography>
+                </Box>
               ))}
-              <Hint>Later shapes win where shapes overlap. Add shapes in the ribbon above.</Hint>
+              <TextField select size="small" label="Name edges…" value="" onChange={(e) => addSelection(e.target.value as Selection['kind'])}>
+                {(Object.keys(SELECTION_LABEL) as Selection['kind'][]).map((k) => (
+                  <MenuItem key={k} value={k}>
+                    {SELECTION_LABEL[k]}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <Hint>Edges get names automatically (outer, a|b between domains, a hole's name); name others here to put a condition on them.</Hint>
             </Stack>
           </CollapsibleSection>
           {meshed && studio.mesh && (
             <CollapsibleSection title="Domains & boundaries">
               <Stack spacing={1}>
-                <Stack
-                  direction="row"
-                  spacing={0.5}
-                  useFlexGap
-                  sx={{
-                    flexWrap: "wrap",
-                    alignItems: "center"
-                  }}>
+                <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
                   <Typography variant="body2">Domains:</Typography>
                   {progress.domains.map((d) => (
                     <Chip key={d} size="small" label={d} />
                   ))}
                 </Stack>
-                <Stack
-                  direction="row"
-                  spacing={0.5}
-                  useFlexGap
-                  sx={{
-                    flexWrap: "wrap",
-                    alignItems: "center"
-                  }}>
+                <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
                   <Typography variant="body2">Boundaries:</Typography>
                   {progress.boundaries.map((b) => (
                     <Chip key={b} size="small" variant="outlined" label={b} />
                   ))}
                 </Stack>
                 {studio.mesh.warnings.map((w) => (
-                  <Typography key={w} variant="body2" sx={{
-                    color: "warning.main"
-                  }}>
+                  <Typography key={w} variant="body2" sx={{ color: 'warning.main' }}>
                     {w}
                   </Typography>
                 ))}
@@ -359,16 +237,41 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
           )}
         </>
       }
+      right={
+        stepIndex >= 0 ? (
+          <StepProperties
+            key={stepIndex}
+            model={model}
+            update={update}
+            seq={seq}
+            index={stepIndex}
+            onRenamed={(n) => setSelected([n])}
+            onDeleted={() => setSelected([])}
+          />
+        ) : selectionIndex >= 0 ? (
+          <SelectionProperties
+            key={`sel${selectionIndex}`}
+            model={model}
+            update={update}
+            seq={seq}
+            index={selectionIndex}
+            onRenamed={(n) => setSelected([n])}
+            onDeleted={() => setSelected([])}
+          />
+        ) : (
+          <Hint>
+            {selected.length > 1
+              ? `${selected.join(', ')}: combine or transform them with the ribbon.`
+              : 'Select an element in the tree or on the canvas to edit it — its dimensions, its role and its mesh.'}
+          </Hint>
+        )
+      }
+      rightSubtitle={subtitle}
+      rightOpen={propsOpen}
+      onRightToggle={() => setPropsOpen((o) => !o)}
       notes={(!!notes?.length || !!error) && <StepNotes notes={notes} error={error} />}
     >
-      <GeometryView
-        shapes={drawn.shapes}
-        bounds={drawn.bounds}
-        holes={model.holes}
-        selected={selected}
-        onSelect={setSelected}
-        height="fill"
-      />
+      <GeometryCanvas seq={seq} holes={model.holes} selected={selected} onSelect={select} fitKey={fitKey} />
     </Workspace>
   );
 }
