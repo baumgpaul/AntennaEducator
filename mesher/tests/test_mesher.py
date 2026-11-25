@@ -226,7 +226,7 @@ def test_boundary_size_refines_along_the_boundary():
 
 
 def test_unknown_boundary_size_is_an_error():
-    with pytest.raises(ValueError, match="not a boundary"):
+    with pytest.raises(ValueError, match="not a domain, boundary"):
         mesh_geometry(
             geo([rect("plate", 0, 0, 1, 1)], {"size": 0.2, "boundary_sizes": {"top": 0.01}})
         )

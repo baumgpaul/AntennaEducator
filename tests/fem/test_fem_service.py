@@ -120,7 +120,9 @@ def test_refused_requests_are_logged_with_their_reason(client, caplog):
     client.post("/api/fem/mesh", json={"geometry": shape})
     text = caplog.text
     assert "422 /api/fem/mesh" in text and "1,5" in text  # expression error message
-    assert "geometry.shapes.0.rectangle.width" in text  # schema error location
+    assert (
+        "geometry.steps.0.rectangle.width" in text
+    )  # schema error location (v1 shapes → v2 steps)
 
 
 def test_solve_summary_has_the_numbers_of_the_full_solve(client):

@@ -6,17 +6,17 @@ import sys
 from pathlib import Path
 
 from .build import mesh_geometry
-from .geometry import Geometry2D
+from .geometry import Geometry
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fem_mesher", description=__doc__)
-    parser.add_argument("geometry", type=Path, help="Geometry JSON (Geometry2D, version 1)")
+    parser.add_argument("geometry", type=Path, help="Geometry JSON (version 2, or version 1)")
     parser.add_argument("--msh", type=Path, help="Write a Gmsh file (MSH 2.2, for openCFS)")
     parser.add_argument("--vtu", type=Path, help="Write a VTU file (ParaView)")
     args = parser.parse_args(argv)
 
-    geometry = Geometry2D.model_validate_json(args.geometry.read_text(encoding="utf-8"))
+    geometry = Geometry.model_validate_json(args.geometry.read_text(encoding="utf-8"))
     result = mesh_geometry(geometry, msh_path=args.msh)
     if args.vtu:
         result.mesh.write_vtu(args.vtu)
