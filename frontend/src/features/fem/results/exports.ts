@@ -8,7 +8,8 @@ import type { PDFTableSection } from '@/utils/pdfDataBuilders';
 import type { SolveResult } from '../api';
 import { evaluate, evaluateParameters, type Expr } from '../expressions';
 import { sampleLine } from '../lineProbe';
-import { EPSILON_0, TEMPLATES, type FemModel, type FemView, type Shape } from '../model';
+import { EPSILON_0, TEMPLATES, type FemModel, type FemView } from '../model';
+import { STEPS, describeStep } from '../geometry/steps';
 import { si } from '../views/geometryDraw';
 import { analyticValue, convergence, exactValue, type StudyView } from './studies';
 import { lineEnds } from './views';
@@ -136,12 +137,6 @@ export const exportName = (model: FemModel, what: string, ext: string) =>
 
 const exprText = (e: Expr) => String(e);
 
-function shapeText(s: Shape): string {
-  if (s.kind === 'rectangle') return `x ${exprText(s.x)}, y ${exprText(s.y)}, ${exprText(s.width)} × ${exprText(s.height)}`;
-  if (s.kind === 'circle') return `centre (${exprText(s.cx)}, ${exprText(s.cy)}), r ${exprText(s.r)}`;
-  return s.points.map(([x, y]) => `(${exprText(x)}, ${exprText(y)})`).join(' ');
-}
-
 /** Tables describing the model: parameters, shapes, materials, boundary conditions and sources, mesh. */
 export function modelTables(model: FemModel, result?: SolveResult): PDFTableSection[] {
   const p = evaluateParameters(model.parameters);
@@ -159,9 +154,9 @@ export function modelTables(model: FemModel, result?: SolveResult): PDFTableSect
   }
   tables.push({
     title: 'Geometry',
-    headers: ['Name', 'Type', 'Definition'],
-    rows: model.shapes.map((s) => ({
-      cells: [s.name, s.kind + (model.holes.includes(s.name) ? ' (hole)' : ''), shapeText(s)],
+    headers: ['Step', 'Type', 'Definition'],
+    rows: model.steps.map((s) => ({
+      cells: [s.name, STEPS[s.kind].label + (model.holes.includes(s.name) ? ' (hole)' : ''), describeStep(s)],
     })),
   });
   const materials = Object.entries(model.materials);
@@ -184,8 +179,22 @@ export function modelTables(model: FemModel, result?: SolveResult): PDFTableSect
   });
   const mesh = [
     { cells: ['max element size', `${exprText(model.mesh.size)} = ${value(model.mesh.size)} m`] },
-    ...Object.entries(model.mesh.domain_sizes).map(([d, e]) => ({ cells: [`size in ${d}`, `${exprText(e)} = ${value(e)} m`] })),
-    ...Object.entries(model.mesh.boundary_sizes).map(([b, e]) => ({ cells: [`size along ${b}`, `${exprText(e)} = ${value(e)} m`] })),
+    ...(model.mesh.min_size != null && model.mesh.min_size !== ''
+      ? [{ cells: ['min element size', `${exprText(model.mesh.min_size)} = ${value(model.mesh.min_size)} m`] }]
+      : []),
+    { cells: ['algorithm', model.mesh.algorithm ?? 'frontal-delaunay'] },
+    ...model.mesh.controls.map((c) => ({
+      cells: [
+        `at ${c.target}`,
+        [
+          c.size != null && c.size !== '' ? `size ${exprText(c.size)} = ${value(c.size)} m` : '',
+          c.divisions != null && c.divisions !== '' ? `${value(c.divisions)} divisions${c.grading != null && c.grading !== 1 ? `, grading ${exprText(c.grading)}` : ''}` : '',
+          c.structured ? 'structured' : '',
+        ]
+          .filter(Boolean)
+          .join(', '),
+      ],
+    })),
     { cells: ['elements', 'P1 (linear triangles)'] },
     { cells: ['depth (2D plane)', `${model.depth} m`] },
   ];

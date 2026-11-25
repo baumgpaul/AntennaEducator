@@ -6,7 +6,7 @@
 import type { Issue, MeshData, SolveResult } from './api';
 import { geometryOf, isDirichlet, keyOf, problemOf, type FemModel } from './model';
 import type { FemStepId } from './workflow';
-import { evaluateShapes } from './views/geometryDraw';
+import { runSequence } from './geometry/sequence';
 import { evaluateParameters, expressionErrors } from './expressions';
 
 export interface StudioState {
@@ -16,9 +16,9 @@ export interface StudioState {
   issues: Issue[];
 }
 
-/** The shapes alone (without mesh settings): what the Geometry step is about. */
+/** The geometry alone (without mesh settings): what the Geometry step is about. */
 export const shapesKey = (m: FemModel) =>
-  keyOf({ parameters: m.parameters, shapes: m.shapes, holes: m.holes, selections: m.selections });
+  keyOf({ parameters: m.parameters, steps: m.steps, holes: m.holes, selections: m.selections });
 export const meshKey = (m: FemModel) => keyOf(geometryOf(m));
 export const solveKey = (m: FemModel) => keyOf({ geometry: geometryOf(m), problem: problemOf(m) });
 
@@ -41,12 +41,13 @@ export function progress(state: StudioState): Progress {
     (notes[step] ??= []).push(text);
   };
 
-  const drawn = evaluateShapes(model);
-  if (drawn.error) note('geometry', drawn.error);
+  const seq = runSequence(model);
+  const geometryOk = seq.errors.length === 0;
+  seq.errors.forEach((e) => note('geometry', e));
   const shapesMeshed = mesh && mesh.shapesKey === shapesKey(model);
   const domains = shapesMeshed ? mesh!.data.domain_names : [];
   const boundaries = shapesMeshed ? Object.keys(mesh!.data.boundaries).sort() : [];
-  if (model.shapes.length > 0 && !drawn.error && shapesMeshed) done.add('geometry');
+  if (model.steps.length > 0 && geometryOk && shapesMeshed) done.add('geometry');
 
   if (done.has('geometry')) {
     const missing = domains.filter((d) => !model.materials[d]);
@@ -67,15 +68,21 @@ export function progress(state: StudioState): Progress {
     if (hasFixedPotential && unknown.length === 0 && !attention.has('physics')) done.add('physics');
   }
 
-  // Expressions outside the shapes, checked before anything is sent
-  if (!drawn.error) {
+  // Expressions outside the geometry, checked before anything is sent
+  if (geometryOk) {
     const params = evaluateParameters(model.parameters);
+    const set = <T,>(v: T | null | undefined): v is T => v !== undefined && v !== null && v !== '';
     const meshValues = [
       { label: 'max size', expr: model.mesh.size },
-      ...Object.entries(model.mesh.domain_sizes).map(([d, e]) => ({ label: `size in ${d}`, expr: e })),
-      ...Object.entries(model.mesh.boundary_sizes).map(([b, e]) => ({ label: `size along ${b}`, expr: e })),
+      ...(set(model.mesh.min_size) ? [{ label: 'min size', expr: model.mesh.min_size }] : []),
+      ...model.mesh.controls.flatMap((c) => [
+        ...(set(c.size) ? [{ label: `size at ${c.target}`, expr: c.size }] : []),
+        ...(set(c.divisions) ? [{ label: `divisions of ${c.target}`, expr: c.divisions }] : []),
+        ...(set(c.grading) ? [{ label: `grading of ${c.target}`, expr: c.grading }] : []),
+      ]),
     ];
     expressionErrors(meshValues, params).forEach((e) => note('mesh', e));
+    seq.meshErrors.forEach((e) => note('mesh', e));
     const physicsValues = [
       ...model.boundary_conditions.flatMap((bc) =>
         'value' in bc ? [{ label: `${bc.type} on ${bc.boundary}`, expr: bc.value, space: true }] : [],

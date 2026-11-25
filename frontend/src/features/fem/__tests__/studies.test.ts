@@ -39,7 +39,12 @@ describe('mesh refinement', () => {
     const fine = scaleMesh(plate, 0.5);
     expect(sizeOf(fine)).toBeCloseTo(sizeOf(plate) / 2, 15);
     const p = evaluateParameters(plate.parameters);
-    expect(evaluate(fine.mesh.boundary_sizes.top, p)).toBeCloseTo(evaluate(plate.mesh.boundary_sizes.top, p) / 2, 15);
+    const top = (m: FemModel) => m.mesh.controls.find((c) => c.target === 'top')!.size!;
+    expect(evaluate(top(fine), p)).toBeCloseTo(evaluate(top(plate), p) / 2, 15);
+    // numbers of elements grow as sizes shrink
+    const divided: FemModel = { ...plate, mesh: { ...plate.mesh, controls: [{ target: 'top', divisions: 10 }] } };
+    expect(evaluate(scaleMesh(divided, 0.5).mesh.controls[0].divisions!, p)).toBe(20);
+    expect(evaluate(scaleMesh(divided, 100).mesh.controls[0].divisions!, p)).toBe(1);
     expect(fine.mesh.elements_per_circle).toBe(2 * plate.mesh.elements_per_circle);
     expect(scaleMesh(coax, 1).mesh.elements_per_circle).toBe(coax.mesh.elements_per_circle);
     expect(scaleMesh({ ...coax, mesh: { ...coax.mesh, elements_per_circle: 4 } }, 4).mesh.elements_per_circle).toBe(4);

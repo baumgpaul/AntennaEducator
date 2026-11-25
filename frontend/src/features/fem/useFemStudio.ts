@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getProject, updateProject } from '@/api/projects';
 import { femError, meshModel, solveModel, exportOpenCfs, type Issue } from './api';
-import { EMPTY_MODEL, type FemModel } from './model';
+import { EMPTY_MODEL, upgradeModel, type FemModel } from './model';
 import { fromSaved, toSaved, type Computed } from './savedResults';
 import { meshKey, progress, shapesKey, solveKey, type StudioState } from './studioState';
-import { evaluateShapes } from './views/geometryDraw';
+import { runSequence } from './geometry/sequence';
 import { zipFiles } from './zip';
 
 const STORAGE_KEY = 'fem-studio-model';
@@ -16,8 +16,8 @@ function loadDraft(): FemModel {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const m = JSON.parse(raw) as FemModel;
-      if (m.version === 1) return m;
+      const m = upgradeModel(JSON.parse(raw));
+      if (m) return m;
     }
   } catch {
     /* private mode, corrupt draft: start empty */
@@ -25,14 +25,14 @@ function loadDraft(): FemModel {
   return EMPTY_MODEL;
 }
 
-/** A project's design_state as a model (a new or unknown state starts empty). */
+/** A project's design_state as a model (version 1 is upgraded; a new or unknown state starts empty). */
 export function modelFromProject(designState: unknown, name: string): FemModel {
-  const m = designState as FemModel | undefined;
-  return m && m.version === 1 && Array.isArray(m.shapes) ? { ...m, name } : { ...EMPTY_MODEL, name };
+  const m = upgradeModel(designState);
+  return m ? { ...m, name } : { ...EMPTY_MODEL, name };
 }
 
-/** Shapes that can be meshed: then the domains and boundaries can be found without asking. */
-const canFindDomains = (m: FemModel) => m.shapes.length > 0 && !evaluateShapes(m).error;
+/** A geometry that can be meshed: then the domains and boundaries can be found without asking. */
+const canFindDomains = (m: FemModel) => m.steps.length > 0 && runSequence(m).errors.length === 0;
 
 /**
  * Model, results and actions of FEM Studio. With a project id the model is
@@ -95,7 +95,7 @@ export function useFemStudio(projectId?: string) {
         setState({ model, issues: [], ...computed });
         loaded.current = true;
         setSaveStatus('saved');
-        if (!computed.mesh && canFindDomains(model)) void meshFor(model);
+        if (computed.mesh?.shapesKey !== shapesKey(model) && canFindDomains(model)) void meshFor(model);
       })
       .catch((e) => {
         if (cancelled) return;

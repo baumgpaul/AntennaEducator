@@ -77,7 +77,7 @@ describe('FemStudioPage', () => {
     // no click on "Find domains & boundaries" needed
     await waitFor(() => expect(screen.getByText('Domains:')).toBeInTheDocument());
     expect(meshModel).toHaveBeenCalledTimes(1);
-    expect(meshModel.mock.calls[0][0].shapes.map((s: { name: string }) => s.name)).toEqual(['dielectric', 'inner']);
+    expect(meshModel.mock.calls[0][0].steps.map((s: { name: string }) => s.name)).toEqual(['dielectric', 'inner']);
 
     fireEvent.click(screen.getByRole('tab', { name: /Materials/ }));
     expect(screen.getByText('Material of each domain')).toBeInTheDocument();

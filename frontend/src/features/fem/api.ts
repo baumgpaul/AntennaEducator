@@ -1,6 +1,9 @@
 /** FEM service client (backend/fem); part of the FEM chunk, not the main bundle. */
 import { createApiClient } from '@/api/client';
 import { geometryOf, problemOf, type FemModel } from './model';
+import { STEPS } from './geometry/steps';
+
+const SELECTION_KINDS = ['box', 'points', 'boundary_of'];
 
 const client = createApiClient((import.meta.env.VITE_FEM_URL as string) || 'http://localhost:8020');
 
@@ -68,7 +71,7 @@ export function femError(error: unknown): { message: string; issues: Issue[] } {
   if (Array.isArray(detail)) {
     // FastAPI validation errors: say where, e.g. "geometry → mesh → size: Input should be …"
     const where = (loc: unknown[] = []) =>
-      loc.filter((p) => p !== 'body' && !['rectangle', 'circle', 'polygon'].includes(String(p))).join(' → ');
+      loc.filter((p) => p !== 'body' && !(String(p) in STEPS) && !SELECTION_KINDS.includes(String(p))).join(' → ');
     return {
       message: detail.map((d: { msg?: string; loc?: unknown[] }) => `${where(d.loc)}: ${d.msg}`).join('; '),
       issues: [],

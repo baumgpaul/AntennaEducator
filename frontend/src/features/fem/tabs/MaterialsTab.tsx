@@ -2,15 +2,16 @@ import { Box, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { CollapsibleSection, Hint, Ribbon, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import { MATERIAL_LIBRARY, type Material } from '../model';
 import type { FemStudio } from '../useFemStudio';
-import GeometryView from '../views/GeometryView';
-import { colorOf, evaluateShapes } from '../views/geometryDraw';
+import GeometryCanvas from '../geometry/GeometryCanvas';
+import { runSequence } from '../geometry/sequence';
+import { colorOf } from '../views/geometryDraw';
 import { StepNotes } from './common';
 
 const CUSTOM = '__custom__';
 
 function MaterialsTab({ studio }: { studio: FemStudio }) {
   const { model, update, progress } = studio;
-  const drawn = evaluateShapes(model);
+  const seq = runSequence(model);
   const domains = progress.domains;
 
   const set = (domain: string, material: Material | null) =>
@@ -103,7 +104,7 @@ function MaterialsTab({ studio }: { studio: FemStudio }) {
       }
       notes={!!notes?.length && <StepNotes notes={notes} />}
     >
-      <GeometryView shapes={drawn.shapes} bounds={drawn.bounds} holes={model.holes} fill={fill} height="fill" />
+      <GeometryCanvas seq={seq} holes={model.holes} fill={fill} />
     </Workspace>
   );
 }

@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateParameters } from '../expressions';
 import { EPSILON_0, TEMPLATES } from '../model';
-import { evaluateShapes } from '../views/geometryDraw';
+import { runSequence } from '../geometry/sequence';
 
 describe('FEM templates', () => {
   it.each(TEMPLATES.map((t) => [t.id, t] as const))('%s draws and is complete', (_, t) => {
-    const drawn = evaluateShapes(t.model);
-    expect(drawn.error).toBeUndefined();
-    expect(drawn.shapes).toHaveLength(t.model.shapes.length);
-    const domains = t.model.shapes.map((s) => s.name).filter((n) => !t.model.holes.includes(n));
-    domains.forEach((d) => expect(t.model.materials[d]).toBeDefined());
+    const seq = runSequence(t.model);
+    expect(seq.errors).toEqual([]);
+    expect(seq.meshErrors).toEqual([]);
+    expect(seq.objects.map((o) => o.name)).toEqual(t.model.steps.map((s) => s.name));
+    seq.domains.forEach((d) => expect(t.model.materials[d]).toBeDefined());
     expect(t.model.boundary_conditions.some((bc) => bc.type === 'ground')).toBe(true);
   });
 
@@ -25,9 +25,9 @@ describe('femError', () => {
   it('says where a validation error is', async () => {
     const { femError } = await import('../api');
     const error = {
-      details: { detail: [{ loc: ['body', 'geometry', 'shapes', 0, 'rectangle', 'width'], msg: 'Input should be a valid number' }] },
+      details: { detail: [{ loc: ['body', 'geometry', 'steps', 0, 'rectangle', 'width'], msg: 'Input should be a valid number' }] },
     };
-    expect(femError(error).message).toBe('geometry → shapes → 0 → width: Input should be a valid number');
+    expect(femError(error).message).toBe('geometry → steps → 0 → width: Input should be a valid number');
     expect(femError({ details: { detail: { message: 'No ground', issues: [{ step: 'physics' }] } } }).issues).toHaveLength(1);
   });
 });
