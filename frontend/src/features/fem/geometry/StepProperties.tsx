@@ -8,7 +8,7 @@ import { Hint } from '@/features/workflow/Workspace';
 import type { Expr } from '../expressions';
 import type { FemModel, Point2, Selection, Step } from '../model';
 import { ExprField } from '../tabs/common';
-import { deleteStep, moveStep, renameObject, replaceStep, toggleHole } from './edit';
+import { deleteObjects, moveStep, renameObject, replaceStep, toggleHole } from './edit';
 import { MeshControlFields } from './MeshControlFields';
 import type { Sequence } from './sequence';
 import { SELECTION_LABEL, STEPS, TARGET_HINT, type FieldSpec, type TargetKind } from './steps';
@@ -189,7 +189,7 @@ export function StepProperties({
           color="error"
           startIcon={<Delete />}
           onClick={() => {
-            update((m) => deleteStep(m, index));
+            update((m) => deleteObjects(m, [step.name], seq.objects.map((o) => o.name)));
             onDeleted();
           }}
         >

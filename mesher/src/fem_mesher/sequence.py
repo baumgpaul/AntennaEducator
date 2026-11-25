@@ -196,9 +196,20 @@ def _nonempty(s, out):
 
 def _union(occ, s, ev, objects):
     first, rest = objects[s.objects[0]], _tags(objects, s.objects[1:])
-    out, _ = occ.fuse(first, rest, removeObject=not s.keep, removeTool=not s.keep)
+    if s.interior:
+        # the pieces of all inputs, edges between them kept
+        out, _ = occ.fragment(first, rest, removeObject=not s.keep, removeTool=not s.keep)
+        dim = first[0][0]
+        out = [dt for dt in out if dt[0] == dim]
+    else:
+        out, _ = occ.fuse(first, rest, removeObject=not s.keep, removeTool=not s.keep)
     _consume(objects, s.objects, s.keep)
     objects[s.name] = _nonempty(s, out)
+
+
+def _delete(occ, s, ev, objects):
+    occ.remove(_tags(objects, s.objects), recursive=True)
+    _consume(objects, s.objects, False)
 
 
 def _difference(occ, s, ev, objects):
@@ -302,4 +313,5 @@ _STEPS = {
     "mirror": _transform(_mirror),
     "array": _array(_linear),
     "polar_array": _array(_polar),
+    "delete": _delete,
 }

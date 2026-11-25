@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Button, Chip, IconButton, MenuItem, Stack, TextField, ToggleButton, Tooltip, Typography } from '@mui/material';
-import { AccountTree, Add, Delete, GridOn, HighlightAlt, NearMe, Redo, Undo } from '@mui/icons-material';
+import { AccountTree, Add, Delete, FilterNone, GridOn, HighlightAlt, NearMe, Redo, Undo } from '@mui/icons-material';
 import { CollapsibleSection, Hint, Ribbon, RibbonButtons, RibbonGroup, Workspace } from '@/features/workflow/Workspace';
 import { EMPTY_MODEL, TEMPLATES, type Selection, type StepKind } from '../model';
 import type { FemStudio } from '../useFemStudio';
 import GeometryCanvas from '../geometry/GeometryCanvas';
 import { ModelTree } from '../geometry/ModelTree';
 import { SelectionProperties, StepProperties } from '../geometry/StepProperties';
-import { deleteStep, takenNames, uniqueName } from '../geometry/edit';
+import { deleteObjects, takenNames, uniqueName } from '../geometry/edit';
 import { isDraw, TOOL_HINT, type DrawKind, type Tool } from '../geometry/interaction';
 import type { Pt } from '../geometry/sequence';
 import { runSequence, type Sequence } from '../geometry/sequence';
@@ -34,6 +34,7 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
   const [propsOpen, setPropsOpen] = useState(true);
   const [tool, setTool] = useState<Tool>('select');
   const [snapOn, setSnapOn] = useState(true);
+  const [keepInputs, setKeepInputs] = useState(false);
   const { undo, redo, canUndo, canRedo } = studio;
 
   const select = (name: string | null, additive: boolean) =>
@@ -47,7 +48,8 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
     const b = seq.bounds;
     const span = seq.objects.length ? Math.max(b.xmax - b.xmin, b.ymax - b.ymin) : 0.04;
     const at = { x: seq.objects.length ? (b.xmin + b.xmax) / 2 : 0, y: seq.objects.length ? (b.ymin + b.ymax) / 2 : 0, h: span / 4 };
-    const step = info.create(name, at, info.group === 'combine' || info.group === 'transform' ? live : []);
+    const created = info.create(name, at, info.group === 'combine' || info.group === 'transform' ? live : []);
+    const step = keepInputs && (kind === 'union' || kind === 'difference' || kind === 'intersection') ? { ...created, keep: true } : created;
     update((m) => ({ ...m, steps: [...m.steps, step] }), { gesture: `add-${name}` });
     setSelected([name]);
   };
@@ -70,12 +72,11 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
   const deleteSelected = useCallback(() => {
     update(
       (m) => {
-        let next = m;
-        const indices = selected
-          .map((n) => next.steps.findIndex((s) => s.name === n))
-          .filter((i) => i >= 0)
-          .sort((a, b) => b - a);
-        for (const i of indices) next = deleteStep(next, i);
+        let next = deleteObjects(
+          m,
+          selected.filter((n) => m.steps.some((s) => s.name === n)),
+          seq.objects.map((o) => o.name),
+        );
         const sels = new Set(selected.filter((n) => m.selections.some((s) => s.name === n)));
         if (sels.size) {
           next = {
@@ -89,7 +90,7 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
       { gesture: `delete-${Date.now()}` },
     );
     setSelected([]);
-  }, [update, selected]);
+  }, [update, selected, seq.objects]);
 
   // keyboard: undo/redo, delete, duplicate, escape (the drawing keys are the canvas's)
   useEffect(() => {
@@ -233,6 +234,13 @@ function GeometryTab({ studio }: { studio: FemStudio }) {
                   );
                 })}
               </RibbonButtons>
+              {g.group === 'combine' && (
+                <Tooltip title="Keep inputs: the areas you combine stay as separate objects (shown, selectable, deletable), with their edges, e.g. for a condition or a source on them">
+                  <ToggleButton size="small" value="keep" selected={keepInputs} onChange={() => setKeepInputs((k) => !k)} aria-label="Keep inputs">
+                    <FilterNone fontSize="small" />
+                  </ToggleButton>
+                </Tooltip>
+              )}
             </RibbonGroup>
           ))}
           <RibbonGroup label="Domains & boundaries">

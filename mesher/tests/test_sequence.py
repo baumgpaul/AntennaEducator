@@ -473,3 +473,46 @@ def test_readme_example_meshes():
     r = mesh_geometry(Geometry.model_validate_json(example))
     assert r.mesh.domain_names == ["air"] and not r.warnings
     assert {"top", "bottom", "guard", "left", "outer"} <= set(r.mesh.boundaries)
+
+
+# ── Keeping inner edges, deleting objects ─────────────────────────────────────
+
+
+def test_union_with_inner_edges_is_one_domain_whose_inner_edge_can_be_named():
+    steps = [
+        rect("a", 0, 0, 1, 1),
+        rect("b", 1, 0, 1, 1),
+        {"kind": "union", "name": "u", "objects": ["a", "b"], "interior": True},
+    ]
+    sel = [{"kind": "points", "name": "seam", "points": [[1, 0.5]]}]
+    m = run(steps, selections=sel).mesh
+    assert m.domain_names == ["u"] and total_area(m) == pytest.approx(2)
+    assert m.boundary_length("seam") == pytest.approx(1)  # the edge between a and b
+    seam = {tuple(sorted(e)) for e in m.edges[m.boundaries["seam"]][:, :2]}
+    assert seam <= triangle_edges(m) and not seam & topological_boundary(m)
+    # without inner edges there is nothing to pick there
+    plain = run([*steps[:2], {**steps[2], "interior": False}], selections=sel)
+    assert "seam" not in plain.mesh.boundaries
+
+
+def test_delete_removes_an_input_a_boolean_kept():
+    steps = [
+        rect("box", 0, 0, 2, 2),
+        disk("c", 1, 1, 0.5),
+        {"kind": "difference", "name": "air", "objects": ["box"], "tools": ["c"], "keep": True},
+        {"kind": "delete", "name": "del1", "objects": ["box"]},
+    ]
+    m = run(steps, FINE).mesh
+    assert set(m.domain_names) == {"c", "air"}  # the circle stays as its own domain
+    assert "air|c" in m.boundaries
+
+
+def test_deleted_objects_cannot_be_used_afterwards():
+    steps = [
+        rect("a", 0, 0, 1, 1),
+        rect("b", 1, 0, 1, 1),
+        {"kind": "delete", "name": "d", "objects": ["a"]},
+    ]
+    with pytest.raises(ValidationError):
+        geo([*steps, {"kind": "move", "name": "m", "objects": ["a"], "dx": 1}])
+    assert run(steps).mesh.domain_names == ["b"]

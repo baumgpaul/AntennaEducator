@@ -24,6 +24,7 @@ import {
   RotateRight,
   TrackChanges,
   ViewWeek,
+  DeleteOutlined,
 } from '@mui/icons-material';
 import type { Expr } from '../expressions';
 import type { Point2, Selection, Step, StepKind } from '../model';
@@ -159,7 +160,11 @@ export const STEPS: Record<StepKind, StepInfo> = {
   union: {
     kind: 'union', label: 'Union', group: 'combine', dim: null, icon: JoinFull, prefix: 'uni',
     help: 'One object from all inputs (all surfaces, or all curves).',
-    fields: [objects('objects', 2, [1, 2]), KEEP],
+    fields: [
+      objects('objects', 2, [1, 2]),
+      KEEP,
+      { key: 'interior', label: 'keep inner edges', type: 'bool', help: 'One object, but the edges between the inputs stay: name them (Name edges) for a condition or source on them' },
+    ],
     create: (name, _at, selected) => ({ kind: 'union', name, objects: selected }),
   },
   difference: {
@@ -228,6 +233,12 @@ export const STEPS: Record<StepKind, StepInfo> = {
     ],
     create: (name, { h }, selected) => ({ kind: 'array', name, objects: selected, count: 3, dx: tidy(2 * h), dy: 0 }),
   },
+  delete: {
+    kind: 'delete', label: 'Delete', group: 'transform', dim: null, icon: DeleteOutlined, prefix: 'del',
+    help: 'Removes objects from the model from here on (e.g. an input a combination kept). Delete this step to bring them back.',
+    fields: [objects()],
+    create: (name, _at, selected) => ({ kind: 'delete', name, objects: selected }),
+  },
   polar_array: {
     kind: 'polar_array', label: 'Polar array', group: 'transform', dim: null, icon: TrackChanges, prefix: 'pol',
     help: 'Copies rotated about (cx, cy) by multiples of the angle: one object.',
@@ -259,13 +270,14 @@ export function inputsOf(step: Step): string[] {
 
 /** Does the step consume its inputs (they are gone afterwards)? */
 export function consumes(step: Step): boolean {
-  if (step.kind === 'surface' || step.kind === 'array' || step.kind === 'polar_array') return true;
+  if (step.kind === 'surface' || step.kind === 'array' || step.kind === 'polar_array' || step.kind === 'delete') return true;
   if (step.kind === 'union' || step.kind === 'intersection' || step.kind === 'difference') return !step.keep;
   return false;
 }
 
 /** Does the step create an object named after it? (transforms only with keep) */
 export function creates(step: Step): boolean {
+  if (step.kind === 'delete') return false;
   return !(['move', 'rotate', 'scale', 'mirror'] as StepKind[]).includes(step.kind) || !!(step as { keep?: boolean }).keep;
 }
 
@@ -296,7 +308,11 @@ export function describeStep(step: Step): string {
       return `inside ${step.curves.join(', ')}`;
     case 'union':
     case 'intersection':
-      return step.objects.join(step.kind === 'union' ? ' ∪ ' : ' ∩ ') + (step.keep ? ' (inputs kept)' : '');
+      return (
+        step.objects.join(step.kind === 'union' ? ' ∪ ' : ' ∩ ') +
+        (step.kind === 'union' && step.interior ? ', inner edges kept' : '') +
+        (step.keep ? ' (inputs kept)' : '')
+      );
     case 'difference':
       return `${step.objects.join(' ∪ ')} − ${step.tools.join(' − ')}` + (step.keep ? ' (inputs kept)' : '');
     case 'move':
@@ -309,6 +325,8 @@ export function describeStep(step: Step): string {
       return `${step.objects.join(', ')} across the line through (${e(step.x)}, ${e(step.y)}) at ${e(step.angle)}°` + (step.keep ? ', copy' : '');
     case 'array':
       return `${step.count} × ${step.objects.join(', ')}, step (${e(step.dx)}, ${e(step.dy)})`;
+    case 'delete':
+      return `removes ${step.objects.join(', ')}`;
     case 'polar_array':
       return `${step.count} × ${step.objects.join(', ')}, every ${e(step.angle)}° about (${e(step.cx)}, ${e(step.cy)})`;
   }

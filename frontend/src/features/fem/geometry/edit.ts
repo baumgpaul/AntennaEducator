@@ -1,5 +1,6 @@
 /** Edits of the geometry sequence that keep the rest of the model consistent. */
 import type { FemModel, MeshControl, Step } from '../model';
+import { inputsOf } from './steps';
 
 /** Names in use: steps and selections share one namespace. */
 export const takenNames = (m: FemModel) => [...m.steps.map((s) => s.name), ...m.selections.map((s) => s.name)];
@@ -62,6 +63,40 @@ export function deleteStep(m: FemModel, index: number): FemModel {
     selections: m.selections.map((s) => (s.kind === 'boundary_of' ? { ...s, domains: drop(s.domains) } : s)),
     mesh: { ...m.mesh, controls: m.mesh.controls.filter((c) => c.target !== name) },
   };
+}
+
+/**
+ * Delete objects as the user sees them. An object nothing later uses goes
+ * with its step (and the moves applied only to it); one that a later step
+ * still uses (e.g. an input a combination kept) is removed by a Delete step
+ * at the end, so that step keeps working. Objects inside others (consumed
+ * inputs) are taken out of the step that used them.
+ */
+export function deleteObjects(m: FemModel, names: string[], liveNames: string[]): FemModel {
+  let next = m;
+  const keepStep: string[] = [];
+  for (const name of names) {
+    const i = next.steps.findIndex((s) => s.name === name);
+    if (i < 0) continue;
+    const later = next.steps.slice(i + 1).filter((s) => inputsOf(s).includes(name));
+    const onlyMoves = later.every(
+      (s) => (['move', 'rotate', 'scale', 'mirror'] as string[]).includes(s.kind) && !('keep' in s && s.keep) && inputsOf(s).length === 1,
+    );
+    if (liveNames.includes(name) && later.length && !onlyMoves) {
+      keepStep.push(name);
+      continue;
+    }
+    if (onlyMoves) for (const s of later) next = deleteStep(next, next.steps.findIndex((x) => x.name === s.name));
+    next = deleteStep(next, next.steps.findIndex((s) => s.name === name));
+  }
+  if (keepStep.length) {
+    const last = next.steps.at(-1);
+    next =
+      last?.kind === 'delete'
+        ? { ...next, steps: [...next.steps.slice(0, -1), { ...last, objects: [...last.objects, ...keepStep] }] }
+        : { ...next, steps: [...next.steps, { kind: 'delete', name: uniqueName('del', takenNames(next)), objects: keepStep }] };
+  }
+  return next;
 }
 
 /** Move a step earlier (-1) or later (+1) in the sequence (the painter's order). */

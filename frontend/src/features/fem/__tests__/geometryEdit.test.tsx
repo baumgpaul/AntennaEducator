@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import authReducer from '@/store/authSlice';
 import documentationReducer from '@/store/documentationSlice';
 import { EMPTY_MODEL, type FemModel, type Step } from '../model';
-import { deleteStep, moveStep, renameObject, setControl, uniqueName } from '../geometry/edit';
+import { deleteObjects, deleteStep, moveStep, renameObject, setControl, uniqueName } from '../geometry/edit';
 import { runSequence } from '../geometry/sequence';
 
 const { meshModel } = vi.hoisted(() => ({ meshModel: vi.fn() }));
@@ -69,6 +69,33 @@ describe('geometry edits', () => {
   });
 });
 
+describe('deleting objects', () => {
+  const kept: FemModel = {
+    ...EMPTY_MODEL,
+    steps: [rect('box'), { kind: 'circle', name: 'c', cx: 0.5, cy: 0.5, r: 0.2 }, { kind: 'difference', name: 'air', objects: ['box'], tools: ['c'], keep: true }],
+  };
+  const liveOf = (m: FemModel) => runSequence(m).objects.map((o) => o.name);
+
+  it('an input a combination kept is removed by a Delete step; the combination stays', () => {
+    let m = deleteObjects(kept, ['box'], liveOf(kept));
+    expect(m.steps.at(-1)).toEqual({ kind: 'delete', name: 'del1', objects: ['box'] });
+    expect(liveOf(m)).toEqual(['c', 'air']);
+    m = deleteObjects(m, ['c'], liveOf(m)); // the next one joins the same Delete step
+    expect(m.steps.at(-1)).toEqual({ kind: 'delete', name: 'del1', objects: ['box', 'c'] });
+    expect(liveOf(m)).toEqual(['air']);
+  });
+
+  it('an object nothing uses goes with its step, and with the moves of it alone', () => {
+    const m: FemModel = { ...EMPTY_MODEL, steps: [rect('a'), rect('b', 2), { kind: 'move', name: 'mv', objects: ['a'], dx: 1, dy: 0 }] };
+    expect(deleteObjects(m, ['a'], liveOf(m)).steps.map((s) => s.name)).toEqual(['b']);
+  });
+
+  it('a consumed input is taken out of the step that used it', () => {
+    const m = deleteObjects(base, ['a'], liveOf(base));
+    expect(m.steps.find((s) => s.name === 'u')).toMatchObject({ objects: ['b'] });
+  });
+});
+
 describe('Geometry tab', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -120,6 +147,21 @@ describe('Geometry tab', () => {
     // deleting the union brings its inputs back, in their order
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(within(tree()).getAllByRole('treeitem').map((t) => t.getAttribute('aria-label'))).toEqual(['rect1', 'circle1']);
+  });
+
+  it('with "keep inputs" on, a union keeps its inputs as separate objects', () => {
+    render();
+    insert('Rectangle');
+    insert('Circle');
+    fireEvent.click(within(tree()).getByRole('treeitem', { name: 'rect1' }), { ctrlKey: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Keep inputs' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Union' }));
+    expect(within(tree()).getAllByRole('treeitem').map((t) => t.getAttribute('aria-label'))).toEqual(['rect1', 'circle1', 'uni1']);
+    // deleting a kept input adds a Delete step: the union stays
+    fireEvent.click(within(tree()).getByRole('treeitem', { name: 'rect1' }));
+    fireEvent.keyDown(window, { key: 'Delete' });
+    const saved = JSON.parse(localStorage.getItem('fem-studio-model')!) as FemModel;
+    expect(saved.steps.map((s) => s.kind)).toEqual(['rectangle', 'circle', 'union', 'delete']);
   });
 
   it('shows what is wrong with a step in the tree', () => {

@@ -155,7 +155,7 @@ describe('geometry sequence', () => {
     for (const info of Object.values(STEPS)) {
       const base: Step[] = [rect('r1', 0, 0, 1, 1), rect('r2', 0.5, 0.5, 1, 1)];
       const curves: Step[] = [line('l1', [0, 0], [1, 0]), line('l2', [1, 0], [0, 1]), line('l3', [0, 1], [0, 0])];
-      const selected = info.kind === 'surface' ? ['l1', 'l2', 'l3'] : ['r1', 'r2'];
+      const selected = info.kind === 'surface' ? ['l1', 'l2', 'l3'] : info.kind === 'delete' ? ['l1'] : ['r1', 'r2'];
       const step = info.create(`${info.prefix}1`, at, info.dim === null || info.kind === 'surface' ? selected : []);
       const seq = runSequence(model([...base, ...curves, step]));
       expect([info.kind, seq.errors]).toEqual([info.kind, []]);
@@ -196,5 +196,49 @@ describe('upgradeModel', () => {
     expect(upgradeModel(TEMPLATES[0].model)).toBe(TEMPLATES[0].model);
     expect(upgradeModel({ elements: [] })).toBeNull();
     expect(upgradeModel(null)).toBeNull();
+  });
+});
+
+describe('keeping and deleting', () => {
+  const vertexX = (g: Geo): number[] =>
+    g.op === 'fill' ? g.loops.flat().map((p) => p[0]) : g.op === 'group' ? g.items.flatMap(vertexX) : g.op === 'cut' || g.op === 'common' ? vertexX(g.a) : [];
+
+  it('objects inside a combination follow its later moves (the tree highlights them in place)', () => {
+    const steps: Step[] = [
+      rect('a', 0, 0, 1, 1),
+      disk('c', 1, 0.5, 0.5),
+      { kind: 'union', name: 'u', objects: ['a', 'c'] },
+      { kind: 'move', name: 'mv', objects: ['u'], dx: 10, dy: 0 },
+    ];
+    const seq = runSequence(model(steps));
+    expect(Math.min(...vertexX(seq.created.a.geo))).toBeCloseTo(10);
+    expect(Math.min(...vertexX(seq.created.c.geo))).toBeCloseTo(10.5);
+    // the move is listed under the object it moves
+    expect(seq.tree.map((n) => n.step.name)).toEqual(['u']);
+    expect(seq.tree[0].children.map((n) => n.step.name)).toEqual(['a', 'c', 'mv']);
+  });
+
+  it('a union with inner edges is one object of its parts', () => {
+    const seq = runSequence(model([rect('a', 0, 0, 1, 1), rect('b', 1, 0, 1, 1), { kind: 'union', name: 'u', objects: ['a', 'b'], interior: true }]));
+    const g = seq.created.u.geo as Extract<Geo, { op: 'group' }>;
+    expect(g.inner).toBe(true);
+    expect(seq.objects.map((o) => o.name)).toEqual(['u']);
+    expect(objectAt(seq.objects, [1.5, 0.5], 0)).toBe('u');
+  });
+
+  it('a Delete step removes objects; deleting it brings them back', () => {
+    const steps: Step[] = [
+      rect('box', 0, 0, 2, 2),
+      disk('c', 1, 1, 0.5),
+      { kind: 'difference', name: 'air', objects: ['box'], tools: ['c'], keep: true },
+      { kind: 'delete', name: 'del1', objects: ['box'] },
+    ];
+    const seq = runSequence(model(steps));
+    expect(seq.errors).toEqual([]);
+    expect(seq.objects.map((o) => o.name)).toEqual(['c', 'air']);
+    const del = seq.tree.find((n) => n.step.name === 'del1')!;
+    expect(del.role).toBe('transform');
+    expect(del.children.map((n) => n.step.name)).toEqual(['box']);
+    expect(runSequence(model([...steps, { kind: 'move', name: 'm', objects: ['box'], dx: 1, dy: 0 }])).stepErrors.m).toMatch(/not an object/);
   });
 });

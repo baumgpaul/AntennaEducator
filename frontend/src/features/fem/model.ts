@@ -26,7 +26,7 @@ export type Step =
   | { kind: 'spline'; name: string; points: Point2[] }
   | { kind: 'point'; name: string; x: Expr; y: Expr }
   | { kind: 'surface'; name: string; curves: string[] }
-  | { kind: 'union'; name: string; objects: string[]; keep?: boolean }
+  | { kind: 'union'; name: string; objects: string[]; keep?: boolean; interior?: boolean }
   | { kind: 'intersection'; name: string; objects: string[]; keep?: boolean }
   | { kind: 'difference'; name: string; objects: string[]; tools: string[]; keep?: boolean }
   | { kind: 'move'; name: string; objects: string[]; dx: Expr; dy: Expr; keep?: boolean }
@@ -34,7 +34,8 @@ export type Step =
   | { kind: 'scale'; name: string; objects: string[]; cx: Expr; cy: Expr; factor: Expr; factor_y?: Expr | null; keep?: boolean }
   | { kind: 'mirror'; name: string; objects: string[]; x: Expr; y: Expr; angle: Expr; keep?: boolean }
   | { kind: 'array'; name: string; objects: string[]; count: number; dx: Expr; dy: Expr }
-  | { kind: 'polar_array'; name: string; objects: string[]; count: number; cx: Expr; cy: Expr; angle: Expr };
+  | { kind: 'polar_array'; name: string; objects: string[]; count: number; cx: Expr; cy: Expr; angle: Expr }
+  | { kind: 'delete'; name: string; objects: string[] };
 
 export type StepKind = Step['kind'];
 

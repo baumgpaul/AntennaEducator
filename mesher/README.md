@@ -53,9 +53,10 @@ object, from numbers and parameter expressions or from earlier objects.
 | `spline` | curve | `points` (smooth curve through them) |
 | `point` | point | `x, y` |
 | `surface` | surface | `curves`: curve objects forming one closed loop, in any order (consumed) |
-| `union`, `intersection` | like inputs | `objects` (≥ 2, all surfaces or all curves), `keep` |
+| `union`, `intersection` | like inputs | `objects` (≥ 2, all surfaces or all curves), `keep`; union: `interior` keeps the edges between the inputs (one object of several pieces) |
 | `difference` | like `objects` | `objects`, `tools` (subtracted), `keep` |
 | `move` / `rotate` / `scale` / `mirror` | — or a copy | `objects`; `dx, dy` / `cx, cy, angle` / `cx, cy, factor, factor_y` / `x, y, angle` (mirror line). In place, or with `keep` the copies become a new object `name` |
+| `delete` | — | `objects`: removed (e.g. inputs a boolean kept) |
 | `array` / `polar_array` | one object | `objects`, `count` (original included); `dx, dy` / `cx, cy, angle` (between copies) |
 
 Every number may be an expression of `parameters` (`+ - * / **`, `pi`, `sqrt`,

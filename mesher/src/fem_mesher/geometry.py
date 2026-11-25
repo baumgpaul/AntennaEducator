@@ -9,7 +9,8 @@ object from numbers/parameter expressions or from earlier objects:
 - booleans (union, difference, intersection) consume their inputs unless ``keep``;
 - transforms (move, rotate, scale, mirror) change objects in place, or with
   ``keep`` add the transformed copies as a new object named after the step;
-- arrays (linear, polar) replace their inputs by one object holding all copies.
+- arrays (linear, polar) replace their inputs by one object holding all copies;
+- ``delete`` removes objects (e.g. an input a boolean kept).
 
 When the sequence has run, every remaining object is fragmented together:
 
@@ -146,6 +147,11 @@ class Union(_Model):
     name: str
     objects: list[str] = Field(min_length=2)
     keep: bool = Field(False, description="Keep the inputs")
+    interior: bool = Field(
+        False,
+        description="Keep the edges between the inputs: one object of several pieces "
+        "(the edges can be named, e.g. for a condition on them)",
+    )
 
 
 class Difference(_Model):
@@ -201,6 +207,14 @@ class Mirror(_Transform):
     angle: Angle = 90
 
 
+class Delete(_Model):
+    """Remove objects from the model (e.g. an input kept by a boolean)."""
+
+    kind: Literal["delete"] = "delete"
+    name: str
+    objects: list[str] = Field(min_length=1)
+
+
 MAX_ARRAY = 200
 
 
@@ -250,7 +264,8 @@ Step = Annotated[
     | Scale
     | Mirror
     | LinearArray
-    | PolarArray,
+    | PolarArray
+    | Delete,
     Field(discriminator="kind"),
 ]
 
@@ -458,6 +473,10 @@ def validate_sequence(g: Geometry) -> dict[str, int]:
                 if len(set(dims)) != 1:
                     raise ValueError(f"{what}: copied objects must have the same dimension")
                 live[s.name] = dims[0]
+        elif s.kind == "delete":
+            use(s.objects, what)
+            for n in s.objects:
+                del live[n]
         elif s.kind in ("array", "polar_array"):
             dims = use(s.objects, what)
             if len(set(dims)) != 1:
